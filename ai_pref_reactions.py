@@ -35,7 +35,7 @@ async def ai_reaction_data_processing(row, engine):
     #result, engine = await ai_generator_react(market=market, comment=comment, subject=subject)
     return result
 
-async def main():
+async def main_react():
     worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
     worksheet_name = 'PMEF'
 
@@ -67,7 +67,6 @@ async def main():
 
         time.sleep(5)
 
-asyncio.run(main())
 
 
 
