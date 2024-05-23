@@ -100,7 +100,7 @@ async def check_ocompanii():
     print(cor_path)
 
     chrome_options = Options()
-    chrome_options.add_argument(fr"user-data-dir={cor_path}/Skillbox")
+    #chrome_options.add_argument(fr"user-data-dir={cor_path}/Skillbox")
     chrome_options.add_argument("--headless")
     driver = webdriver.Chrome(options=chrome_options)
 

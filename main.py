@@ -5,7 +5,6 @@ from ai_skillbox import check_pravda, check_ocompanii
 
 from datetime import datetime
 
-
 current_day_of_year = datetime.now().timetuple().tm_yday
 hour = datetime.now().hour
 minute = datetime.now().minute
