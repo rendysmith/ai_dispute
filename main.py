@@ -22,3 +22,5 @@ if __name__ == '__main__':
         else:
             asyncio.run(check_ocompanii())
 
+    print('OK!')
+
