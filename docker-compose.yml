@@ -8,8 +8,4 @@ services:
     volumes:
       - ./:/app
     entrypoint: ["python3", "/app/main.py"]
-    schedule:
-      # Запуск каждые 15 минут
-      interval: 15m
-
 
