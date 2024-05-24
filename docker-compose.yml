@@ -1,11 +1,11 @@
-version: "3.9"
+version: "3.8"
 
 services:
-  ai_one_off:
-    build: .
-    image: ai_one_off:latest
-    restart: unless-stopped
+  my-python-script:
+    image: python:3.10
+    command: ["python3", "/ai_one_off/main.py"]
     volumes:
-      - ./:/app
-    entrypoint: ["python3", "/app/main.py"]
+      - ./:/ai_one_off/main.py
+    schedule:
+      every: 15m
 
