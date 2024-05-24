@@ -18,7 +18,7 @@ WORKDIR /app/
 ENV PRJPATH /app/
 
 # Добавление команды для предоставления прав на выполнение файла
-RUN chmod +x run_cont.sh
+RUN chmod +x run_container.sh
 
 # Запуск основного файла
 CMD ["python", "-um", "main"]
