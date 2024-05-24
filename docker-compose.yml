@@ -6,6 +6,4 @@ services:
     command: ["python3", "/ai_one_off/main.py"]
     volumes:
       - ./:/ai_one_off/main.py
-    schedule:
-      every: 15m
 
