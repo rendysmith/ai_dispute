@@ -1,8 +1,15 @@
-version: '3'
+version: "3.9"
+
 services:
   ai_one_off:
     build: .
+    image: ai_one_off:latest
     restart: unless-stopped
-
+    volumes:
+      - ./:/app
+    entrypoint: ["python3", "/app/main.py"]
+    schedule:
+      # Запуск каждые 15 минут
+      interval: 15m
 
 
