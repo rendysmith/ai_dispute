@@ -1,9 +1,15 @@
 version: '3'
 services:
-  ai_one_off:
-    image: ai_one_off:latest  # Это то же самое, что и просто ai_nostra
-    container_name: ai_one_off
+  ai_service:
+    image: ai_one_off
+    build:
+      context: .
+  cron:
+    image: alpine
     volumes:
-      - /root/ai_one_off:/app  # Монтируем локальную директорию в контейнер
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./cronjob:/etc/cron.d
+    command: crond -f -d 0
+
 
 
