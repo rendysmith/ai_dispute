@@ -1,7 +1,7 @@
 import asyncio
 import time
 
-from ai_pref_reactions import main_react
+from ai_pref_react import main_react
 from ai_skillbox import check_pravda, check_ocompanii
 from utils.gs_editor import append_data_to_sheet_scope
 

@@ -3,6 +3,7 @@ import json
 import os
 import time
 #import time
+import numpy as np
 
 import warnings
 import gspread
@@ -443,3 +444,24 @@ async def append_data_to_sheet_cell(sheet_id, worksheet_name, column_name, row_n
 
     except Exception as e:
         print(f"An error occurred: {e}")
+
+async def skillbox_sheet(sheet_id, worksheet_name, data):
+    service_name = data['service_name']
+    date =  data['date']
+
+    df = await read_table_id(sheet_id, worksheet_name)
+
+    index = df.index[df['service_name'] == service_name].tolist()
+    print(index)
+
+    if index == []:
+        print('Не найден элемент вводим на новую строку')
+        await append_data_to_sheet_scope(sheet_id, worksheet_name, data)
+
+    else:
+        print(f'{service_name} - есть в таблице, дополняем')
+        idx = index[0] + 2
+        await append_data_to_sheet_cell(sheet_id, worksheet_name, 'date', idx, date)
+
+
+

@@ -4,7 +4,7 @@ import time
 
 import pandas as pd
 
-from utils.gs_editor import get_table_scope, append_data_to_sheet_scope, append_data_to_sheet_cell, read_table_id
+from utils.gs_editor import get_table_scope, append_data_to_sheet_scope, append_data_to_sheet_cell, read_table_id, skillbox_sheet
 from utils.ai_module import get_answer_gemini, get_answer_gpt
 
 async def ai_reaction_data_processing(row, engine):
@@ -66,6 +66,15 @@ async def main_react():
             print(f'{row_number} {col_gpt} - OK!')
 
         time.sleep(5)
+
+if __name__ == '__main__':
+    asyncio.run(main_react())
+    data = {'service_name': 'PMEF', 'date': time.ctime()}
+    asyncio.run(skillbox_sheet('1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data))
+
+
+
+
 
 
 
