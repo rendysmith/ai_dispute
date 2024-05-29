@@ -447,7 +447,7 @@ async def append_data_to_sheet_cell(sheet_id, worksheet_name, column_name, row_n
 
 async def skillbox_sheet(sheet_id, worksheet_name, data):
     service_name = data['service_name']
-    date =  data['date']
+    date = data['date']
 
     df = await read_table_id(sheet_id, worksheet_name)
 
@@ -459,7 +459,7 @@ async def skillbox_sheet(sheet_id, worksheet_name, data):
         await append_data_to_sheet_scope(sheet_id, worksheet_name, data)
 
     else:
-        print(f'{service_name} - есть в таблице, дополняем')
+        print(f'{service_name} - есть в таблице, изменяем дату')
         idx = index[0] + 2
         await append_data_to_sheet_cell(sheet_id, worksheet_name, 'date', idx, date)
 

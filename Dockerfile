@@ -21,4 +21,4 @@ ENV PRJPATH /app/
 RUN chmod +x run_container.sh
 
 # Запуск основного файла
-#CMD ["python", "-um", "main"]
+CMD ["python", "-um", "main"]
