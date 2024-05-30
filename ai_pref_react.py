@@ -31,7 +31,7 @@ async def ai_reaction_data_processing(row, engine):
 Комментарий: {comment}
 {prompt_1}
 """
-    print(prompt)
+    #print(prompt)
 #Тип и длина текста: Ответное сообщение, не более 3-х предложений.
 # Аудитория: Участники форума ПМЭФ, вероятно, профессионалы и заинтересованные в экономических и бизнес-темах.
 # Задача:
@@ -48,11 +48,15 @@ async def ai_reaction_data_processing(row, engine):
 
     #result, engine = await ai_generator_react(market=market, comment=comment, subject=subject)
     return result
+
+# if __name__ == '__main__':
+#     row = {"Негатив": "С 5 по 8 июня в Санкт-Петербурге проходит Петербургский Международный Экономический Форум."}
+#     res = asyncio.run(ai_reaction_data_processing(row, "gemini-pro"))
+#     print("ОТВЕТ 1:\n", res)
 #
-row = {"Негатив": "С 5 по 8 июня в Санкт-Петербурге проходит Петербургский Международный Экономический Форум."}
-res = asyncio.run(ai_reaction_data_processing(row, "gemini-pro"))
-print("ОТВЕТ:\n", res)
-input()
+#     res = asyncio.run(ai_reaction_data_processing(row, "gpt-3.5-turbo"))
+#     print("ОТВЕТ 2:\n", res)
+#     input("OK!")
 
 async def main_react():
     worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
