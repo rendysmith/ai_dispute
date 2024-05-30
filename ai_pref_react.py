@@ -14,23 +14,32 @@ async def ai_reaction_data_processing(row, engine):
 
     word_count = len(comment.split())
 
-    df = await read_table_id("1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8", "Портреты АВ")
-    persons = df['persons'].to_list()
+    df_pers = await read_table_id("1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8", "Портреты АВ")
+    persons = df_pers['persons'].to_list()
     person = random.choice(persons)
+
+    df_prom = await read_table_id("1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8", "prompts")
+    # Поиск индекса элемента в колонке project_name
+    index = df_prom[df_prom['project_name'] == 'pref'].index[0]
+
+    # Получение элемента из колонки prompt_1 по найденному индексу
+    prompt_1 = df_prom.at[index, 'prompt_1']
 
     prompt = f"""
 Роль: {person},
 Тема: Общение на форуме ПМЭФ (Петербургский международный экономический форум).
 Комментарий: {comment}
-Тип и длина текста: Ответное сообщение, не более 3-х предложений.
-Аудитория: Участники форума ПМЭФ, вероятно, профессионалы и заинтересованные в экономических и бизнес-темах.
-Задача: 
-Ответить на комментарий, 
-закрыть негатив, 
-сделать общение более позитивным, 
-без использования слишком восхищенных фраз,
-не использовать официальный и строгий стиль общения 
+{prompt_1}
 """
+    print(prompt)
+#Тип и длина текста: Ответное сообщение, не более 3-х предложений.
+# Аудитория: Участники форума ПМЭФ, вероятно, профессионалы и заинтересованные в экономических и бизнес-темах.
+# Задача:
+# Ответить на комментарий,
+# закрыть негатив,
+# сделать общение более позитивным,
+# без использования слишком восхищенных фраз,
+# не использовать официальный и строгий стиль общения
 
     if 'gemini' in engine:
         result = await get_answer_gemini(prompt, engine)
@@ -39,21 +48,10 @@ async def ai_reaction_data_processing(row, engine):
 
     #result, engine = await ai_generator_react(market=market, comment=comment, subject=subject)
     return result
-
-
-txt = """На ПМЭФ не хватает эскортниц
-Агентства, предоставляющие вип-девушек, заявляют, что в этом году на эскортниц небывалый ажиотаж. Всех разобрали ещё за две недели до форума.
-Цены взлетели до небес: от 700 тысяч до миллиона в сутки за “сопровождающую”."""
-
-row = {"Негатив": txt}
-comment = row['Негатив']
-print(comment)
-
-res = asyncio.run(ai_reaction_data_processing(row,"gpt-3.5-turbo"))
-print("\n", res)
-
+#
+row = {"Негатив": "С 5 по 8 июня в Санкт-Петербурге проходит Петербургский Международный Экономический Форум."}
 res = asyncio.run(ai_reaction_data_processing(row, "gemini-pro"))
-print("\n", res)
+print("ОТВЕТ:\n", res)
 input()
 
 async def main_react():
