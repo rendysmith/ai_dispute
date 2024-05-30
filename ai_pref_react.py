@@ -7,24 +7,29 @@ import pandas as pd
 from utils.gs_editor import get_table_scope, append_data_to_sheet_scope, append_data_to_sheet_cell, read_table_id, skillbox_sheet
 from utils.ai_module import get_answer_gemini, get_answer_gpt
 
+#df = await read_table_id("144vfSzkSRikNif--93raEJgSmWL8OnArEho02AlA2Q8", "Портреты АВ")
+
 async def ai_reaction_data_processing(row, engine):
     comment = row['Негатив']
 
     word_count = len(comment.split())
 
-    humans = ['Ты мужчина,', 'Ты женщина,']
-    human = random.choice(humans)
-
-    years = random.randint(25, 45)
-    years_old = f'тебе {years} лет,'
+    df = await read_table_id("1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8", "Портреты АВ")
+    persons = df['persons'].to_list()
+    person = random.choice(persons)
 
     prompt = f"""
-{human}, {years_old}, ты среднестатистический россиянин, 
-ты читаешь комментарий,
+Роль: {person},
+Тема: Общение на форуме ПМЭФ (Петербургский международный экономический форум).
 Комментарий: {comment}
-Твоя главная задача:
-- закрыть негатив отзыва
-- не использовать слишком восхищенные фразы
+Тип и длина текста: Ответное сообщение, не более 3-х предложений.
+Аудитория: Участники форума ПМЭФ, вероятно, профессионалы и заинтересованные в экономических и бизнес-темах.
+Задача: 
+Ответить на комментарий, 
+закрыть негатив, 
+сделать общение более позитивным, 
+без использования слишком восхищенных фраз,
+не использовать официальный и строгий стиль общения 
 """
 
     if 'gemini' in engine:
@@ -34,6 +39,22 @@ async def ai_reaction_data_processing(row, engine):
 
     #result, engine = await ai_generator_react(market=market, comment=comment, subject=subject)
     return result
+
+
+txt = """На ПМЭФ не хватает эскортниц
+Агентства, предоставляющие вип-девушек, заявляют, что в этом году на эскортниц небывалый ажиотаж. Всех разобрали ещё за две недели до форума.
+Цены взлетели до небес: от 700 тысяч до миллиона в сутки за “сопровождающую”."""
+
+row = {"Негатив": txt}
+comment = row['Негатив']
+print(comment)
+
+res = asyncio.run(ai_reaction_data_processing(row,"gpt-3.5-turbo"))
+print("\n", res)
+
+res = asyncio.run(ai_reaction_data_processing(row, "gemini-pro"))
+print("\n", res)
+input()
 
 async def main_react():
     worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
