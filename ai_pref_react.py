@@ -11,8 +11,9 @@ from utils.ai_module import get_answer_gemini, get_answer_gpt
 
 async def ai_reaction_data_processing(row, engine):
     comment = row['Негатив']
+    print(comment)
 
-    word_count = len(comment.split())
+    #word_count = len(comment.split())
 
     df_pers = await read_table_id("1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8", "Портреты АВ")
     persons = df_pers['persons'].to_list()
