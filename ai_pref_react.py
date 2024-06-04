@@ -32,32 +32,28 @@ async def ai_reaction_data_processing(row, engine):
 Комментарий: {comment}
 {prompt_1}
 """
-    #print(prompt)
-#Тип и длина текста: Ответное сообщение, не более 3-х предложений.
-# Аудитория: Участники форума ПМЭФ, вероятно, профессионалы и заинтересованные в экономических и бизнес-темах.
-# Задача:
-# Ответить на комментарий,
-# закрыть негатив,
-# сделать общение более позитивным,
-# без использования слишком восхищенных фраз,
-# не использовать официальный и строгий стиль общения
 
     if 'gemini' in engine:
         result = await get_answer_gemini(prompt, engine)
     elif 'gpt' in engine:
         result = await get_answer_gpt(prompt, engine)
 
-    #result, engine = await ai_generator_react(market=market, comment=comment, subject=subject)
     return result
-
-# if __name__ == '__main__':
-#     row = {"Негатив": "С 5 по 8 июня в Санкт-Петербурге проходит Петербургский Международный Экономический Форум."}
-#     res = asyncio.run(ai_reaction_data_processing(row, "gemini-pro"))
-#     print("ОТВЕТ 1:\n", res)
 #
-#     res = asyncio.run(ai_reaction_data_processing(row, "gpt-3.5-turbo"))
-#     print("ОТВЕТ 2:\n", res)
-#     input("OK!")
+# if __name__ == '__main__':
+#     values = ["""На ПМЭФ не хватает эскортниц
+# Агентства, предоставляющие вип-девушек, заявляют, что в этом году на эскортниц небывалый ажиотаж. Всех разобрали ещё за две недели до форума.
+# Цены взлетели до небес: от 700 тысяч до миллиона в сутки за “сопровождающую”.""",
+#               "Хуситы на ПМЭФ",
+#               """В Петербурге возник дефицит секс-работниц из-за предстоящего ПМЭФ-2024
+# В специализированных агентствах сообщили, что цены на девушек взлетели до 700 тысяч рублей за обычную и до миллиона за VIP-девушку.
+# Как дела в офисе?"""]
+#     for value in values:
+#         row = {"Негатив": value}
+#         res = asyncio.run(ai_reaction_data_processing(row, "gemini-pro"))
+#         print("ОТВЕТ 1:\n", res)
+#
+# input()
 
 async def main_react():
     worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
