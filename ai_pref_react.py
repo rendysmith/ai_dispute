@@ -109,8 +109,15 @@ async def main_react(service):
     worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
     worksheet_name = 'PMEF'
 
+    # df = await read_table_id(service, worktable_id, worksheet_name)
+    # print(len(df))
+    # df = df[(df['Негатив'].notna()) & ((df['Вариант 1'].isna()) | (df['Вариант 2'].isna()))]
+    # print(len(df))
+
     df = await read_table_id_gc(worktable_id, worksheet_name)
+    print(len(df))
     df = df[(df['Негатив'].notna()) & ((df['Вариант 1'].isna()) | (df['Вариант 2'].isna()))]
+    print(len(df))
 
     col_gemini = 'Вариант 1'
     col_gpt = 'Вариант 2'
