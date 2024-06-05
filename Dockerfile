@@ -21,6 +21,7 @@ ENV PRJPATH /app/
 
 # Добавление команды для предоставления прав на выполнение файла
 RUN chmod +x run_container.sh
+RUN chmod +x restart_build.sh
 
 # Запуск основного файла
 CMD ["python", "-um", "main"]
