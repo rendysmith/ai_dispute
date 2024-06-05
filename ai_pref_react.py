@@ -60,6 +60,7 @@ async def main_react():
     worksheet_name = 'PMEF'
 
     df = await read_table_id(worktable_id, worksheet_name)
+    df = df[(df['Негатив'].notna()) & ((df['Вариант 1'].isna()) | (df['Вариант 2'].isna()))]
     print(df)
 
     col_gemini = 'Вариант 1'
