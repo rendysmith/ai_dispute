@@ -71,7 +71,7 @@ async def main_react():
         res_gpt = row[col_gpt]
 
         if pd.notna(res_gemini) and pd.notna(res_gpt):
-            print('В строке есть оба результата')
+            print(f'В строке {idx} есть оба результата')
             continue
 
         row_number = idx + 2
@@ -80,13 +80,15 @@ async def main_react():
             result_gemini = await ai_reaction_data_processing(row, 'gemini-pro')
             await append_data_to_sheet_cell(worktable_id, worksheet_name, col_gemini, row_number, result_gemini)
             print(f'{row_number} {col_gemini} - OK!')
+            await asyncio.sleep(2)
 
         if pd.isna(res_gpt):
             result_gpt = await ai_reaction_data_processing(row, 'gpt-3.5-turbo')
             await append_data_to_sheet_cell(worktable_id, worksheet_name, col_gpt, row_number, result_gpt)
             print(f'{row_number} {col_gpt} - OK!')
+            await asyncio.sleep(2)
 
-        time.sleep(5)
+        await asyncio.sleep(5)
 
 if __name__ == '__main__':
     asyncio.run(main_react())
