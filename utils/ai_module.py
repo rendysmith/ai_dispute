@@ -35,16 +35,19 @@ async def get_answer_gemini(prompt: str, engine: str):
                 full_text += "".join([part.text for part in text_parts])
         return full_text
 
+    except google.api_core.exceptions.ResourceExhausted as RE:
+        print(f'ERROR RE: {RE}')
+        return None
+
     except google.api_core.exceptions.InternalServerError as ISE:
         print(f'ERROR ISE: {ISE}')
-        return str(ISE)
+        return None
         #time.sleep(10)
         #attempt += 1
 
     except ValueError as VE:
         print("ERROR VE", VE)
-        return str(VE)
-
+        return None
 
 async def get_answer_gemini_(prompt: str, engine: str):
     """

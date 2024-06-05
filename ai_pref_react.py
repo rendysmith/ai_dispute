@@ -61,7 +61,7 @@ async def ai_reaction_data_processing(row, engine):
 #
 # input()
 
-async def main_react():
+async def main_react_old():
     worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
     worksheet_name = 'PMEF'
 
@@ -97,7 +97,7 @@ async def main_react():
         await asyncio.sleep(5)
 
 
-async def main_react_new():
+async def main_react():
     worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
     worksheet_name = 'PMEF'
 
@@ -120,12 +120,27 @@ async def main_react_new():
 
         row_number = idx + 2
 
-        result_gemini = await ai_reaction_data_processing(row, 'gemini-1.5-pro')
-        result_gpt = await ai_reaction_data_processing(row, 'gpt-3.5-turbo')
+        #result_gemini = await ai_reaction_data_processing(row, 'gemini-1.5-pro')
+        #print(f'Gemini OK!\n{result_gemini}')
+        #result_gpt = await ai_reaction_data_processing(row, 'gpt-3.5-turbo')
+        #print(f'GPT OK!\n{result_gpt}')
+
+        # result_gemini_task = ai_reaction_data_processing(row, 'gemini-1.5-pro')
+        # result_gpt_task = ai_reaction_data_processing(row, 'gpt-3.5-turbo')
+        # await asyncio.gather(result_gemini_task, result_gpt_task)
+
+        task1 = asyncio.create_task(ai_reaction_data_processing(row, 'gemini-1.5-pro'))
+        task2 = asyncio.create_task(ai_reaction_data_processing(row, 'gpt-3.5-turbo'))
+
+        result_gemini = await task1
+        result_gpt = await task2
+
+        print(f'Gemini OK!')
+        print(f'GPT OK!')
+
         results = [result_gemini, result_gpt]
         await append_data_to_sheet_cells(worktable_id, worksheet_name, columns, row_number, results)
-        print(f'{row_number} {col_gemini} - OK!')
-
+        #print(f'{row_number} - OK!')
         await asyncio.sleep(5)
 
 

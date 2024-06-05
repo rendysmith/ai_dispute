@@ -5,6 +5,8 @@ import time
 #import time
 import numpy as np
 
+import traceback
+
 import warnings
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -447,41 +449,55 @@ async def append_data_to_sheet_cell(sheet_id, worksheet_name, column_name, row_n
 
 
 async def append_data_to_sheet_cells(sheet_id, worksheet_name, column_names, row_number, datas):
-    try:
-        # Подключение к Google Sheets API
-        SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-        SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
-        credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-        service = build('sheets', 'v4', credentials=credentials)
+    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+    SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
+    credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    service = build('sheets', 'v4', credentials=credentials)
 
-        # Получение заголовков таблицы
-        header_range = f"{worksheet_name}!1:1"
-        header_result = service.spreadsheets().values().get(spreadsheetId=sheet_id, range=header_range).execute()
-        headers = header_result.get('values', [])[0]
+    # Получение заголовков таблицы
+    header_range = f"{worksheet_name}!1:1"
+    header_result = service.spreadsheets().values().get(spreadsheetId=sheet_id, range=header_range).execute()
+    headers = header_result.get('values', [])[0]
 
-        for column_name, data in zip(column_names, datas):
-            # Поиск индекса нужного столбца
-            column_index = headers.index(column_name)
-            column_letter = chr(65 + column_index)  # Преобразование индекса в букву (A, B, C и т.д.)
+    column_index = headers.index(column_names[0])
+    column_letter = chr(65 + column_index)  # Преобразование индекса в букву (A, B, C и т.д.)
 
-            range_name = f"{worksheet_name}!{column_letter}{row_number}"
+    value_input_option = 'RAW'
+    values = [datas]
 
-            value_range_body = {
-                'values': [[data]]  # Обернем данные в список для корректной передачи
-            }
+    body = {
+        'values': values
+    }
 
-            # Выполнение запроса на обновление
-            request = service.spreadsheets().values().update(
-                spreadsheetId=sheet_id,
-                range=range_name,
-                valueInputOption='RAW',
-                body=value_range_body
-            )
-            response = request.execute()  # Асинхронный вызов
-        #return response
+    range_name = f"{worksheet_name}!{column_letter}{row_number}"
+    print(range_name)
+    #range_name = f"{worksheet_name}!{column_names[0]}{row_number}:{column_names[-1]}{row_number}"
+    print(range_name)
+    service.spreadsheets().values().update(
+        spreadsheetId=sheet_id, range=range_name,
+        valueInputOption=value_input_option, body=body
+    ).execute()
 
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    print("OK!")
+
+def column_name_to_letter(column_name):
+    """
+    Преобразует название колонки в его буквенное определение.
+
+    Args:
+    column_name (str): Название колонки.
+
+    Returns:
+    str: Буквенное определение колонки.
+    """
+    letters = ""
+    column_number = 0
+    for letter in column_name:
+        column_number = column_number * 26 + (ord(letter.upper()) - ord('A')) + 1
+    while column_number > 0:
+        column_number, remainder = divmod(column_number - 1, 26)
+        letters = chr(65 + remainder) + letters
+    return letters
 
 async def skillbox_sheet(sheet_id, worksheet_name, data):
     service_name = data['service_name']
