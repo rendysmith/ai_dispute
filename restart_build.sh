@@ -1,2 +1,3 @@
 #!/bin/bash
-docker-compose up -d --remove-orphans
+git pull
+docker build -t ai_one_off .
