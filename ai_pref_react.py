@@ -6,14 +6,18 @@ import pandas as pd
 
 from utils.gs_editor import (
     get_table_scope,
+    get_service,
     append_data_to_sheet_scope,
     append_data_to_sheet_cell,
     append_data_to_sheet_cells,
     read_table_id,
     skillbox_sheet)
+
 from utils.ai_module import get_answer_gemini, get_answer_gpt
 
 #df = await read_table_id("144vfSzkSRikNif--93raEJgSmWL8OnArEho02AlA2Q8", "Портреты АВ")
+
+
 
 async def ai_reaction_data_processing(row, engine):
     comment = row['Негатив']
@@ -98,6 +102,7 @@ async def main_react_old():
 
 
 async def main_react():
+    service = await get_service()
     worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
     worksheet_name = 'PMEF'
 
@@ -139,7 +144,7 @@ async def main_react():
         print(f'GPT OK!')
 
         results = [result_gemini, result_gpt]
-        await append_data_to_sheet_cells(worktable_id, worksheet_name, columns, row_number, results)
+        await append_data_to_sheet_cells(service, worktable_id, worksheet_name, columns, row_number, results)
         #print(f'{row_number} - OK!')
         await asyncio.sleep(5)
 

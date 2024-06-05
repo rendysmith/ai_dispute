@@ -43,6 +43,13 @@ print(data['client_email'])
 
 gc = gspread.service_account(path_to_credentials)
 
+async def get_service():
+    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+    SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
+    credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    service = build('sheets', 'v4', credentials=credentials)
+    return service
+
 def create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
     # Проверяем существование вкладки
     try:
@@ -448,11 +455,11 @@ async def append_data_to_sheet_cell(sheet_id, worksheet_name, column_name, row_n
         print(f"An error occurred: {e}")
 
 
-async def append_data_to_sheet_cells(sheet_id, worksheet_name, column_names, row_number, datas):
-    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-    SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
-    credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-    service = build('sheets', 'v4', credentials=credentials)
+async def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_names, row_number, datas):
+    # SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+    # SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
+    # credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    # service = build('sheets', 'v4', credentials=credentials)
 
     # Получение заголовков таблицы
     header_range = f"{worksheet_name}!1:1"
@@ -470,9 +477,7 @@ async def append_data_to_sheet_cells(sheet_id, worksheet_name, column_names, row
     }
 
     range_name = f"{worksheet_name}!{column_letter}{row_number}"
-    print(range_name)
-    #range_name = f"{worksheet_name}!{column_names[0]}{row_number}:{column_names[-1]}{row_number}"
-    print(range_name)
+
     service.spreadsheets().values().update(
         spreadsheetId=sheet_id, range=range_name,
         valueInputOption=value_input_option, body=body
