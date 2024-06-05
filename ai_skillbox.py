@@ -51,7 +51,7 @@ def prompt_txt(review):
     Перед решением задачи, прочитай задание еще раз.
     """
 
-async def generator(url_answer, author, date, plus, minus):
+async def generator(service, url_answer, author, date, plus, minus):
     review = f"""
 Плюсы в работе:
 {plus}
@@ -83,7 +83,7 @@ async def generator(url_answer, author, date, plus, minus):
         f'Результат от {engine_gpt}': result_gpt
     }
 
-    status = await append_data_to_sheet_scope(SS_ID, R_N, data)
+    status = await append_data_to_sheet_scope(service, SS_ID, R_N, data)
     print(status)
 
 async def pars_url():

@@ -20,7 +20,7 @@ from selenium.webdriver.common.by import By
 from datetime import datetime, timedelta
 import time
 
-from utils.gs_editor import skillbox_sheet
+from utils.gs_editor import skillbox_sheet, get_service
 from ai_skillbox import pars_url, generator
 
 current_date = datetime.now()
@@ -153,7 +153,7 @@ cor_path = os.path.abspath(os.curdir)
 #     time.sleep(5)
 
 
-async def check_ocompanii():
+async def check_ocompanii(service):
     url = 'https://ocompanii.net/company/information.php?cid=764047'
 
     links = await pars_url()
@@ -287,13 +287,15 @@ async def check_ocompanii():
         print(plus)
         print(minus)
 
-        await generator(url_answer, author, formatted_date, plus, minus)
+        await generator(service, url_answer, author, formatted_date, plus, minus)
 
     time.sleep(5)
 
 
 
 if __name__ == '__main__':
-    asyncio.run(check_ocompanii())
+    service = asyncio.run(get_service())
+
+    asyncio.run(check_ocompanii(service))
     data = {'service_name': 'OCOMPANII', 'date': time.ctime()}
-    asyncio.run(skillbox_sheet('1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data))
+    asyncio.run(skillbox_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data))
