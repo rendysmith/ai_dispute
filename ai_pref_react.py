@@ -4,7 +4,13 @@ import time
 
 import pandas as pd
 
-from utils.gs_editor import get_table_scope, append_data_to_sheet_scope, append_data_to_sheet_cell, read_table_id, skillbox_sheet
+from utils.gs_editor import (
+    get_table_scope,
+    append_data_to_sheet_scope,
+    append_data_to_sheet_cell,
+    append_data_to_sheet_cells,
+    read_table_id,
+    skillbox_sheet)
 from utils.ai_module import get_answer_gemini, get_answer_gpt
 
 #df = await read_table_id("144vfSzkSRikNif--93raEJgSmWL8OnArEho02AlA2Q8", "Портреты АВ")
@@ -55,7 +61,7 @@ async def ai_reaction_data_processing(row, engine):
 #
 # input()
 
-async def main_react():
+async def main_react_old():
     worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
     worksheet_name = 'PMEF'
 
@@ -77,7 +83,7 @@ async def main_react():
         row_number = idx + 2
 
         if pd.isna(res_gemini):
-            result_gemini = await ai_reaction_data_processing(row, 'gemini-pro')
+            result_gemini = await ai_reaction_data_processing(row, 'gemini-1.5-pro')
             await append_data_to_sheet_cell(worktable_id, worksheet_name, col_gemini, row_number, result_gemini)
             print(f'{row_number} {col_gemini} - OK!')
             await asyncio.sleep(2)
@@ -89,6 +95,39 @@ async def main_react():
             await asyncio.sleep(2)
 
         await asyncio.sleep(5)
+
+
+async def main_react():
+    worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
+    worksheet_name = 'PMEF'
+
+    df = await read_table_id(worktable_id, worksheet_name)
+    df = df[(df['Негатив'].notna()) & ((df['Вариант 1'].isna()) | (df['Вариант 2'].isna()))]
+    print(df)
+
+    col_gemini = 'Вариант 1'
+    col_gpt = 'Вариант 2'
+
+    columns = [col_gemini, col_gpt]
+
+    for idx, row in df.iterrows():
+        res_gemini = row[col_gemini]
+        res_gpt = row[col_gpt]
+
+        if pd.notna(res_gemini) and pd.notna(res_gpt):
+            print(f'В строке {idx} есть оба результата')
+            continue
+
+        row_number = idx + 2
+
+        result_gemini = await ai_reaction_data_processing(row, 'gemini-1.5-pro')
+        result_gpt = await ai_reaction_data_processing(row, 'gpt-3.5-turbo')
+        results = [result_gemini, result_gpt]
+        await append_data_to_sheet_cells(worktable_id, worksheet_name, columns, row_number, results)
+        print(f'{row_number} {col_gemini} - OK!')
+
+        await asyncio.sleep(5)
+
 
 if __name__ == '__main__':
     asyncio.run(main_react())

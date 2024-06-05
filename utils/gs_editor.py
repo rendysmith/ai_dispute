@@ -445,6 +445,44 @@ async def append_data_to_sheet_cell(sheet_id, worksheet_name, column_name, row_n
     except Exception as e:
         print(f"An error occurred: {e}")
 
+
+async def append_data_to_sheet_cells(sheet_id, worksheet_name, column_names, row_number, datas):
+    try:
+        # Подключение к Google Sheets API
+        SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+        SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
+        credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+        service = build('sheets', 'v4', credentials=credentials)
+
+        # Получение заголовков таблицы
+        header_range = f"{worksheet_name}!1:1"
+        header_result = service.spreadsheets().values().get(spreadsheetId=sheet_id, range=header_range).execute()
+        headers = header_result.get('values', [])[0]
+
+        for column_name, data in zip(column_names, datas):
+            # Поиск индекса нужного столбца
+            column_index = headers.index(column_name)
+            column_letter = chr(65 + column_index)  # Преобразование индекса в букву (A, B, C и т.д.)
+
+            range_name = f"{worksheet_name}!{column_letter}{row_number}"
+
+            value_range_body = {
+                'values': [[data]]  # Обернем данные в список для корректной передачи
+            }
+
+            # Выполнение запроса на обновление
+            request = service.spreadsheets().values().update(
+                spreadsheetId=sheet_id,
+                range=range_name,
+                valueInputOption='RAW',
+                body=value_range_body
+            )
+            response = request.execute()  # Асинхронный вызов
+        #return response
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
 async def skillbox_sheet(sheet_id, worksheet_name, data):
     service_name = data['service_name']
     date = data['date']
