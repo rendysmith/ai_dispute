@@ -61,7 +61,7 @@ async def ai_reaction_data_processing(row, engine):
 #
 # input()
 
-async def main_react_old():
+async def main_react():
     worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
     worksheet_name = 'PMEF'
 
@@ -97,7 +97,7 @@ async def main_react_old():
         await asyncio.sleep(5)
 
 
-async def main_react():
+async def main_react_new():
     worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
     worksheet_name = 'PMEF'
 
