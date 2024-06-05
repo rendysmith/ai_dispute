@@ -4,6 +4,7 @@ import time
 
 import pandas as pd
 
+import utils.gs_editor
 from utils.gs_editor import (
     get_table_scope,
     get_service,
@@ -11,6 +12,7 @@ from utils.gs_editor import (
     append_data_to_sheet_cell,
     append_data_to_sheet_cells,
     read_table_id,
+    read_table_id_gc,
     skillbox_sheet)
 
 from utils.ai_module import get_answer_gemini, get_answer_gpt
@@ -104,13 +106,11 @@ async def main_react_old():
 
 
 async def main_react(service):
-
     worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
     worksheet_name = 'PMEF'
 
-    df = await read_table_id(service, worktable_id, worksheet_name)
+    df = await read_table_id_gc(worktable_id, worksheet_name)
     df = df[(df['Негатив'].notna()) & ((df['Вариант 1'].isna()) | (df['Вариант 2'].isna()))]
-    print(df)
 
     col_gemini = 'Вариант 1'
     col_gpt = 'Вариант 2'
@@ -126,6 +126,7 @@ async def main_react(service):
             continue
 
         row_number = idx + 2
+        print(row_number)
 
         #result_gemini = await ai_reaction_data_processing(row, 'gemini-1.5-pro')
         #print(f'Gemini OK!\n{result_gemini}')
@@ -148,6 +149,8 @@ async def main_react(service):
         results = [result_gemini, result_gpt]
         await append_data_to_sheet_cells(service, worktable_id, worksheet_name, columns, row_number, results)
         #print(f'{row_number} - OK!')
+
+        print("OK!\n")
         await asyncio.sleep(10)
 
 

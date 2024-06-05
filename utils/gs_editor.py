@@ -350,7 +350,7 @@ def read_table_name(worktable_name, worksheet_name):
     df = df.dropna(axis=0, how="all").dropna(axis=1, how="all")
     return df
 
-async def read_table_id_old(spreadsheet_id, worksheet_name):
+async def read_table_id_gc(spreadsheet_id, worksheet_name):
     try:
         workfile = gc.open_by_key(spreadsheet_id)
 
@@ -383,8 +383,14 @@ async def read_table_id(service, spreadsheet_id, worksheet_name):
 
         return df
 
-    except Exception as e:
-        print(f'--- Произошла ошибка при чтении таблицы: {e}')
+    except gspread.exceptions.APIError as AE:
+        print('--- Проблемы с API')
+        print(AE)
+        return pd.DataFrame()
+
+    except gspread.exceptions.SpreadsheetNotFound as SNF:
+        print(f'--- Не найдена таблица с ID - {spreadsheet_id}.')
+        print(SNF)
         return pd.DataFrame()
 
 def update_date(worktable_name, worksheet_name, idx, text):
@@ -503,8 +509,6 @@ async def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_n
         spreadsheetId=sheet_id, range=range_name,
         valueInputOption=value_input_option, body=body
     ).execute()
-
-    print("OK!")
 
 def column_name_to_letter(column_name):
     """
