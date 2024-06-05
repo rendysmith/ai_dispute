@@ -19,17 +19,17 @@ from utils.ai_module import get_answer_gemini, get_answer_gpt
 
 
 
-async def ai_reaction_data_processing(row, engine):
+async def ai_reaction_data_processing(service, row, engine):
     comment = row['Негатив']
     print(comment)
 
     #word_count = len(comment.split())
 
-    df_pers = await read_table_id("1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8", "Портреты АВ")
+    df_pers = await read_table_id(service, "1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8", "Портреты АВ")
     persons = df_pers['persons'].to_list()
     person = random.choice(persons)
 
-    df_prom = await read_table_id("1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8", "prompts")
+    df_prom = await read_table_id(service, "1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8", "prompts")
     # Поиск индекса элемента в колонке project_name
     index = df_prom[df_prom['project_name'] == 'pref'].index[0]
 
@@ -87,13 +87,15 @@ async def main_react_old():
         row_number = idx + 2
 
         if pd.isna(res_gemini):
-            result_gemini = await ai_reaction_data_processing(row, 'gemini-1.5-pro')
+            async def main_react():
+
+                result_gemini = await ai_reaction_data_processing(service, row, 'gemini-1.5-pro')
             await append_data_to_sheet_cell(worktable_id, worksheet_name, col_gemini, row_number, result_gemini)
             print(f'{row_number} {col_gemini} - OK!')
             await asyncio.sleep(2)
 
         if pd.isna(res_gpt):
-            result_gpt = await ai_reaction_data_processing(row, 'gpt-3.5-turbo')
+            result_gpt = await ai_reaction_data_processing(service, row, 'gpt-3.5-turbo')
             await append_data_to_sheet_cell(worktable_id, worksheet_name, col_gpt, row_number, result_gpt)
             print(f'{row_number} {col_gpt} - OK!')
             await asyncio.sleep(2)
@@ -101,12 +103,12 @@ async def main_react_old():
         await asyncio.sleep(5)
 
 
-async def main_react():
-    service = await get_service()
+async def main_react(service):
+
     worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
     worksheet_name = 'PMEF'
 
-    df = await read_table_id(worktable_id, worksheet_name)
+    df = await read_table_id(service, worktable_id, worksheet_name)
     df = df[(df['Негатив'].notna()) & ((df['Вариант 1'].isna()) | (df['Вариант 2'].isna()))]
     print(df)
 
@@ -134,8 +136,8 @@ async def main_react():
         # result_gpt_task = ai_reaction_data_processing(row, 'gpt-3.5-turbo')
         # await asyncio.gather(result_gemini_task, result_gpt_task)
 
-        task1 = asyncio.create_task(ai_reaction_data_processing(row, 'gemini-1.5-pro'))
-        task2 = asyncio.create_task(ai_reaction_data_processing(row, 'gpt-3.5-turbo'))
+        task1 = asyncio.create_task(ai_reaction_data_processing(service, row, 'gemini-1.5-pro'))
+        task2 = asyncio.create_task(ai_reaction_data_processing(service, row, 'gpt-3.5-turbo'))
 
         result_gemini = await task1
         result_gpt = await task2
@@ -146,13 +148,14 @@ async def main_react():
         results = [result_gemini, result_gpt]
         await append_data_to_sheet_cells(service, worktable_id, worksheet_name, columns, row_number, results)
         #print(f'{row_number} - OK!')
-        await asyncio.sleep(5)
+        await asyncio.sleep(10)
 
 
 if __name__ == '__main__':
-    asyncio.run(main_react())
+    service = asyncio.run(get_service())
+    asyncio.run(main_react(service))
     data = {'service_name': 'PMEF', 'date': time.ctime()}
-    asyncio.run(skillbox_sheet('1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data))
+    asyncio.run(skillbox_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data))
 
 
 

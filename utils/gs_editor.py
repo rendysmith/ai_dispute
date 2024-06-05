@@ -76,12 +76,12 @@ def create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
             print(f"An error occurred while creating the sheet: {e}")
             return
 
-async def append_data_to_sheet_scope(SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, data):
+async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, data):
     # Подключение к Google Sheets API
-    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-    SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
-    credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-    service = build('sheets', 'v4', credentials=credentials)
+    # SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+    # SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
+    # credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    # service = build('sheets', 'v4', credentials=credentials)
 
     create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME)
 
@@ -350,7 +350,7 @@ def read_table_name(worktable_name, worksheet_name):
     df = df.dropna(axis=0, how="all").dropna(axis=1, how="all")
     return df
 
-async def read_table_id(spreadsheet_id, worksheet_name):
+async def read_table_id_old(spreadsheet_id, worksheet_name):
     try:
         workfile = gc.open_by_key(spreadsheet_id)
 
@@ -365,6 +365,27 @@ async def read_table_id(spreadsheet_id, worksheet_name):
     df = gd.get_as_dataframe(workfile.worksheet(worksheet_name))
     df = df.dropna(axis=0, how="all") #.dropna(axis=1, how="all")
     return df
+
+async def read_table_id(service, spreadsheet_id, worksheet_name):
+    try:
+        # Получение данных из таблицы
+        range_name = f'{worksheet_name}'
+        result = service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=range_name).execute()
+        values = result.get('values', [])
+
+        if not values:
+            print(f'--- Лист {worksheet_name} пуст.')
+            return pd.DataFrame()
+
+        # Преобразование данных в DataFrame
+        df = pd.DataFrame(values[1:], columns=values[0])
+        df = df.dropna(axis=0, how="all")  # Удаление пустых строк
+
+        return df
+
+    except Exception as e:
+        print(f'--- Произошла ошибка при чтении таблицы: {e}')
+        return pd.DataFrame()
 
 def update_date(worktable_name, worksheet_name, idx, text):
     workfile = gc.open(worktable_name)
@@ -418,13 +439,13 @@ def write_data_old(worktable_name, worksheet_name, data):
         print('Проблемы с API при обновлении данных')
         print(AE)
 
-async def append_data_to_sheet_cell(sheet_id, worksheet_name, column_name, row_number, data):
+async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_name, row_number, data):
     try:
         # Подключение к Google Sheets API
-        SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-        SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
-        credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-        service = build('sheets', 'v4', credentials=credentials)
+        # SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+        # SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
+        # credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+        # service = build('sheets', 'v4', credentials=credentials)
 
         # Получение заголовков таблицы
         header_range = f"{worksheet_name}!1:1"
@@ -504,23 +525,23 @@ def column_name_to_letter(column_name):
         letters = chr(65 + remainder) + letters
     return letters
 
-async def skillbox_sheet(sheet_id, worksheet_name, data):
+async def skillbox_sheet(service, sheet_id, worksheet_name, data):
     service_name = data['service_name']
     date = data['date']
 
-    df = await read_table_id(sheet_id, worksheet_name)
+    df = await read_table_id(service, sheet_id, worksheet_name)
 
     index = df.index[df['service_name'] == service_name].tolist()
     print(index)
 
     if index == []:
         print('Не найден элемент вводим на новую строку')
-        await append_data_to_sheet_scope(sheet_id, worksheet_name, data)
+        await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
 
     else:
         print(f'{service_name} - есть в таблице, изменяем дату')
         idx = index[0] + 2
-        await append_data_to_sheet_cell(sheet_id, worksheet_name, 'date', idx, date)
+        await append_data_to_sheet_cell(service, sheet_id, worksheet_name, 'date', idx, date)
 
 
 
