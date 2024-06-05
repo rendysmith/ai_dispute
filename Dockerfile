@@ -6,7 +6,9 @@ RUN apt-get update -y && \
 
 RUN apt-get update -y
 RUN apt-get install -y python3-pip
-RUN apt-get install -y docker-compose
+RUN apt-get install xvfb
+
+#RUN apt-get install -y docker-compose
 RUN mkdir /app/
 
 COPY ./requirements.txt /app/requirements.txt
