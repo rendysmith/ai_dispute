@@ -4,12 +4,12 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import time
 
-from utils.gs_editor import skillbox_sheet
+from utils.gs_editor import skillbox_sheet, get_service
 from ai_skillbox import pars_url, generator
 
 current_date = datetime.now()
 
-async def check_pravda():
+async def check_pravda(service):
     url = 'https://pravda-sotrudnikov.ru/company/skillbox'
     links = await pars_url()
 
@@ -76,12 +76,12 @@ async def check_pravda():
                     cleaned_lines = [line.replace('\t', '') for line in minus]
                     minus = '\n'.join(cleaned_lines)
 
-                    await generator(url_answer, author, formatted_date, plus, minus)
+                    await generator(service, url_answer, author, formatted_date, plus, minus)
 
         time.sleep(5)
 
-
 if __name__ == '__main__':
-    asyncio.run(check_pravda())
+    service = asyncio.run(get_service())
+    asyncio.run(check_pravda(service))
     data = {'service_name': 'PRAVDA', 'date': time.ctime()}
-    asyncio.run(skillbox_sheet('1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data))
+    asyncio.run(skillbox_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data))
