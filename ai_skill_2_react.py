@@ -33,8 +33,9 @@ async def extract_ids(url):
     ids = re.search(pattern, url).group(1)
     return ids
 
-async def check_ocompanii_old():
+async def check_ocompanii(service):
     links = await pars_url()
+    #links = []
 
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -57,14 +58,14 @@ async def check_ocompanii_old():
     add_comments = soup.find_all('a', class_='btn-primary3')
     print(len(add_comments))
 
-    cont = False
-
     for add_com in add_comments:
+        print('================================================')
         url_comm = add_com.get('href')
         id_ = await extract_ids(url_comm)
         print(id_)
 
         url_answer = f'https://ocompanii.net/reviews/detail.php?id={id_}'
+        url_full_comm = f'https://ocompanii.net/reviews/load_detail.php?id={id_}'
 
         if url_answer in links:
             print(f'{url_answer}\nНа этот отзыв уже есть реакция!\n')
@@ -77,138 +78,59 @@ async def check_ocompanii_old():
         author = soup.find('span', {'itemprop': 'author'}).text
         print(author)
 
-        formatted_date = 'No Date'
-        spans = soup.find_all("span")
-        for span in spans:
-            #print(span.text)
-            try:
-                date = datetime.strptime(span.text, "%Y-%m-%d %H:%M:%S")
-
-            except Exception as ex:
-                # print('Error =', span.text)
-                # print(ex)
+        blocks = soup.find_all('div', class_='col-sm-12 col-md-12')
+        for block in blocks:
+            formatted_date = 'No Date'
+            spans = block.find_all("span")
+            #print(len(spans))
+            if len(spans) == 0:
                 continue
 
-            #unix_time = date.timestamp()
-            if (current_date - date) > timedelta(days=30):
-                print(f'--- Отзыв старше 30 дней. = {date}\n')
-                cont = True
+            brk = False
+
+            for span in spans:
+                span_text = span.text.strip()
+                #print(f'span.text {span_text}')
+                try:
+                    date = datetime.strptime(span_text, "%Y-%m-%d %H:%M:%S")
+                    print("date", date)
+
+                except Exception as Ex:
+                    #print('ERROR Ex', Ex)
+                    continue
+
+                #unix_time = date.timestamp()
+                if (current_date - date) > timedelta(days=30):
+                    print(f'--- Отзыв старше 30 дней. = {date}\n')
+                    brk = True
+                    break
+
+                else:
+                    print(f'+++ Отзыв в пределах 30 дней = {date}\n'
+                          f'{current_date - date} > {timedelta(days=30)}')
+                    formatted_date = date.strftime("%d.%m.%Y")
+                    brk = True
+                    break
+
+            if brk:
                 break
-
-            else:
-                print(f'+++ Отзыв в пределах 30 дней = {date}\n'
-                      f'{current_date - date} > {timedelta(days=30)}')
-                break
-
-        formatted_date = date.strftime("%d.%m.%Y")
-            #print(formatted_date)
-
-        if cont:
-            cont = False
-            continue
 
         print(formatted_date)
 
+        response = requests.get(url_full_comm, headers=headers)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser').text
+        print(type(soup))
+        print(soup)
 
+        p_m = soup.split('###')
+        plus = p_m[-2]
+        minus = p_m[-1]
 
-        input()
+        await generator(service, url_answer, author, formatted_date, plus, minus)
 
 
-
-
-        #await generator(service, url_answer, author, formatted_date, plus, minus)
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # show_comment = soup.find_all('a', class_='btn btn-primary')
-    # print(len(show_comment))
-
-
-
-
-    input()
-
-
-
-
-
-    for block in blocks:
-        try:
-            a = block.find('a', {"rel": "nofollow", "itemprop": "url"}).text
-            #print(a)
-        except:
-            continue
-
-
-
-
-
-
-
-    url = 'https://ocompanii.net/reviews/load_detail.php?id=1150807'
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    soup = BeautifulSoup(response.text, 'html.parser')
-    print(soup)
-    print(soup.text)
-    print(soup.get_text())
-
-    url = 'https://ocompanii.net/reviews/load_detail.php?id=1150212'
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    soup = BeautifulSoup(response.text, 'html.parser')
-    print(soup)
-    print(soup.text)
-
-    url = 'https://ocompanii.net/reviews/load_detail.php?id=1148499'
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    soup = BeautifulSoup(response.text, 'html.parser')
-    print(soup)
-    print(soup.text)
-
-
-
-    input()
-
-
-
-    #<a href="javascript: ViewDetail(1150807); void(0);"><em>Подробнее &gt;&gt;</em></a>
-
-
-
-
-asyncio.run(check_ocompanii_old())
-input()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-async def check_ocompanii(service):
+async def check_ocompanii_old(service):
     url = 'https://ocompanii.net/company/information.php?cid=764047'
 
     links = await pars_url()
