@@ -28,7 +28,14 @@ current_date = datetime.now()
 abspath = os.path.dirname(os.path.abspath(__file__))
 cor_path = os.path.abspath(os.curdir)
 
-def check_ocompanii_old():
+async def extract_ids(url):
+    pattern = r'id=(\d+)&comment'
+    ids = re.search(pattern, url).group(1)
+    return ids
+
+async def check_ocompanii_old():
+    links = await pars_url()
+
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
@@ -46,22 +53,159 @@ def check_ocompanii_old():
 
     blocks = soup.find_all('div', class_='col-sm-12 col-md-12')
     print(len(blocks))
-    print(len(blocks))
+
+    add_comments = soup.find_all('a', class_='btn-primary3')
+    print(len(add_comments))
+
+    cont = False
+
+    for add_com in add_comments:
+        url_comm = add_com.get('href')
+        id_ = await extract_ids(url_comm)
+        print(id_)
+
+        url_answer = f'https://ocompanii.net/reviews/detail.php?id={id_}'
+
+        if url_answer in links:
+            print(f'{url_answer}\nНа этот отзыв уже есть реакция!\n')
+            continue
+
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        author = soup.find('span', {'itemprop': 'author'}).text
+        print(author)
+
+        formatted_date = 'No Date'
+        spans = soup.find_all("span")
+        for span in spans:
+            #print(span.text)
+            try:
+                date = datetime.strptime(span.text, "%Y-%m-%d %H:%M:%S")
+
+            except Exception as ex:
+                # print('Error =', span.text)
+                # print(ex)
+                continue
+
+            #unix_time = date.timestamp()
+            if (current_date - date) > timedelta(days=30):
+                print(f'--- Отзыв старше 30 дней. = {date}\n')
+                cont = True
+                break
+
+            else:
+                print(f'+++ Отзыв в пределах 30 дней = {date}\n'
+                      f'{current_date - date} > {timedelta(days=30)}')
+                break
+
+        formatted_date = date.strftime("%d.%m.%Y")
+            #print(formatted_date)
+
+        if cont:
+            cont = False
+            continue
+
+        print(formatted_date)
+
+
+
+        input()
+
+
+
+
+        #await generator(service, url_answer, author, formatted_date, plus, minus)
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # show_comment = soup.find_all('a', class_='btn btn-primary')
+    # print(len(show_comment))
+
+
+
+
+    input()
+
+
+
+
+
     for block in blocks:
         try:
             a = block.find('a', {"rel": "nofollow", "itemprop": "url"}).text
-            print(a)
+            #print(a)
         except:
             continue
 
-    # blocks = soup.find_all('div', class_='row')
-    # print(len(blocks))
-    # for block in blocks:
-    #     try:
-    #         a = block.find('a', {"rel": "nofollow", "itemprop": "url"}).text
-    #         print(a)
-    #     except:
-    #         continue
+
+
+
+
+
+
+    url = 'https://ocompanii.net/reviews/load_detail.php?id=1150807'
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, 'html.parser')
+    print(soup)
+    print(soup.text)
+    print(soup.get_text())
+
+    url = 'https://ocompanii.net/reviews/load_detail.php?id=1150212'
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, 'html.parser')
+    print(soup)
+    print(soup.text)
+
+    url = 'https://ocompanii.net/reviews/load_detail.php?id=1148499'
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, 'html.parser')
+    print(soup)
+    print(soup.text)
+
+
+
+    input()
+
+
+
+    #<a href="javascript: ViewDetail(1150807); void(0);"><em>Подробнее &gt;&gt;</em></a>
+
+
+
+
+asyncio.run(check_ocompanii_old())
+input()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 async def check_ocompanii(service):
