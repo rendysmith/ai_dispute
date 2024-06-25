@@ -1,79 +1,86 @@
 import asyncio
-import time
+import random
 
-import google.api_core.exceptions
-import pandas as pd
-import requests
-import openai
-from openai import OpenAI, Client
 import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
-#import replicate
-import os
-from utils.constants import GEMINI_TOKEN, GPT_TOKEN, REPLICATE_TOKEN
+import google.api_core.exceptions
+import requests
+from requests.auth import HTTPBasicAuth
+
+import httpx
+
+from utils.constants import GPT_TOKEN
+from utils.db_loader import get_api_tokens, get_hosts
 
 
-async def get_answer_gemini(prompt: str, engine: str):
+async def get_answer_gemini(auth: HTTPBasicAuth, prompt: str, engine: str):
     """
-    gemini-1.5-pro - Ограничение скорости	1 запрос в минуту, 50 запросов в день
-    gemini-pro - Ограничение скорости	60 запросов в минуту
+    gemini-pro - Ограничение
+    15 RPM - Requests per minute
+    32,000 TPM - Tokens per minute
+    1,500 RPD - Requests per day
+    46,080,000 TPD - Tokens per day
+
+    gemini-1.5-flash - Ограничение
+    15 RPM
+    1 million TPM
+    1500 RPD
+
+    gemini-1.5-pro - Ограничение
+    2 RPM
+    32,000 TPM
+    50 RPD
+    46,080,000 TPD
     """
-    genai.configure(api_key=GEMINI_TOKEN)
-    model = genai.GenerativeModel(engine)
 
-    try:
-        response = model.generate_content(prompt)
-        #print(f"Type of response: {type(response)}") # Проверяем тип ответа
-        #print(response.__dict__) # Выводим структуру ответа
+    farm_hosts = await get_hosts()
+    gemini_tokens = await get_api_tokens()
 
-        # Получаем текст из кандидатов
-        candidates = response.candidates
-        full_text = ""
-        for candidate in candidates:
-            if candidate.content:
-                text_parts = candidate.content.parts
-                full_text += "".join([part.text for part in text_parts])
-        return full_text
-
-    except google.api_core.exceptions.ResourceExhausted as RE:
-        print(f'ERROR RE: {RE}')
-        return None
-
-    except google.api_core.exceptions.InternalServerError as ISE:
-        print(f'ERROR ISE: {ISE}')
-        return None
-        #time.sleep(10)
-        #attempt += 1
-
-    except ValueError as VE:
-        print("ERROR VE", VE)
-        return None
-
-async def get_answer_gemini_(prompt: str, engine: str):
-    """
-    gemini-1.5-pro - Ограничение скорости	1 запрос в минуту, 50 запросов в день
-    gemini-pro - Ограничение скорости	60 запросов в минуту
-    """
-    genai.configure(api_key=GEMINI_TOKEN)
-    model = genai.GenerativeModel(engine)
-    attempt = 0
-    while attempt < 10:
+    try_n = 0
+    while True:
         try:
-            response = model.generate_content(prompt)
-            break
-        except google.api_core.exceptions.InternalServerError as ISE:
-            print(f'ERROR: {ISE}')
-            time.sleep(10)
-            attempt += 1
+            random_host = random.choice(farm_hosts)
+            random_token = random.choice(gemini_tokens)
+            print(random_host, random_token)
 
-    try:
-        return response.text
+            url = f"http://{random_host}:8000/api/v1/start_generation"
+            data = {
+                "prompt": prompt,
+                "token": random_token,
+                "engine": engine
+            }
 
-    except ValueError as VE:
-        print("ERROR VE", VE)
-        return str(VE)
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, json=data, auth=auth)
 
+            if response.status_code == 200:
+                result = response.json()['result']
+                print('OK!')
+                return result
 
+            else:
+                if try_n == 10:
+                    return f"{random_host} {response.status_code}"
+
+                try_n += 1
+                await asyncio.sleep(1)
+
+        except requests.exceptions.ConnectionError as CE:
+            print('ERROR HOST:', random_host)
+
+            if try_n == 10:
+                return f"{random_host} {response.status_code} {CE}"
+
+            try_n += 1
+            await asyncio.sleep(1)
+
+        except Exception as Ex:
+            print(f'ERROR Ex: {Ex}')
+
+            if try_n == 10:
+                return f"{random_host} {response.status_code} {Ex}"
+
+            try_n += 1
+            await asyncio.sleep(1)
 
 async def get_answer_gpt(prompt: str, model: str):
     #model = 'text-davinci-003'
@@ -119,8 +126,6 @@ async def get_answer_gpt(prompt: str, model: str):
 # print(completion)
 
 #asyncio.run(get_answer_gpt(prompt: str, ''))
-
-
 #
 # def get_models():
 #     openai.api_key = GPT_TOKEN
@@ -183,27 +188,12 @@ async def get_answer_gpt(prompt: str, model: str):
 #
 #     print(response.json())
 
-
-#def get_answer_replicate(prompt: str, engine: str):
-#     input = {
-#         "top_p": 1,
-#         "prompt": "Can you write a poem about open source machine learning? Let's make it in the style of E. E. Cummings.",
-#         "temperature": 0.5,
-#         "system_prompt": "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\n\nIf a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information.",
-#         "max_new_tokens": 500
-#     }
 #
-#     for event in replicate.stream(
-#             "meta/llama-2-70b-chat",
-#             input=input
-#     ):
-#         print(event, end="")
-
-#def gpt_moderator(prompt: str):
+# def gpt_moderator(prompt: str):
 #     openai.api_key = GPT_TOKEN
 #     response = openai.moderations.create(prompt)
 #     result = response
-#     print(result)
+#     #print(result)
 #
 # def get_models_gemini():
 #     genai.configure(api_key=GEMINI_TOKEN)
@@ -224,3 +214,105 @@ async def get_answer_gpt(prompt: str, model: str):
 #     # Печатаем количество оставшихся запросов
 #     print(f"Оставшееся количество запросов: {remaining_requests}")
 #     print(f"Осталось запросов: {remaining_requests}")
+#
+# def get_answer_replicate(prompt: str, engine: str):
+#     input = {
+#         "top_p": 1,
+#         "prompt": "Can you write a poem about open source machine learning? Let's make it in the style of E. E. Cummings.",
+#         "temperature": 0.5,
+#         "system_prompt": "You are a helpful, respectful and honest assistant. Always answer as helpfully as possible, while being safe. Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\n\nIf a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information.",
+#         "max_new_tokens": 500
+#     }
+#
+#     for event in replicate.stream(
+#             "meta/llama-2-70b-chat",
+#             input=input
+#     ):
+#         print(event, end="")
+#
+#
+# async def get_answer_gemini_old(prompt: str, engine: str):
+#     """
+#     gemini-pro - Ограничение
+#     15 RPM - Requests per minute
+#     32,000 TPM - Tokens per minute
+#     1,500 RPD - Requests per day
+#     46,080,000 TPD - Tokens per day
+#
+#     gemini-1.5-flash - Ограничение
+#     15 RPM
+#     1 million TPM
+#     1500 RPD
+#
+#     gemini-1.5-pro - Ограничение
+#     2 RPM
+#     32,000 TPM
+#     50 RPD
+#     46,080,000 TPD
+#     """
+#     genai.configure(api_key=GEMINI_TOKEN)
+#     model = genai.GenerativeModel(engine)
+#     attempt = 0
+#     while attempt < 10:
+#         try:
+#             response = model.generate_content(prompt)
+#             break
+#
+#         except google.api_core.exceptions.InternalServerError as ISE:
+#             print(f'ERROR: {ISE}')
+#             time.sleep(10)
+#             attempt += 1
+#
+#     try:
+#         return response.text
+#
+#     except ValueError as VE:
+#         print(VE)
+#         return str(VE)
+
+
+# async def get_answer_gemini_old(prompt: str, engine: str):
+#     """
+#     gemini-pro - Ограничение
+#     15 RPM - Requests per minute
+#     32,000 TPM - Tokens per minute
+#     1,500 RPD - Requests per day
+#     46,080,000 TPD - Tokens per day
+#
+#     gemini-1.5-flash - Ограничение
+#     15 RPM
+#     1 million TPM
+#     1500 RPD
+#
+#     gemini-1.5-pro - Ограничение
+#     2 RPM
+#     32,000 TPM
+#     50 RPD
+#     46,080,000 TPD
+#     """
+#     genai.configure(api_key=GEMINI_TOKEN)
+#     model = genai.GenerativeModel(engine)
+#
+#     try:
+#         response = model.generate_content(prompt)
+#         #print(f"Type of response: {type(response)}") # Проверяем тип ответа
+#         #print(response.__dict__) # Выводим структуру ответа
+#
+#         # Получаем текст из кандидатов
+#         candidates = response.candidates
+#         full_text = ""
+#         for candidate in candidates:
+#             if candidate.content:
+#                 text_parts = candidate.content.parts
+#                 full_text += "".join([part.text for part in text_parts])
+#         return full_text
+#
+#     except google.api_core.exceptions.InternalServerError as ISE:
+#         print(f'ERROR ISE: {ISE}')
+#         return str(ISE)
+#         #time.sleep(10)
+#         #attempt += 1
+#
+#     except ValueError as VE:
+#         print("ERROR VE", VE)
+#         return str(VE)

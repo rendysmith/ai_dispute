@@ -43,11 +43,17 @@ print(data['client_email'])
 
 gc = gspread.service_account(path_to_credentials)
 
+
+    # SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+    # SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
+    # credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    # service = build('sheets', 'v4', credentials=credentials).spreadsheets().values()
+
 async def get_service():
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
     SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
     credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-    service = build('sheets', 'v4', credentials=credentials)
+    service = build('sheets', 'v4', credentials=credentials)# .spreadsheets().values()
     return service
 
 def create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
@@ -187,15 +193,16 @@ def append_data_to_sheet_scope_old2(SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, da
     print('{0} cells appended.'.format(result.get('updates').get('updatedCells')))
 
 
-async def get_table_scope(SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
-    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-    SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
+async def get_table_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
+    # SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+    # SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
+    #
+    # credentials = service_account.Credentials.from_service_account_file(
+    #     SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    #
+    # service = build('sheets', 'v4', credentials=credentials).spreadsheets().values()
 
-    credentials = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-
-    service = build('sheets', 'v4', credentials=credentials).spreadsheets().values()
-
+    service = service.spreadsheets().values()
     # Retrieve values from the spreadsheet
     result = service.get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=SAMPLE_RANGE_NAME).execute()
     values = result.get('values', [])
@@ -204,14 +211,14 @@ async def get_table_scope(SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
     if not values:
         raise ValueError("No data found in the specified range.")
 
-    df = pd.DataFrame(values[1:], columns=values[0])  # Assuming headers in the first row
-    print(df)
+    #df = pd.DataFrame(values[1:], columns=values[0])  # Assuming headers in the first row
+    #print(df)
 
     while True:
         try:
             # Create a pandas DataFrame from the retrieved values
             df = pd.DataFrame(values[1:], columns=values[0])  # Assuming headers in the first row
-            print(df)
+            #print(df)
             break
 
         except ValueError as VE:
@@ -530,6 +537,14 @@ def column_name_to_letter(column_name):
     return letters
 
 async def skillbox_sheet(service, sheet_id, worksheet_name, data):
+    """
+    def for rec report
+    :param service: gs connector
+    :param sheet_id: sheet_id
+    :param worksheet_name: worksheet_name
+    :param data: dict(data)
+    :return: None
+    """
     service_name = data['service_name']
     date = data['date']
 
