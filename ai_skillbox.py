@@ -86,8 +86,8 @@ async def generator(service, url_answer, author, date, plus, minus):
     status = await append_data_to_sheet_scope(service, SS_ID, R_N, data)
     print(status)
 
-async def pars_url():
-    df = await get_table_scope(SS_ID, R_N)
+async def pars_url(service):
+    df = await get_table_scope(service, SS_ID, R_N)
     links = df['Link'].to_list()
     return links
 

@@ -11,7 +11,7 @@ current_date = datetime.now()
 
 async def check_pravda(service):
     url = 'https://pravda-sotrudnikov.ru/company/skillbox'
-    links = await pars_url()
+    links = await pars_url(service)
 
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
