@@ -1,9 +1,0 @@
-version: "3.8"
-
-services:
-  my-python-script:
-    image: python:3.10
-    command: ["python3", "/ai_one_off/main.py"]
-    volumes:
-      - ./:/ai_one_off/main.py
-
