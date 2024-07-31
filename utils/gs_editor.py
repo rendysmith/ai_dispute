@@ -9,11 +9,11 @@ import traceback
 
 import warnings
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+#from oauth2client.service_account import ServiceAccountCredentials
 
-import gspread_dataframe as gd
+#import gspread_dataframe as gd
 #from gspread_dataframe import set_with_dataframe, get_as_dataframe
-from gs_update_utils import setup_google_sheets, upload_table_to_google_sheet
+#from gs_update_utils import setup_google_sheets, upload_table_to_google_sheet
 from datetime import datetime
 
 #from googleapiclient.discovery import build
@@ -53,7 +53,7 @@ async def get_service():
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
     SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
     credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-    service = build('sheets', 'v4', credentials=credentials)# .spreadsheets().values()
+    service = build('sheets', 'v4', credentials=credentials) #.spreadsheets().values()
     return service
 
 def create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
@@ -147,66 +147,65 @@ async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANG
 # data = {'Результат от gemini-pro': '1356', 'Результат от gpt-3.5-turbo': '841616', 'Prompt': '98491'}
 # append_data_to_sheet_scope('1A73rT27Sa2Au5Bsb8v2u_C-ttDwJAYg_rY27CUfzdbw', 'HoneyBunny', data)
 
-
-def append_data_to_sheet_scope_old2(SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, data):
-    # Подключение к Google Sheets API
-    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-    SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
-    credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-    service = build('sheets', 'v4', credentials=credentials)
-
-    create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME)
-
-    # Получаем текущие заголовки колонок
-    result = service.spreadsheets().values().get(
-        spreadsheetId=SAMPLE_SPREADSHEET_ID,
-        range=SAMPLE_RANGE_NAME
-    ).execute()
-    current_columns = result.get('values', [])[0] if result.get('values', []) else []
-
-    # Проверяем наличие всех ожидаемых колонок в текущих заголовках
-    expected_columns = [k for k, v in data.items()]
-    for column_name in expected_columns:
-        if column_name not in current_columns:
-            # Если колонка отсутствует, добавляем её в таблицу
-            current_columns.append(column_name)
-
-    # Подготовка данных для записи
-    values = []
-    for column_name in current_columns:
-        values.append(
-            data.get(column_name, ''))  # Получаем значение из словаря или пустую строку, если ключ отсутствует
-
-    # Запись данных в таблицу
-    body = {
-        'values': [values]
-    }
-    print(body)
-    result = service.spreadsheets().values().append(
-        spreadsheetId=SAMPLE_SPREADSHEET_ID,
-        range=SAMPLE_RANGE_NAME,
-        valueInputOption='RAW',
-        insertDataOption='INSERT_ROWS',  # Вставляем данные в новые строки
-        body=body
-    ).execute()
-
-    print('{0} cells appended.'.format(result.get('updates').get('updatedCells')))
+#
+# def append_data_to_sheet_scope_old2(SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, data):
+#     # Подключение к Google Sheets API
+#     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+#     SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
+#     credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+#     service = build('sheets', 'v4', credentials=credentials)
+#
+#     create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME)
+#
+#     # Получаем текущие заголовки колонок
+#     result = service.spreadsheets().values().get(
+#         spreadsheetId=SAMPLE_SPREADSHEET_ID,
+#         range=SAMPLE_RANGE_NAME
+#     ).execute()
+#     current_columns = result.get('values', [])[0] if result.get('values', []) else []
+#
+#     # Проверяем наличие всех ожидаемых колонок в текущих заголовках
+#     expected_columns = [k for k, v in data.items()]
+#     for column_name in expected_columns:
+#         if column_name not in current_columns:
+#             # Если колонка отсутствует, добавляем её в таблицу
+#             current_columns.append(column_name)
+#
+#     # Подготовка данных для записи
+#     values = []
+#     for column_name in current_columns:
+#         values.append(
+#             data.get(column_name, ''))  # Получаем значение из словаря или пустую строку, если ключ отсутствует
+#
+#     # Запись данных в таблицу
+#     body = {
+#         'values': [values]
+#     }
+#     print(body)
+#     result = service.spreadsheets().values().append(
+#         spreadsheetId=SAMPLE_SPREADSHEET_ID,
+#         range=SAMPLE_RANGE_NAME,
+#         valueInputOption='RAW',
+#         insertDataOption='INSERT_ROWS',  # Вставляем данные в новые строки
+#         body=body
+#     ).execute()
+#
+#     print('{0} cells appended.'.format(result.get('updates').get('updatedCells')))
 
 
 async def get_table_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
-    # SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-    # SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
-    #
-    # credentials = service_account.Credentials.from_service_account_file(
-    #     SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-    #
-    # service = build('sheets', 'v4', credentials=credentials).spreadsheets().values()
+    """
+    :param service:
+    :param SAMPLE_SPREADSHEET_ID:
+    :param SAMPLE_RANGE_NAME:
+    :return:
+    """
 
-    service = service.spreadsheets().values()
     # Retrieve values from the spreadsheet
+    service = service.spreadsheets().values()
     result = service.get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=SAMPLE_RANGE_NAME).execute()
     values = result.get('values', [])
-    print(values)
+    #print(values)
 
     if not values:
         raise ValueError("No data found in the specified range.")
@@ -214,89 +213,107 @@ async def get_table_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
     #df = pd.DataFrame(values[1:], columns=values[0])  # Assuming headers in the first row
     #print(df)
 
-    while True:
+    n = 0
+    VE = None
+
+    while n <= 10:
         try:
             # Create a pandas DataFrame from the retrieved values
             df = pd.DataFrame(values[1:], columns=values[0])  # Assuming headers in the first row
             #print(df)
-            break
+            return df
 
         except ValueError as VE:
-            print('ValueError VE:', VE)
-            numb = int(time.time())
-            values[0].append(f'New_Col_{numb}')
+            print('Get_table_scope ValueError VE:', VE)
+
+            for idx, row in enumerate(values):
+                row_0 = values[0]
+                if len(row_0) < len(row):
+                    rz_0 = abs(len(row) - len(row_0))
+                    for i in range(rz_0):
+                        numb = int(time.time())
+                        values[0].append(f'New_Col_{numb}')
+                    break
+
+                elif len(row_0) > len(row):
+                    rz_1 = abs(len(row) - len(row_0))
+                    for i in range(rz_1):
+                        row.append(None)
+
             time.sleep(5)
+            n += 1
 
-    return df
+    return str(VE) if VE else "Unknown Error"
 
-def append_data_to_sheet_scope_old(SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, data):
-    # Подключение к Google Sheets API
-    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-    SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
-    credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-    service = build('sheets', 'v4', credentials=credentials)
-
-    # Проверяем наличие вкладки SAMPLE_RANGE_NAME
-    try:
-        service.spreadsheets().values().get(
-            spreadsheetId=SAMPLE_SPREADSHEET_ID,
-            range=SAMPLE_RANGE_NAME
-        ).execute()
-    except HttpError as e:
-        if e.resp.status == 404:  # Вкладка не найдена
-            body = {
-                'requests': [
-                    {
-                        'addSheet': {
-                            'properties': {
-                                'title': SAMPLE_RANGE_NAME.split('!')[0]
-                            }
-                        }
-                    }
-                ]
-            }
-            service.spreadsheets().batchUpdate(
-                spreadsheetId=SAMPLE_SPREADSHEET_ID,
-                body=body
-            ).execute()
-
-    # Получаем текущее количество строк в вкладке
-    result = service.spreadsheets().values().get(
-        spreadsheetId=SAMPLE_SPREADSHEET_ID,
-        range=SAMPLE_RANGE_NAME
-    ).execute()
-    num_rows = len(result.get('values', []))
-
-    # Запись данных в таблицу
-    body = {
-        'values': [list(data.values())]  # Преобразуем словарь данных в список значений
-    }
-    result = service.spreadsheets().values().append(
-        spreadsheetId=SAMPLE_SPREADSHEET_ID,
-        range=SAMPLE_RANGE_NAME + f'!A{num_rows + 1}',  # Начинаем запись с новой строки
-        valueInputOption='RAW',
-        insertDataOption='INSERT_ROWS',
-        body=body
-    ).execute()
+#
+# def append_data_to_sheet_scope_old(SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, data):
+#     # Подключение к Google Sheets API
+#     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+#     SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
+#     credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+#     service = build('sheets', 'v4', credentials=credentials)
+#
+#     # Проверяем наличие вкладки SAMPLE_RANGE_NAME
+#     try:
+#         service.spreadsheets().values().get(
+#             spreadsheetId=SAMPLE_SPREADSHEET_ID,
+#             range=SAMPLE_RANGE_NAME
+#         ).execute()
+#     except HttpError as e:
+#         if e.resp.status == 404:  # Вкладка не найдена
+#             body = {
+#                 'requests': [
+#                     {
+#                         'addSheet': {
+#                             'properties': {
+#                                 'title': SAMPLE_RANGE_NAME.split('!')[0]
+#                             }
+#                         }
+#                     }
+#                 ]
+#             }
+#             service.spreadsheets().batchUpdate(
+#                 spreadsheetId=SAMPLE_SPREADSHEET_ID,
+#                 body=body
+#             ).execute()
+#
+#     # Получаем текущее количество строк в вкладке
+#     result = service.spreadsheets().values().get(
+#         spreadsheetId=SAMPLE_SPREADSHEET_ID,
+#         range=SAMPLE_RANGE_NAME
+#     ).execute()
+#     num_rows = len(result.get('values', []))
+#
+#     # Запись данных в таблицу
+#     body = {
+#         'values': [list(data.values())]  # Преобразуем словарь данных в список значений
+#     }
+#     result = service.spreadsheets().values().append(
+#         spreadsheetId=SAMPLE_SPREADSHEET_ID,
+#         range=SAMPLE_RANGE_NAME + f'!A{num_rows + 1}',  # Начинаем запись с новой строки
+#         valueInputOption='RAW',
+#         insertDataOption='INSERT_ROWS',
+#         body=body
+#     ).execute()
 
 #append_data_to_sheet_scope_old('1A73rT27Sa2Au5Bsb8v2u_C-ttDwJAYg_rY27CUfzdbw', 'test', [['data_to_append']])
 
-def show_all_available_tables():
-  """
-  Функция, которая показывает все доступные таблицы в Google Sheets.
-  """
-  current_path = os.path.dirname(os.path.abspath(__file__))
-  # Подключаемся к Google Sheets
-  service = setup_google_sheets(current_path, "service_account.json")
-
-  # Получаем список всех таблиц
-  spreadsheet_list = service.list_spreadsheet_files() #   .spreadsheets().list().execute()
-
-  print(spreadsheet_list)
-
-  # Выводим информацию о таблицах
-  for spreadsheet in spreadsheet_list:
-    print('Название:', spreadsheet['name'])
+# def show_all_available_tables():
+#   """
+#   Функция, которая показывает все доступные таблицы в Google Sheets.
+#   """
+#   current_path = os.path.dirname(os.path.abspath(__file__))
+#   # Подключаемся к Google Sheets
+#   service = setup_google_sheets(current_path, "service_account.json")
+#
+#   # Получаем список всех таблиц
+#   spreadsheet_list = service.list_spreadsheet_files() #   .spreadsheets().list().execute()
+#
+#   print(spreadsheet_list)
+#
+#   # Выводим информацию о таблицах
+#   for spreadsheet in spreadsheet_list:
+#     print('Название:', spreadsheet['name'])
 
 def get_all_spreadsheets():
     try:
@@ -341,37 +358,37 @@ def write_data(data, worksheet_name):
     # workfile.append_rows(df.values.tolist(), start_row=last_row + 1)
 
 
-def read_table_name(worktable_name, worksheet_name):
-    try:
-        workfile = gc.open(worktable_name)
+# def read_table_name(worktable_name, worksheet_name):
+#     try:
+#         workfile = gc.open(worktable_name)
+#
+#     except gspread.exceptions.APIError as AE:
+#         print('--- Проблемы с API')
+#         print(AE)
+#
+#     except gspread.exceptions.SpreadsheetNotFound as SNF:
+#         print(f'--- Не найдена таблицы - {worktable_name}.')
+#         print(SNF)
+#
+#     df = gd.get_as_dataframe(workfile.worksheet(worksheet_name))
+#     df = df.dropna(axis=0, how="all").dropna(axis=1, how="all")
+#     return df
 
-    except gspread.exceptions.APIError as AE:
-        print('--- Проблемы с API')
-        print(AE)
-
-    except gspread.exceptions.SpreadsheetNotFound as SNF:
-        print(f'--- Не найдена таблицы - {worktable_name}.')
-        print(SNF)
-
-    df = gd.get_as_dataframe(workfile.worksheet(worksheet_name))
-    df = df.dropna(axis=0, how="all").dropna(axis=1, how="all")
-    return df
-
-async def read_table_id_gc(spreadsheet_id, worksheet_name):
-    try:
-        workfile = gc.open_by_key(spreadsheet_id)
-
-    except gspread.exceptions.APIError as AE:
-        print('--- Проблемы с API')
-        print(AE)
-
-    except gspread.exceptions.SpreadsheetNotFound as SNF:
-        print(f'--- Не найдена таблица с ID - {spreadsheet_id}.')
-        print(SNF)
-
-    df = gd.get_as_dataframe(workfile.worksheet(worksheet_name))
-    df = df.dropna(axis=0, how="all") #.dropna(axis=1, how="all")
-    return df
+# async def read_table_id_gc(spreadsheet_id, worksheet_name):
+#     try:
+#         workfile = gc.open_by_key(spreadsheet_id)
+#
+#     except gspread.exceptions.APIError as AE:
+#         print('--- Проблемы с API')
+#         print(AE)
+#
+#     except gspread.exceptions.SpreadsheetNotFound as SNF:
+#         print(f'--- Не найдена таблица с ID - {spreadsheet_id}.')
+#         print(SNF)
+#
+#     df = gd.get_as_dataframe(workfile.worksheet(worksheet_name))
+#     df = df.dropna(axis=0, how="all") #.dropna(axis=1, how="all")
+#     return df
 
 async def read_table_id(service, spreadsheet_id, worksheet_name):
     try:
@@ -537,14 +554,6 @@ def column_name_to_letter(column_name):
     return letters
 
 async def skillbox_sheet(service, sheet_id, worksheet_name, data):
-    """
-    def for rec report
-    :param service: gs connector
-    :param sheet_id: sheet_id
-    :param worksheet_name: worksheet_name
-    :param data: dict(data)
-    :return: None
-    """
     service_name = data['service_name']
     date = data['date']
 

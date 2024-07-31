@@ -4,14 +4,20 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import time
 
-from utils.gs_editor import skillbox_sheet, get_service
-from ai_skillbox import pars_url, generator
+from utils.gs_editor import get_service, get_table_scope
+from utils.ai_module import generate_and_white
+#from ai_skillbox import pars_url, generator
 
 current_date = datetime.now()
 
-async def check_pravda(service):
-    url = 'https://pravda-sotrudnikov.ru/company/skillbox'
-    links = await pars_url(service)
+async def pars_url(service, SS_ID, R_N):
+    df = await get_table_scope(service, SS_ID, R_N)
+    links = df['Link'].to_list()
+    return links
+
+async def check_pravda(service, company, pattern, criteria, SS_ID, project):
+    url = f'https://pravda-sotrudnikov.ru/company/{company}?sort=date'
+    links = await pars_url(service, SS_ID, project)
 
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -25,7 +31,7 @@ async def check_pravda(service):
     #print(last_page)
 
     for i in range(last_page):
-        url_page = url + f'?page={i+1}'
+        url_page = url + f'&page={i+1}'
         print(url_page)
 
         response = requests.get(url_page)
@@ -46,7 +52,8 @@ async def check_pravda(service):
                     # unix_time = date.timestamp()
                     if (current_date - date) > timedelta(days=30):
                         print(f'--- Отзыв старше 30 дней = {date}.')
-                        continue
+                        #continue
+                        return #Выход если очень старые отзывы
 
                     else:
                         print(f'+++ Отзыв в пределах 30 дней = {date}\n'
@@ -76,14 +83,34 @@ async def check_pravda(service):
                     cleaned_lines = [line.replace('\t', '') for line in minus]
                     minus = '\n'.join(cleaned_lines)
 
-                    await generator(service, url_answer, author, formatted_date, plus, minus)
+                    text = f"""
+                    Ты официальный представить компании '{company}'
+                    Твоя задача прочитать комментарий о компании:
+                    -----------Начало комментария--------------
+                    Плюсы:
+                    {plus}
+                    Минусы:
+                    {minus}
+                    ----------Конец комментария----------------
+                    и на основании шаблонов, составить отзыв
+                    ----------Начало шаблонов -----------------
+                    {pattern}
+                    ----------Конец шаблонов ------------------
+                    Необходимо учитывать следующее:
+                    {criteria}
+                    """
+
+                    prompt = text.format(company)
+
+                    #await generate_and_white(service, url_answer, author, formatted_date, prompt)
+                    await generate_and_white(service, url_answer, author, formatted_date, prompt, SS_ID, project)
 
         time.sleep(5)
 
-if __name__ == '__main__':
-    service = asyncio.run(get_service())
-    asyncio.run(check_pravda(service))
-
-    print('Отметка о выполнении')
-    data = {'service_name': 'PRAVDA', 'date': time.ctime()}
-    asyncio.run(skillbox_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data))
+# if __name__ == '__main__':
+#     service = asyncio.run(get_service())
+#     asyncio.run(check_pravda(service))
+#
+#     print('Отметка о выполнении')
+#     data = {'service_name': 'PRAVDA', 'date': time.ctime()}
+#     asyncio.run(skillbox_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data))

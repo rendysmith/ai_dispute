@@ -34,7 +34,7 @@ async def extract_ids(url):
     return ids
 
 async def check_ocompanii(service):
-    links = await pars_url()
+    links = await pars_url(service)
     #links = []
 
     headers = {

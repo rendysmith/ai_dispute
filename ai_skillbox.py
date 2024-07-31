@@ -20,9 +20,11 @@ import os, re
 import random
 import time
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+from requests.auth import HTTPBasicAuth
 
 from utils.gs_editor import get_table_scope, append_data_to_sheet_scope
-from utils.ai_module import get_answer_gemini, get_answer_gpt
+from utils.ai_module import get_answer_ai
 
 current_date = datetime.now()
 
@@ -60,17 +62,16 @@ async def generator(service, url_answer, author, date, plus, minus):
 {minus}
     """
     prompt = prompt_txt(review)
-    engine_gemini = 'gemini-pro'
-    engine_gpt = 'gpt-3.5-turbo'
 
     start_time = time.time()
 
-    results = await asyncio.gather(
-        get_answer_gemini(prompt, engine_gemini),
-        get_answer_gpt(prompt, engine_gpt)
-    )
-    result_gemini = results[0]
-    result_gpt = results[1]
+    dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+    load_dotenv(dotenv_path)
+
+    username = os.environ.get("HOST_USERNAME")
+    password = os.environ.get("HOST_PASSWORD")
+    auth = HTTPBasicAuth(username, password)
+    result = await get_answer_ai(auth, prompt)
 
     print(f'TIMER {round(time.time() - start_time, 2)}')
 
@@ -79,17 +80,17 @@ async def generator(service, url_answer, author, date, plus, minus):
         'Author': author,
         'Date': date,
         'Review': review,
-        f'Результат от {engine_gemini}': result_gemini,
-        f'Результат от {engine_gpt}': result_gpt
+        'Results': result,
+
     }
 
     status = await append_data_to_sheet_scope(service, SS_ID, R_N, data)
     print(status)
 
-async def pars_url(service):
-    df = await get_table_scope(service, SS_ID, R_N)
-    links = df['Link'].to_list()
-    return links
+# async def pars_url(service):
+#     df = await get_table_scope(service, SS_ID, R_N)
+#     links = df['Link'].to_list()
+#     return links
 
 
 

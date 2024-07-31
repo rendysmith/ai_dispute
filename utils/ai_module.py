@@ -1,5 +1,6 @@
 import asyncio
 import random
+import json
 
 import google.generativeai as genai
 import google.api_core.exceptions
@@ -8,11 +9,141 @@ from requests.auth import HTTPBasicAuth
 
 import httpx
 
-from utils.constants import GPT_TOKEN
 from utils.db_loader import get_api_tokens, get_hosts
 
+async def get_answer_gemini_old(prompt: str, engine: str):
+    """
+    gemini-pro - Ограничение
+    15 RPM - Requests per minute
+    32,000 TPM - Tokens per minute
+    1,500 RPD - Requests per day
+    46,080,000 TPD - Tokens per day
 
-async def get_answer_gemini(auth: HTTPBasicAuth, prompt: str, engine: str):
+    gemini-1.5-flash - Ограничение
+    15 RPM
+    1 million TPM
+    1500 RPD
+
+    gemini-1.5-pro - Ограничение
+    2 RPM
+    32,000 TPM
+    50 RPD
+    46,080,000 TPD
+    """
+    genai.configure(api_key=GEMINI_TOKEN)
+    model = genai.GenerativeModel(engine)
+
+    try:
+        response = model.generate_content(prompt)
+        #print(f"Type of response: {type(response)}") # Проверяем тип ответа
+        #print(response.__dict__) # Выводим структуру ответа
+
+        # Получаем текст из кандидатов
+        candidates = response.candidates
+        full_text = ""
+        for candidate in candidates:
+            if candidate.content:
+                text_parts = candidate.content.parts
+                full_text += "".join([part.text for part in text_parts])
+        return full_text
+
+    except google.api_core.exceptions.InternalServerError as ISE:
+        print(f'ERROR ISE: {ISE}')
+        return str(ISE)
+        #time.sleep(10)
+        #attempt += 1
+
+    except ValueError as VE:
+        print("ERROR VE", VE)
+        return str(VE)
+
+async def get_answer_gemini_local(prompt: str, engine: str, token = 'AIzaSyAFHcCXEOSIWdXdlxNelqzjoiT1CNJB8kQ'):
+    engine = engine.lower()
+    url = f'https://generativelanguage.googleapis.com/v1beta/models/{engine}:generateContent?key={token}'
+    headers = {'Content-Type': 'application/json'}
+    data = {
+        'contents': [
+            {
+                'parts': [
+                    {
+                        'text': prompt
+                    }
+                ]
+            }
+        ]
+    }
+    response = requests.post(url, headers=headers, data=json.dumps(data))
+    r_json = response.json()
+    #print("r_json:", r_json)
+    status_code = response.status_code
+    if status_code == 200:
+        if not r_json['candidates'][0].get('content'):
+            return status_code, r_json
+
+        result = r_json['candidates'][0]['content']['parts'][0]['text']
+        return status_code, result
+
+    else:
+        result = r_json['error']['message']
+        return status_code, result
+
+
+async def get_answer_ai(auth: HTTPBasicAuth, prompt: str):
+    farm_hosts = await get_hosts()
+    #gemini_tokens = await get_api_tokens()
+
+    try_n = 0
+    while True:
+        try:
+            random_host = random.choice(farm_hosts)
+            # random_token = random.choice(gemini_tokens)
+            # print(random_host, random_token)
+
+            url = f"http://{random_host}:8000/api/v1/start_generation"
+            data = {
+                "prompt": prompt
+            }
+
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(url, json=data, auth=auth)
+
+            if response.status_code == 200:
+                result = response.json()['result']
+                print('OK!')
+                return result
+
+            else:
+                if try_n == 10:
+                    return f"{random_host} {response.status_code}"
+
+                try_n += 1
+                await asyncio.sleep(1)
+
+        except requests.exceptions.ConnectionError as CE:
+            print('ERROR HOST:', random_host)
+
+            if try_n == 10:
+                return f"{random_host} {response.status_code}"
+
+            try_n += 1
+            await asyncio.sleep(1)
+
+        except Exception as Ex:
+            print(f'ERROR Ex: {Ex}')
+
+            if try_n == 10:
+                return f"{random_host} {response.status_code}"
+
+            try_n += 1
+            await asyncio.sleep(1)
+
+    #return None
+
+# auth = HTTPBasicAuth('anku@sidorinlab.ru', 'pass')
+# a = asyncio.run(get_answer_gemini(auth, "Какой вес у Солнца?", "gemini-1.5-flash"))
+# print(a)
+
+async def get_answer_gemini_old2(auth: HTTPBasicAuth, prompt: str, engine: str):
     """
     gemini-pro - Ограничение
     15 RPM - Requests per minute
@@ -49,7 +180,7 @@ async def get_answer_gemini(auth: HTTPBasicAuth, prompt: str, engine: str):
                 "engine": engine
             }
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=30) as client:
                 response = await client.post(url, json=data, auth=auth)
 
             if response.status_code == 200:
@@ -68,7 +199,7 @@ async def get_answer_gemini(auth: HTTPBasicAuth, prompt: str, engine: str):
             print('ERROR HOST:', random_host)
 
             if try_n == 10:
-                return f"{random_host} {response.status_code} {CE}"
+                return f"{random_host} {response.status_code}"
 
             try_n += 1
             await asyncio.sleep(1)
@@ -77,13 +208,13 @@ async def get_answer_gemini(auth: HTTPBasicAuth, prompt: str, engine: str):
             print(f'ERROR Ex: {Ex}')
 
             if try_n == 10:
-                return f"{random_host} {response.status_code} {Ex}"
+                return f"{random_host} {response.status_code}"
 
             try_n += 1
             await asyncio.sleep(1)
 
-async def get_answer_gpt(prompt: str, model: str):
-    #model = 'text-davinci-003'
+async def get_answer_gpt(prompt: str):
+    model = 'gpt-4o-mini'
     endpoint = "https://api.openai.com/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
@@ -120,12 +251,38 @@ async def get_answer_gpt(prompt: str, model: str):
         print(f"Error: {status_code}\n{r_json}")
         return None
 
+
+
+async def generate_and_white(service, url_answer, author, date, prompt, ss_id, company):
+    start_time = time.time()
+
+    dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+    load_dotenv(dotenv_path)
+
+    username = os.environ.get("HOST_USERNAME")
+    password = os.environ.get("HOST_PASSWORD")
+    auth = HTTPBasicAuth(username, password)
+    result = await get_answer_ai(auth, prompt)
+
+    print(f'TIMER {round(time.time() - start_time, 2)}')
+
+    data = {
+        'Link': url_answer,
+        'Author': author,
+        'Date': date,
+        'Results': result,
+    }
+
+    status = await append_data_to_sheet_scope(service, ss_id, company, data)
+    print(status)
+
 # Пример использования функции
 # user_message = "Какое расстояние от земли до солнца?"
 # completion = get_txt(user_message)
 # print(completion)
-
-#asyncio.run(get_answer_gpt(prompt: str, ''))
+#
+# r = asyncio.run(get_answer_gpt('Кто такой Илон Маск?'))
+# print(r)
 #
 # def get_models():
 #     openai.api_key = GPT_TOKEN
@@ -268,51 +425,4 @@ async def get_answer_gpt(prompt: str, model: str):
 #
 #     except ValueError as VE:
 #         print(VE)
-#         return str(VE)
-
-
-# async def get_answer_gemini_old(prompt: str, engine: str):
-#     """
-#     gemini-pro - Ограничение
-#     15 RPM - Requests per minute
-#     32,000 TPM - Tokens per minute
-#     1,500 RPD - Requests per day
-#     46,080,000 TPD - Tokens per day
-#
-#     gemini-1.5-flash - Ограничение
-#     15 RPM
-#     1 million TPM
-#     1500 RPD
-#
-#     gemini-1.5-pro - Ограничение
-#     2 RPM
-#     32,000 TPM
-#     50 RPD
-#     46,080,000 TPD
-#     """
-#     genai.configure(api_key=GEMINI_TOKEN)
-#     model = genai.GenerativeModel(engine)
-#
-#     try:
-#         response = model.generate_content(prompt)
-#         #print(f"Type of response: {type(response)}") # Проверяем тип ответа
-#         #print(response.__dict__) # Выводим структуру ответа
-#
-#         # Получаем текст из кандидатов
-#         candidates = response.candidates
-#         full_text = ""
-#         for candidate in candidates:
-#             if candidate.content:
-#                 text_parts = candidate.content.parts
-#                 full_text += "".join([part.text for part in text_parts])
-#         return full_text
-#
-#     except google.api_core.exceptions.InternalServerError as ISE:
-#         print(f'ERROR ISE: {ISE}')
-#         return str(ISE)
-#         #time.sleep(10)
-#         #attempt += 1
-#
-#     except ValueError as VE:
-#         print("ERROR VE", VE)
 #         return str(VE)

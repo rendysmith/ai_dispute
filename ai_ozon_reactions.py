@@ -22,9 +22,14 @@ async def ai_reaction_data_processing(service, auth, market):
 
     print(worktable_id, worksheet_name)
     df = await get_table_scope(service, worktable_id, worksheet_name)
+    print(list(df))
+    print(df)
 
     for idx, row in df.iterrows():
-        subject = df.loc[idx, 'Тематика']
+        try:
+            subject = df.loc[idx, 'Тематика']
+        except:
+            subject = market
         #mention = df.loc[rnd_idx, 'Текст упоминания']
         comment = df.loc[idx, 'Текст упоминания']
 
