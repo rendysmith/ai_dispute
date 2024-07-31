@@ -4,6 +4,7 @@ import re
 
 from utils.gs_editor import get_service, get_table_scope
 from utils.pravda_sotrudnikov import check_pravda
+from utils.dreamjob import check_dreamjob
 
 async def extract_company_name(pattern, url):
     match = re.search(pattern, url)
@@ -60,16 +61,20 @@ async def main():
                 else:
                     list_links.append(company)
 
-                await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
-
+                #await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             elif 'dreamjob.ru' in link:
                 pattern = r'(https://dreamjob\.ru/employers/\d+)'
                 link_company = await extract_company_name(pattern, link)
                 if link_company in list_links:
                     continue
+
                 else:
                     list_links.append(link_company)
+
+                print(link_company)
+
+                await check_dreamjob(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
                 #print(link_company)
 
 

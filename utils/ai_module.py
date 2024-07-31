@@ -1,15 +1,20 @@
 import asyncio
 import random
 import json
+import time
+import os
 
 import google.generativeai as genai
 import google.api_core.exceptions
 import requests
+from dotenv import load_dotenv
+
 from requests.auth import HTTPBasicAuth
 
 import httpx
 
 from utils.db_loader import get_api_tokens, get_hosts
+from utils.gs_editor import append_data_to_sheet_scope
 
 async def get_answer_gemini_old(prompt: str, engine: str):
     """

@@ -15,8 +15,8 @@ async def pars_url(service, SS_ID, R_N):
     links = df['Link'].to_list()
     return links
 
-async def check_pravda(service, company, pattern, criteria, SS_ID, project):
-    url = f'https://pravda-sotrudnikov.ru/company/{company}?sort=date'
+async def check_pravda(service, link, pattern, criteria, SS_ID, project):
+    url = f'https://pravda-sotrudnikov.ru/company/{link}?sort=date'
     links = await pars_url(service, SS_ID, project)
 
     response = requests.get(url)
@@ -84,7 +84,7 @@ async def check_pravda(service, company, pattern, criteria, SS_ID, project):
                     minus = '\n'.join(cleaned_lines)
 
                     text = f"""
-                    Ты официальный представить компании '{company}'
+                    Ты официальный представить компании '{project}'
                     Твоя задача прочитать комментарий о компании:
                     -----------Начало комментария--------------
                     Плюсы:
@@ -100,7 +100,7 @@ async def check_pravda(service, company, pattern, criteria, SS_ID, project):
                     {criteria}
                     """
 
-                    prompt = text.format(company)
+                    prompt = text.format(project, plus, minus, pattern, criteria)
 
                     #await generate_and_white(service, url_answer, author, formatted_date, prompt)
                     await generate_and_white(service, url_answer, author, formatted_date, prompt, SS_ID, project)
