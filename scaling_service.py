@@ -61,7 +61,7 @@ async def main():
                 else:
                     list_links.append(company)
 
-                #await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             elif 'dreamjob.ru' in link:
                 pattern = r'(https://dreamjob\.ru/employers/\d+)'
@@ -75,7 +75,7 @@ async def main():
                 print(link_company)
 
                 await check_dreamjob(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
-                #print(link_company)
+
 
 
 

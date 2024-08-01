@@ -257,8 +257,17 @@ async def get_answer_gpt(prompt: str):
         return None
 
 
+async def generate_and_white(**kwargs):
+    service = kwargs["service"]
+    url_answer = kwargs["url_answer"]
+    author = kwargs["author"]
+    formatted_date = kwargs["formatted_date"]
+    ss_id = kwargs["ss_id"]
+    project = kwargs["project"]
+    feedback = kwargs["feedback"]
+    pattern = kwargs["pattern"]
+    criteria = kwargs["criteria"]
 
-async def generate_and_white(service, url_answer, author, date, prompt, ss_id, company):
     start_time = time.time()
 
     dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -267,6 +276,21 @@ async def generate_and_white(service, url_answer, author, date, prompt, ss_id, c
     username = os.environ.get("HOST_USERNAME")
     password = os.environ.get("HOST_PASSWORD")
     auth = HTTPBasicAuth(username, password)
+
+    prompt = f"""
+    Ты официальный представить компании '{project}'
+    Твоя задача прочитать комментарий о компании:
+    -----------Начало комментария--------------
+    {feedback}
+    ----------Конец комментария----------------
+    Твоя задача: написать ответ на комментарий сотрудника используя для образца приложенные шаблоны
+    ----------Начало шаблонов -----------------
+    {pattern}
+    ----------Конец шаблонов ------------------
+    Так же необходимо учитывать следующее:
+    {criteria}
+    """
+
     result = await get_answer_ai(auth, prompt)
 
     print(f'TIMER {round(time.time() - start_time, 2)}')
@@ -274,11 +298,12 @@ async def generate_and_white(service, url_answer, author, date, prompt, ss_id, c
     data = {
         'Link': url_answer,
         'Author': author,
-        'Date': date,
-        'Results': result,
+        'Date': formatted_date,
+        'Feedback': feedback,
+        'Results': result
     }
 
-    status = await append_data_to_sheet_scope(service, ss_id, company, data)
+    status = await append_data_to_sheet_scope(service, ss_id, project, data)
     print(status)
 
 # Пример использования функции

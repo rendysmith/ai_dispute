@@ -44,9 +44,12 @@ async def check_pravda(service, link, pattern, criteria, SS_ID, project):
                 button = block.find('a', class_='btn btn-yellow show-answers-button')
                 answer = button.text
 
-                if answer == 'Ответить':
-                    author = block.find('div', class_='company-reviews-list-item-name').text.split('\t')
+                url_answer = 'https://pravda-sotrudnikov.ru' + button.get('href')
+                if url_answer in links:
+                    print(f'{url_answer}\nНа этот отзыв уже есть реакция!\n')
+                    continue
 
+                if answer == 'Ответить':
                     date_str = block.find('div', class_='company-reviews-list-item-date').text.strip()
                     date = datetime.strptime(date_str, "%H:%M %d.%m.%Y")
                     # unix_time = date.timestamp()
@@ -61,49 +64,49 @@ async def check_pravda(service, link, pattern, criteria, SS_ID, project):
 
                     formatted_date = date.strftime("%d.%m.%Y")
 
-                    #print(name)
+                    author = block.find('div', class_='company-reviews-list-item-name').text.split('\t')
                     cleaned_lines = [line.replace('\t', '').replace('\n', '') for line in author if line != '' and line != '\n']
-                    #print(cleaned_lines)
                     author = ' '.join(cleaned_lines)
                     #print(author)
 
-                    url_answer = 'https://pravda-sotrudnikov.ru' + button.get('href')
+                    conteiners = block.find_all('div', {'class': 'company-reviews-list-item-text-container'})
 
-                    if url_answer in links:
-                        print(f'{url_answer}\nНа этот отзыв уже есть реакция!\n')
-                        continue
+                    plus_title = conteiners[0].find('div', {'class': 'company-reviews-list-item-text-title'}).text
+                    plus = conteiners[0].find('div', {'class': 'company-reviews-list-item-text-message'}).text.strip()
 
-                    messages = block.find_all('div', class_='company-reviews-list-item-text-message')
+                    minus_title = conteiners[1].find('div', {'class': 'company-reviews-list-item-text-title'}).text
+                    minus = conteiners[1].find('div', {'class': 'company-reviews-list-item-text-message'}).text.strip()
 
-                    plus = messages[0].text.split('\n')
-                    cleaned_lines = [line.replace('\t', '') for line in plus]
-                    plus = '\n'.join(cleaned_lines)
-
-                    minus = messages[1].text.split('\n')
-                    cleaned_lines = [line.replace('\t', '') for line in minus]
-                    minus = '\n'.join(cleaned_lines)
-
-                    text = f"""
-                    Ты официальный представить компании '{project}'
-                    Твоя задача прочитать комментарий о компании:
-                    -----------Начало комментария--------------
-                    Плюсы:
+                    feedback = f"""
+                    {plus_title}:
                     {plus}
-                    Минусы:
+                    {minus_title}:
                     {minus}
-                    ----------Конец комментария----------------
-                    и на основании шаблонов, составить отзыв
-                    ----------Начало шаблонов -----------------
-                    {pattern}
-                    ----------Конец шаблонов ------------------
-                    Необходимо учитывать следующее:
-                    {criteria}
                     """
+                    feedback = textwrap.dedent(feedback)
 
-                    prompt = text.format(project, plus, minus, pattern, criteria)
+                    # plus_title = block.find('div', {'class': 'company-reviews-list-item-text-title'}).text
+                    # minus_title = block.find('div', {'class': 'company-reviews-list-item-text-title'}).text
+                    #
+                    # messages = block.find_all('div', class_='company-reviews-list-item-text-message')
+                    #
+                    # plus = messages[0].text.split('\n')
+                    # cleaned_lines = [line.replace('\t', '') for line in plus]
+                    # plus = '\n'.join(cleaned_lines)
+                    #
+                    # minus = messages[1].text.split('\n')
+                    # cleaned_lines = [line.replace('\t', '') for line in minus]
+                    # minus = '\n'.join(cleaned_lines)
 
-                    #await generate_and_white(service, url_answer, author, formatted_date, prompt)
-                    await generate_and_white(service, url_answer, author, formatted_date, prompt, SS_ID, project)
+                    await generate_and_white(service=service,
+                                             url_answer=url_answer,
+                                             author=author,
+                                             formatted_date=formatted_date,
+                                             ss_id=ss_id,
+                                             project=project,
+                                             feedback=feedback,
+                                             pattern=pattern,
+                                             criteria=criteria)
 
         time.sleep(5)
 
