@@ -51,7 +51,7 @@ async def main():
 
         for idx, row in df_mini.iterrows():
             link = row[project]
-
+            #---------------------------------------------------------------------------------------------------------
             if 'pravda-sotrudnikov.ru' in link:
                 pattern = r'company/([^/]+)/'
 
@@ -60,9 +60,9 @@ async def main():
                     continue
                 else:
                     list_links.append(company)
+                #await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
 
-                await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
-
+            #---------------------------------------------------------------------------------------------------------
             elif 'dreamjob.ru' in link:
                 pattern = r'(https://dreamjob\.ru/employers/\d+)'
                 link_company = await extract_company_name(pattern, link)
@@ -71,10 +71,13 @@ async def main():
 
                 else:
                     list_links.append(link_company)
+                #await check_dreamjob(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
 
-                print(link_company)
+            #---------------------------------------------------------------------------------------------------------
+            elif '2gis' in link:
+                pass
 
-                await check_dreamjob(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
+
 
 
 
