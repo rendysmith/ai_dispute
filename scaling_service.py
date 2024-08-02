@@ -84,7 +84,7 @@ async def main():
 
                 else:
                     list_links.append(link)
-                #await check_2gis(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                await check_2gis(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
 
             elif 'sravni.ru' in link:

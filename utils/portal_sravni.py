@@ -26,6 +26,8 @@ chrome_options.add_argument("--disable-dev-shm-usage")
 driver = webdriver.Chrome(options=chrome_options)
 
 current_date = datetime.now()
+seven_days_ago = current_date - timedelta(days=7)
+formatted_7date = seven_days_ago.strftime('%Y-%m-%d')
 
 async def compress_string(input_string):
     # Сжимаем строку с помощью zlib
@@ -49,118 +51,37 @@ async def pars_url(service, SS_ID, R_N):
         links = []
     return links
 
-async def convert_date(month):
-    months = {
-        'января': 1,
-        'февраля': 2,
-        "марта": 3,
-        "апреля": 4,
-        "мая": 5,
-        "июня": 6,
-        "июля": 7,
-        "августа": 8,
-        "сентября": 9,
-        "октября": 10,
-        "ноября": 11,
-        "декабря": 12
-    }
-    return months[month]
 
-
-async def check_sravni(service, url, pattern, criteria, ss_id, project):
+async def check_sravni(service, link, pattern, criteria, ss_id, project):
     links = await pars_url(service, ss_id, project)
-    "https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=2cf24b82de26a43cbc9961575a28d5ed&from=2024-05-04&isClient=false&locationRoute=&newIds=true&orderBy=byPopularity&pageIndex=1&pageSize=10&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true"
-    "https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=2cf24b82de26a43cbc9961575a28d5ed&from=2024-05-04&isClient=false&locationRoute=&newIds=true&orderBy=byPopularity&pageIndex=3&pageSize=10&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true"
-    "https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=2cf24b82de26a43cbc9961575a28d5ed&from=2024-05-04&isClient=false&locationRoute=&newIds=true&orderBy=byPopularity&pageIndex=6&pageSize=10&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true"
+    #       "https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=2cf24b82de26a43cbc9961575a28d5ed&from=2024-05-04       &isClient=false&locationRoute=&newIds=true&orderBy=byPopularity&pageIndex=1&pageSize=10 &reviewObjectId=126810&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true"
+    url = f"https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=2cf24b82de26a43cbc9961575a28d5ed&from={formatted_7date}&isClient=false&locationRoute=&newIds=true&orderBy=byPopularity&pageIndex=1&pageSize=100&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true"
 
+    r = requests.get(url).json()
 
-    print(url)
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows; Windows NT 10.0; Win64; x64; en-US) Gecko/20130401 Firefox/60.6'}
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    print(soup)
+    for i in r['items']:
 
-
-    blocks = soup.find_all('div', {'class': 'review-card_wrapper__gnPSK common_blockWrapper__Fw5ZV'})
-    print(len(blocks))
-
-
-    input()
-
-    driver.get(url)
-    # Ожидание загрузки определенного элемента (например, заголовка)
-    wait = WebDriverWait(driver, 10)
-    blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-review-view"]')
-    print(len(blocks))
-
-    input()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    for block in blocks:
-        date = block.find_element(By.CSS_SELECTOR, 'div[class="_4mwq3d"]').text.split(', ')[0].split(' ')
-        print(date)
-
-        year = int(date[2])
-        month = await convert_date(date[1])
-        day = int(date[0])
-
-        target_date = datetime(year, month, day)
-        formatted_date = target_date.strftime("%d.%m.%Y")
-        print(formatted_date)
-
-        if (current_date - target_date) > timedelta(days=30):
-            print(f'--- Отзыв старше 30 дней = {date}.')
-            continue
-
-        try:
-            answer = block.find_element(By.CSS_SELECTOR, 'div[class="_sgs1pz"]')
-            print('Уже есть ответ на комментарий')
-            continue
-
-        except:
-            pass
-
-        author = block.find_element(By.CSS_SELECTOR, 'span[class="_16s5yj36"]').text.strip()
-        print('\n', author)
-
-        feedback = block.find_element(By.CSS_SELECTOR, 'div[class="_49x36f"]').text
-        print(feedback)
-
-        url_answer = await compress_string(feedback)
-
+        url_answer = f"{link}{i['id']}"
         if url_answer in links:
-            print('Такой комментарий уже есть в списке')
             continue
 
-        author = f"{author}\n{url}"
+        if i['hasCompanyResponse'] == True:
+            continue
 
+        if i['commentsCount'] > 0:
+            continue
+
+        author = i['authorName']
+        if i.get('authorLastName'):
+            author = f"{author} {i['authorLastName']}"
+
+        date_str = i['createdToMoscow']
+        date_str_cleaned = date_str.split('.')[0] + '+00:00'
+        dt = datetime.fromisoformat(date_str_cleaned)
+        # Форматирование в нужный строковый формат
+        formatted_date = dt.strftime('%d.%m.%Y')
+
+        feedback = i['text']
         await generate_and_white(service=service,
                                  url_answer=url_answer,
                                  author=author,
@@ -171,7 +92,7 @@ async def check_sravni(service, url, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
-        time.sleep(7)
+
 
 
 # if __name__ == '__main__':
