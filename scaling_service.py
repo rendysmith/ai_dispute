@@ -5,6 +5,10 @@ import re
 from utils.gs_editor import get_service, get_table_scope
 from utils.pravda_sotrudnikov import check_pravda
 from utils.dreamjob import check_dreamjob
+from utils.portal_2gis import check_2gis
+from utils.portal_ya import check_ya
+from utils.portal_dzen import check_dzen
+from utils.portal_sravni import check_sravni
 
 async def extract_company_name(pattern, url):
     match = re.search(pattern, url)
@@ -46,7 +50,7 @@ async def main():
         df_mini = df_mini.sort_values().reset_index()
         print(len(df_mini))
 
-        print(df_mini)
+        #print(df_mini)
         list_links = []
 
         for idx, row in df_mini.iterrows():
@@ -75,7 +79,66 @@ async def main():
 
             #---------------------------------------------------------------------------------------------------------
             elif '2gis' in link:
-                pass
+                if link in list_links:
+                    continue
+
+                else:
+                    list_links.append(link)
+                #await check_2gis(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+
+            elif 'sravni.ru' in link:
+                pattern = r'https://www\.sravni\.ru/(.*?)/otzyvy/'
+
+                link_company = await extract_company_name(pattern, link)
+                if not link_company:
+                    continue
+
+                link = f"https://www.sravni.ru/{link_company}/otzyvy/"
+
+                if link in list_links:
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                await check_sravni(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+
+
+
+
+
+
+            elif 'drive2.ru' in link:
+                if link in list_links:
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                print('Узнать тригер для реакции на ответы')
+                #await check_dzen(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+            elif 'yandex.ru' in link:
+                if link in list_links:
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                print('Нужно прочти капчу')
+                #await check_ya(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+            elif 'dzen.ru' in link:
+                if link in list_links:
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                print('Не грузятся комменты')
+                #await check_dzen(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
 
 
@@ -88,7 +151,10 @@ async def main():
 
 
 
-        input('OK!')
+
+
+
+        #input('OK!')
 
 
 

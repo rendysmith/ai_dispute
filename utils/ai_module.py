@@ -303,6 +303,8 @@ async def generate_and_white(**kwargs):
         'Results': result
     }
 
+    print(data)
+
     status = await append_data_to_sheet_scope(service, ss_id, project, data)
     print(status)
 

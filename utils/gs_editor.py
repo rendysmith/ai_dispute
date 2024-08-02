@@ -142,56 +142,15 @@ async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANG
     print('{0} cells appended.'.format(result.get('updates').get('updatedCells')))
     return 'OK!'
 
-#data = {'Link': 'URL TEST', 'Результат от gemini-pro': '1356', 'Результат от gpt-3.5-turbo': '841616'}
-#asyncio.run(append_data_to_sheet_scope('1A73rT27Sa2Au5Bsb8v2u_C-ttDwJAYg_rY27CUfzdbw', 'Skillbox', data))
-# data = {'Результат от gemini-pro': '1356', 'Результат от gpt-3.5-turbo': '841616', 'Prompt': '98491'}
-# append_data_to_sheet_scope('1A73rT27Sa2Au5Bsb8v2u_C-ttDwJAYg_rY27CUfzdbw', 'HoneyBunny', data)
 
-#
-# def append_data_to_sheet_scope_old2(SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, data):
-#     # Подключение к Google Sheets API
-#     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-#     SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
-#     credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-#     service = build('sheets', 'v4', credentials=credentials)
-#
-#     create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME)
-#
-#     # Получаем текущие заголовки колонок
-#     result = service.spreadsheets().values().get(
-#         spreadsheetId=SAMPLE_SPREADSHEET_ID,
-#         range=SAMPLE_RANGE_NAME
-#     ).execute()
-#     current_columns = result.get('values', [])[0] if result.get('values', []) else []
-#
-#     # Проверяем наличие всех ожидаемых колонок в текущих заголовках
-#     expected_columns = [k for k, v in data.items()]
-#     for column_name in expected_columns:
-#         if column_name not in current_columns:
-#             # Если колонка отсутствует, добавляем её в таблицу
-#             current_columns.append(column_name)
-#
-#     # Подготовка данных для записи
-#     values = []
-#     for column_name in current_columns:
-#         values.append(
-#             data.get(column_name, ''))  # Получаем значение из словаря или пустую строку, если ключ отсутствует
-#
-#     # Запись данных в таблицу
-#     body = {
-#         'values': [values]
-#     }
-#     print(body)
-#     result = service.spreadsheets().values().append(
-#         spreadsheetId=SAMPLE_SPREADSHEET_ID,
-#         range=SAMPLE_RANGE_NAME,
-#         valueInputOption='RAW',
-#         insertDataOption='INSERT_ROWS',  # Вставляем данные в новые строки
-#         body=body
-#     ).execute()
-#
-#     print('{0} cells appended.'.format(result.get('updates').get('updatedCells')))
-
+# async def main():
+#     url = "mail.ru"
+#     url_answer = "ССылка на почту"
+#     url_answer = f'''=ГИПЕРССЫЛКА("{url}"; "{url_answer}")'''
+#     data = {'Link': url_answer}
+#     service = await get_service()
+#     await append_data_to_sheet_scope(service, '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w', 'Паритет', data)
+# asyncio.run(main())
 
 async def get_table_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
     """
