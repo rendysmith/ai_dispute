@@ -127,13 +127,6 @@ async def main():
 
                 #await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
-
-
-
-
-
-
-
             elif 'drive2.ru' in link:
                 if link in list_links:
                     continue
@@ -143,6 +136,13 @@ async def main():
 
                 #print('Узнать тригер для реакции на ответы')
                 await check_drive2(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+
+
+
+
+
+
 
 
 
