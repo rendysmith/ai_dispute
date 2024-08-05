@@ -10,6 +10,7 @@ from utils.portal_ya import check_ya
 from utils.portal_dzen import check_dzen
 from utils.portal_sravni import check_sravni
 from utils.ocompanii import check_ocompanii
+from utils.irecommend import check_irecommend
 
 async def extract_company_name(pattern, url):
     match = re.search(pattern, url)
@@ -65,10 +66,10 @@ async def main():
                     continue
                 else:
                     list_links.append(company)
-                await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                #await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             # ---------------------------------------------------------------------------------------------------------
-            if 'ocompanii' in link:
+            elif 'ocompanii' in link:
                 #pattern = r'company/([^/]+)/'
                 #company = await extract_company_name(pattern, link) #Наименование компании в pravda-sotrudnikov.ru
 
@@ -76,7 +77,7 @@ async def main():
                     continue
                 else:
                     list_links.append(link)
-                await check_ocompanii(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                #await check_ocompanii(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             #---------------------------------------------------------------------------------------------------------
             elif 'dreamjob.ru' in link:
@@ -115,6 +116,16 @@ async def main():
                     list_links.append(link)
 
                 #await check_sravni(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+            elif 'irecommend' in link:
+                if link in list_links:
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
 
 
 
