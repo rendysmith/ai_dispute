@@ -11,6 +11,7 @@ from utils.portal_dzen import check_dzen
 from utils.portal_sravni import check_sravni
 from utils.ocompanii import check_ocompanii
 from utils.irecommend import check_irecommend
+from utils.portal_drive2 import check_drive2
 
 async def extract_company_name(pattern, url):
     match = re.search(pattern, url)
@@ -24,7 +25,7 @@ async def main():
 
     ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
     df = await get_table_scope(service, ss_id, 'zoom')
-    print(df)
+    #print(df)
 
     list_ = list(df)
     #print(list_)
@@ -124,7 +125,7 @@ async def main():
                 else:
                     list_links.append(link)
 
-                await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                #await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
 
 
@@ -140,8 +141,12 @@ async def main():
                 else:
                     list_links.append(link)
 
-                print('Узнать тригер для реакции на ответы')
-                #await check_dzen(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                #print('Узнать тригер для реакции на ответы')
+                await check_drive2(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+
+
+
 
             elif 'yandex.ru' in link:
                 if link in list_links:
@@ -168,21 +173,5 @@ async def main():
 
 
 
-
-
-
-
-
-
-
-
-
-        #input('OK!')
-
-
-
-
-
-
-
-asyncio.run(main())
+if "__main__" in __name__:
+    asyncio.run(main())

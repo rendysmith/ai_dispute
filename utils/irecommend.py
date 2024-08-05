@@ -6,7 +6,7 @@ import time
 
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
-#from ai_skillbox import pars_url, generator
+from utils.user_agent import gen_ua
 import textwrap
 
 current_date = datetime.now()
@@ -17,22 +17,13 @@ dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 
-from fake_useragent import UserAgent
-
-ua = UserAgent()
-
-headers = {
-    'User-Agent': ua.chrome,
-    'accept': 'application/json, text/javascript, */*; q=0.01',
-    'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-    'origin': 'https://irecommend.ru'
-}
 
 async def check_irecommend(service, link, pattern, criteria, ss_id, project):
     links = await pars_url(service, ss_id, project)
     print(links)
 
     domen = "https://irecommend.ru"
+    headers = await gen_ua(domen)
 
     response = requests.get(link, headers=headers)
     soup = BeautifulSoup(response.text, 'html.parser')
