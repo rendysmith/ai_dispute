@@ -53,16 +53,16 @@ async def check_ocompanii(service):
     #print(soup)
 
     blocks = soup.find_all('div', class_='col-sm-12 col-md-12')
-    print(len(blocks))
+    #print(len(blocks))
 
     add_comments = soup.find_all('a', class_='btn-primary3')
-    print(len(add_comments))
+    #print(len(add_comments))
 
     for add_com in add_comments:
         print('================================================')
         url_comm = add_com.get('href')
         id_ = await extract_ids(url_comm)
-        print(id_)
+        #print(id_)
 
         url_answer = f'https://ocompanii.net/reviews/detail.php?id={id_}'
         url_full_comm = f'https://ocompanii.net/reviews/load_detail.php?id={id_}'
@@ -160,7 +160,7 @@ async def check_ocompanii_old(service):
     time.sleep(5)
 
     hrefs = driver.find_elements(By.CSS_SELECTOR, "div[id]")
-    print(len(hrefs))
+    #print(len(hrefs))
 
     id_reviews = []
     for href in hrefs:

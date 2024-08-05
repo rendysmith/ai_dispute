@@ -1,0 +1,127 @@
+import asyncio
+import textwrap
+
+import requests
+import os, re
+
+from bs4 import BeautifulSoup
+
+from pyvirtualdisplay import Display
+from selenium import webdriver
+
+#from selenium.webdriver.support.ui import WebDriverWait
+#from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+#from webdriver_manager.chrome import ChromeDriverManager
+
+#from selenium.webdriver import ActionChains
+from selenium.webdriver.common.by import By
+#from selenium.webdriver.common.keys import Keys
+
+from datetime import datetime, timedelta
+import time
+
+from utils.gs_editor import pars_url
+from utils.ai_module import generate_and_white
+
+current_date = datetime.now()
+
+abspath = os.path.dirname(os.path.abspath(__file__))
+cor_path = os.path.abspath(os.curdir)
+
+import os
+from dotenv import load_dotenv
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(dotenv_path)
+days_ago = int(os.environ.get("DAYS_AGO"))
+
+async def extract_ids(url):
+    print(url)
+    pattern = r'id=(\d+)'
+    ids = re.search(pattern, url).group(1)
+    return ids
+
+async def check_ocompanii(service, link, pattern, criteria, ss_id, project):
+    links = await pars_url(service, ss_id, project)
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Referer': 'http://example.com',
+        'Upgrade-Insecure-Requests': '1'
+    }
+
+    url = 'https://ocompanii.net/company/information.php?cid=764047'
+    response = requests.get(url, headers=headers)
+    soup = BeautifulSoup(response.text, 'html.parser')
+
+    blocks = soup.find_all('div', class_='col-sm-12 col-md-12')
+    print(len(blocks))
+
+    for block in blocks:
+        #print('**************************************')
+        date_meta = block.find('meta', {'itemprop': 'datePublished'})
+        #print(date_meta)
+
+        try:
+            date_content = date_meta['content']
+            print(date_content)
+        except:
+            continue
+
+        date = datetime.strptime(date_content, "%Y-%m-%d %H:%M:%S")
+        #print("date", date)
+        formatted_date = date.strftime("%d.%m.%Y")
+
+        if (current_date - date) > timedelta(days=days_ago):
+            print(f'--- Отзыв старше {days_ago} дней. = {date}')
+            continue
+
+        url_comment = block.find('a', {'itemprop': 'url'})
+        url_answer = "https://ocompanii.net" + url_comment['href']
+        #print(url_answer)
+
+        if url_answer in links:
+            print(f'{url_answer}\nНа этот отзыв уже есть реакция!\n')
+            continue
+
+        author = block.find('meta', {'itemprop': 'name'}).text.strip()
+        #print(author)
+
+        id_ = await extract_ids(url_answer)
+
+        url_full_comm = f'https://ocompanii.net/reviews/load_detail.php?id={id_}'
+
+        response = requests.get(url_full_comm, headers=headers)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser').text
+        #print(type(soup))
+        #print(soup)
+
+        p_m = soup.split('###')
+
+        plus = p_m[-2]
+        minus = p_m[-1]
+
+        feedback = f"""
+        Положительные стороны
+        {plus}
+        Отрицательные стороны
+        {minus}
+        """
+        feedback = textwrap.dedent(feedback)
+
+        await generate_and_white(service=service,
+                                 url_answer=url_answer,
+                                 author=author,
+                                 formatted_date=formatted_date,
+                                 ss_id=ss_id,
+                                 project=project,
+                                 feedback=feedback,
+                                 pattern=pattern,
+                                 criteria=criteria)
+

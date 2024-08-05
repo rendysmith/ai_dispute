@@ -7,24 +7,32 @@ import time
 from utils.gs_editor import get_service, get_table_scope
 from utils.ai_module import generate_and_white
 #from ai_skillbox import pars_url, generator
+import textwrap
 
 current_date = datetime.now()
+
+import os
+from dotenv import load_dotenv
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(dotenv_path)
+days_ago = int(os.environ.get("DAYS_AGO"))
 
 async def pars_url(service, SS_ID, R_N):
     df = await get_table_scope(service, SS_ID, R_N)
     links = df['Link'].to_list()
     return links
 
-async def check_pravda(service, link, pattern, criteria, SS_ID, project):
+async def check_pravda(service, link, pattern, criteria, ss_id, project):
     url = f'https://pravda-sotrudnikov.ru/company/{link}?sort=date'
-    links = await pars_url(service, SS_ID, project)
+    print(url)
+    links = await pars_url(service, ss_id, project)
 
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
+
     li = soup.find_all('li')
     for l in li:
         txt = l.text
-
         if txt.isdigit():
             last_page = int(txt)
 
@@ -60,7 +68,7 @@ async def check_pravda(service, link, pattern, criteria, SS_ID, project):
 
                     else:
                         print(f'+++ Отзыв в пределах 30 дней = {date}\n'
-                              f'{(current_date - date)} > {timedelta(days=30)}')
+                              f'{(current_date - date)} > {timedelta(days=days_ago)}')
 
                     formatted_date = date.strftime("%d.%m.%Y")
 

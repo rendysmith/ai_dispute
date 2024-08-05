@@ -115,9 +115,9 @@ async def main_react(service):
     # print(len(df))
 
     df = await read_table_id_gc(worktable_id, worksheet_name)
-    print(len(df))
+    #print(len(df))
     df = df[(df['Негатив'].notna()) & ((df['Вариант 1'].isna()) | (df['Вариант 2'].isna()))]
-    print(len(df))
+    #print(len(df))
 
     col_gemini = 'Вариант 1'
     col_gpt = 'Вариант 2'

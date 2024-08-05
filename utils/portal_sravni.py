@@ -26,7 +26,14 @@ chrome_options.add_argument("--disable-dev-shm-usage")
 driver = webdriver.Chrome(options=chrome_options)
 
 current_date = datetime.now()
-seven_days_ago = current_date - timedelta(days=7)
+
+import os
+from dotenv import load_dotenv
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(dotenv_path)
+days_ago = int(os.environ.get("DAYS_AGO"))
+
+seven_days_ago = current_date - timedelta(days=days_ago)
 formatted_7date = seven_days_ago.strftime('%Y-%m-%d')
 
 async def compress_string(input_string):

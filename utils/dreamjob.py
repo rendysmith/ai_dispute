@@ -4,17 +4,19 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import time
 
-from utils.gs_editor import get_service, get_table_scope
+from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
 #from ai_skillbox import pars_url, generator
 import textwrap
 
 current_date = datetime.now()
 
-async def pars_url(service, SS_ID, R_N):
-    df = await get_table_scope(service, SS_ID, R_N)
-    links = df['Link'].to_list()
-    return links
+import os
+from dotenv import load_dotenv
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(dotenv_path)
+days_ago = int(os.environ.get("DAYS_AGO"))
+
 
 async def convert_date(month):
     months = {
@@ -73,7 +75,7 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
         #print(soup)
 
         blocks = soup.find_all('div', {"class": 'review', 'data-partly': 'short'})
-        print(len(blocks))
+        #print(len(blocks))
 
         for block in blocks:
             print('\n*******************************************')
@@ -92,8 +94,8 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
             target_date = datetime(int(date_spl[1]), month, 31)
             print(target_date)
 
-            if (current_date - target_date) > timedelta(days=30):
-                print(f'--- Отзыв старше 30 дней = {date}.')
+            if (current_date - target_date) > timedelta(days=days_ago):
+                print(f'--- Отзыв старше {days_ago} дней = {date}.')
                 continue
                 # return  # Выход если очень старые отзывы
 

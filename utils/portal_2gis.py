@@ -25,6 +25,12 @@ chrome_options.add_argument("--disable-dev-shm-usage")
 driver = webdriver.Chrome(options=chrome_options)
 current_date = datetime.now()
 
+import os
+from dotenv import load_dotenv
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(dotenv_path)
+days_ago = int(os.environ.get("DAYS_AGO"))
+
 async def compress_string(input_string):
     # Сжимаем строку с помощью zlib
     compressed_data = zlib.compress(input_string.encode('utf-8'))
@@ -74,7 +80,7 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project):
     wait = WebDriverWait(driver, 10)
 
     blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="_11gvyqv"]')
-    print(len(blocks))
+    #print(len(blocks))
 
     for block in blocks:
         date = block.find_element(By.CSS_SELECTOR, 'div[class="_4mwq3d"]').text.split(', ')[0].split(' ')
@@ -88,8 +94,8 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project):
         formatted_date = target_date.strftime("%d.%m.%Y")
         print(formatted_date)
 
-        if (current_date - target_date) > timedelta(days=30):
-            print(f'--- Отзыв старше 30 дней = {date}.')
+        if (current_date - target_date) > timedelta(days=days_ago):
+            print(f'--- Отзыв старше {days_ago} дней = {date}.')
             continue
 
         try:

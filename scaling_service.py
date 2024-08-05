@@ -9,6 +9,7 @@ from utils.portal_2gis import check_2gis
 from utils.portal_ya import check_ya
 from utils.portal_dzen import check_dzen
 from utils.portal_sravni import check_sravni
+from utils.ocompanii import check_ocompanii
 
 async def extract_company_name(pattern, url):
     match = re.search(pattern, url)
@@ -25,7 +26,7 @@ async def main():
     print(df)
 
     list_ = list(df)
-    print(list_)
+    #print(list_)
 
     for project in list_:
         if 'Проект' in project:
@@ -34,7 +35,7 @@ async def main():
         print(f'Project = {project}')
 
         df_mini = df[project]
-        print(len(df_mini))
+        #print(len(df_mini))
 
         df_mini_pattern = df_mini[df_mini.str.contains('Пример реакции', na=False)]
         df_mini_criteria = df_mini[df_mini.str.contains('Особые критерии', na=False)]
@@ -48,7 +49,7 @@ async def main():
 
         # Сортируем строки в колонке project
         df_mini = df_mini.sort_values().reset_index()
-        print(len(df_mini))
+        #print(len(df_mini))
 
         #print(df_mini)
         list_links = []
@@ -64,7 +65,18 @@ async def main():
                     continue
                 else:
                     list_links.append(company)
-                #await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+            # ---------------------------------------------------------------------------------------------------------
+            if 'ocompanii' in link:
+                #pattern = r'company/([^/]+)/'
+                #company = await extract_company_name(pattern, link) #Наименование компании в pravda-sotrudnikov.ru
+
+                if link in list_links:
+                    continue
+                else:
+                    list_links.append(link)
+                await check_ocompanii(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             #---------------------------------------------------------------------------------------------------------
             elif 'dreamjob.ru' in link:
@@ -84,7 +96,7 @@ async def main():
 
                 else:
                     list_links.append(link)
-                await check_2gis(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                #await check_2gis(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
 
             elif 'sravni.ru' in link:
@@ -102,7 +114,7 @@ async def main():
                 else:
                     list_links.append(link)
 
-                await check_sravni(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                #await check_sravni(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
 
 

@@ -77,7 +77,7 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project):
     print(soup)
 
     blocks = soup.find_all('div', {'class': 'comment__block-34 comment__root-wu'})
-    print(len(blocks))
+    #print(len(blocks))
 
     driver.get(url)
     print(driver.page_source)
