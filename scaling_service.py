@@ -12,6 +12,7 @@ from utils.portal_sravni import check_sravni
 from utils.ocompanii import check_ocompanii
 from utils.irecommend import check_irecommend
 from utils.portal_drive2 import check_drive2
+from utils.portal_otzovik import check_otzovik
 
 async def extract_company_name(pattern, url):
     match = re.search(pattern, url)
@@ -134,8 +135,27 @@ async def main():
                 else:
                     list_links.append(link)
 
-                #print('Узнать тригер для реакции на ответы')
-                await check_drive2(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                #await check_drive2(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+            elif 'otzovik.com' in link:
+                if link in list_links:
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                print('Банит по IP')
+                #await check_otzovik(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+            elif 'vk.com' in link:
+                if link in list_links:
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                print('Данные не выходят')
+                #await check_vk(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
 
 
