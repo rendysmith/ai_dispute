@@ -512,7 +512,7 @@ def column_name_to_letter(column_name):
         letters = chr(65 + remainder) + letters
     return letters
 
-async def skillbox_sheet(service, sheet_id, worksheet_name, data):
+async def write_log_sheet(service, sheet_id, worksheet_name, data):
     service_name = data['service_name']
     date = data['date']
 
@@ -522,11 +522,11 @@ async def skillbox_sheet(service, sheet_id, worksheet_name, data):
     print(index)
 
     if index == []:
-        print('Не найден элемент вводим на новую строку')
+        print('Logs: Не найден элемент вводим на новую строку')
         await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
 
     else:
-        print(f'{service_name} - есть в таблице, изменяем дату')
+        print(f'Logs: {service_name} - есть в таблице, изменяем дату')
         idx = index[0] + 2
         await append_data_to_sheet_cell(service, sheet_id, worksheet_name, 'date', idx, date)
 
