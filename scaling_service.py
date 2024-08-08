@@ -1,18 +1,19 @@
 import pandas as pd
 import asyncio
 import re
+import itertools
 
 from utils.gs_editor import get_service, get_table_scope
-from utils.pravda_sotrudnikov import check_pravda
-from utils.dreamjob import check_dreamjob
-from utils.portal_2gis import check_2gis
-from utils.portal_ya import check_ya
-from utils.portal_dzen import check_dzen
-from utils.portal_sravni import check_sravni
-from utils.ocompanii import check_ocompanii
-from utils.irecommend import check_irecommend
-from utils.portal_drive2 import check_drive2
-from utils.portal_otzovik import check_otzovik
+from portals.pravda_sotrudnikov import check_pravda
+from portals.dreamjob import check_dreamjob
+from portals.portal_2gis import check_2gis
+from portals.portal_ya import check_ya
+from portals.portal_dzen import check_dzen
+from portals.portal_sravni import check_sravni
+from portals.ocompanii import check_ocompanii
+from portals.irecommend import check_irecommend
+from portals.portal_drive2 import check_drive2
+from portals.portal_otzovik import check_otzovik
 
 async def extract_company_name(pattern, url):
     match = re.search(pattern, url)
@@ -35,7 +36,7 @@ async def main():
         if 'Проект' in project:
             continue
 
-        print(f'Project = {project}')
+        print(f'========================= Project = {project} ===============================')
 
         df_mini = df[project]
         #print(len(df_mini))
@@ -48,13 +49,25 @@ async def main():
 
         # Remove duplicates
         # Удаляем дубликаты
-        df_mini = df_mini.drop_duplicates()
+        df_mini = df_mini.drop_duplicates().reset_index()
 
         # Сортируем строки в колонке project
-        df_mini = df_mini.sort_values().reset_index()
-        #print(len(df_mini))
+        #df_mini = df_mini.sort_values().reset_index()
 
-        #print(df_mini)
+        print(df_mini)
+        #input('OK!')
+
+        grouped = df_mini.groupby(df_mini[project].str.extract(r'https://([^.]+)\.')[0])
+        print(1)
+        # Создаем цикл для перехода между доменами
+        cycle = itertools.cycle(grouped.groups.keys())
+        print(2)
+        # Перестраиваем DataFrame
+        df_mini = pd.concat([grouped.get_group(domain).sample(frac=1) for domain in cycle], ignore_index=True)
+        print(3)
+
+        print(df_mini)
+        input('**********************************************************')
         list_links = []
 
         for idx, row in df_mini.iterrows():
@@ -68,18 +81,15 @@ async def main():
                     continue
                 else:
                     list_links.append(company)
-                #await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'ocompanii' in link:
-                #pattern = r'company/([^/]+)/'
-                #company = await extract_company_name(pattern, link) #Наименование компании в pravda-sotrudnikov.ru
-
                 if link in list_links:
                     continue
                 else:
                     list_links.append(link)
-                #await check_ocompanii(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                await check_ocompanii(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             #---------------------------------------------------------------------------------------------------------
             elif 'dreamjob.ru' in link:
@@ -90,7 +100,7 @@ async def main():
 
                 else:
                     list_links.append(link_company)
-                #await check_dreamjob(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                await check_dreamjob(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             #---------------------------------------------------------------------------------------------------------
             elif '2gis' in link:
@@ -99,9 +109,9 @@ async def main():
 
                 else:
                     list_links.append(link)
-                #await check_2gis(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                await check_2gis(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
-
+            # ---------------------------------------------------------------------------------------------------------
             elif 'sravni.ru' in link:
                 pattern = r'https://www\.sravni\.ru/(.*?)/otzyvy/'
 
@@ -116,8 +126,7 @@ async def main():
 
                 else:
                     list_links.append(link)
-
-                #await check_sravni(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                await check_sravni(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             elif 'irecommend' in link:
                 if link in list_links:
@@ -125,8 +134,7 @@ async def main():
 
                 else:
                     list_links.append(link)
-
-                #await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             elif 'drive2.ru' in link:
                 if link in list_links:
@@ -134,8 +142,7 @@ async def main():
 
                 else:
                     list_links.append(link)
-
-                #await check_drive2(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                await check_drive2(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             elif 'otzovik.com' in link:
                 if link in list_links:
@@ -144,8 +151,8 @@ async def main():
                 else:
                     list_links.append(link)
 
-                print('Банит по IP')
-                #await check_otzovik(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                print('Бывают баны по IP')
+                await check_otzovik(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             elif 'vk.com' in link:
                 if link in list_links:
@@ -187,7 +194,6 @@ async def main():
 
                 print('Не грузятся комменты')
                 #await check_dzen(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
-
 
 
 
