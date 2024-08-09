@@ -51,11 +51,9 @@ async def main():
         # Remove duplicates
         # Удаляем дубликаты
         df_mini = df_mini.drop_duplicates().reset_index()
-
+        #print(df_mini)
         # Сортируем строки в колонке project
         #df_mini = df_mini.sort_values().reset_index()
-
-        print(df_mini)
 
         df_link_list = df_mini[project].to_list()
         random.shuffle(df_link_list)
@@ -67,7 +65,7 @@ async def main():
         # print(3)
 
         print(df_link_list)
-        input('**********************************************************')
+        #input('**********************************************************')
         list_links = []
 
         for link in df_link_list:
