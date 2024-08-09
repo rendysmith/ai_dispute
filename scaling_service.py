@@ -154,14 +154,25 @@ async def main():
                 #await check_otzovik(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             elif 'vk.com' in link:
-                if link in list_links:
+                print(link)
+                if 'wall' in link:
+                    pattern = r'(https?://vk\.com/wall-\d+_\d+)'
+                    link_company = await extract_company_name(pattern, link)
+
+                elif '?w=' in link:
+                    edit_link = link.split("?w=")
+                    link_company = "http://vk.com/" + edit_link[-1]
+
+                print("link_company =", link_company)
+
+                if link_company in list_links:
                     continue
 
                 else:
-                    list_links.append(link)
+                    list_links.append(link_company)
 
                 print('Данные не выходят')
-                await check_vk(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                await check_vk(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
 
 
 

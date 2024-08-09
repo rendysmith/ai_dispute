@@ -45,7 +45,8 @@ async def convert_date(month):
 
 async def check_vk(service, link, pattern, criteria, ss_id, project):
     print(link)
-    ts = random.randint(5, 30)
+    ts = random.randint(5, 120)
+    print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
     links = await pars_url(service, ss_id, project)
@@ -72,16 +73,23 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
         except:
             continue
 
+        if len(date) < 3:
+            continue
+
         day = int(date[0])
         month = await convert_date(date[1])
-        year = int(date[2])
+
+        if len(date) == 4:
+            year = int(datetime.now().strftime('%Y'))
+        else:
+            year = int(date[2])
 
         target_date = datetime(year, month, day)
         formatted_date = target_date.strftime("%d.%m.%Y")
         print(formatted_date)
 
         if (current_date - target_date) > timedelta(days=days_ago):
-            print(f'--- Отзыв старше {days_ago} дней = {date}.')
+            print(f'--- Отзыв старше {days_ago} дней = {formatted_date}.')
             continue
 
         url_answer = block.find_element(By.CSS_SELECTOR, 'a[class="wd_lnk"]').get_attribute('href')
@@ -89,9 +97,10 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
             print('Такой комментарий уже есть в списке')
             continue
 
+        print(url_answer)
+
         author = block.find_element(By.CSS_SELECTOR, 'a[class="author author_highlighted"]').text
         print(author)
-        print(url_answer)
 
         feedback = block.find_element(By.CSS_SELECTOR, 'div[class="wall_reply_text"]')
         print(feedback)
@@ -109,23 +118,8 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
 
 
 if __name__ == '__main__':
-    # host_port = asyncio.run(get_iplist())
-    #
-    # proxies = {
-    #     'http': f'http://{login_proxy}:{pass_proxy}@{host_port}',
-    #     'https': f'https://{login_proxy}:{pass_proxy}@{host_port}'
-    # }
-    #
-    # print(proxies)
-    # response = requests.get("http://api.ipify.org/", proxies=proxies)
-    # print(response.text)
-    #
-    #
-    # response = requests.get("http://ipwho.is/", proxies=proxies)
-    # print(response.json()['continent'])
-    # print(response.json()['country'])
-
 
     service = asyncio.run(get_service())
     url = 'https://vk.com/wall-11694885_373082?reply=373184'
+    url = 'https://vk.com/wall-174161511_351476?reply=351757&thread=351493'
     asyncio.run(check_vk(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет"))
