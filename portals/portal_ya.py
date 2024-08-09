@@ -41,13 +41,7 @@ async def decompress_string(compressed_string):
     decompressed_data = zlib.decompress(compressed_data)
     return decompressed_data.decode('utf-8')
 
-async def pars_url(service, SS_ID, R_N):
-    try:
-        df = await get_table_scope(service, SS_ID, R_N)
-        links = df['Link'].to_list()
-    except:
-        links = []
-    return links
+
 
 async def convert_date(month):
     months = {

@@ -531,8 +531,11 @@ async def write_log_sheet(service, sheet_id, worksheet_name, data):
         await append_data_to_sheet_cell(service, sheet_id, worksheet_name, 'date', idx, date)
 
 async def pars_url(service, SS_ID, R_N):
-    df = await get_table_scope(service, SS_ID, R_N)
-    links = df['Link'].to_list()
+    try:
+        df = await get_table_scope(service, SS_ID, R_N)
+        links = df['Link'].to_list()
+    except:
+        links = []
     return links
 
 

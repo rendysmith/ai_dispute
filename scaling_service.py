@@ -15,6 +15,7 @@ from portals.ocompanii import check_ocompanii
 from portals.irecommend import check_irecommend
 from portals.portal_drive2 import check_drive2
 from portals.portal_otzovik import check_otzovik
+from portals.portal_vk import check_vk
 
 async def extract_company_name(pattern, url):
     match = re.search(pattern, url)
@@ -64,7 +65,7 @@ async def main():
         # df_mini = pd.concat([grouped.get_group(domain).sample(frac=1) for domain in cycle], ignore_index=True)
         # print(3)
 
-        print(df_link_list)
+        #print(df_link_list)
         #input('**********************************************************')
         list_links = []
 
@@ -132,7 +133,7 @@ async def main():
 
                 else:
                     list_links.append(link)
-                await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                #await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             elif 'drive2.ru' in link:
                 if link in list_links:
@@ -160,7 +161,7 @@ async def main():
                     list_links.append(link)
 
                 print('Данные не выходят')
-                #await check_vk(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                await check_vk(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
 
 

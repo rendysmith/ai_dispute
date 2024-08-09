@@ -2,19 +2,23 @@ import asyncio
 import random
 import time
 
+import googleapiclient.errors
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
+from selenium.webdriver.common.by import By
+
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
-from utils.user_agent import gen_ua
+from utils.user_agent import get_soup, get_selenium
 from utils.proxy_bridge import get_iplist
+import os
+from dotenv import load_dotenv
 
 current_date = datetime.now()
 
-import os
-from dotenv import load_dotenv
+
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
@@ -41,57 +45,56 @@ async def convert_date(month):
 
 async def check_vk(service, link, pattern, criteria, ss_id, project):
     print(link)
+    ts = random.randint(5, 30)
+    await asyncio.sleep(ts)
 
     links = await pars_url(service, ss_id, project)
-    domen = "https://vk.com"
-    headers = await gen_ua(domen)
 
-    # host_port = await get_iplist()
-    #
-    # proxies = {
-    #     'http': f'http://{login_proxy}:{pass_proxy}@{host_port}',
-    #     'https': f'https://{login_proxy}:{pass_proxy}@{host_port}'
-    # }
+    driver = await get_selenium(link)
 
+    blocks = driver.find_elements(By.CSS_SELECTOR, 'div[id*="-"][class*="repl"][data-post-id*="-"]')
+    len_b = len(blocks)
+    print(len_b)
 
-    response = requests.get(link, headers=headers)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    print(soup)
+    if len_b == 0:
+        blocks = driver.find_elements(By.CSS_SELECTOR, 'div[id*="post-"][class*="bp_post clear_fix "]')
+        len_b = len(blocks)
 
-    blocks = soup.find_all("div", {"class": "reply_content"})
-    print(len(blocks))
-
-    if len(blocks) == 0:
+    print(len_b)
+    if len_b == 0:
         return
 
     for block in blocks:
-        url_answer = block['id']
-        if url_answer in links:
-            print("Такой комментарий уже отмечен")
+        try:
+            date = block.find_element(By.CSS_SELECTOR, 'span[class="rel_date"]').text.split(' ')
+            print(date)
+
+        except:
             continue
 
-        date_content = block.find("div", {"class": "comment-postdate ts"}).text.strip().split(' ')
-        #print(type(date_content))
-        print(date_content)
-        year = int(date_content[2])
-        month = await convert_date(date_content[1])
-        day = int(date_content[0])
-        hour = int(date_content[-1][0:2])
+        day = int(date[0])
+        month = await convert_date(date[1])
+        year = int(date[2])
 
         target_date = datetime(year, month, day)
+        formatted_date = target_date.strftime("%d.%m.%Y")
+        print(formatted_date)
 
         if (current_date - target_date) > timedelta(days=days_ago):
-            print(f'--- Отзыв старше {days_ago} дней. = {target_date}')
+            print(f'--- Отзыв старше {days_ago} дней = {date}.')
             continue
 
-        author = block.find("a", {"class": "user-login"}).text
+        url_answer = block.find_element(By.CSS_SELECTOR, 'a[class="wd_lnk"]').get_attribute('href')
+        if url_answer in links:
+            print('Такой комментарий уже есть в списке')
+            continue
+
+        author = block.find_element(By.CSS_SELECTOR, 'a[class="author author_highlighted"]').text
         print(author)
-        input()
+        print(url_answer)
 
-        formatted_date = date.strftime("%d.%m.%Y")
-        #print(formatted_date)
-
-        feedback = block.find("div", {"class": "comment-body"}).text
+        feedback = block.find_element(By.CSS_SELECTOR, 'div[class="wall_reply_text"]')
+        print(feedback)
 
         await generate_and_white(service=service,
                                  url_answer=url_answer,
@@ -103,8 +106,7 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
-    ts = random.randint(5, 30)
-    await asyncio.sleep(ts)
+
 
 if __name__ == '__main__':
     # host_port = asyncio.run(get_iplist())
