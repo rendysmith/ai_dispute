@@ -2,6 +2,7 @@ import pandas as pd
 import asyncio
 import re
 import itertools
+import random
 
 from utils.gs_editor import get_service, get_table_scope
 from portals.pravda_sotrudnikov import check_pravda
@@ -55,23 +56,22 @@ async def main():
         #df_mini = df_mini.sort_values().reset_index()
 
         print(df_mini)
-        #input('OK!')
 
-        grouped = df_mini.groupby(df_mini[project].str.extract(r'https://([^.]+)\.')[0])
-        print(1)
+        df_link_list = df_mini[project].to_list()
+        random.shuffle(df_link_list)
         # Создаем цикл для перехода между доменами
-        cycle = itertools.cycle(grouped.groups.keys())
-        print(2)
-        # Перестраиваем DataFrame
-        df_mini = pd.concat([grouped.get_group(domain).sample(frac=1) for domain in cycle], ignore_index=True)
-        print(3)
+        # cycle = itertools.cycle(grouped.groups.keys())
+        # print(2)
+        # # Перестраиваем DataFrame
+        # df_mini = pd.concat([grouped.get_group(domain).sample(frac=1) for domain in cycle], ignore_index=True)
+        # print(3)
 
-        print(df_mini)
+        print(df_link_list)
         input('**********************************************************')
         list_links = []
 
-        for idx, row in df_mini.iterrows():
-            link = row[project]
+        for link in df_link_list:
+            #link = row[project]
             #---------------------------------------------------------------------------------------------------------
             if 'pravda-sotrudnikov.ru' in link:
                 pattern = r'company/([^/]+)/'
