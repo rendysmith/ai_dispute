@@ -26,7 +26,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
     print(f"Wait {ts} sec.")
     await asyncio.sleep(ts)
 
-    print(link)
+    print("\n", link)
     links = await pars_url(service, ss_id, project)
 
     domen = "https://irecommend.ru"
