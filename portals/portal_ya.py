@@ -1,4 +1,6 @@
 import asyncio
+import random
+
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
@@ -13,8 +15,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from utils.gs_editor import get_service, get_table_scope
+from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
+from utils.user_agent import gen_ua, get_selenium
 
 # Настройка опций Chrome для работы в headless-режиме
 chrome_options = Options()
@@ -63,89 +66,46 @@ async def convert_date(month):
 
 async def check_ya(service, url, pattern, criteria, ss_id, project):
     links = await pars_url(service, ss_id, project)
+    ts = random.randint(5, 6)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
 
-    print(url)
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows; Windows NT 10.0; Win64; x64; en-US) Gecko/20130401 Firefox/60.6'}
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    print(soup)
+    driver = await get_selenium(url)
 
-    blocks = soup.find_all('div', {'class': 'business-review-view'})
-    print(len(blocks))
+    zen_object_id = driver.find_element(By.CSS_SELECTOR, 'meta[property="zen_object_id"]').get_attribute('content').split(':')
+    print(zen_object_id)
+    documentId = zen_object_id[1]
+    publicationPublisherId = zen_object_id[0]
 
-    driver.get(url)
-    # Ожидание загрузки определенного элемента (например, заголовка)
-    wait = WebDriverWait(driver, 10)
-    blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-review-view"]')
-    print(len(blocks))
+    url_json = f'https://dzen.ru/api/comments/v2/root-comments?documentId=native%3A{documentId}&publicationPublisherId={publicationPublisherId}'
+    r = requests.get(url_json).json()
+    UsersByID = {v['uidSafe']: v['displayName'] for k, v in r['usersById'].items()}
+    print(UsersByID)
 
-    input()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    for block in blocks:
-        date = block.find_element(By.CSS_SELECTOR, 'div[class="_4mwq3d"]').text.split(', ')[0].split(' ')
-        print(date)
-
-        year = int(date[2])
-        month = await convert_date(date[1])
-        day = int(date[0])
-
-        target_date = datetime(year, month, day)
-        formatted_date = target_date.strftime("%d.%m.%Y")
-        print(formatted_date)
-
-        if (current_date - target_date) > timedelta(days=30):
-            print(f'--- Отзыв старше 30 дней = {date}.')
-            continue
-
-        try:
-            answer = block.find_element(By.CSS_SELECTOR, 'div[class="_sgs1pz"]')
-            print('Уже есть ответ на комментарий')
-            continue
-
-        except:
-            pass
-
-        author = block.find_element(By.CSS_SELECTOR, 'span[class="_16s5yj36"]').text.strip()
-        print('\n', author)
-
-        feedback = block.find_element(By.CSS_SELECTOR, 'div[class="_49x36f"]').text
-        print(feedback)
-
-        url_answer = await compress_string(feedback)
+    for block in r['items']:
+        print(block)
+        url_answer = block['entityData']['id']
+        print(url_answer)
 
         if url_answer in links:
             print('Такой комментарий уже есть в списке')
             continue
 
-        author = f"{author}\n{url}"
+        date = block['entityData']['createdTs']/1000
+
+        if (time.time() - date) > 7 * 24 * 3600:
+            print(f'--- Отзыв старше 30 дней = {date}.')
+            continue
+
+        date = datetime.fromtimestamp(timestamp_sec)
+        # Форматирование даты
+        formatted_date = date.strftime('%d.%m.%Y')
+        print(formatted_date)
+
+        #authorSafeUid = block['authorSafeUid']
+        author = UsersByID[block['entityData']['authorSafeUid']]
+        print(author)
+        input()
 
         await generate_and_white(service=service,
                                  url_answer=url_answer,
@@ -157,14 +117,36 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
-        time.sleep(7)
 
 
-# if __name__ == '__main__':
-#     service = asyncio.run(get_service())
-#     url = 'https://2gis.ru/tyumen/firm/70000001078903378/tab/reviews'
-#     asyncio.run(check_2gis(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет"))
-#
-#     print('Отметка о выполнении')
-#     data = {'service_name': 'PRAVDA', 'date': time.ctime()}
-#     asyncio.run(skillbox_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data))
+async def main():
+    service = await get_service()
+    url = 'https://market.yandex.ru/product--cordiant-snow-cross-2-zimniaia-shipovannaia/177735076/reviews?_redirectCount=1'
+
+    url = 'https://dzen.ru/a/ZpTppvyvWw9ewvtn'
+    #
+    # headers = await gen_ua('https://dzen.ru')
+    #
+    # response = requests.get(url, headers=headers)
+    # html_content = response.text
+    #
+    # # Анализ HTML с помощью BeautifulSoup
+    # soup = BeautifulSoup(html_content, 'html.parser')
+    # for script in soup.find_all('script'):
+    #     if 'api/comments/v2/root-comments' in script.text:
+    #         json_url = script.text.split('"')[1]  # Получаем URL
+    #         break
+    #
+    # print(json_url)
+
+    #input(soup)
+
+
+    #url = 'https://dzen.ru/api/comments/v2/root-comments?documentId=native%3A6694e9a6fcaf5b0f5ec2fb67&publicationPublisherId=5930fb857ddde84c29e24b43&batchSize=3&withConfig=true&sessionTs=1723453482421&clientTs=1723453482422&subscriptionStateFor=currentUser&updateDefaultSorting=false&withCurrentUser=true&rid=1258414138.2801038807.2695878971389038.401557352&rnd=1723453482422'
+    #url = 'https://dzen.ru/api/comments/v2/root-comments?documentId=native%3A6694e9a6fcaf5b0f5ec2fb67&publicationPublisherId=5930fb857ddde84c29e24b43'
+
+    await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет")
+
+if __name__ == '__main__':
+    asyncio.run(main())
+

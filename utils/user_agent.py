@@ -32,6 +32,9 @@ async def extract_main_site(url):
 async def gen_ua(url):
     headers = {
         'User-Agent': ua.chrome,
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
         'accept': 'application/json, text/javascript, */*; q=0.01',
         'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
         'origin': url}

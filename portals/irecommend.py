@@ -23,7 +23,7 @@ dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 
-async def check_irecommend_soup(service, link, pattern, criteria, ss_id, project):
+async def check_irecommend(service, link, pattern, criteria, ss_id, project):
     ts = random.randint(5, 30)
     print(f"Wait {ts} sec.")
     await asyncio.sleep(ts)
@@ -34,8 +34,8 @@ async def check_irecommend_soup(service, link, pattern, criteria, ss_id, project
     domen = "https://irecommend.ru"
     headers = await gen_ua(domen)
 
-    scraper = cloudscraper.create_scraper()  # returns a requests.Session object
-    response = scraper.get(link, headers=headers)
+    #scraper = cloudscraper.create_scraper()  # returns a requests.Session object
+    response = requests.get(link, headers=headers)
     soup = BeautifulSoup(response.text, 'html.parser')
     print(soup)
 
@@ -95,7 +95,7 @@ async def check_irecommend_soup(service, link, pattern, criteria, ss_id, project
                                  pattern=pattern,
                                  criteria=criteria)
 
-async def check_irecommend(service, link, pattern, criteria, ss_id, project):
+async def check_irecommend_selenium(service, link, pattern, criteria, ss_id, project):
     ts = random.randint(5, 30)
     print(f"Wait {ts} sec.")
     await asyncio.sleep(ts)
@@ -113,12 +113,6 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
 
 
 
-
-
-
-
-    domen = "https://irecommend.ru"
-    headers = await gen_ua(domen)
 
     scraper = cloudscraper.create_scraper()  # returns a requests.Session object
     response = scraper.get(link, headers=headers)

@@ -40,7 +40,7 @@ async def convert_date(month):
     return months[month]
 
 async def check_otzovik(service, link, pattern, criteria, ss_id, project):
-    ts = random.randint(5, 30)
+    ts = random.randint(5, 120)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 

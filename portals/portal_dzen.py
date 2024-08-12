@@ -1,4 +1,6 @@
 import asyncio
+import random
+
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
@@ -15,6 +17,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from utils.gs_editor import get_service, get_table_scope
 from utils.ai_module import generate_and_white
+from utils.user_agent import gen_ua, get_selenium
 
 # Настройка опций Chrome для работы в headless-режиме
 chrome_options = Options()
@@ -68,18 +71,13 @@ async def convert_date(month):
 
 
 async def check_dzen(service, url, pattern, criteria, ss_id, project):
+    ts = random.randint(5, 6)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
+
     links = await pars_url(service, ss_id, project)
 
-    print(url)
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows; Windows NT 10.0; Win64; x64; en-US) Gecko/20130401 Firefox/60.6'}
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    print(soup)
-
-    blocks = soup.find_all('div', {'class': 'comment__block-34 comment__root-wu'})
-    #print(len(blocks))
-
-    driver.get(url)
+    driver = await get_selenium(url)
     print(driver.page_source)
     # Ожидание загрузки определенного элемента (например, заголовка)
     wait = WebDriverWait(driver, 10)
@@ -167,11 +165,9 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project):
         time.sleep(7)
 
 
-# if __name__ == '__main__':
-#     service = asyncio.run(get_service())
-#     url = 'https://2gis.ru/tyumen/firm/70000001078903378/tab/reviews'
-#     asyncio.run(check_2gis(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет"))
-#
-#     print('Отметка о выполнении')
-#     data = {'service_name': 'PRAVDA', 'date': time.ctime()}
-#     asyncio.run(skillbox_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data))
+if __name__ == '__main__':
+    service = asyncio.run(get_service())
+    url = 'https://dzen.ru/media/nos_hvost_lapy/chto-znachit-degidrirovannoe-miaso-v-koshachem-korme-631a301019119a652068e681#comment_1322639882'
+    url = "https://dzen.ru/a/YxowEBkRmmUgaOaB"
+    url = 'https://dzen.ru/a/ZpTppvyvWw9ewvtn'
+    asyncio.run(check_dzen(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет"))

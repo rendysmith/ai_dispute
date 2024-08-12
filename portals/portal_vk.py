@@ -97,13 +97,14 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
             print('Такой комментарий уже есть в списке')
             continue
 
-        print(url_answer)
+        print("url_answer", url_answer)
 
         author = block.find_element(By.CSS_SELECTOR, 'a[class="author author_highlighted"]').text
-        print(author)
+        print("author", author)
 
-        feedback = block.find_element(By.CSS_SELECTOR, 'div[class="wall_reply_text"]')
-        print(feedback)
+        feedback = block.find_element(By.CSS_SELECTOR, 'div[class="wall_reply_text"]').text
+        print("feedback", feedback)
+        input()
 
         await generate_and_white(service=service,
                                  url_answer=url_answer,
@@ -121,5 +122,5 @@ if __name__ == '__main__':
 
     service = asyncio.run(get_service())
     url = 'https://vk.com/wall-11694885_373082?reply=373184'
-    url = 'https://vk.com/wall-174161511_351476?reply=351757&thread=351493'
-    asyncio.run(check_vk(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет"))
+    url = 'https://vk.com/wall-63638130_670154'
+    asyncio.run(check_vk(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet"))

@@ -121,6 +121,7 @@ async def main():
                     list_links.append(link)
                 await check_sravni(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
+            # ---------------------------------------------------------------------------------------------------------
             elif 'drive2.ru' in link:
                 if link in list_links:
                     continue
@@ -129,6 +130,7 @@ async def main():
                     list_links.append(link)
                 await check_drive2(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
+            # ---------------------------------------------------------------------------------------------------------
             elif 'vk.com' in link:
                 print(link)
                 if 'wall' in link:
@@ -146,17 +148,7 @@ async def main():
 
                 else:
                     list_links.append(link_company)
-
-                print('Данные не выходят')
                 await check_vk(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
-
-
-
-
-
-
-
-
 
             elif 'irecommend' in link:
                 if link in list_links:
@@ -164,7 +156,8 @@ async def main():
 
                 else:
                     list_links.append(link)
-                #await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                print('irecommend Бывают баны по IP')
+                await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
 
             elif 'otzovik.com' in link:
@@ -174,31 +167,23 @@ async def main():
                 else:
                     list_links.append(link)
 
-                print('Бывают баны по IP')
-                #await check_otzovik(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                print('otzovik Бывают баны по IP')
+                await check_otzovik(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-            elif 'yandex.ru' in link:
+            elif 'market.yandex.ru' in link:
                 if link in list_links:
                     continue
 
                 else:
                     list_links.append(link)
 
-                print('Нужно прочти капчу')
-                #await check_ya(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                #print('Нужно прочти капчу')
+                await check_ya(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+
+
+
 
             elif 'dzen.ru' in link:
                 if link in list_links:
@@ -207,8 +192,24 @@ async def main():
                 else:
                     list_links.append(link)
 
-                print('Не грузятся комменты')
+                print('dzen Не грузятся комменты(((((')
                 #await check_dzen(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

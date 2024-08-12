@@ -1,4 +1,6 @@
 import asyncio
+import random
+
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
@@ -59,6 +61,11 @@ async def get_content(title_div):
         return None
 
 async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
+    print(link)
+    ts = random.randint(5, 120)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
+
     links = await pars_url(service, ss_id, project)
     print(links)
 
@@ -145,4 +152,3 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
                                      pattern=pattern,
                                      criteria=criteria)
 
-        time.sleep(5)
