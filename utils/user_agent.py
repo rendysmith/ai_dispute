@@ -73,34 +73,34 @@ async def get_selenium(url):
 
     return driver
 
-async def scrape_products(url):
-    domen = await extract_main_site(url)
-
+async def get_playwright(url):
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)  # Launch browser
+        browser = await p.chromium.launch(headless=True)  # Launch browser
         page = await browser.new_page()
 
         await page.goto(url)
 
-        top_block = await page.query_selector('h1[class="largeHeader"]')
-        print(top_block)
+        return page
 
-        top_block = page.locator('div.headerWithMenu_margin30')
-        top_link = top_block.locator('a')
-
-        # Получаем href атрибут ссылки
-        href = await top_link.get_attribute('href')
-        print(href)
-
-        # Формируем полный URL
-        top_url = domen + href + "?new=1"
-        print(top_url)
-
-        await browser.close()
+        # top_block = await page.query_selector('h1[class="largeHeader"]')
+        # print(top_block)
+        #
+        # top_block = page.locator('div.headerWithMenu_margin30')
+        # top_link = top_block.locator('a')
+        #
+        # # Получаем href атрибут ссылки
+        # href = await top_link.get_attribute('href')
+        # print(href)
+        #
+        # # Формируем полный URL
+        # top_url = domen + href + "?new=1"
+        # print(top_url)
+        #
+        # await browser.close()
 
 async def main():
     url = 'https://irecommend.ru/content/ustraivaet-vo-vsekh-usloviyakh-ekspluatatsii'
-    driver = await get_selenium(url)
+    driver = await get_playwright(url)
     input('Wait')
 
     top_block = driver.find_element(By.CSS_SELECTOR, 'h1[class="largeHeader"]')
