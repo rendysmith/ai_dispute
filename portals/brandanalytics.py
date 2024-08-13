@@ -11,6 +11,18 @@ from bs4 import BeautifulSoup
 from fitz_new.mupdf import pdf_widget_is_readonly
 from pydantic.validators import datetime
 
+"""
+Данное упоминание нам не подходит:
+1) Упоминание находится в закрытом сообществе
+2) Упоминание находится на личной странице того или иного пользователя
+4) Тред мертв (то есть за обсуждаемую тему давно забыли и смысла отвечать на упоминание, которое было написано в этом обсуждени, смысла нет)
+5) Тред ушел (упоминание ушло далеко вверх и в группе давно обсуждается другая тема уже)
+7) Упоминание не о продукт (то есть данное упоминание тинькофф банк обходит стороной, либо же он упоминается там просто вскользь, так скажем)
+8) Обобщенное упоминание (автор говорит в целом о банках, а не конкретно о тинькофф. Может просто перечислять их)
+9) Упоминание размещено в аккаунте технического аккаунта (бота) (это могут быть какие-то посты в сообщетсвах, 
+которые, к примеру, каждый день закидывает бот. 
+Там нам так же смысла реагировать нет, поскольку мало вероятно что наше вовлечение как-то заметят)"""
+
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
@@ -36,29 +48,7 @@ async def get_cookies():
                 raise Exception(f"Request failed with status code {response.status}")
 
 
-
-async def get_json(driver):
-    base_url = "https://brandanalytics.ru/theme-data/12551940/"
-    params = "?tst=1723496399&tsf=1723237200&requested[]=feed&sort=time_create&order=desc&page=1&limit=100&filter[ft][not][]=30008&filter[ft][not][]=30009&filter[ft][not][]=15&filter[ft][not][]=30059&filter[ft][not][]=30025&filter[fmsgproc][any][]=1"
-    url = base_url + params
-    print(url)
-
-    driver.get(url)
-    json_text = driver.find_element(By.TAG_NAME, "body").text
-
-    # Парсим текст как JSON
-    json_data = json.loads(json_text)
-
-    # Выводим полученные данные
-    print(type(json_data))
-    print(json_data)
-
-
-
-
-
 async def check_brandanalytics(url):
-
 
     url_base = 'https://brandanalytics.ru/theme-data/12551940/'
 
@@ -67,6 +57,9 @@ async def check_brandanalytics(url):
 
     tsf = int(time.time()  - 4 * 24 * 3600)
     print(datetime.utcfromtimestamp(tsf).strftime('%Y-%m-%d %H:%M:%S'))
+
+    page = 1
+    limit = 100
 
     query = f'?tst={tst}&tsf={tsf}&requested%5B%5D=feed&sort=time_create&order=desc&page=1&limit=100&filter%5Bft%5D%5Bnot%5D%5B%5D=30008&filter%5Bft%5D%5Bnot%5D%5B%5D=30009&filter%5Bft%5D%5Bnot%5D%5B%5D=15&filter%5Bft%5D%5Bnot%5D%5B%5D=30059&filter%5Bft%5D%5Bnot%5D%5B%5D=30025&filter%5Bfmsgproc%5D%5Bany%5D%5B%5D=1'
     url = url_base + query
