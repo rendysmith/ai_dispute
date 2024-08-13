@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 import time
 
@@ -8,7 +7,6 @@ import aiohttp
 from dotenv import load_dotenv
 
 from bs4 import BeautifulSoup
-from fitz_new.mupdf import pdf_widget_is_readonly
 from pydantic.validators import datetime
 
 """
@@ -29,7 +27,7 @@ load_dotenv(dotenv_path)
 username = os.environ.get("LOGIN_DA")
 password = os.environ.get("PASS_DA")
 
-async def get_cookies():
+async def get_cookies() -> dict:
     url = 'https://brandanalytics.ru/account/login_check'
 
     payload = {
