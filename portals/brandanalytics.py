@@ -1,16 +1,15 @@
 import asyncio
 import json
 import os
+import time
 
 import aiohttp
-from cloudscraper import session
+
 from dotenv import load_dotenv
 
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
-
-from utils.user_agent import get_selenium
+from bs4 import BeautifulSoup
+from fitz_new.mupdf import pdf_widget_is_readonly
+from pydantic.validators import datetime
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -21,16 +20,28 @@ password = os.environ.get("PASS_DA")
 async def get_cookies():
     url = 'https://brandanalytics.ru/account/login_check'
 
-    
+    payload = {
+        '_username': username,
+        '_password': password,
+        '_remember_me': 'on'
+    }
 
     async with aiohttp.ClientSession() as session:
-        async with session.post(url)
+        async with session.post(url, data=payload) as response:
+            if response.status == 200:
+                # Возвращаем куки
+                cookies = session.cookie_jar.filter_cookies(url)
+                return {key: cookie.value for key, cookie in cookies.items()}
+            else:
+                raise Exception(f"Request failed with status code {response.status}")
+
 
 
 async def get_json(driver):
     base_url = "https://brandanalytics.ru/theme-data/12551940/"
-    params = "?tst=1723496399&tsf=1723237200&requested[]=feed&sort=time_create&order=desc&page=2&limit=25&filter[ft][not][]=30008&filter[ft][not][]=30009&filter[ft][not][]=15&filter[ft][not][]=30059&filter[ft][not][]=30025&filter[fmsgproc][any][]=1"
+    params = "?tst=1723496399&tsf=1723237200&requested[]=feed&sort=time_create&order=desc&page=1&limit=100&filter[ft][not][]=30008&filter[ft][not][]=30009&filter[ft][not][]=15&filter[ft][not][]=30059&filter[ft][not][]=30025&filter[fmsgproc][any][]=1"
     url = base_url + params
+    print(url)
 
     driver.get(url)
     json_text = driver.find_element(By.TAG_NAME, "body").text
@@ -44,69 +55,68 @@ async def get_json(driver):
 
 
 
+
+
 async def check_brandanalytics(url):
 
-    driver = await get_selenium(url, headless=False)
 
-    login_input = driver.find_element(By.CSS_SELECTOR, 'input[class="login-form__input"][name="_username"]')
-    login_input.send_keys(username)
+    url_base = 'https://brandanalytics.ru/theme-data/12551940/'
 
-    pass_input = driver.find_element(By.CSS_SELECTOR, 'input[class="login-form__input"][name="_password"]')
-    pass_input.send_keys(password)
+    tst = int(time.time() - 1 * 24 * 3600 )
+    print(datetime.utcfromtimestamp(tst).strftime('%Y-%m-%d %H:%M:%S'))
 
-    pass_input.send_keys(Keys.ENTER)
+    tsf = int(time.time()  - 4 * 24 * 3600)
+    print(datetime.utcfromtimestamp(tsf).strftime('%Y-%m-%d %H:%M:%S'))
 
-    driver.get(url)
-    await get_json(driver)
+    query = f'?tst={tst}&tsf={tsf}&requested%5B%5D=feed&sort=time_create&order=desc&page=1&limit=100&filter%5Bft%5D%5Bnot%5D%5B%5D=30008&filter%5Bft%5D%5Bnot%5D%5B%5D=30009&filter%5Bft%5D%5Bnot%5D%5B%5D=15&filter%5Bft%5D%5Bnot%5D%5B%5D=30059&filter%5Bft%5D%5Bnot%5D%5B%5D=30025&filter%5Bfmsgproc%5D%5Bany%5D%5B%5D=1'
+    url = url_base + query
+    print(url)
 
-    len_span = 0
-    while len_span == 0:
-        pages = driver.find_elements(By.CSS_SELECTOR, 'span[class="page_item"]')
-        len_span = len(pages)
-        print(f'Wait 3 sec...({len_span})')
-        await asyncio.sleep(3)
-
-    for page in pages:
-        pages = int(page.text)
-
-    wait = WebDriverWait(driver, 10)
-    #print(driver.page_source)
-    await get_json(driver)
-    for i in range(pages):
-
-        len_blocks = 0
-        while len_blocks == 0:
-            blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="feed_item feed_item__small"]')
-            len_blocks = len(blocks)
-            print(f"Wait 3 sec.({len_blocks})")
-            await asyncio.sleep(3)
-
-        for block in blocks:
-            date = block.find_element(By.CSS_SELECTOR, 'div[class="msg_date info_item"]').text
-            print(date)
-
-            feedback = block.find_element(By.CSS_SELECTOR, '')
+    async with aiohttp.ClientSession() as session:
+        cookies = await get_cookies()
+        async with session.get(url, cookies=cookies) as response:
+            if response.status == 200:
+                r_json = await response.json()
+            else:
+                raise Exception(f"Request failed with status code {response.status}")
 
 
+    messages = r_json['feed']['messages']
+    #print(messages)
+    print(len(messages))
 
-        new_url = f"{url[:-1]}{i+2}"
-        driver.get(new_url)
-        wait = WebDriverWait(driver, 10)
+    messages_id = [k for k, v in messages.items()]
+    #input(messages_id)
 
+    for msg_id in messages_id:
+        print('\n***************************************************************************************')
+        msg = messages[msg_id]
 
+        author = msg['author']['fullname']
+        date_create = msg['date_create']
+        url_answer = msg['url']
+        text_highlighted = msg['text_highlighted']
+        # Создаем объект BeautifulSoup
+        soup = BeautifulSoup(text_highlighted, 'html.parser')
+        # Извлекаем весь текст из документа
+        text = soup.get_text()
 
+        print(date_create)
+        #print(url_answer)
+        print(text)
+
+        #input('WAIT...')
 
 
 
-    # url = "https://brandanalytics.ru/theme-data/12551940/"
-    # async with aiohttp.ClientSession() as session:
-    #     async with session.get(url, auth=aiohttp.BasicAuth(username, password)) as response:
-    #         text = await response.json()
-    #         print(text)
+
+    input('OK!')
 
 
 async def main(url):
     await check_brandanalytics(url)
+    #cookies = await get_cookies()
+    #print(cookies)
 
 
 if "__main__" in __name__:
