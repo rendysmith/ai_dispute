@@ -170,8 +170,19 @@ async def main():
                 print('otzovik Бывают баны по IP')
                 await check_otzovik(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
+            elif 'dzen.ru' in link:
+                if link in list_links:
+                    continue
 
-            elif 'market.yandex.ru' in link:
+                else:
+                    list_links.append(link)
+
+                print('dzen Не грузятся комменты(((((')
+                await check_dzen(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+
+
+            elif 'yandex.ru/maps' in link:
                 if link in list_links:
                     continue
 
@@ -185,15 +196,7 @@ async def main():
 
 
 
-            elif 'dzen.ru' in link:
-                if link in list_links:
-                    continue
 
-                else:
-                    list_links.append(link)
-
-                print('dzen Не грузятся комменты(((((')
-                #await check_dzen(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
 
 

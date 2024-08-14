@@ -19,32 +19,7 @@ from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
 from utils.user_agent import gen_ua, get_selenium
 
-# Настройка опций Chrome для работы в headless-режиме
-chrome_options = Options()
-chrome_options.add_argument("--headless")
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
-
-# Инициализация драйвера
-driver = webdriver.Chrome(options=chrome_options)
-
 current_date = datetime.now()
-
-async def compress_string(input_string):
-    # Сжимаем строку с помощью zlib
-    compressed_data = zlib.compress(input_string.encode('utf-8'))
-    # Кодируем сжатые данные в Base64 для удобства хранения и передачи
-    compressed_base64 = base64.b64encode(compressed_data)
-    return compressed_base64.decode('utf-8')
-
-async def decompress_string(compressed_string):
-    # Декодируем данные из Base64
-    compressed_data = base64.b64decode(compressed_string.encode('utf-8'))
-    # Распаковываем данные с помощью zlib
-    decompressed_data = zlib.decompress(compressed_data)
-    return decompressed_data.decode('utf-8')
-
-
 
 async def convert_date(month):
     months = {
@@ -63,14 +38,66 @@ async def convert_date(month):
     }
     return months[month]
 
-
 async def check_ya(service, url, pattern, criteria, ss_id, project):
     links = await pars_url(service, ss_id, project)
     ts = random.randint(5, 6)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
-    driver = await get_selenium(url)
+    url = "https://yandex.ru/maps/api/business/fetchReviews?ajax=1&businessId=149979773456&csrfToken=57bc959376278aec39d19dae3c62f6b5638229a3%3A1723636953&locale=ru_RU&page=1&pageSize=50&ranking=by_time&reqId=1723636953293713-3174470668-addrs-upper-yp-13&s=1603452967&sessionId=1723636953246801-9621007603936156238-balancer-l7leveler-kubr-yp-vla-144-BAL"
+
+    headers = await gen_ua('https://yandex.ru')
+    r = requests.get(url, headers=headers).json()
+    print(r)
+    print(list(r))
+    input(len(r))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    driver = await get_selenium(url, headless=False)
+
+    while True:
+        try:
+            review_button = driver.find_element(By.CSS_SELECTOR, 'div[class="tabs-select-view__title _name_reviews"]')
+            review_button.click()
+            break
+
+        except:
+            await asyncio.sleep(3)
+
+    input()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     zen_object_id = driver.find_element(By.CSS_SELECTOR, 'meta[property="zen_object_id"]').get_attribute('content').split(':')
     print(zen_object_id)
@@ -105,7 +132,6 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
         #authorSafeUid = block['authorSafeUid']
         author = UsersByID[block['entityData']['authorSafeUid']]
         print(author)
-        input()
 
         await generate_and_white(service=service,
                                  url_answer=url_answer,
@@ -121,29 +147,9 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
 
 async def main():
     service = await get_service()
-    url = 'https://market.yandex.ru/product--cordiant-snow-cross-2-zimniaia-shipovannaia/177735076/reviews?_redirectCount=1'
-
-    url = 'https://dzen.ru/a/ZpTppvyvWw9ewvtn'
-    #
-    # headers = await gen_ua('https://dzen.ru')
-    #
-    # response = requests.get(url, headers=headers)
-    # html_content = response.text
-    #
-    # # Анализ HTML с помощью BeautifulSoup
-    # soup = BeautifulSoup(html_content, 'html.parser')
-    # for script in soup.find_all('script'):
-    #     if 'api/comments/v2/root-comments' in script.text:
-    #         json_url = script.text.split('"')[1]  # Получаем URL
-    #         break
-    #
-    # print(json_url)
-
-    #input(soup)
+    url = 'https://yandex.ru/maps/org/sberbank_strakhovaniye/86304407603/?ll=37.534570%2C55.737288&z=13'
 
 
-    #url = 'https://dzen.ru/api/comments/v2/root-comments?documentId=native%3A6694e9a6fcaf5b0f5ec2fb67&publicationPublisherId=5930fb857ddde84c29e24b43&batchSize=3&withConfig=true&sessionTs=1723453482421&clientTs=1723453482422&subscriptionStateFor=currentUser&updateDefaultSorting=false&withCurrentUser=true&rid=1258414138.2801038807.2695878971389038.401557352&rnd=1723453482422'
-    #url = 'https://dzen.ru/api/comments/v2/root-comments?documentId=native%3A6694e9a6fcaf5b0f5ec2fb67&publicationPublisherId=5930fb857ddde84c29e24b43'
 
     await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет")
 

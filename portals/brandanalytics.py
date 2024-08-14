@@ -16,6 +16,8 @@ from utils.user_agent import get_soup
 1) Упоминание находится в закрытом сообществе
 2) Упоминание находится на личной странице того или иного пользователя
 
+3) Не допускать мат в тексте
+
 4) Тред мертв (то есть за обсуждаемую тему давно забыли и смысла отвечать на упоминание, которое было написано в этом обсуждени, смысла нет)
 5) Тред ушел (упоминание ушло далеко вверх и в группе давно обсуждается другая тема уже)
 
@@ -23,6 +25,8 @@ from utils.user_agent import get_soup
 8) Обобщенное упоминание (автор говорит в целом о банках, а не конкретно о тинькофф. Может просто перечислять их)
 
 9) Упоминание размещено в аккаунте технического аккаунта (бота) (это могут быть какие-то посты в сообществах, 
+
+
 
 которые, к примеру, каждый день закидывает бот. 
 """
@@ -59,7 +63,7 @@ async def check_brandanalytics():
     tst = int(time.time())
     print(datetime.utcfromtimestamp(tst).strftime('%Y-%m-%d %H:%M:%S'))
 
-    tsf = int(time.time() - 2 * 24 * 3600)
+    tsf = int(time.time() - 5 * 24 * 3600)
     print(datetime.utcfromtimestamp(tsf).strftime('%Y-%m-%d %H:%M:%S'))
 
     page = 1
@@ -94,7 +98,7 @@ async def check_brandanalytics():
         url_answer = msg['url']
         text_highlighted = msg['text_highlighted']
         # Создаем объект BeautifulSoup
-        soup = BeautifulSoup(text_highlighted, 'html.parser')
+        soup = await get_soup(text_highlighted, only_pars=True)
         # Извлекаем весь текст из документа
         text = soup.get_text()
 
@@ -103,15 +107,21 @@ async def check_brandanalytics():
         print(text)
 
         print('=======================================')
+        if any(mt in text.lower() for mt in ['бляд', 'пизд', 'хуй', 'хуев', 'хуёв', 'пидар', 'пидр', 'заеб', 'заёб']):
+            print('МАТ!!!')
+            print(text)
+            input('WAIT...')
+            continue
+
         soup = await get_soup(url_answer)
 
         if "Message in a private group or channel" in soup:
+            print('Телеграм - закрытая группа')
+            input('WAIT...')
             continue
 
-        print(soup)
+        #print(soup)
 
-
-        input('WAIT...')
 
 
 

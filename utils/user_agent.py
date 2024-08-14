@@ -41,24 +41,26 @@ async def gen_ua(url):
 
     return headers
 
-async def get_soup(url):
-    domen = await extract_main_site(url)
-    headers = await gen_ua(domen)
+async def get_soup(url, only_pars=False):
+    if only_pars == False:
+        domen = await extract_main_site(url)
+        headers = await gen_ua(domen)
 
-    try:
-        print('No proxy!')
-        response = requests.get(url, headers=headers)
+        try:
+            print('No proxy!')
+            response = requests.get(url, headers=headers)
 
-    except requests.exceptions.ProxyError as PE:
-        print('With proxy!')
-        host_port = await get_iplist()
-        proxies = {
-            'http': f'http://{login_proxy}:{pass_proxy}@{host_port}',
-            'https': f'https://{login_proxy}:{pass_proxy}@{host_port}'
-        }
-        response = requests.get(url, headers=headers, proxies=proxies)
-
-    soup = BeautifulSoup(response.text, 'html.parser')
+        except requests.exceptions.ProxyError as PE:
+            print('With proxy!')
+            host_port = await get_iplist()
+            proxies = {
+                'http': f'http://{login_proxy}:{pass_proxy}@{host_port}',
+                'https': f'https://{login_proxy}:{pass_proxy}@{host_port}'
+            }
+            response = requests.get(url, headers=headers, proxies=proxies)
+        soup = BeautifulSoup(response.text, 'html.parser')
+    else:
+        soup = BeautifulSoup(url, 'html.parser')
     return soup
 
 async def get_selenium(url, headless=True):
