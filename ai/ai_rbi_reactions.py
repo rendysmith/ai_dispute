@@ -2,7 +2,7 @@ import asyncio
 import random
 import time
 
-import os
+import os, json
 from os.path import join, dirname, abspath
 
 from dotenv import load_dotenv
@@ -11,7 +11,7 @@ from requests.auth import HTTPBasicAuth
 
 import pandas as pd
 
-from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_scope, skillbox_sheet
+from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_scope, write_log_sheet
 from utils.ai_module import get_answer_ai
 from utils.constants import MODEL_GEMINI, TABLES_LIST
 
@@ -20,10 +20,12 @@ text = """
 Author: {author}
 Comment: {comment}
 --------------------END COMMENT----------------------
-Your goal is to write consistent responses that strengthen the brand's reputation. 
-It should acknowledge both positive and negative feedback, maintain a professional and courteous tone, and emphasize the brand's commitment to customer satisfaction. 
-The GPT should avoid any confrontational language, ensure that responses are empathetic, and offer solutions or further assistance when needed. 
-All responses must be written in Russian.
+Ваша цель - написать последовательные ответы, которые укрепят репутацию бренда. 
+В них следует признавать как положительные, так и отрицательные отзывы, поддерживать профессиональный и вежливый тон, 
+а также подчеркивать стремление бренда удовлетворить потребности клиентов. 
+Ты должен избегать любых конфронтационных высказываний, обеспечивать сопереживание в ответах и предлагать решения или дальнейшую помощь, когда это необходимо. 
+Все ответы должны быть написаны на русском языке.
+
 Используй названия проектов компании только в следующих написаниях:
 - Струны
 - Куинджи
@@ -41,17 +43,27 @@ All responses must be written in Russian.
 - Четыре горизонта
 - Болконский
 
-When addressing the user, always use their first name if it is in Russian (e.g., Иван Петров → Иван, здравствуйте; Маринина Ирина → Ирина, добрый день). Be aware that the first name may not always be in the first position in the pair. Do not use the name if it is a nickname or written in English.
-Avoid using pronouns like 'наше', 'наш', etc.
-Avoid using 'мы', 'наш'.
-Do not refer to 'дома' as 'места'.
-Do not abbreviate 'жилые комплексы' as ЖК.
-NEVER promise the user to consider or fix something.
-NEVER apologize to clients.
-Adopt a style similar to the responses in the provided training set.
-The GPT will receive a dataset: REVIEW, NAME, LOCATION. It must return ONLY the response.
-NEVER capitalize the first letter in 'Вы', 'Ваши', 'Вас', 'Ваш' (e.g. unse only 'вы', 'ваш', 'вас', 'вами', etc.).
+Ты получишь набор данных: ОТЗЫВ, ИМЯ, МЕСТОПОЛОЖЕНИЕ. Ты должен вернуть ТОЛЬКО ответ.
+Для примера ты можешь использовать образцы текста и ответа на них:
+--------------------START PATTERN----------------------
+{patterns}
+--------------------END PATTERN----------------------
+Обращаясь к пользователю, всегда используйте его имя, если оно на русском языке (например, Иван Петров → Иван, здравствуйте; Маринина Ирина → Ирина, добрый день). 
+Имейте в виду, что первое имя не всегда стоит на первом месте в паре. Не используйте имя, если оно является прозвищем или написано по-английски.
+Избегайте использования местоимений типа «наше», «наш» и т. д.
+Избегайте использования «мы», «наш».
+Не называйте «дома» - «местами».
+Не сокращайте 'жилые комплексы' до ЖК.
+Придерживайтесь стиля, схожего с ответами из предоставленного обучающего набора.
+НЕ используй дисклеймеры типа "Обратите внимание" и т.п. в ответе
+НИКОГДА не извиняйтесь перед клиентами.
+НИКОГДА не пишите первую букву в словах «Вы», «Ваши», «Вас», «Ваш» (например, используйте только «вы», «ваш», «вас», «вами» и т. д.).
+НИКОГДА не обещайте пользователю что-то учесть или исправить.
 """
+
+with open('dataset_rbi.json', 'r') as file:
+    # Загружаем данные из файла
+    patterns = json.load(file)
 
 async def ai_reaction_data_processing(service, auth, market):
     worktable_id = TABLES_LIST[market][0]
@@ -68,7 +80,7 @@ async def ai_reaction_data_processing(service, auth, market):
         author = row['Имя автора']
         object = row['Объект']
 
-        prompt = text.format(author=author, comment=comment)
+        prompt = text.format(author=author, comment=comment, patterns=patterns)
 
         result = await get_answer_ai(auth, prompt)
 
