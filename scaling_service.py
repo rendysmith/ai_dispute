@@ -1,4 +1,5 @@
 import os.path
+import time
 
 import pandas as pd
 import asyncio
@@ -6,7 +7,7 @@ import re
 import itertools
 import random
 
-from utils.gs_editor import get_service, get_table_scope
+from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_scope
 from portals.pravda_sotrudnikov import check_pravda
 from portals.dreamjob import check_dreamjob
 from portals.portal_2gis import check_2gis
@@ -25,6 +26,17 @@ async def extract_company_name(pattern, url):
         return match.group(1)
     else:
         return None
+
+async def fix_error(service, portal, error):
+    data = {
+        'date': time.ctime(),
+        'portal': portal,
+        'error': error,
+    }
+
+    ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
+    tab_name = 'ERRORS'
+    await append_data_to_sheet_scope(service, ss_id, tab_name, data)
 
 async def main():
     service = await get_service()
@@ -76,7 +88,13 @@ async def main():
                     continue
                 else:
                     list_links.append(company)
-                await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+                try:
+                    await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+                except Exception as Ex:
+                    async fix_error(service, link, Ex)
+
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'ocompanii' in link:
@@ -174,7 +192,10 @@ async def main():
                     list_links.append(link)
 
                 print('otzovik Бывают баны по IP')
-                await check_otzovik(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                try:
+                    await check_otzovik(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                except Exception as Ex:
+                    async fix_error(service, link, Ex)
 
             #---------------------------------------------------------------------------------------------------------
             elif 'dzen.ru' in link:
