@@ -18,15 +18,6 @@ from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
 from utils.user_agent import gen_ua, get_selenium
 
-# Настройка опций Chrome для работы в headless-режиме
-chrome_options = Options()
-chrome_options.add_argument("--headless")
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
-
-# Инициализация драйвера
-driver = webdriver.Chrome(options=chrome_options)
-
 current_date = datetime.now()
 
 async def check_dzen(service, url, pattern, criteria, ss_id, project):

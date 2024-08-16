@@ -3,7 +3,8 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from playwright.sync_api import sync_playwright
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+
 from playwright.async_api import async_playwright
 
 import asyncio
@@ -12,6 +13,7 @@ from bs4 import BeautifulSoup
 import re
 
 from fake_useragent import UserAgent
+from setuptools.package_index import user_agent
 
 from utils.proxy_bridge import get_iplist
 import os
@@ -31,7 +33,7 @@ async def extract_main_site(url):
 
 async def gen_ua(url):
     headers = {
-        'User-Agent': ua.chrome,
+        'User-Agent': ua.random,
         'Accept-Language': 'en-US,en;q=0.9',
         'Accept-Encoding': 'gzip, deflate, br',
         'Connection': 'keep-alive',
@@ -64,11 +66,14 @@ async def get_soup(url, only_pars=False):
     return soup
 
 async def get_selenium(url, headless=True):
+
     chrome_options = Options()
     if headless == True:
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
+
+    chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
 
     # Инициализация драйвера
     driver = webdriver.Chrome(options=chrome_options)
@@ -76,33 +81,20 @@ async def get_selenium(url, headless=True):
 
     # Ожидание загрузки определенного элемента (например, заголовка)
     wait = WebDriverWait(driver, 10)
-
     return driver
 
-async def get_playwright(url):
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)  # Launch browser
-        page = await browser.new_page()
+async def get_playwright(url, headless=True):
+    playwright = await async_playwright().start()
+    browser = await playwright.firefox.launch(headless=headless)
+    context = await browser.new_context(
+        user_agent=ua.random)
+    page = await context.new_page()
+    await page.goto(url)
+    return playwright, browser, page
 
-        await page.goto(url)
 
-        return page
 
-        # top_block = await page.query_selector('h1[class="largeHeader"]')
-        # print(top_block)
-        #
-        # top_block = page.locator('div.headerWithMenu_margin30')
-        # top_link = top_block.locator('a')
-        #
-        # # Получаем href атрибут ссылки
-        # href = await top_link.get_attribute('href')
-        # print(href)
-        #
-        # # Формируем полный URL
-        # top_url = domen + href + "?new=1"
-        # print(top_url)
-        #
-        # await browser.close()
+
 
 async def main():
     url = 'https://irecommend.ru/content/ustraivaet-vo-vsekh-usloviyakh-ekspluatatsii'
@@ -117,4 +109,4 @@ async def main():
 
 
 if "__main__" in __name__:
-    asyncio.run(main())
+    asyncio.run(get_playwright('https://www.google.com', headless=False))
