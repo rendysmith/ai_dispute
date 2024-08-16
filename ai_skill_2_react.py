@@ -121,7 +121,7 @@ async def check_ocompanii(service):
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser').text
         print(type(soup))
-        print(soup)
+        #print(soup)
 
         p_m = soup.split('###')
         plus = p_m[-2]

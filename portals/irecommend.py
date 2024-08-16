@@ -37,7 +37,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
     #scraper = cloudscraper.create_scraper()  # returns a requests.Session object
     response = requests.get(link, headers=headers)
     soup = BeautifulSoup(response.text, 'html.parser')
-    print(soup)
+    #print(soup)
 
     top_block = soup.find("div", {"class": "headerWithMenu margin30"})
     print('Получение главной темы на основании комментов')
@@ -80,7 +80,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
         {title_txt}
         """
         feedback = textwrap.dedent(feedback)
-        print(feedback)
+        #print(feedback)
 
         formatted_date = date
 
@@ -105,19 +105,10 @@ async def check_irecommend_selenium(service, link, pattern, criteria, ss_id, pro
 
     driver = await get_selenium(link)
 
-
-
-
-
-
-
-
-
-
     scraper = cloudscraper.create_scraper()  # returns a requests.Session object
     response = scraper.get(link, headers=headers)
     soup = BeautifulSoup(response.text, 'html.parser')
-    print(soup)
+    #print(soup)
 
     top_block = soup.find("div", {"class": "headerWithMenu margin30"})
     print('Получение главной темы на основании комментов')

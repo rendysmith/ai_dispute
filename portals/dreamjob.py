@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
-
+max_sec = int(os.environ.get("MAX_SEC"))
 
 async def convert_date(month):
     months = {
@@ -123,7 +123,7 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
                 plus = title_plus
 
             #title_div_minus = soup.find('div', class_='review__title')
-            title_div_minus = soup.find('div', class_='review__title', string='Что можно было бы улучшить')
+            title_div_minus = soup.find('div', class_='review__title', string='Что можно улучшить')
             minus_title = title_div_minus.text
 
             title_minus = await get_content(title_div_minus)

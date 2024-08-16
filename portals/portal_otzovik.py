@@ -79,7 +79,11 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
         date_content = block.find("div", {"class": "comment-postdate ts"}).text.strip().split(' ')
         #print(type(date_content))
         print(date_content)
-        year = int(date_content[2])
+        try:
+            year = int(date_content[2])
+        except:
+            year = int(datetime.now().year)
+
         month = await convert_date(date_content[1])
         day = int(date_content[0])
         #hour = int(date_content[-1][0:2])

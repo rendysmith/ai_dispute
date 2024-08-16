@@ -80,10 +80,13 @@ async def main():
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'ocompanii' in link:
+                link = 'https://ocompanii.net/company/information.php?cid=764047'
                 if link in list_links:
                     continue
+
                 else:
                     list_links.append(link)
+                    print(len(list_links))
                 await check_ocompanii(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             #---------------------------------------------------------------------------------------------------------

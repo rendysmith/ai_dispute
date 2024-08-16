@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
+max_sec = int(os.environ.get("MAX_SEC"))
 
 async def pars_url(service, SS_ID, R_N):
     df = await get_table_scope(service, SS_ID, R_N)
@@ -23,6 +24,10 @@ async def pars_url(service, SS_ID, R_N):
     return links
 
 async def check_pravda(service, link, pattern, criteria, ss_id, project):
+    ts = random.randint(5, max_sec)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
+
     url = f'https://pravda-sotrudnikov.ru/company/{link}?sort=date'
     print(url)
     links = await pars_url(service, ss_id, project)

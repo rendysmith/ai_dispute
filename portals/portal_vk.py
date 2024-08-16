@@ -23,6 +23,8 @@ dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
 days_ago = int(os.environ.get("DAYS_AGO"))
+max_sec = int(os.environ.get("MAX_SEC"))
+
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
 
@@ -45,7 +47,7 @@ async def convert_date(month):
 
 async def check_vk(service, link, pattern, criteria, ss_id, project):
     print(link)
-    ts = random.randint(5, 120)
+    ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
