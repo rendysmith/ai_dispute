@@ -71,6 +71,9 @@ async def ai_reaction_data_processing(service, auth, market):
     worksheet_name = TABLES_LIST[market][1]
     worksheet_name_rec = TABLES_LIST[market][2]
 
+    df_rec = await get_table_scope(service, worktable_id, worksheet_name_rec)
+    df_comments = df_rec['Текст упоминания'].to_list()
+
     print(worktable_id, worksheet_name)
     df = await get_table_scope(service, worktable_id, worksheet_name)
     #print(list(df))
@@ -78,6 +81,9 @@ async def ai_reaction_data_processing(service, auth, market):
 
     for idx, row in df.iterrows():
         comment = row['Текст упоминания']
+        if comment in df_comments:
+            continue
+
         author = row['Имя автора']
         object = row['Объект']
 

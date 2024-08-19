@@ -1,10 +1,12 @@
 import asyncio
+import random
+
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import time
 
-from utils.gs_editor import get_service, get_table_scope
+from utils.gs_editor import get_table_scope
 from utils.ai_module import generate_and_white
 #from ai_skillbox import pars_url, generator
 import textwrap
@@ -35,6 +37,7 @@ async def check_pravda(service, link, pattern, criteria, ss_id, project):
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
 
+    last_page = 1
     li = soup.find_all('li')
     for l in li:
         txt = l.text

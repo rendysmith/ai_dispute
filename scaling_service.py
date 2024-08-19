@@ -91,9 +91,8 @@ async def main():
 
                 try:
                     await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
-
                 except Exception as Ex:
-                    async fix_error(service, link, Ex)
+                    await fix_error(service, link, Ex)
 
 
             # ---------------------------------------------------------------------------------------------------------
@@ -105,7 +104,11 @@ async def main():
                 else:
                     list_links.append(link)
                     print(len(list_links))
-                await check_ocompanii(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+                try:
+                    await check_ocompanii(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                except Exception as Ex:
+                    await fix_error(service, link, Ex)
 
             #---------------------------------------------------------------------------------------------------------
             elif 'dreamjob.ru' in link:
@@ -116,7 +119,11 @@ async def main():
 
                 else:
                     list_links.append(link_company)
-                await check_dreamjob(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+                try:
+                    await check_dreamjob(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                except Exception as Ex:
+                    await fix_error(service, link, Ex)
 
             #---------------------------------------------------------------------------------------------------------
             elif '2gis' in link:
@@ -125,7 +132,11 @@ async def main():
 
                 else:
                     list_links.append(link)
-                await check_2gis(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+                try:
+                    await check_2gis(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                except Exception as Ex:
+                    await fix_error(service, link, Ex)
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'sravni.ru' in link:
@@ -142,7 +153,11 @@ async def main():
 
                 else:
                     list_links.append(link)
-                await check_sravni(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+                try:
+                    await check_sravni(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                except Exception as Ex:
+                    await fix_error(service, link, Ex)
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'drive2.ru' in link:
@@ -151,7 +166,10 @@ async def main():
 
                 else:
                     list_links.append(link)
-                await check_drive2(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                try:
+                    await check_drive2(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                except Exception as Ex:
+                    await fix_error(service, link, Ex)
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'vk.com' in link:
@@ -171,7 +189,11 @@ async def main():
 
                 else:
                     list_links.append(link_company)
-                await check_vk(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+                try:
+                    await check_vk(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                except Exception as Ex:
+                    await fix_error(service, link, Ex)
 
             #---------------------------------------------------------------------------------------------------------
             elif 'irecommend' in link:
@@ -181,7 +203,11 @@ async def main():
                 else:
                     list_links.append(link)
                 print('irecommend Бывают баны по IP')
-                await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+                try:
+                    await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                except Exception as Ex:
+                    await fix_error(service, link, Ex)
 
             #---------------------------------------------------------------------------------------------------------
             elif 'otzovik.com' in link:
@@ -195,7 +221,7 @@ async def main():
                 try:
                     await check_otzovik(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
                 except Exception as Ex:
-                    async fix_error(service, link, Ex)
+                    await fix_error(service, link, Ex)
 
             #---------------------------------------------------------------------------------------------------------
             elif 'dzen.ru' in link:
@@ -205,7 +231,10 @@ async def main():
                 else:
                     list_links.append(link)
 
-                await check_dzen(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                try:
+                    await check_dzen(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                except Exception as Ex:
+                    await fix_error(service, link, Ex)
 
             #---------------------------------------------------------------------------------------------------------
             elif 'yandex.ru/maps' in link:
@@ -227,7 +256,10 @@ async def main():
                 else:
                     list_links.append(link_company)
 
-                await check_ya(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                try:
+                    await check_ya(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                except Exception as Ex:
+                    await fix_error(service, link, Ex)
 
 
 
