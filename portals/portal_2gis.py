@@ -1,4 +1,6 @@
 import asyncio
+import random
+
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
@@ -12,16 +14,20 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from utils.gs_editor import get_service, get_table_scope
+from utils.gs_editor import pars_url
 from utils.ai_module import generate_and_white
-
-current_date = datetime.now()
+from utils.user_agent import get_selenium
 
 import os
 from dotenv import load_dotenv
+
+current_date = datetime.now()
+
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
+
 days_ago = int(os.environ.get("DAYS_AGO"))
+max_sec = int(os.environ.get("MAX_SEC"))
 
 async def compress_string(input_string):
     # Сжимаем строку с помощью zlib
@@ -36,14 +42,6 @@ async def decompress_string(compressed_string):
     # Распаковываем данные с помощью zlib
     decompressed_data = zlib.decompress(compressed_data)
     return decompressed_data.decode('utf-8')
-
-async def pars_url(service, SS_ID, R_N):
-    try:
-        df = await get_table_scope(service, SS_ID, R_N)
-        links = df['Link'].to_list()
-    except:
-        links = []
-    return links
 
 async def convert_date(month):
     months = {
@@ -62,11 +60,14 @@ async def convert_date(month):
     }
     return months[month]
 
-
 async def check_2gis(service, url, pattern, criteria, ss_id, project):
+    ts = random.randint(5, max_sec)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
+
     links = await pars_url(service, ss_id, project)
 
-    driver.get(url)
+    driver = await get_selenium(url)
 
     # Ожидание загрузки определенного элемента (например, заголовка)
     wait = WebDriverWait(driver, 10)
@@ -121,8 +122,6 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project):
                                  feedback=feedback,
                                  pattern=pattern,
                                  criteria=criteria)
-
-        time.sleep(7)
 
 
 # if __name__ == '__main__':

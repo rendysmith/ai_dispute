@@ -6,9 +6,8 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import time
 
-from utils.gs_editor import get_table_scope
+from utils.gs_editor import get_table_scope, pars_url
 from utils.ai_module import generate_and_white
-#from ai_skillbox import pars_url, generator
 import textwrap
 
 current_date = datetime.now()
@@ -19,11 +18,6 @@ dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
-
-async def pars_url(service, SS_ID, R_N):
-    df = await get_table_scope(service, SS_ID, R_N)
-    links = df['Link'].to_list()
-    return links
 
 async def check_pravda(service, link, pattern, criteria, ss_id, project):
     ts = random.randint(5, max_sec)
@@ -101,19 +95,6 @@ async def check_pravda(service, link, pattern, criteria, ss_id, project):
                     """
                     feedback = textwrap.dedent(feedback)
 
-                    # plus_title = block.find('div', {'class': 'company-reviews-list-item-text-title'}).text
-                    # minus_title = block.find('div', {'class': 'company-reviews-list-item-text-title'}).text
-                    #
-                    # messages = block.find_all('div', class_='company-reviews-list-item-text-message')
-                    #
-                    # plus = messages[0].text.split('\n')
-                    # cleaned_lines = [line.replace('\t', '') for line in plus]
-                    # plus = '\n'.join(cleaned_lines)
-                    #
-                    # minus = messages[1].text.split('\n')
-                    # cleaned_lines = [line.replace('\t', '') for line in minus]
-                    # minus = '\n'.join(cleaned_lines)
-
                     await generate_and_white(service=service,
                                              url_answer=url_answer,
                                              author=author,
@@ -123,8 +104,6 @@ async def check_pravda(service, link, pattern, criteria, ss_id, project):
                                              feedback=feedback,
                                              pattern=pattern,
                                              criteria=criteria)
-
-        time.sleep(5)
 
 # if __name__ == '__main__':
 #     service = asyncio.run(get_service())
