@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
-from utils.user_agent import gen_ua
+from utils.user_agent import gen_ua, get_soup
 from utils.proxy_bridge import get_iplist
 
 current_date = datetime.now()
@@ -19,6 +19,8 @@ dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
 days_ago = int(os.environ.get("DAYS_AGO"))
+max_sec = int(os.environ.get("MAX_SEC"))
+
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
 
@@ -40,30 +42,19 @@ async def convert_date(month):
     return months[month]
 
 async def check_otzovik(service, link, pattern, criteria, ss_id, project):
-    ts = random.randint(5, 120)
+    ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
-    print(link)
     links = await pars_url(service, ss_id, project)
-    domen = "https://otzovik.com"
-    headers = await gen_ua(domen)
 
-    try:
-        print('No proxy!')
-        response = requests.get(link, headers=headers)
+    # print(link)
+    # soup = await get_soup(link)
+    # top_link = soup.find('h1', {"class": "product-name"})
+    # top_url = "https://otzovik.com" + top_link.find('a')['href'] + '?order=date_desc'
+    # print(top_link)
 
-    except requests.exceptions.ProxyError as PE:
-        print('With proxy!')
-        host_port = await get_iplist()
-        proxies = {
-            'http': f'http://{login_proxy}:{pass_proxy}@{host_port}',
-            'https': f'https://{login_proxy}:{pass_proxy}@{host_port}'
-        }
-        response = requests.get(link, headers=headers, proxies=proxies)
-
-    soup = BeautifulSoup(response.text, 'html.parser')
-
+    soup = await get_soup(link)
     blocks = soup.find_all("div", {"class": "comment"})
     print(len(blocks))
 
@@ -78,7 +69,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
 
         date_content = block.find("div", {"class": "comment-postdate ts"}).text.strip().split(' ')
         #print(type(date_content))
-        print(date_content)
+        #print(date_content)
         try:
             year = int(date_content[2])
         except:
@@ -92,7 +83,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
 
         if (current_date - target_date) > timedelta(days=days_ago):
             print(f'--- Отзыв старше {days_ago} дней. = {target_date}')
-            continue
+            return
 
         author = block.find("a", {"class": "user-login"}).text
 

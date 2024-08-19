@@ -3,6 +3,7 @@ import random
 
 
 import requests
+from Cython.Compiler.Nodes import reset_exception_utility_code
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
@@ -38,25 +39,19 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
     soup = BeautifulSoup(response.text, 'html.parser')
     #print(soup)
 
-    n = 0
-    while n < 10:
-        try:
-            top_block = soup.find("div", {"class": "headerWithMenu margin30"})
-            print(f'Получение главной темы на основании комментов:\n{top_block}')
-            top_url = domen + top_block.find("a")['href'] + "?new=1"
-            print(top_url)
-            break
+    try:
+        top_block = soup.find("div", {"class": "headerWithMenu margin30"})
+        print(f'Получение главной темы на основании комментов.')
+        top_url = domen + top_block.find("a")['href'] + "?new=1"
+        #print(top_url)
 
-        except AttributeError as AE:
-            await asyncio.sleep(5)
+    except AttributeError as AE:
+        print('!!!(irecommend) Возможно сработала защита Cloudflore...')
+        #checkbox = soup.find('input', {'type': 'checkbox'})
+        return AE
 
-            checkbox = soup.find('input', {'type': 'checkbox'})
-
-            n += 1
-
-        except:
-            return
-
+    except Exception as Ex:
+        return Ex
 
     response = requests.get(top_url, headers=headers)
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -108,6 +103,8 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
                                  feedback=feedback,
                                  pattern=pattern,
                                  criteria=criteria)
+
+    return True
 
 # async def check_irecommend_selenium(service, link, pattern, criteria, ss_id, project):
 #     ts = random.randint(5, 30)
