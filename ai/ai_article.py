@@ -46,7 +46,7 @@ text = """
 Пожалуйста, внимательно изучите задание перед написанием статьи
 """
 
-async def ai_generator_article(service, auth, project):
+async def ai_generator_article_fun(service, auth, project):
     worktable_id = TABLES_LIST[project][0]
     #worksheet_name = TABLES_LIST[project][1]
     #worksheet_name_rec = TABLES_LIST[project][2]
@@ -86,7 +86,7 @@ async def ai_generator_article(service, auth, project):
 async def main():
     project = 'Article_fun'
     service = await get_service()
-    await ai_generator_article(service, auth, project)
+    await ai_generator_article_fun(service, auth, project)
 
     data = {'service_name': project, 'date': time.ctime()}
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
