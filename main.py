@@ -22,7 +22,6 @@ async def main_total():
     if now_weekday in [1, 4] and now_hour == 1:
         await main_rbi()
 
-
 if __name__ == '__main__':
     asyncio.run(main_total())
     print('OK!')
