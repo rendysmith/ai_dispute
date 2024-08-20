@@ -1,32 +1,28 @@
 import asyncio
-import time
-
-#from ai_pref_react import main_react
-#from ai_skillbox import check_pravda, check_ocompanii
-#from utils.gs_editor import append_data_to_sheet_scope
 
 from datetime import datetime
 
-current_day_of_year = datetime.now().timetuple().tm_yday
-hour = datetime.now().hour
-minute = datetime.now().minute
-print(f"Сегодня {current_day_of_year}-й день в году "
-      f"и время {hour}:{minute}")
+from ai.ai_rbi_reactions import main_rbi
+from ai.ai_article import main_article
+
+now = datetime.now()
+now_hour = now.hour
+now_weekday = now.weekday()
+
+async def main_total():
+    #every hour
+    await main_rbi()
+    await asyncio.sleep(60)
+
+    # every day
+    if now_hour == 5:
+        await main_article()
+
+    #2 times in week
+    if now_weekday in [1, 4] and now_hour == 1:
+        await main_rbi()
+
 
 if __name__ == '__main__':
-    # asyncio.run(main_react())
-    # data = {'service_name': 'PMEF', 'date': time.ctime()}
-    # asyncio.run(append_data_to_sheet_scope('1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data))
-    #
-    # if hour == 6 and 0 <= minute < 15:
-    #     if current_day_of_year % 2 == 0:
-    #         asyncio.run(check_pravda())
-    #         data = {'service_name': 'Skillbox pravda', 'date': time.ctime()}
-    #         asyncio.run(append_data_to_sheet_scope('1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data))
-    #
-    #     else:
-    #         asyncio.run(check_ocompanii())
-    #         data = {'service_name': 'Skillbox ocompanii', 'date': time.ctime()}
-    #         asyncio.run(append_data_to_sheet_scope('1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data))
-
+    asyncio.run(main_total())
     print('OK!')

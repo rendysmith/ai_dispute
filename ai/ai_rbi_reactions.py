@@ -1,5 +1,4 @@
 import asyncio
-import random
 import time
 
 import os, json
@@ -9,11 +8,22 @@ from dotenv import load_dotenv
 
 from requests.auth import HTTPBasicAuth
 
-import pandas as pd
-
 from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_scope, write_log_sheet
 from utils.ai_module import get_answer_ai
-from utils.constants import MODEL_GEMINI, TABLES_LIST
+from utils.constants import TABLES_LIST
+
+path_dotenv = join(dirname(dirname(__file__)), '.env')
+load_dotenv(path_dotenv)
+
+username = os.environ.get("HOST_USERNAME")
+password = os.environ.get("HOST_PASSWORD")
+auth = HTTPBasicAuth(username, password)
+
+path_json = join(dirname(abspath(__file__)), 'dataset_rbi.json')
+print(path_json)
+with open(path_json, 'r') as file:
+    # Загружаем данные из файла
+    patterns = json.load(file)
 
 text = """
 --------------------START COMMENT----------------------
@@ -62,9 +72,7 @@ Comment: {comment}
 НИКОГДА не обещайте пользователю что-то учесть или исправить.
 """
 
-with open('dataset_rbi.json', 'r') as file:
-    # Загружаем данные из файла
-    patterns = json.load(file)
+
 
 async def ai_reaction_data_processing(service, auth, market):
     worktable_id = TABLES_LIST[market][0]
@@ -99,20 +107,16 @@ async def ai_reaction_data_processing(service, auth, market):
         await append_data_to_sheet_scope(service, worktable_id, worksheet_name_rec, data)
 
 
-if __name__ == '__main__':
-    dotenv_path = join(dirname(dirname(__file__)), '.env')
-    load_dotenv(dotenv_path)
-
-    username = os.environ.get("HOST_USERNAME")
-    password = os.environ.get("HOST_PASSWORD")
-    auth = HTTPBasicAuth(username, password)
+async def main_rbi():
     market = 'RBI'
 
-    service = asyncio.run(get_service())
-    asyncio.run(ai_reaction_data_processing(service, auth, market))
+    service = await get_service()
+    await ai_reaction_data_processing(service, auth, market)
 
     data = {'service_name': 'RBI', 'date': time.ctime()}
-    asyncio.run(write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data))
+    await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
 
+if __name__ == '__main__':
+    asyncio.run(main_rbi())
 

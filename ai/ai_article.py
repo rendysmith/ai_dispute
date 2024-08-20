@@ -83,7 +83,7 @@ async def ai_generator_article_fun(service, auth, project):
         result = await get_answer_ai(auth, prompt)
         await append_data_to_sheet_cell(service, worktable_id, worksheet_name, 'Result', idx + 2, result)
 
-async def main():
+async def main_article():
     project = 'Article_fun'
     service = await get_service()
     await ai_generator_article_fun(service, auth, project)
