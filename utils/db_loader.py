@@ -1,10 +1,7 @@
-import asyncio
-
 import pandas as pd
 from datetime import datetime
 
 from sqlalchemy import text
-#from sqlalchemy.pool import NullPool  # Импортируем QueuePool для создания пула соединений
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -12,15 +9,9 @@ from sqlalchemy.orm import sessionmaker
 import os
 from os.path import join, dirname, abspath
 
-#import asyncpg
-#from asyncpg.pool import Pool
-
-#import asyncio
 from dotenv import load_dotenv
 
-#from utils.constants import DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_NAME
 from models.mdl_tables import Users, UsersBT24, Groups, Roles, Tokens, Hosts
-
 
 current_datetime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 current_path = dirname(abspath(__file__))
