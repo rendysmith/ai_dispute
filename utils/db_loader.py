@@ -177,14 +177,6 @@ async def add_data_to_db(datas):
                 await session.rollback()
                 return False, Ex
 
-    # try:
-    #     session.add(datas)
-    #     session.commit()
-    #     session.close()
-    #     return True
-    #
-    # except Exception as Ex:
-    #     return Ex
 
 async def add_datas_to_db(table_data, mappings):
     async with SessionLocal() as session:
@@ -199,16 +191,34 @@ async def add_datas_to_db(table_data, mappings):
                 await session.rollback()
                 return Ex
 
-    # try:
-    #     session.execute(table_data.__table__.delete())
-    #     session.bulk_insert_mappings(table_data, mappings)
-    #     session.commit()
-    #     session.close()
-    #     return True
-    #
-    # except Exception as Ex:
-    #     return Ex
+async def add_data_to_db_by_filter(table_data, where_data, value_data, datas):
+    async with SessionLocal() as session:
+        async with session.begin():
+            try:
+                # Check if forum_name already exists
+                existing_rule = await session.execute(
+                    select(table_data).where(where_data)
+                )
+                existing_rule = existing_rule.scalars().first()
 
+                if existing_rule:
+                    # Update existing rule
+                    await session.execute(
+                        update(table_data)
+                        .where(where_data)
+                        .values(value_data)
+                    )
+                    await session.commit()
+                    return True, 'Правило форума успешно обновлено.'
+                else:
+                    # Add new rule
+                    session.add(datas)
+                    await session.commit()
+                    return True, 'Данные успешно добавлены в базу данных.'
+
+            except Exception as Ex:
+                await session.rollback()
+                return False, Ex
 
 
 async def read_data_from_db(table_data, limit, page):

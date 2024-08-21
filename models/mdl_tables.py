@@ -203,6 +203,18 @@ class DatasetArticleSubjects(Base):
     subject_19 = Column(String, nullable=False, index=True)
     subject_20 = Column(String, nullable=False, index=True)
 
+class ForumRules(Base):
+    """
+    forum_id: Integer\n
+    forum_name: String\n
+    forum_rule: String\n
+    """
+    __tablename__ = 'forum_rules'
+
+    forum_id = Column(Integer, primary_key=True, autoincrement=True)
+    forum_name = Column(String, nullable=False, index=True)
+    forum_rule = Column(String, nullable=False, index=True)
+
 
 
 

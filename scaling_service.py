@@ -1,13 +1,11 @@
 import os.path
 import time
 
-import pandas as pd
 import asyncio
 import re
-import itertools
 import random
 
-from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_scope
+from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_scope, write_log_sheet
 from portals.pravda_sotrudnikov import check_pravda
 from portals.dreamjob import check_dreamjob
 from portals.portal_2gis import check_2gis
@@ -38,9 +36,7 @@ async def fix_error(service, portal, error):
     tab_name = 'ERRORS'
     await append_data_to_sheet_scope(service, ss_id, tab_name, data)
 
-async def main():
-    service = await get_service()
-
+async def start_zoom(service):
     ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
     df = await get_table_scope(service, ss_id, 'zoom')
     #print(df)
@@ -249,31 +245,13 @@ async def main():
                 if status:
                     await fix_error(service, link, str(status))
 
+async def main_zoom():
+    project = 'Zoom'
+    service = await get_service()
+    await start_zoom(service)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    data = {'service_name': project, 'date': time.ctime()}
+    await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
 if "__main__" in __name__:
-    asyncio.run(main())
+    asyncio.run(main_zoom())
