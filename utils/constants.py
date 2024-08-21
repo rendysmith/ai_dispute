@@ -5,6 +5,7 @@ GPT_TOKEN = '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'
 RESULT_SHEETS = '1A73rT27Sa2Au5Bsb8v2u_C-ttDwJAYg_rY27CUfzdbw'
 
 TABLES_LIST = {
+    'Vkusvill': ['1HtUgQn3UJKbpjKHqqRqt5WSjDWKCJa0fOYLiM9UwcTw', 'reviews'],
     'OZON': ['1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'OZON', 'OZON_link'],
     'RBI': ['1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'RBI', 'RBI_link'],
     'Article_fun': ['1Pzr-jIsZXrtzriouheL8F0Q3DUEMAV1uqh4hwF98IqA', "sep"],

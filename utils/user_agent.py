@@ -66,7 +66,6 @@ async def get_soup(url, only_pars=False):
     return soup
 
 async def get_selenium(url, headless=True):
-
     chrome_options = Options()
     if headless == True:
         chrome_options.add_argument("--headless")
@@ -84,6 +83,11 @@ async def get_selenium(url, headless=True):
     return driver
 
 async def get_playwright(url, headless=True):
+    """
+    :param url: url
+    :param headless: headless (boot)
+    :return:
+    """
     playwright = await async_playwright().start()
     browser = await playwright.firefox.launch(headless=headless)
     context = await browser.new_context(

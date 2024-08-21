@@ -376,7 +376,7 @@ async def read_table_id(service, spreadsheet_id, worksheet_name):
         print(SNF)
         return pd.DataFrame()
 
-def update_date(worktable_name, worksheet_name, idx, text):
+def update_data(worktable_name, worksheet_name, idx, text):
     workfile = gc.open(worktable_name)
     worksheet = workfile.worksheet(worksheet_name) #открываем вкладку
 
@@ -428,7 +428,7 @@ def write_data_old(worktable_name, worksheet_name, data):
         print('Проблемы с API при обновлении данных')
         print(AE)
 
-async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_name, row_number, data):
+async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_name, row_number, data: str):
     try:
         # Подключение к Google Sheets API
         # SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
