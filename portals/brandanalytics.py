@@ -10,22 +10,26 @@ from bs4 import BeautifulSoup
 from pydantic.validators import datetime
 
 from utils.user_agent import get_soup
+from portals.portal_vk import blocks_vk
 
 """
 Данное упоминание нам не подходит:
 1) Упоминание находится в закрытом сообществе
 2) Упоминание находится на личной странице того или иного пользователя
 
-3) Не допускать мат в тексте
++ 3) Не допускать мат в тексте
 
 4) Тред мертв (то есть за обсуждаемую тему давно забыли и смысла отвечать на упоминание, которое было написано в этом обсуждени, смысла нет)
 5) Тред ушел (упоминание ушло далеко вверх и в группе давно обсуждается другая тема уже)
+Тред мёртв:
+- если от нужного нам упоминания есть ещё 10+ комментариев (уже есть полотно других сообщений и мы понимаем что заходить туда не нативно)
+- если упоминанию в чате уже более 2-3 дней
+- если после нашего упоминания органика перевела тему разговора и перестали говорить о нужном нам продукте/бренде/компании
 
 7) Упоминание не о продукт (то есть данное упоминание тинькофф банк обходит стороной, либо же он упоминается там просто вскользь, так скажем)
 8) Обобщенное упоминание (автор говорит в целом о банках, а не конкретно о тинькофф. Может просто перечислять их)
 
 9) Упоминание размещено в аккаунте технического аккаунта (бота) (это могут быть какие-то посты в сообществах, 
-
 
 
 которые, к примеру, каждый день закидывает бот. 
@@ -102,10 +106,6 @@ async def check_brandanalytics():
         # Извлекаем весь текст из документа
         text = soup.get_text()
 
-        print(date_create)
-        print(url_answer)
-        print(text)
-
         print('=======================================')
         if any(mt in text.lower() for mt in ['бляд', 'пизд', 'хуй', 'хуев', 'хуёв', 'пидар', 'пидр', 'пидор','заеб', 'заёб', 'говн', 'ебан', 'ебон', "залуп", "долба", "отъеб"]):
             print('МАТ!!!')
@@ -119,6 +119,31 @@ async def check_brandanalytics():
             print('Телеграм - закрытая группа')
             input('WAIT...')
             continue
+
+        print(date_create)
+        print(url_answer)
+        print(text)
+
+        if 'vk.com' in url_answer:
+            playwright, browser, blocks = await blocks_vk(url_answer)
+
+            if not blocks:
+                continue
+
+            for block in blocks:
+                date_content = await block.query_selector('span[class="rel_date"]')
+                if not date_content:
+                    date_content = await block.query_selector('span[class="rel_date rel_date_needs_update"]')
+
+                date = await date_content.inner_text()
+                print("date =", date)
+
+
+
+
+        input()
+
+
 
         #print(soup)
 
