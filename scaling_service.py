@@ -18,6 +18,11 @@ from portals.irecommend import check_irecommend
 from portals.portal_drive2 import check_drive2
 from portals.portal_otzovik import check_otzovik
 from portals.portal_vk import check_vk
+from portals.portal_otvet import check_otvet
+
+from utils.constants import TABLES_LIST
+
+ss_id = TABLES_LIST['zoom']
 
 async def extract_company_name(pattern, url):
     match = re.search(pattern, url)
@@ -33,12 +38,10 @@ async def fix_error(service, portal, error):
         'error': error,
     }
 
-    ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
     tab_name = 'ERRORS'
     await append_data_to_sheet_scope(service, ss_id, tab_name, data)
 
 async def start_zoom(service):
-    ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
     df = await get_table_scope(service, ss_id, 'zoom')
     #print(df)
 
@@ -259,13 +262,25 @@ async def start_zoom(service):
                 if status:
                     await fix_error(service, link, str(status))
 
+            elif 'otvet.mail.ru' in link:
+                if link in list_links:
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                status = await check_otvet(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                if status:
+                    await fix_error(service, link, str(status))
+
+        data = {'project': project, 'date': time.ctime()}
+        await write_log_sheet(service, ss_id, 'logs', data)
+
+
 async def main_zoom():
-    project = 'Zoom'
     service = await get_service()
     await start_zoom(service)
 
-    data = {'service_name': project, 'date': time.ctime()}
-    await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
 if "__main__" in __name__:
     asyncio.run(main_zoom())

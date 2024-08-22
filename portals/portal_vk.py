@@ -1,10 +1,5 @@
 import asyncio
 import random
-import time
-
-import googleapiclient.errors
-import requests
-from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
 from selenium.webdriver.common.by import By
@@ -12,7 +7,7 @@ from selenium.webdriver.common.by import By
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
 from utils.user_agent import get_soup, get_selenium, get_playwright
-from utils.proxy_bridge import get_iplist
+
 import os
 from dotenv import load_dotenv
 
@@ -147,16 +142,16 @@ async def blocks_vk(link):
 
 
 async def check_vk(service, link, pattern, criteria, ss_id, project):
-    # print(link)
-    # ts = random.randint(5, max_sec)
-    # print(f'Wait {ts} sec...')
-    # await asyncio.sleep(ts)
+    print(link)
+    ts = random.randint(5, max_sec)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
 
     links = await pars_url(service, ss_id, project)
 
-    playwright, browser, blocks = await blocks_vk(link)
+    playwright, browser, blocks = await blocks_vk(link) or (None, None, None)
 
-    if not blocks:
+    if blocks is None:
         return
 
     for block in blocks:
