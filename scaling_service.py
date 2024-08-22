@@ -273,14 +273,12 @@ async def start_zoom(service):
                 if status:
                     await fix_error(service, link, str(status))
 
-        data = {'project': project, 'date': time.ctime()}
+        data = {'service_name': project, 'date': time.ctime()}
         await write_log_sheet(service, ss_id, 'logs', data)
-
 
 async def main_zoom():
     service = await get_service()
     await start_zoom(service)
-
 
 if "__main__" in __name__:
     asyncio.run(main_zoom())
