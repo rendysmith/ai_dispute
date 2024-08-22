@@ -40,6 +40,14 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
     #print(soup)
 
     try:
+        denied = soup.find('h1', {'class': 'largestHeader'}).text
+        if denied:
+            print(denied)
+            return denied
+    except:
+        print('Страница доступна')
+
+    try:
         top_block = soup.find("div", {"class": "headerWithMenu margin30"})
         print(f'Получение главной темы на основании комментов.')
         top_url = domen + top_block.find("a")['href'] + "?new=1"
@@ -104,7 +112,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
-    return True
+
 
 # async def check_irecommend_selenium(service, link, pattern, criteria, ss_id, project):
 #     ts = random.randint(5, 30)

@@ -11,7 +11,7 @@ from selenium.webdriver.common.by import By
 
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
-from utils.user_agent import get_soup, get_selenium
+from utils.user_agent import get_soup, get_selenium, get_playwright
 from utils.proxy_bridge import get_iplist
 import os
 from dotenv import load_dotenv
@@ -45,14 +45,13 @@ async def convert_date(month):
     }
     return months[month]
 
-async def check_vk(service, link, pattern, criteria, ss_id, project):
+async def check_vk_sel(service, link, pattern, criteria, ss_id, project):
     print(link)
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
     links = await pars_url(service, ss_id, project)
-
     driver = await get_selenium(link)
 
     blocks = driver.find_elements(By.CSS_SELECTOR, 'div[id*="-"][class*="repl"][data-post-id*="-"]')
@@ -106,7 +105,6 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
 
         feedback = block.find_element(By.CSS_SELECTOR, 'div[class="wall_reply_text"]').text
         print("feedback", feedback)
-        input()
 
         await generate_and_white(service=service,
                                  url_answer=url_answer,
@@ -118,7 +116,76 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
+async def check_vk(service, link, pattern, criteria, ss_id, project):
+    print(link)
+    # ts = random.randint(5, max_sec)
+    # print(f'Wait {ts} sec...')
+    # await asyncio.sleep(ts)
 
+    links = await pars_url(service, ss_id, project)
+    playwright, browser, page = await get_playwright(link)
+
+    blocks = await page.query_selector_all('div[id*="-"][class*="repl"][data-post-id*="-"]')
+    len_b = len(blocks)
+    print(len_b)
+
+    if len_b == 0:
+        blocks = await page.query_selector_all('div[id*="post-"][class*="bp_post clear_fix "]')
+        len_b = len(blocks)
+
+    print(len_b)
+    if len_b == 0:
+        return
+
+    for block in blocks:
+        try:
+            date = await block.query_selector('span[class="rel_date"]').text.split(' ')
+            print(date)
+
+        except:
+            continue
+
+        if len(date) < 3:
+            continue
+
+        day = int(date[0])
+        month = await convert_date(date[1])
+
+        if len(date) == 4:
+            year = int(datetime.now().strftime('%Y'))
+        else:
+            year = int(date[2])
+
+        target_date = datetime(year, month, day)
+        formatted_date = target_date.strftime("%d.%m.%Y")
+        print(formatted_date)
+
+        if (current_date - target_date) > timedelta(days=days_ago):
+            print(f'--- Отзыв старше {days_ago} дней = {formatted_date}.')
+            continue
+
+        url_answer = await block.query_selector('a[class="wd_lnk"]').get_attribute('href')
+        if url_answer in links:
+            print('Такой комментарий уже есть в списке')
+            continue
+
+        print("url_answer", url_answer)
+
+        author = await block.query_selector('a[class="author author_highlighted"]').text
+        print("author", author)
+
+        feedback = await block.query_selector('div[class="wall_reply_text"]').text
+        print("feedback", feedback)
+
+        await generate_and_white(service=service,
+                                 url_answer=url_answer,
+                                 author=author,
+                                 formatted_date=formatted_date,
+                                 ss_id=ss_id,
+                                 project=project,
+                                 feedback=feedback,
+                                 pattern=pattern,
+                                 criteria=criteria)
 
 if __name__ == '__main__':
 

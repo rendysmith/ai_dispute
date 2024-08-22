@@ -5,6 +5,7 @@ import asyncio
 import re
 import random
 
+from portals.portal_aplaut import check_aplout
 from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_scope, write_log_sheet
 from portals.pravda_sotrudnikov import check_pravda
 from portals.dreamjob import check_dreamjob
@@ -42,7 +43,7 @@ async def start_zoom(service):
     #print(df)
 
     list_ = list(df)
-    random.shuffle(list_)
+    #random.shuffle(list_)
 
     for project in list_:
         if 'Проект' in project:
@@ -218,6 +219,19 @@ async def start_zoom(service):
                     list_links.append(link)
 
                 status = await check_dzen(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                if status:
+                    await fix_error(service, link, str(status))
+
+            #---------------------------------------------------------------------------------------------------------
+            elif 'aplaut.io' in link:
+                link = 'https://app.aplaut.io/b/reviews'
+                if link in list_links:
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                status = await check_aplout(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
                 if status:
                     await fix_error(service, link, str(status))
 

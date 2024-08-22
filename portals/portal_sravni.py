@@ -67,7 +67,6 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
     r = requests.get(url).json()
 
     for i in r['items']:
-
         url_answer = f"{link}{i['id']}"
         if url_answer in links:
             continue
