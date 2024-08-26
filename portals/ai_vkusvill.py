@@ -11,7 +11,8 @@ from utils.ai_module import get_answer_ai
 from utils.constants import TABLES_LIST
 from utils.db_loader import read_data_from_db_filter
 
-from utils.gs_editor import get_service, write_log_sheet, get_table_scope, append_data_to_sheet_cell
+from utils.gs_editor import get_service, write_log_sheet, get_table_scope, append_data_to_sheet_cell, \
+    append_data_to_sheet_cells
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -44,6 +45,11 @@ text = """
 В противном случае укажите, что он не нарушает никаких правил
 Так же тебе нужно оценить вероятность удаление отзыва основываясь на указанных правилах выше, 
 где (можно 80-100% | сомнительно 50-79% | нельзя >49%).
+Ты должен выдать результат в формате списка [], 
+где первый элемент будет процент удаления, 
+второй - резюме о нарушениях правил площадки если таковы будут
+Оба элемента должны быть в формате string, т.е. в кавычках. 
+Перед выполнением прочитай задание еще раз.
 """
 
 async def cheak_vkusvill(service, market):
@@ -78,11 +84,10 @@ async def cheak_vkusvill(service, market):
 
         prompt = text.format(source=source, comment=comment, rule=rule)
         result = await get_answer_ai(auth, prompt)
-        print(result)
+        result = eval(result)
 
-        response = await append_data_to_sheet_cell(service, worktable_id, worksheet_name, add_column, idx + 2, str(result))
-        print(response)
-        #input()
+        columns = ['Вероятность удаления', 'Текст для поддержки']
+        await append_data_to_sheet_cells(service, worktable_id, worksheet_name, columns, idx + 2, result)
 
 
 

@@ -465,7 +465,7 @@ async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_na
         print(f"An error occurred: {e}")
 
 
-async def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_names, row_number, datas):
+async def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_names: list, row_number, datas: list):
     # SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
     # SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
     # credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)

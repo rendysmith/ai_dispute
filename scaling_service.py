@@ -46,7 +46,7 @@ async def start_zoom(service):
     #print(df)
 
     list_ = list(df)
-    #random.shuffle(list_)
+    random.shuffle(list_)
 
     for project in list_:
         if 'Проект' in project:
