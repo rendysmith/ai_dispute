@@ -1,22 +1,14 @@
 import asyncio
-import json
 import random
 import os
 
 import requests
-from bs4 import BeautifulSoup
+
 from datetime import datetime, timedelta
 import time
-import zlib
-import base64
 
 from pprint import pprint
-
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
@@ -28,6 +20,7 @@ dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
 current_date = datetime.now()
+now_month = current_date.month
 
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
@@ -255,11 +248,25 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
         print(len(blocks))
 
         for block in blocks:
-            date_element = await block.query_selector(
-                'meta[itemprop="datePublished"]')  # Corrected selector (should be 'meta')
-            date_content = await date_element.get_attribute('content')
-            print(date_content)
-            date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
+
+            try:
+                date_element = await block.query_selector(
+                    'meta[itemprop="datePublished"]')  # Corrected selector (should be 'meta')
+                date_content = await date_element.get_attribute('content')
+                date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
+
+            except AttributeError as AE:
+                date_element = await block.query_selector('span[class="business-review-view__date"]')
+                date = await date_element.inner_text()
+
+                month = await convert_date(date)
+                if now_month != month:
+                    continue
+
+                else:
+                    day = int(date.split(' ')[0])
+                    year = current_date.year
+                    date = datetime(year, month, day)
 
             if (current_date - date) > timedelta(days=days_ago):
                 print(f'--- Отзыв старше {days_ago} дней. = {date}')
