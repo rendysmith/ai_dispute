@@ -53,12 +53,12 @@ async def get_soup(url, only_pars=False):
             response = requests.get(url, headers=headers)
 
         except requests.exceptions.ConnectTimeout as CT:
-            print(f'Error {CT}')
+            print(f'Error: {CT}')
             return None
 
 
         except requests.exceptions.ProxyError as PE:
-            print(f'Error {PE}')
+            print(f'Error: {PE}')
             host_port = await get_iplist()
             proxies = {
                 'http': f'http://{login_proxy}:{pass_proxy}@{host_port}',

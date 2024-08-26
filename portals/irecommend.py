@@ -3,16 +3,14 @@ import random
 
 
 import requests
-from Cython.Compiler.Nodes import reset_exception_utility_code
+
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
 from utils.gs_editor import pars_url
 from utils.ai_module import generate_and_white
-from utils.user_agent import gen_ua, get_soup
+from utils.user_agent import get_soup, extract_main_site
 import textwrap
-
-from utils.user_agent import get_selenium
 
 import os
 from dotenv import load_dotenv
@@ -27,6 +25,8 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
     ts = random.randint(5, 30)
     print(f"Wait {ts} sec.")
     await asyncio.sleep(ts)
+
+    domen = await extract_main_site(url)
 
     print("\n", link)
     links = await pars_url(service, ss_id, project)
@@ -58,8 +58,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
     except Exception as Ex:
         return Ex
 
-    response = requests.get(top_url, headers=headers)
-    soup = BeautifulSoup(response.text, 'html.parser')
+    soup = await get_soup(top_url)
 
     blocks = soup.find_all("div", {"data-photos-count": '0', "data-type": "1"})
     print(len(blocks))

@@ -176,11 +176,14 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
             day = int(date_splite[0])
             month = await convert_date(date_splite[1])
 
-            if len(date) == 4:
+            if len(date_splite) == 4:
                 year = int(datetime.now().strftime('%Y'))
 
-            elif len(date) == 5:
+            elif len(date_splite) == 5:
                 year = now.year
+
+            elif len(date_splite) == 3:
+                year = int(date_splite[-1])
 
             else:
                 year = now.year
@@ -210,8 +213,11 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
         if not feedback_content:
             feedback_content = await block.query_selector('div[class="wall_reply_text onclick="]')
 
-        feedback = await feedback_content.inner_text()
-        print("feedback", feedback)
+        try:
+            feedback = await feedback_content.inner_text()
+            print("feedback", feedback)
+        except:
+            print('Нет отзыва.')
 
         await generate_and_white(service=service,
                                  url_answer=url_answer,
