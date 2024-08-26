@@ -6,6 +6,7 @@ import re
 import random
 
 from portals.portal_aplaut import check_aplout
+from portals.portal_ya_market import check_ya_market
 from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_scope, write_log_sheet
 from portals.pravda_sotrudnikov import check_pravda
 from portals.dreamjob import check_dreamjob
@@ -52,8 +53,6 @@ async def start_zoom(service):
         if 'Проект' in project:
             continue
 
-        print(f'========================= Project = {project} ===============================')
-
         df_mini = df[project]
         #print(len(df_mini))
 
@@ -69,6 +68,10 @@ async def start_zoom(service):
 
         df_link_list = df_mini[project].to_list()
         random.shuffle(df_link_list)
+
+
+        print(f'========================= Project = {project} = Len ({len(df_link_list)})==============================')
+
 
         #print(df_link_list)
         #input('**********************************************************')
@@ -262,7 +265,8 @@ async def start_zoom(service):
                 if status:
                     await fix_error(service, link, str(status))
 
-            elif 'otvet.mail.ru' in link:
+            # ---------------------------------------------------------------------------------------------------------
+            elif 'otvet.mail' in link:
                 if link in list_links:
                     continue
 
@@ -272,6 +276,21 @@ async def start_zoom(service):
                 status = await check_otvet(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
                 if status:
                     await fix_error(service, link, str(status))
+
+            # ---------------------------------------------------------------------------------------------------------
+            elif 'market.yandex' in link:
+                if link in list_links:
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                status = await check_ya_market(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                if status:
+                    await fix_error(service, link, str(status))
+
+
+
 
         data = {'service_name': project, 'date': time.ctime()}
         await write_log_sheet(service, ss_id, 'logs', data)

@@ -55,6 +55,9 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
     # print(top_link)
 
     soup = await get_soup(link)
+    if not soup:
+        return 'Сайт не отдал данные!'
+
     blocks = soup.find_all("div", {"class": "comment"})
     print(len(blocks))
 

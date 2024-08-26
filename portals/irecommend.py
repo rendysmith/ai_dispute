@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 from utils.gs_editor import pars_url
 from utils.ai_module import generate_and_white
-from utils.user_agent import gen_ua
+from utils.user_agent import gen_ua, get_soup
 import textwrap
 
 from utils.user_agent import get_selenium
@@ -31,12 +31,9 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
     print("\n", link)
     links = await pars_url(service, ss_id, project)
 
-    domen = "https://irecommend.ru"
-    headers = await gen_ua(domen)
-
-    #scraper = cloudscraper.create_scraper()  # returns a requests.Session object
-    response = requests.get(link, headers=headers)
-    soup = BeautifulSoup(response.text, 'html.parser')
+    soup = await get_soup(link)
+    if not soup:
+        return 'Сайт не отдал данные!'
     #print(soup)
 
     try:

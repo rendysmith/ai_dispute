@@ -65,12 +65,14 @@ async def convert_date(month):
 
 async def check_otvet(service, link, pattern, criteria, ss_id, project):
     print(link)
-    print(link)
+
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
     soup = await get_soup(link)
+    if not soup:
+        return 'Сайт не отдал данные!'
     #print(soup)
     print('========================================================')
     script_tag = soup.find_all('script')
@@ -95,7 +97,6 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project):
     if datas.get('@graph'):
         blocks = datas['@graph']
         print('--- Новые данные!!!')
-
 
     elif datas.get('result'):
         blocks = datas['result']['answers']
