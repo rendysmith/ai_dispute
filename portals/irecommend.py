@@ -1,10 +1,6 @@
 import asyncio
 import random
 
-
-import requests
-
-from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
 from utils.gs_editor import pars_url
@@ -26,8 +22,6 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
     print(f"Wait {ts} sec.")
     await asyncio.sleep(ts)
 
-    domen = await extract_main_site(url)
-
     print("\n", link)
     links = await pars_url(service, ss_id, project)
 
@@ -43,6 +37,9 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
             return denied
     except:
         print('Страница доступна')
+
+
+    domen = await extract_main_site(link)
 
     try:
         top_block = soup.find("div", {"class": "headerWithMenu margin30"})

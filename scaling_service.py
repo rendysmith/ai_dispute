@@ -69,15 +69,16 @@ async def start_zoom(service):
         df_link_list = df_mini[project].to_list()
         random.shuffle(df_link_list)
 
+        len_df = len(df_link_list)
+        print(f'========================= Project = {project} = Len ({len_df})==============================')
 
-        print(f'========================= Project = {project} = Len ({len(df_link_list)})==============================')
-
-
-        #print(df_link_list)
-        #input('**********************************************************')
         list_links = []
 
-        for link in df_link_list:
+        for idx, link in enumerate(df_link_list):
+
+            left = len_df - df_link_list.index(link)
+            print(f'*************************{idx}*({left})***************************')
+
             #link = row[project]
             #---------------------------------------------------------------------------------------------------------
             if 'pravda-sotrudnikov.ru' in link:

@@ -338,6 +338,7 @@ async def main():
     service = await get_service()
 
     url = 'https://yandex.ru/maps/org/sberbank_strakhovaniye/86304407603/reviews'
+    url = 'https://yandex.ru/maps/org/ultra_city/204166540835/reviews/?ll=30.224730%2C60.035566&z=14'
     await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет")
 
 if __name__ == '__main__':

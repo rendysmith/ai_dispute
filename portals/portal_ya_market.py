@@ -85,13 +85,44 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project):
         author = await author_content.inner_text()
         print(author)
 
-        feedback_content = await block.query_selector('span[class="_1I3ni"]')
+        feedback_content = await block.query_selector('dd[class="l5Lfz"]')
         feedback = await feedback_content.inner_text()
         print(feedback)
-        input()
 
-        formatted_date = date.strftime("%d.%m.%Y")
-        print(formatted_date)
+        if any(i in date for i in ['Неделю назад', 'дней назад', 'дня назад', 'вчера', 'день назад']):
+
+            if '1' in date:
+                day = current_date.day - 1
+
+            elif '2' in date:
+                day = current_date.day - 2
+
+            elif '3' in date:
+                day = current_date.day - 3
+
+            elif '4' in date:
+                day = current_date.day - 4
+
+            elif '5' in date:
+                day = current_date.day - 5
+
+            elif '6' in date:
+                day = current_date.day - 6
+
+            elif 'Неделю' in date:
+                day = current_date.day - 7
+
+            else:
+                continue
+
+            month = current_date.month
+            year = current_date.year
+            target_date = datetime(year, month, day)
+            formatted_date = target_date.strftime("%d.%m.%Y")
+            print(formatted_date)
+
+        else:
+            continue
 
         await generate_and_white(service=service,
                                  url_answer=url_answer,
