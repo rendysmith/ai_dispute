@@ -53,7 +53,7 @@ async def start_zoom(service):
         if 'Проект' in project:
             continue
 
-        project = 'Кордиант'
+        #project = 'Кордиант'
 
         df_mini = df[project]
         #print(len(df_mini))
@@ -297,7 +297,7 @@ async def start_zoom(service):
                     await fix_error(service, link, str(status))
                     black_list.append('market.yandex')
 
-            input('Next!')
+
 
 
         data = {'service_name': project, 'date': time.ctime()}
