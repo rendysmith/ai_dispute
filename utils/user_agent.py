@@ -96,13 +96,18 @@ async def get_playwright(url, headless=True):
     :param headless: headless (boot)
     :return:
     """
-    playwright = await async_playwright().start()
-    browser = await playwright.firefox.launch(headless=headless)
-    context = await browser.new_context(
-        user_agent=ua.random)
-    page = await context.new_page()
-    await page.goto(url)
-    return playwright, browser, page
+
+    try:
+        playwright = await async_playwright().start()
+        browser = await playwright.firefox.launch(headless=headless)
+        context = await browser.new_context(
+            user_agent=ua.random)
+        page = await context.new_page()
+        await page.goto(url)
+        return playwright, browser, page
+
+    except Exception as Ex:
+        return None, None, None
 
 
 
