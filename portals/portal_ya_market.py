@@ -76,7 +76,7 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project):
 
         link_content = await block.query_selector('div[data-apiary-widget-id]')
         url_answer = await link_content.get_attribute('data-apiary-widget-id')
-        print(url_answer)
+        print("YAm url_answer", url_answer)
 
         if url_answer in links:
             continue

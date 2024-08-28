@@ -44,6 +44,14 @@ async def gen_ua(url):
     return headers
 
 async def get_soup(url, only_pars=False):
+    async def get_headers():
+        host_port = await get_iplist()
+        proxies = {
+            'http': f'http://{login_proxy}:{pass_proxy}@{host_port}',
+            'https': f'https://{login_proxy}:{pass_proxy}@{host_port}'
+        }
+        return proxies
+
     if only_pars == False:
         domen = await extract_main_site(url)
         headers = await gen_ua(domen)
@@ -53,17 +61,13 @@ async def get_soup(url, only_pars=False):
             response = requests.get(url, headers=headers)
 
         except requests.exceptions.ConnectTimeout as CT:
-            print(f'Error: {CT}')
-            return None
-
+            print(f'Error CT: {CT}')
+            proxies = await get_headers()
+            response = requests.get(url, headers=headers, proxies=proxies)
 
         except requests.exceptions.ProxyError as PE:
-            print(f'Error: {PE}')
-            host_port = await get_iplist()
-            proxies = {
-                'http': f'http://{login_proxy}:{pass_proxy}@{host_port}',
-                'https': f'https://{login_proxy}:{pass_proxy}@{host_port}'
-            }
+            print(f'Error PE: {PE}')
+            proxies = await get_headers()
             response = requests.get(url, headers=headers, proxies=proxies)
 
         soup = BeautifulSoup(response.text, 'html.parser')

@@ -101,7 +101,7 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project):
     zen_object_id = await zen_object_id_content.get_attribute('content')
     zen_object_id = zen_object_id.split(':')
 
-    print(zen_object_id)
+    #print(zen_object_id)
     documentId = zen_object_id[1]
     publicationPublisherId = zen_object_id[0]
 
@@ -118,12 +118,12 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project):
         return
 
     UsersByID = {v['uidSafe']: v['displayName'] for k, v in r['usersById'].items()}
-    print(UsersByID)
+    #print(UsersByID)
 
     for block in r['items']:
-        print(block)
+        #print(block)
         url_answer = block['entityData']['id']
-        print(url_answer)
+        #print(url_answer)
 
         if url_answer in links:
             print('Такой комментарий уже есть в списке')
@@ -138,14 +138,14 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project):
         date = datetime.fromtimestamp(timestamp_sec)
         # Форматирование даты
         formatted_date = date.strftime('%d.%m.%Y')
-        print(formatted_date)
+        #print(formatted_date)
 
         #authorSafeUid = block['authorSafeUid']
         author = UsersByID[block['entityData']['authorSafeUid']]
-        print(author)
+        #print(author)
 
         feedback = block['entityData']['text']
-        input(feedback)
+        #input(feedback)
 
         await generate_and_white(service=service,
                                  url_answer=url_answer,

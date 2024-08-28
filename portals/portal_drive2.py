@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
-from utils.user_agent import gen_ua
+from utils.user_agent import gen_ua, get_soup
 
 current_date = datetime.now()
 
@@ -17,20 +17,20 @@ from dotenv import load_dotenv
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
+max_sec = int(os.environ.get("MAX_SEC"))
 
 
 async def check_drive2(service, link, pattern, criteria, ss_id, project):
     print(link)
+    ts = random.randint(5, max_sec)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
 
     links = await pars_url(service, ss_id, project)
-    domen = "https://www.drive2.ru"
-    headers = await gen_ua(domen)
-
     if "#comments" not in link:
         link = link + "#comments"
 
-    response = requests.get(link, headers=headers)
-    soup = BeautifulSoup(response.text, 'html.parser')
+    soup = await get_soup(link)
     #print(soup)
 
     blocks = soup.find_all("div", {"data-role": "comment"})

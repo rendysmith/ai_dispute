@@ -53,6 +53,8 @@ async def start_zoom(service):
         if 'Проект' in project:
             continue
 
+        project = 'Кордиант'
+
         df_mini = df[project]
         #print(len(df_mini))
 
@@ -73,11 +75,12 @@ async def start_zoom(service):
         print(f'========================= Project = {project} = Len ({len_df})==============================')
 
         list_links = []
+        black_list = []
 
         for idx, link in enumerate(df_link_list):
 
             left = len_df - df_link_list.index(link)
-            print(f'*************************{idx}*({left})***************************')
+            print(f'*************************{idx}*({left})***************************\n-----------------{link}----------------')
 
             #link = row[project]
             #---------------------------------------------------------------------------------------------------------
@@ -139,6 +142,7 @@ async def start_zoom(service):
                 pattern = r'https://www\.sravni\.ru/(.*?)/otzyvy/'
 
                 link_company = await extract_company_name(pattern, link)
+
                 if not link_company:
                     continue
 
@@ -190,7 +194,7 @@ async def start_zoom(service):
                     await fix_error(service, link, str(status))
 
             #---------------------------------------------------------------------------------------------------------
-            elif 'irecommend' in link:
+            elif 'irecommend' in link and any(black not in link for black in black_list):
                 if link in list_links:
                     continue
 
@@ -200,11 +204,12 @@ async def start_zoom(service):
                 print('irecommend Бывают баны по IP')
                 status = await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
                 if status:
-                    print(status)
                     await fix_error(service, link, str(status))
+                    black_list.append('irecommend' )
 
             #---------------------------------------------------------------------------------------------------------
-            elif 'otzovik.com' in link:
+            elif 'otzovik.com' in link and any(black not in link for black in black_list):
+
                 if link in list_links:
                     continue
 
@@ -216,6 +221,7 @@ async def start_zoom(service):
                 status = await check_otzovik(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
                 if status:
                     await fix_error(service, link, str(status))
+                    black_list.append('otzovik.com')
 
             #---------------------------------------------------------------------------------------------------------
             elif 'dzen.ru' in link:
@@ -279,7 +285,7 @@ async def start_zoom(service):
                     await fix_error(service, link, str(status))
 
             # ---------------------------------------------------------------------------------------------------------
-            elif 'market.yandex' in link:
+            elif 'market.yandex' in link and any(black not in link for black in black_list):
                 if link in list_links:
                     continue
 
@@ -289,8 +295,9 @@ async def start_zoom(service):
                 status = await check_ya_market(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
                 if status:
                     await fix_error(service, link, str(status))
+                    black_list.append('market.yandex')
 
-
+            input('Next!')
 
 
         data = {'service_name': project, 'date': time.ctime()}

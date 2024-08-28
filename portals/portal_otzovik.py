@@ -49,7 +49,6 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
 
     links = await pars_url(service, ss_id, project)
 
-
     # soup = await get_soup(link)
     # top_link = soup.find('h1', {"class": "product-name"})
     # top_url = "https://otzovik.com" + top_link.find('a')['href'] + '?order=date_desc'

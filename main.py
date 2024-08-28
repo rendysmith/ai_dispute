@@ -4,6 +4,7 @@ from datetime import datetime
 
 from ai.ai_rbi_reactions import main_rbi
 from ai.ai_article import main_article
+from scaling_service import main_zoom
 
 now = datetime.now()
 now_hour = now.hour
@@ -20,7 +21,7 @@ async def main_total():
 
     #2 times in week
     if now_weekday in [1, 4] and now_hour == 1:
-        await main_rbi()
+        pass
 
 if __name__ == '__main__':
     asyncio.run(main_total())
