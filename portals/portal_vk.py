@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from selenium.webdriver.common.by import By
 
+from portals.portal_ya import now_month
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
 from utils.user_agent import get_soup, get_selenium, get_playwright
@@ -13,6 +14,8 @@ from dotenv import load_dotenv
 
 now = datetime.now()
 current_date = now
+
+now_month = now.month
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -175,6 +178,9 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
             print("date_splite =", date_splite)
             day = int(date_splite[0])
             month = await convert_date(date_splite[1])
+
+            if now_month != month:
+                continue
 
             if len(date_splite) == 4:
                 year = int(datetime.now().strftime('%Y'))

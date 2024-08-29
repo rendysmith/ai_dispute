@@ -49,11 +49,13 @@ async def start_zoom(service):
     list_ = list(df)
     random.shuffle(list_)
 
+    df_uniq = await get_table_scope(service, ss_id, 'unique_url')
+
     for project in list_:
         if 'Проект' in project:
             continue
 
-        #project = 'Кордиант'
+        #project = 'AlphaPet'
 
         df_mini = df[project]
         #print(len(df_mini))
@@ -80,7 +82,7 @@ async def start_zoom(service):
         for idx, link in enumerate(df_link_list):
 
             left = len_df - df_link_list.index(link)
-            print(f'*************************{idx}*({left})***************************\n-----------------{link}----------------')
+            print(f'*************************{idx}*({left})***************************\n----------------- {link} ----------------')
 
             #link = row[project]
             #---------------------------------------------------------------------------------------------------------
@@ -208,7 +210,18 @@ async def start_zoom(service):
                     black_list.append('irecommend' )
 
             #---------------------------------------------------------------------------------------------------------
-            elif 'otzovik.com' in link and any(black not in link for black in black_list):
+            elif 'otzovik.com' in link:
+
+                if black_list:
+                    if any(black in link for black in black_list):
+                        continue
+
+                top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
+                print(top_df)
+
+                if not top_df.empty:
+                    print('Есть общая ссылка на статью')
+                    link = top_df.loc[0, 'top_url']
 
                 if link in list_links:
                     continue

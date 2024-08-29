@@ -1,20 +1,16 @@
 import asyncio
+import os
 import random
-import time
 
-import requests
-from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 from datetime import datetime, timedelta
 
-from utils.gs_editor import get_service, get_table_scope, pars_url
+from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
-from utils.user_agent import gen_ua, get_soup
-from utils.proxy_bridge import get_iplist
+from utils.user_agent import get_soup
 
 current_date = datetime.now()
 
-import os
-from dotenv import load_dotenv
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
@@ -47,53 +43,57 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
-    links = await pars_url(service, ss_id, project)
+    try:
+        soup = await get_soup(link)
+        top_link = soup.find('h1', {"class": "product-name"})
+        top_url = "https://otzovik.com" + top_link.find('a')['href'] + '?order=date_desc'
+        print(top_url)
 
-    # soup = await get_soup(link)
-    # top_link = soup.find('h1', {"class": "product-name"})
-    # top_url = "https://otzovik.com" + top_link.find('a')['href'] + '?order=date_desc'
-    # print(top_link)
+        datas = {'project': project,
+                 'url': link,
+                 'top_url': top_url}
 
-    soup = await get_soup(link)
+        await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+
+    except Exception as Ex:
+        print(f"Error Ex: {Ex}")
+        top_url = link
+
+    soup = await get_soup(top_url)
     if not soup:
         return 'Сайт не отдал данные!'
 
-    blocks = soup.find_all("div", {"class": "comment"})
+    blocks = soup.find_all("div", {"itemprop": "review"})
     print(len(blocks))
 
     if len(blocks) == 0:
         return
 
+    links = await pars_url(service, ss_id, project)
+
     for block in blocks:
-        url_answer = block['id']
+        url_answer = block.find('meta', {'itemprop': "url"}).get('content')
+        print(url_answer)
+
         if url_answer in links:
             print("Такой комментарий уже отмечен")
             continue
 
-        date_content = block.find("div", {"class": "comment-postdate ts"}).text.strip().split(' ')
-        #print(type(date_content))
-        #print(date_content)
-        try:
-            year = int(date_content[2])
-        except:
-            year = int(datetime.now().year)
+        date_content = block.find("div", {"class": "review-postdate"}).get('content')
+        print(date_content)
 
-        month = await convert_date(date_content[1])
-        day = int(date_content[0])
-        #hour = int(date_content[-1][0:2])
-
-        target_date = datetime(year, month, day)
-
-        if (current_date - target_date) > timedelta(days=days_ago):
-            print(f'--- Отзыв старше {days_ago} дней. = {target_date}')
-            return
-
-        author = block.find("a", {"class": "user-login"}).text
+        date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S%z")
+        date = date.replace(tzinfo=None)  # offset-naive
 
         formatted_date = date.strftime("%d.%m.%Y")
-        #print(formatted_date)
 
-        feedback = block.find("div", {"class": "comment-body"}).text
+        if (current_date - date) > timedelta(days=days_ago):
+            print(f'--- Отзыв старше {days_ago} дней. = {date}')
+            return
+
+        author = block.find("span", {"itemprop": "name"}).text
+
+        feedback = block.find("div", {"class": "review-body-wrap"}).text
 
         await generate_and_white(service=service,
                                  url_answer=url_answer,
@@ -105,26 +105,34 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
+async def ya_soup():
+    url = 'https://otzovik.com/review_14926330.html?&capt4a=4291688985409980'
+    soup = await get_soup(url)
+
+    top_link = soup.find('h1', {"class": "product-name"})
+    top_url = "https://otzovik.com" + top_link.find('a')['href'] + '?order=date_desc'
+    print(top_url)
+
+    soup = await get_soup(top_url)
+
+    blocks = soup.find_all("div", {"itemprop": "review"})
+    print(len(blocks))
+
+    if len(blocks) == 0:
+        return
+
+    links = await pars_url(service, ss_id, project)
+
+    for block in blocks:
+        url_answer = block['id']
+        if url_answer in links:
+            print("Такой комментарий уже отмечен")
+            continue
+
+
 
 
 if __name__ == '__main__':
-    # host_port = asyncio.run(get_iplist())
-    #
-    # proxies = {
-    #     'http': f'http://{login_proxy}:{pass_proxy}@{host_port}',
-    #     'https': f'https://{login_proxy}:{pass_proxy}@{host_port}'
-    # }
-    #
-    # print(proxies)
-    # response = requests.get("http://api.ipify.org/", proxies=proxies)
-    # print(response.text)
-    #
-    #
-    # response = requests.get("http://ipwho.is/", proxies=proxies)
-    # print(response.json()['continent'])
-    # print(response.json()['country'])
-
-
     service = asyncio.run(get_service())
-    url = 'https://otzovik.com/review_15319091.html'
+    url = 'https://otzovik.com/review_14926330.html?&capt4a=4291688985409980'
     asyncio.run(check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет"))

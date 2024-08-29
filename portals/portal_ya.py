@@ -97,20 +97,7 @@ async def check_ya_sel(service, url, pattern, criteria, ss_id, project):
         time.sleep(5)
         n += 1
 
-
-
-
-
     input('Wait...')
-
-
-
-
-
-
-
-
-
 
     url = "https://yandex.ru/maps/api/business/fetchReviews?ajax=1&businessId=149979773456&csrfToken=57bc959376278aec39d19dae3c62f6b5638229a3%3A1723636953&locale=ru_RU&page=1&pageSize=50&ranking=by_time&reqId=1723636953293713-3174470668-addrs-upper-yp-13&s=1603452967&sessionId=1723636953246801-9621007603936156238-balancer-l7leveler-kubr-yp-vla-144-BAL"
 
@@ -119,26 +106,6 @@ async def check_ya_sel(service, url, pattern, criteria, ss_id, project):
     print(r)
     print(list(r))
     input(len(r))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     while True:
         try:
@@ -150,22 +117,6 @@ async def check_ya_sel(service, url, pattern, criteria, ss_id, project):
             await asyncio.sleep(3)
 
     input()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     zen_object_id = driver.find_element(By.CSS_SELECTOR, 'meta[property="zen_object_id"]').get_attribute('content').split(':')
     print(zen_object_id)
@@ -256,15 +207,23 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
                 date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
 
             except AttributeError as AE:
+                print(f'Error AE: {AE}')
                 date_element = await block.query_selector('span[class="business-review-view__date"]')
                 date = await date_element.inner_text()
+                print('Date =', date)
 
-                month = await convert_date(date)
+                date_split = date.split(' ')
+                print(date_split)
+
+                if len(date_split) == 2:
+                    month_str = date_split[1]
+
+                month = await convert_date(month_str)
                 if now_month != month:
                     continue
 
                 else:
-                    day = int(date.split(' ')[0])
+                    day = int(date_split[0])
                     year = current_date.year
                     date = datetime(year, month, day)
 
@@ -320,7 +279,7 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
                                      criteria=criteria)
 
 
-        print('Тут можно будет поставить скрол для загрузки доп отзывов')
+        print('Тут можно будет поставить скролл для загрузки доп отзывов')
         break
 
     await browser.close()
@@ -337,8 +296,7 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
 async def main():
     service = await get_service()
 
-    url = 'https://yandex.ru/maps/org/sberbank_strakhovaniye/86304407603/reviews'
-    url = 'https://yandex.ru/maps/org/ultra_city/204166540835/reviews/?ll=30.224730%2C60.035566&z=14'
+    url = 'https://yandex.ru/maps/org/zastroyshchik_/188107784110/reviews/?ll=65.580906%2C57.167970&utm_source=share&z=17'
     await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет")
 
 if __name__ == '__main__':
