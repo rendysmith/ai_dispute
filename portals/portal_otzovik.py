@@ -134,5 +134,5 @@ async def ya_soup():
 
 if __name__ == '__main__':
     service = asyncio.run(get_service())
-    url = 'https://otzovik.com/review_14926330.html?&capt4a=4291688985409980'
+    url = 'https://otzovik.com/review_15737943.html'
     asyncio.run(check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет"))

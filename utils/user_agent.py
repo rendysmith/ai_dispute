@@ -1,3 +1,4 @@
+import urllib3.exceptions
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -58,17 +59,54 @@ async def get_soup(url, only_pars=False):
 
         try:
             print('No proxy!')
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, timeout=10)
 
         except requests.exceptions.ConnectTimeout as CT:
-            print(f'Error CT: {CT}')
-            proxies = await get_headers()
-            response = requests.get(url, headers=headers, proxies=proxies)
+            try:
+                print(f'Error CT: {CT}')
+                proxies = await get_headers()
+                response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+            except:
+                return None
 
         except requests.exceptions.ProxyError as PE:
-            print(f'Error PE: {PE}')
-            proxies = await get_headers()
-            response = requests.get(url, headers=headers, proxies=proxies)
+            try:
+                print(f'Error PE: {PE}')
+                proxies = await get_headers()
+                response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+            except:
+                return None
+
+        except requests.exceptions.Timeout as To:
+            try:
+                print(f'Error To: {To}')
+                proxies = await get_headers()
+                response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+            except:
+                return None
+
+        except urllib3.exceptions.ConnectTimeoutError as CTE:
+            try:
+                print(f'Error CTE: {CTE}')
+                proxies = await get_headers()
+                response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+            except:
+                return None
+
+        except urllib3.exceptions.MaxRetryError as MRE:
+            try:
+                print(f'Error MRE: {MRE}')
+                proxies = await get_headers()
+                response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+            except:
+                return None
+
+        except requests.exceptions.RequestException as RE:
+            print(f'Error RE: {RE}')
+            return None
+
+        if response.status_code != 200:
+            return None
 
         soup = BeautifulSoup(response.text, 'html.parser')
 

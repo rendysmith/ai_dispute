@@ -89,7 +89,7 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project):
                 #input(datas)
             except:
                 #input('Next...')
-                pass
+                return 'Данные не получены'
     #
     # pprint(datas)
     # input()

@@ -146,9 +146,9 @@ async def blocks_vk(link):
 
 async def check_vk(service, link, pattern, criteria, ss_id, project):
     print(link)
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
+    # ts = random.randint(5, max_sec)
+    # print(f'Wait {ts} sec...')
+    # await asyncio.sleep(ts)
 
     links = await pars_url(service, ss_id, project)
 
@@ -182,14 +182,14 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
             if now_month != month:
                 continue
 
-            if len(date_splite) == 4:
+            if len(date_splite) == 3:
+                year = int(date_splite[-1])
+
+            elif len(date_splite) == 4:
                 year = int(datetime.now().strftime('%Y'))
 
             elif len(date_splite) == 5:
                 year = now.year
-
-            elif len(date_splite) == 3:
-                year = int(date_splite[-1])
 
             else:
                 year = now.year
@@ -246,5 +246,5 @@ if __name__ == '__main__':
 
     service = asyncio.run(get_service())
     url = 'https://vk.com/wall-11694885_373082?reply=373184'
-    url = 'https://vk.com/wall-13285508_3232169'
+    url = 'https://vk.com/wall-65455610_607660'
     asyncio.run(check_vk(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet"))
