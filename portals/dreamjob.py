@@ -67,7 +67,7 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
     await asyncio.sleep(ts)
 
     links = await pars_url(service, ss_id, project)
-    print(links)
+    #print(links)
 
     unix_time = str(int(time.time() * 1000))
 
@@ -112,7 +112,7 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
                 continue
 
             author = block.find('h2', {'class': 'review__header-title'}).text.strip()
-            print(author)
+            #print(author)
 
             title_div_plus = soup.find('div', class_='review__title review__gap')
             plus_title = title_div_plus.text

@@ -196,7 +196,18 @@ async def start_zoom(service):
                     await fix_error(service, link, str(status))
 
             #---------------------------------------------------------------------------------------------------------
-            elif 'irecommend' in link and any(black not in link for black in black_list):
+            elif 'irecommend' in link:
+                if black_list:
+                    if any(black in link for black in black_list):
+                        continue
+
+                top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
+                print(top_df)
+
+                if not top_df.empty:
+                    print('Есть общая ссылка на статью')
+                    link = top_df.loc[0, 'top_url']
+
                 if link in list_links:
                     continue
 

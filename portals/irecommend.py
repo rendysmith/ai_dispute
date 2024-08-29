@@ -3,7 +3,7 @@ import random
 
 from datetime import datetime, timedelta
 
-from utils.gs_editor import pars_url
+from utils.gs_editor import pars_url, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
 from utils.user_agent import get_soup, extract_main_site
 import textwrap
@@ -38,7 +38,6 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
     except:
         print('Страница доступна')
 
-
     domen = await extract_main_site(link)
 
     try:
@@ -54,6 +53,12 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
 
     except Exception as Ex:
         return Ex
+
+    datas = {'project': project,
+             'url': link,
+             'top_url': top_url}
+
+    await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
 
     soup = await get_soup(top_url)
 
