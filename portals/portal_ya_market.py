@@ -114,6 +114,11 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project):
             else:
                 continue
 
+            print(day, month, year)
+
+            if day < 0:
+                day = 1
+
             month = current_date.month
             year = current_date.year
             target_date = datetime(year, month, day)
@@ -148,7 +153,7 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project):
 async def main():
     service = await get_service()
 
-    url = 'https://market.yandex.ru/product--sport-3/10682420/reviews?sku=101282723653&uniqueId=10698030&do-waremd5=Zw1mXQ0cMnQecAKjfF4EbQ&grade_value=1&sort_by=date&sort_desc=1'
+    url = 'https://market.yandex.ru/product--comfort-2/1913043741/reviews?sku=101282794585&uniqueId=1163401&do-waremd5=uhNIeXveQKQN_q2xrkkQIQ&grade_value=4&sort_by=date&sort_desc=1'
     await check_ya_market(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет")
 
 if __name__ == '__main__':

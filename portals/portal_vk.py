@@ -154,7 +154,7 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
 
     playwright, browser, blocks = await blocks_vk(link) or (None, None, None)
 
-    if blocks is None:
+    if blocks is None or len(blocks) == 0:
         return
 
     for block in blocks:
@@ -246,5 +246,5 @@ if __name__ == '__main__':
 
     service = asyncio.run(get_service())
     url = 'https://vk.com/wall-11694885_373082?reply=373184'
-    url = 'https://vk.com/wall-65455610_607660'
+    url = 'https://vk.com/wall-142341134_424352'
     asyncio.run(check_vk(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet"))
