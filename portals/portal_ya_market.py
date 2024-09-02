@@ -85,12 +85,11 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project):
         author = await author_content.inner_text()
         print(author)
 
-        feedback_content = await block.query_selector('dd[class="l5Lfz"]')
+        feedback_content = await block.query_selector('div[class="_1I3ni"]')
         feedback = await feedback_content.inner_text()
         print(feedback)
 
         if any(i in date for i in ['Неделю назад', 'дней назад', 'дня назад', 'вчера', 'день назад']):
-
             if '1' in date:
                 day = current_date.day - 1
 

@@ -97,9 +97,13 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project):
     if not page:
         return 'Сайт не отдал данные.'
 
-    zen_object_id_content = await page.query_selector('meta[property="zen_object_id"]')
-    zen_object_id = await zen_object_id_content.get_attribute('content')
-    zen_object_id = zen_object_id.split(':')
+    try:
+        zen_object_id_content = await page.query_selector('meta[property="zen_object_id"]')
+        zen_object_id = await zen_object_id_content.get_attribute('content')
+        zen_object_id = zen_object_id.split(':')
+
+    except:
+        return 'Сайт не отдал данные.'
 
     #print(zen_object_id)
     documentId = zen_object_id[1]
@@ -160,7 +164,6 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project):
 
 if __name__ == '__main__':
     service = asyncio.run(get_service())
-    url = 'https://dzen.ru/a/ZpTppvyvWw9ewvtn'
-    url = 'https://dzen.ru/b/Y0FV3tbF3mAKE8E8#comment_1348850413'
-    url = 'https://dzen.ru/a/ZpTppvyvWw9ewvtn'
+
+    url = 'https://dzen.ru/a/ZF3kG27fcA39RZbS#comment_1650504031'
     asyncio.run(check_dzen(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет"))

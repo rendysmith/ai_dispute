@@ -1,14 +1,11 @@
 import asyncio
 import random
-import time
 
-import requests
-from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
-from utils.gs_editor import get_service, get_table_scope, pars_url
+from utils.gs_editor import get_service, pars_url
 from utils.ai_module import generate_and_white
-from utils.user_agent import gen_ua, get_soup
+from utils.user_agent import get_soup
 
 current_date = datetime.now()
 
@@ -32,6 +29,9 @@ async def check_drive2(service, link, pattern, criteria, ss_id, project):
 
     soup = await get_soup(link)
     #print(soup)
+
+    if not soup:
+        return 'Сайт не отдал данные.'
 
     blocks = soup.find_all("div", {"data-role": "comment"})
     print(len(blocks))
@@ -78,10 +78,8 @@ async def check_drive2(service, link, pattern, criteria, ss_id, project):
     ts = random.randint(5, 15)
     await asyncio.sleep(ts)
 
-#
-#
-#
-# if __name__ == '__main__':
-#     service = asyncio.run(get_service())
-#     url = 'https://www.drive2.ru/l/659130558768482978/#comments'
-#     asyncio.run(check_drive2(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет"))
+
+if __name__ == '__main__':
+    service = asyncio.run(get_service())
+    url = 'https://www.drive2.ru/l/659074483675472672/#comments'
+    asyncio.run(check_drive2(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет"))
