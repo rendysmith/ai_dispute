@@ -8,7 +8,7 @@ import numpy as np
 import traceback
 
 import warnings
-import gspread
+#import gspread
 #from oauth2client.service_account import ServiceAccountCredentials
 
 #import gspread_dataframe as gd
@@ -41,7 +41,7 @@ with open(path_to_credentials, 'r') as file:
 
 print(data['client_email'])
 
-gc = gspread.service_account(path_to_credentials)
+#gc = gspread.service_account(path_to_credentials)
 
 
     # SCOPES = ['https://www.googleapis.com/auth/spreadsheets']

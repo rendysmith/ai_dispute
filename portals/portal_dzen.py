@@ -13,7 +13,7 @@ from selenium.webdriver.common.by import By
 
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
-from utils.user_agent import gen_ua, get_selenium, get_playwright
+from utils.user_agent import get_playwright
 
 current_date = datetime.now()
 

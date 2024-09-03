@@ -98,8 +98,16 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
             date_spl = date.split('\xa0')
             #print(date_spl)
             month = await convert_date(date_spl[0])
-            target_date = datetime(int(date_spl[1]), month, 31)
-            print(target_date)
+
+            last_day = 31
+            while True:
+                try:
+                    target_date = datetime(int(date_spl[1]), month, last_day)
+                    print(target_date)
+                    break
+
+                except:
+                    last_day -= 1
 
             if (current_date - target_date) > timedelta(days=days_ago):
                 print(f'--- Отзыв старше {days_ago} дней = {date}.')

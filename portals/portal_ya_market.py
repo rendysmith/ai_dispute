@@ -114,7 +114,7 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project):
             else:
                 continue
 
-            print(day, month, year)
+            print(day)
 
             if day < 0:
                 day = 1

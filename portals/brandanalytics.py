@@ -1,16 +1,15 @@
 import asyncio
 import os
+import random
 import time
+from datetime import datetime, timedelta
 
 import aiohttp
 
 from dotenv import load_dotenv
 
-from bs4 import BeautifulSoup
-from pydantic.validators import datetime
-
 from utils.user_agent import get_soup
-from portals.portal_vk import blocks_vk
+from portals.portal_vk import blocks_vk, convert_date
 
 """
 Данное упоминание нам не подходит:
@@ -34,6 +33,9 @@ from portals.portal_vk import blocks_vk
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
+
+now = datetime.now()
+days_ago = 3
 
 username = os.environ.get("LOGIN_DA")
 password = os.environ.get("PASS_DA")
@@ -92,6 +94,7 @@ async def check_brandanalytics():
 
     for msg_id in messages_id:
         print('\n***************************************************************************************')
+
         msg = messages[msg_id]
 
         author = msg['author']['fullname']
@@ -107,40 +110,78 @@ async def check_brandanalytics():
         if any(mt in text.lower() for mt in ['бляд', 'пизд', 'хуй', 'хуев', 'хуёв', 'пидар', 'пидр', 'пидор','заеб', 'заёб', 'говн', 'ебан', 'ебон', "залуп", "долба", "отъеб"]):
             print('МАТ!!!')
             print(text)
-            input('WAIT...')
             continue
 
         soup = await get_soup(url_answer)
 
         if "Message in a private group or channel" in soup:
             print('Телеграм - закрытая группа')
-            input('WAIT...')
             continue
 
         print(date_create)
         print(url_answer)
         print(text)
 
-        if 'vk.com' in url_answer:
+        if 'telegram.me' in url_answer:
+            pass
+
+        elif 'vk.com' in url_answer:
+
+            ts = random.randint(5, 30)
+            print(f'Wait {ts} sec...')
+            await asyncio.sleep(ts)
+
             playwright, browser, blocks = await blocks_vk(url_answer)
 
             if not blocks:
                 continue
 
+            trend_alife = False
             for block in blocks:
-                date_content = await block.query_selector('span[class="rel_date"]')
-                if not date_content:
-                    date_content = await block.query_selector('span[class="rel_date rel_date_needs_update"]')
+                try:
+                    date_content = await block.query_selector('span[class="rel_date"]')
+                    if not date_content:
+                        date_content = await block.query_selector('span[class="rel_date rel_date_needs_update"]')
+                    date = await date_content.inner_text()
+                    print("date =", date)
+                    date_split = date.split(' ')
+                    print(date_split)
 
-                date = await date_content.inner_text()
-                print("date =", date)
+                except:
+                    continue
+
+                if any(date_str in date for date_str in ['hours, today, yesterday']):
+                    trend_alife = True
+                    day = now.day
+                    month = now.month
+                    year = now.year
+
+                elif len(date_split) == 5:
+                    day = int(date_split[0])
+                    month = await convert_date(date_split[1])
+                    year = now.year
+
+                else:
+                    day = now.day
+                    month = now.month
+                    year = now.year
+
+                print(year, month, day)
+                target_date = datetime(year, month, day)
+                if (now - target_date) <= timedelta(days=days_ago):
+                    trend_alife = True
+
+
+            if trend_alife == False:
+                print('Тренд мертв!')
+                continue
+
+            print('')
 
 
 
 
-
-
-        input()
+            input('OK!')
 
 
 

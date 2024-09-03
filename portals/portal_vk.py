@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from portals.portal_ya import now_month
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
-from utils.user_agent import get_soup, get_selenium, get_playwright
+from utils.user_agent import get_playwright
 
 import os
 from dotenv import load_dotenv
@@ -139,28 +139,34 @@ async def blocks_vk(link):
 
     print(len_b)
     if len_b == 0:
-        return
+        return None, None, None
 
     return playwright, browser, blocks
 
 
 async def check_vk(service, link, pattern, criteria, ss_id, project):
     print(link)
-    # ts = random.randint(5, max_sec)
-    # print(f'Wait {ts} sec...')
-    # await asyncio.sleep(ts)
+    ts = random.randint(5, max_sec)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
 
     links = await pars_url(service, ss_id, project)
 
-    playwright, browser, blocks = await blocks_vk(link) or (None, None, None)
+    playwright, browser, blocks = await blocks_vk(link)
+    print(blocks)
 
+    print('------------------')
     if blocks is None or len(blocks) == 0:
         return
+    print('------------------')
 
     for block in blocks:
-        date_content = await block.query_selector('span[class="rel_date"]')
-        date = await date_content.inner_text()
-        print("date =", date)
+        try:
+            date_content = await block.query_selector('span[class="rel_date"]')
+            date = await date_content.inner_text()
+            print("date =", date)
+        except:
+            continue
 
         if 'вчера' in date:
             day = now.date() - 1
@@ -172,10 +178,16 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
             month = now.month
             year = now.year
 
+        elif 'today' in date:
+            day = now.day
+            month = now.month
+            year = now.year
+
         else:
             date = date.replace('\xa0', ' ')
             date_splite = date.split(' ')
             print("date_splite =", date_splite)
+
             day = int(date_splite[0])
             month = await convert_date(date_splite[1])
 
@@ -246,5 +258,5 @@ if __name__ == '__main__':
 
     service = asyncio.run(get_service())
     url = 'https://vk.com/wall-11694885_373082?reply=373184'
-    url = 'https://vk.com/wall-142341134_424352'
+    url = 'http://vk.com/wall-106313017_103706?reply=103730'
     asyncio.run(check_vk(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet"))

@@ -7,21 +7,7 @@ import os, re
 
 from bs4 import BeautifulSoup
 
-from pyvirtualdisplay import Display
-from selenium import webdriver
-
-#from selenium.webdriver.support.ui import WebDriverWait
-#from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-#from webdriver_manager.chrome import ChromeDriverManager
-
-#from selenium.webdriver import ActionChains
-from selenium.webdriver.common.by import By
-#from selenium.webdriver.common.keys import Keys
-
 from datetime import datetime, timedelta
-import time
 
 from utils.gs_editor import pars_url
 from utils.ai_module import generate_and_white

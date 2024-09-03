@@ -104,18 +104,16 @@ async def check_aplout(service, link, pattern, criteria, ss_id, project):
                                  criteria=criteria)
 
 
-# async def main_aplaut():
-#     from utils.gs_editor import get_service
-#     service = await get_service()
-#
-#     url = 'https://app.aplaut.io/b/reviews'
-#
-#     await check_aplout(service, url, 1,1,'1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w','Кордиант')
-#
-# if "__main__" in __name__:
-#     asyncio.run(main_aplaut())
-#
-#     #asyncio.run(main(url))
+async def main_aplaut():
+    from utils.gs_editor import get_service
+    service = await get_service()
+    url = 'https://app.aplaut.io/b/reviews/668b49b07e0e34001a4a2fb5'
+    await check_aplout(service, url, 1,1,'1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w','DESPORT')
+
+if "__main__" in __name__:
+    asyncio.run(main_aplaut())
+
+    #asyncio.run(main(url))
 
 
 

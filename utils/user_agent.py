@@ -14,7 +14,6 @@ from bs4 import BeautifulSoup
 import re
 
 from fake_useragent import UserAgent
-from setuptools.package_index import user_agent
 
 from utils.proxy_bridge import get_iplist
 import os
