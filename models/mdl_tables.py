@@ -216,6 +216,19 @@ class ForumRules(Base):
     forum_rule = Column(String, nullable=False, index=True)
 
 
+class Prompt(Base):
+    """
+    prompt_id: Integer\n
+    project_name: String\n
+    prompt: String\n
+    """
+    __tablename__ = 'prompts'
+
+    prompt_id = Column(Integer, primary_key=True, autoincrement=True)
+    project_name = Column(String, nullable=False, index=True)
+    prompt = Column(String, nullable=False, index=True)
+
+
 
 
 
