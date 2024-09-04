@@ -59,6 +59,9 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
 
     #playwright, browser, page = await get_playwright(url, headless=False)
     playwright, browser, page = await get_playwright(url)
+    if not page:
+        return 'Сайт не отдал данные.'
+
     await page.evaluate("document.body.style.zoom=0.5")
 
     print('=> Rating By date')

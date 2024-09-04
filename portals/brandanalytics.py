@@ -8,6 +8,7 @@ import aiohttp
 
 from dotenv import load_dotenv
 
+from ai_skillbox import prompt_txt
 from utils.user_agent import get_soup
 from portals.portal_vk import blocks_vk, convert_date
 
@@ -16,19 +17,25 @@ from portals.portal_vk import blocks_vk, convert_date
 1) Упоминание находится в закрытом сообществе
 2) Упоминание находится на личной странице того или иного пользователя
 
-+ 3) Не допускать мат в тексте
+v+t+ 3) Не допускать мат в тексте
 
-4) Тред мертв (то есть за обсуждаемую тему давно забыли и смысла отвечать на упоминание, которое было написано в этом обсуждение, смысла нет)
+v+ 4) Тред мертв (то есть за обсуждаемую тему давно забыли и смысла отвечать на упоминание, которое было написано в этом обсуждение, смысла нет)
 5) Тред ушел (упоминание ушло далеко вверх и в группе давно обсуждается другая тема уже)
 Тред мёртв:
-- если от нужного нам упоминания есть ещё 10+ комментариев (уже есть полотно других сообщений и мы понимаем что заходить туда не нативно)
-- если упоминанию в чате уже более 2-3 дней
-- если после нашего упоминания органика перевела тему разговора и перестали говорить о нужном нам продукте/бренде/компании
+   - если от нужного нам упоминания есть ещё 10+ комментариев (уже есть полотно других сообщений и мы понимаем что заходить туда не нативно)
+v+ - если упоминанию в чате уже более 2-3 дней
+   - если после нашего упоминания органика перевела тему разговора и перестали говорить о нужном нам продукте/бренде/компании
 
 7) Упоминание не о продукт (то есть данное упоминание тинькофф банк обходит стороной, либо же он упоминается там просто вскользь, так скажем)
 8) Обобщенное упоминание (автор говорит в целом о банках, а не конкретно о тинькофф. Может просто перечислять их)
 
 9) Упоминание размещено в аккаунте технического аккаунта (бота) (это могут быть какие-то посты в сообществах, которые, к примеру, каждый день закидывает бот. 
+"""
+
+prompt_vk_trend_gone = """
+Ты аналитик 
+Твоя задача прочитать переписку 
+--------- 
 """
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -84,7 +91,6 @@ async def check_brandanalytics():
             else:
                 raise Exception(f"Request failed with status code {response.status}")
 
-
     messages = r_json['feed']['messages']
     #print(messages)
     print(len(messages))
@@ -92,8 +98,8 @@ async def check_brandanalytics():
     messages_id = [k for k, v in messages.items()]
     #input(messages_id)
 
-    for msg_id in messages_id:
-        print('\n***************************************************************************************')
+    for idx, msg_id in enumerate(messages_id):
+        print(f'\n******************************************{idx} ({len(messages_id) - idx})*********************************************')
 
         msg = messages[msg_id]
 
@@ -106,9 +112,10 @@ async def check_brandanalytics():
         # Извлекаем весь текст из документа
         text = soup.get_text()
 
-        print('=======================================')
-        if any(mt in text.lower() for mt in ['бляд', 'пизд', 'хуй', 'хуев', 'хуёв', 'пидар', 'пидр', 'пидор','заеб', 'заёб', 'говн', 'ебан', 'ебон', "залуп", "долба", "отъеб"]):
-            print('МАТ!!!')
+        print(f'===================={url_answer}===================')
+
+        if any(mt in text.lower() for mt in ['бляд', 'пизд', 'хуй', 'хуев', 'уета', 'хуёв', 'пидар', 'пидр', 'пидор','заеб', 'заёб', 'говн', 'ебан', 'ебон', "залуп", "долба", "отъеб"]):
+            print('>>>>>>>>>>>>>>>>>> МАТ!!! <<<<<<<<<<<<<<<<<<<<')
             print(text)
             continue
 
@@ -118,18 +125,18 @@ async def check_brandanalytics():
             print('Телеграм - закрытая группа')
             continue
 
-        print(date_create)
-        print(url_answer)
-        print(text)
-
         if 'telegram.me' in url_answer:
             pass
 
-        elif 'vk.com' in url_answer:
 
-            ts = random.randint(5, 30)
-            print(f'Wait {ts} sec...')
-            await asyncio.sleep(ts)
+
+
+
+
+        elif 'vk.com' in url_answer:
+            print(date_create)
+            print(url_answer)
+            print(text)
 
             playwright, browser, blocks = await blocks_vk(url_answer)
 
@@ -170,7 +177,6 @@ async def check_brandanalytics():
                 target_date = datetime(year, month, day)
                 if (now - target_date) <= timedelta(days=days_ago):
                     trend_alife = True
-
 
             if trend_alife == False:
                 print('Тренд мертв!')

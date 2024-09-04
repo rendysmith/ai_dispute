@@ -128,16 +128,24 @@ async def check_vk_sel(service, link, pattern, criteria, ss_id, project):
 
 async def blocks_vk(link):
     playwright, browser, page = await get_playwright(link)
+    ts = random.randint(5, max_sec)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
 
-    blocks = await page.query_selector_all('div[id*="-"][class*="repl"][data-post-id*="-"]')
+    blocks = await page.query_selector_all('div[id*="post"][class*="reply"][data-post-id*="-"]')
     len_b = len(blocks)
     print(len_b)
 
     if len_b == 0:
+        blocks = await page.query_selector_all('div[id*="-"][class*="repl"][data-post-id*="-"]')
+        len_b = len(blocks)
+        print(len_b)
+
+    if len_b == 0:
         blocks = await page.query_selector_all('div[id*="post-"][class*="bp_post clear_fix "]')
         len_b = len(blocks)
+        print(len_b)
 
-    print(len_b)
     if len_b == 0:
         return None, None, None
 
@@ -146,9 +154,7 @@ async def blocks_vk(link):
 
 async def check_vk(service, link, pattern, criteria, ss_id, project):
     print(link)
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
+
 
     links = await pars_url(service, ss_id, project)
 
