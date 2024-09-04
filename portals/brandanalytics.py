@@ -35,7 +35,9 @@ v+ - если упоминанию в чате уже более 2-3 дней
 prompt_vk_trend_gone = """
 Ты аналитик 
 Твоя задача прочитать переписку 
---------- 
+--------- START CHATTING -----------
+{chat_list}
+--------- END CHATTING -----------
 """
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -144,6 +146,9 @@ async def check_brandanalytics():
                 continue
 
             trend_alife = False
+
+            chat_list = []
+
             for block in blocks:
                 try:
                     date_content = await block.query_selector('span[class="rel_date"]')
@@ -178,11 +183,19 @@ async def check_brandanalytics():
                 if (now - target_date) <= timedelta(days=days_ago):
                     trend_alife = True
 
+                author = 1
+                feedback = 1
+
+                datas = {'date': date,
+                         'author': author,
+                         'feedback': feedback}
+                chat_list.append(datas)
+
             if trend_alife == False:
                 print('Тренд мертв!')
                 continue
 
-            print('')
+
 
 
 
