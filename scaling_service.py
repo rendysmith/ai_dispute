@@ -277,6 +277,7 @@ async def start_zoom(service):
             #---------------------------------------------------------------------------------------------------------
             elif 'yandex.ru/maps' in link:
                 link_split = link.split('/')
+
                 for lnk in link_split:
                     if lnk.isdigit():
                         try:

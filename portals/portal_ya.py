@@ -63,6 +63,7 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
 
     if not page:
         return 'Сайт не отдал данные.'
+
     await page.evaluate("document.body.style.zoom=0.5")
 
     print('=> Rating By date')

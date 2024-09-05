@@ -87,12 +87,12 @@ async def check_dzen_sel(service, url, pattern, criteria, ss_id, project):
 
 
 async def check_dzen(service, url, pattern, criteria, ss_id, project):
+    playwright, browser, page = await get_playwright(url)
+
     links = await pars_url(service, ss_id, project)
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
-
-    playwright, browser, page = await get_playwright(url)
 
     if not page:
         return 'Сайт не отдал данные.'

@@ -60,6 +60,8 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project):
     await asyncio.sleep(ts)
 
     links = await pars_url(service, ss_id, project)
+    if not page:
+        return "Сайт не вернул данные"
 
     blocks = await page.query_selector_all('div[class="_11gvyqv"]')
     print('Len =', len(blocks))

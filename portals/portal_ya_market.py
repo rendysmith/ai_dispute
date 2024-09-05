@@ -52,12 +52,16 @@ async def convert_date(month):
 async def check_ya_market(service, url, pattern, criteria, ss_id, project):
     print(f"New link = {url}")
 
-    links = await pars_url(service, ss_id, project)
-    # ts = random.randint(5, max_sec)
-    # print(f'Wait {ts} sec...')
-    # await asyncio.sleep(ts)
-
     playwright, browser, page = await get_playwright(url)
+
+    links = await pars_url(service, ss_id, project)
+    ts = random.randint(5, max_sec)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
+
+    if not page:
+        return 'Сайт не отдал данные.'
+
     await page.evaluate("document.body.style.zoom=0.5")
 
     blocks = await page.query_selector_all('div[class="eoZns"]')
