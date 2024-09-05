@@ -8,7 +8,6 @@ import aiohttp
 
 from dotenv import load_dotenv
 
-from ai_skillbox import prompt_txt
 from utils.user_agent import get_soup
 from portals.portal_vk import blocks_vk, convert_date
 
@@ -34,10 +33,13 @@ v+ - если упоминанию в чате уже более 2-3 дней
 
 prompt_vk_trend_gone = """
 Ты аналитик 
-Твоя задача прочитать переписку 
---------- START CHATTING -----------
+Твоя задача:
+прочитать переписку 
+--------- START CHATTING ----------
 {chat_list}
 --------- END CHATTING -----------
+и определить, 
+то есть за обсуждаемую тему давно забыли и смысла отвечать на упоминание, которое было написано в этом обсуждение, смысла нет
 """
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -133,8 +135,6 @@ async def check_brandanalytics():
 
 
 
-
-
         elif 'vk.com' in url_answer:
             print(date_create)
             print(url_answer)
@@ -183,13 +183,20 @@ async def check_brandanalytics():
                 if (now - target_date) <= timedelta(days=days_ago):
                     trend_alife = True
 
-                author = 1
-                feedback = 1
+                author_content = await block.query_selector('a[class="author author_highlighted"]')
+                author = await author_content.inner_text()
+                print(author)
+
+                feedback_content = await block.query_selector('div[class="wall_reply_text onclick="]')
+                feedback = await feedback_content.inner_text()
+                print(feedback)
 
                 datas = {'date': date,
                          'author': author,
                          'feedback': feedback}
                 chat_list.append(datas)
+
+                input()
 
             if trend_alife == False:
                 print('Тренд мертв!')
