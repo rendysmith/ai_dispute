@@ -11,6 +11,8 @@ from utils.ai_module import generate_and_white
 #from ai_skillbox import pars_url, generator
 import textwrap
 
+from utils.user_agent import get_soup
+
 current_date = datetime.now()
 
 import os
@@ -77,9 +79,7 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
         url = f'{link}?erfrp%5BlastParam%5D=&erfrp%5Bfrom_vacancy%5D=&sort=-created_at&page={page}&_={unix_time}'
         print(url)
 
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        #print(soup)
+        soup = await get_soup(url)
 
         blocks = soup.find_all('div', {"class": 'review', 'data-partly': 'short'})
         #print(len(blocks))
