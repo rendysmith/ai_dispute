@@ -128,6 +128,9 @@ async def check_vk_sel(service, link, pattern, criteria, ss_id, project):
 
 async def blocks_vk(link):
     playwright, browser, page = await get_playwright(link)
+    if not page:
+        return None, None, None
+
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
@@ -154,12 +157,9 @@ async def blocks_vk(link):
 
 async def check_vk(service, link, pattern, criteria, ss_id, project):
     print(link)
-
-
     links = await pars_url(service, ss_id, project)
 
     playwright, browser, blocks = await blocks_vk(link)
-    print(blocks)
 
     print('------------------')
     if blocks is None or len(blocks) == 0:
@@ -264,5 +264,5 @@ if __name__ == '__main__':
 
     service = asyncio.run(get_service())
     url = 'https://vk.com/wall-11694885_373082?reply=373184'
-    url = 'http://vk.com/wall-106313017_103706?reply=103730'
+    url = 'vk.com/wall-7871245_252922?reply=253324&thread=252946'
     asyncio.run(check_vk(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet"))
