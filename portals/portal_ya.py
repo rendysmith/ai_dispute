@@ -52,16 +52,17 @@ def find_key_path(dct, target_key, path = None):
 
 async def check_ya(service, url, pattern, criteria, ss_id, project):
     print(f"New link = {url}")
+
+    #playwright, browser, page = await get_playwright(url, headless=False)
+    playwright, browser, page = await get_playwright(url)
+
     links = await pars_url(service, ss_id, project)
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
-    #playwright, browser, page = await get_playwright(url, headless=False)
-    playwright, browser, page = await get_playwright(url)
     if not page:
         return 'Сайт не отдал данные.'
-
     await page.evaluate("document.body.style.zoom=0.5")
 
     print('=> Rating By date')
