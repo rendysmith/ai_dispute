@@ -183,6 +183,9 @@ async def start_zoom(service):
                     edit_link = link.split("?w=")
                     link_company = "http://vk.com/" + edit_link[-1]
 
+                else:
+                    link_company = link
+
                 print("link_company =", link_company)
 
                 if link_company in list_links:
