@@ -127,7 +127,7 @@ async def check_vk_sel(service, link, pattern, criteria, ss_id, project):
                                  criteria=criteria)
 
 async def blocks_vk(link):
-    playwright, browser, page = await get_playwright(link, headless=False)
+    playwright, browser, page = await get_playwright(link)
 
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
@@ -161,7 +161,6 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
     links = await pars_url(service, ss_id, project)
 
     playwright, browser, blocks = await blocks_vk(link)
-    print("blocks =", blocks)
 
     print('------------------')
     if blocks is None:

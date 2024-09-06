@@ -154,12 +154,14 @@ async def check_otvet_soup(service, link, pattern, criteria, ss_id, project):
 
 async def check_otvet(service, link, pattern, criteria, ss_id, project):
     print(link)
-
-    # ts = random.randint(5, max_sec)
-    # print(f'Wait {ts} sec...')
-    # await asyncio.sleep(ts)
-
     playwright, browser, page = await get_playwright(link)
+
+    ts = random.randint(5, max_sec)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
+
+    if not page:
+        return 'Сайт не отдал данные'
 
     n = 0
     while True:
@@ -276,5 +278,5 @@ if __name__ == '__main__':
 
     service = asyncio.run(get_service())
     url = 'https://vk.com/wall-11694885_373082?reply=373184'
-    url = 'https://otvet.mail.ru/answer/2033630625'
+    url = 'https://otvet.mail.ru/answer/2042548676'
     asyncio.run(check_otvet(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet"))

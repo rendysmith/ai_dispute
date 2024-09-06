@@ -191,6 +191,7 @@ async def check_brandanalytics():
                 print(author)
 
                 feedback_content = await block.query_selector('div[class="wall_reply_text onclick="]')
+                try:
                 feedback = await feedback_content.inner_text()
                 print(feedback)
 

@@ -1,13 +1,10 @@
 FROM python:3.10
 
-# Установка OpenJDK
-RUN apt-get update -y && \
-    apt-get install -y default-jre default-jdk
-
 RUN apt-get update -y
 RUN apt-get install -y python3-pip
 
-# Устанавливаем необходимые браузеры Playwright
+# Устанавливаем Playwright и необходимые браузеры
+RUN pip install playwright
 RUN playwright install
 
 #RUN apt-get install -y docker-compose
