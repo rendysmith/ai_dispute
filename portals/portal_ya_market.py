@@ -73,7 +73,7 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project):
     for block in blocks:
         date_content = await block.query_selector('span[class="ncho4"]')
         date = await date_content.inner_text()
-        print(date)
+        print("date", date)
 
         if not any(i in date for i in ['Неделю назад', 'дней назад', 'дня назад', 'вчера', 'день назад']):
             return
@@ -97,7 +97,7 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project):
             if '1' in date:
                 day = current_date.day - 1
 
-            elif '2' in date:
+            elif '2' in date or 'Позавчера' in date:
                 day = current_date.day - 2
 
             elif '3' in date:
@@ -120,11 +120,13 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project):
 
             print(day)
 
-            if day < 0:
+            if day <= 0:
                 day = 1
 
             month = current_date.month
             year = current_date.year
+            print(year, month, day)
+
             target_date = datetime(year, month, day)
             formatted_date = target_date.strftime("%d.%m.%Y")
             print(formatted_date)
@@ -157,8 +159,11 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project):
 async def main():
     service = await get_service()
 
+
     url = 'https://market.yandex.ru/product--comfort-2/1913043741/reviews?sku=101282794585&uniqueId=1163401&do-waremd5=uhNIeXveQKQN_q2xrkkQIQ&grade_value=4&sort_by=date&sort_desc=1'
-    await check_ya_market(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет")
+
+    url = 'https://market.yandex.ru/product/496791076/reviews'
+    await check_ya_market(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
 
 if __name__ == '__main__':
     asyncio.run(main())
