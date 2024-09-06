@@ -192,8 +192,10 @@ async def check_brandanalytics():
 
                 feedback_content = await block.query_selector('div[class="wall_reply_text onclick="]')
                 try:
-                feedback = await feedback_content.inner_text()
-                print(feedback)
+                    feedback = await feedback_content.inner_text()
+                    print(feedback)
+                except:
+                    feedback = ''
 
                 datas = {'date': date,
                          'id': id_content,
