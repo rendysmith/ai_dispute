@@ -68,8 +68,12 @@ async def get_api_tokens():
 async def get_hosts():
     async with SessionLocal() as session:
         async with session.begin():
-            result = await session.execute(select(Hosts).filter_by(status="free"))
-            hosts_data = result.scalars().all()
+            try:
+                result = await session.execute(select(Hosts).filter_by(status="free"))
+                hosts_data = result.scalars().all()
+            except Exception as Ex:
+                print((Ex))
+                return None
 
             if hosts_data:
                 hosts = [host.host for host in hosts_data]
@@ -78,15 +82,6 @@ async def get_hosts():
             else:
                 print("No hosts found")
                 return None
-    # hosts_data = session.query(Hosts).all()
-    # if hosts_data:
-    #     hosts = [host.host for host in hosts_data]
-    #     print(hosts)
-    #     return hosts
-    # else:
-    #     print("No hosts found")
-    #     return None
-
 
 
 async def get_user_bt24(email):
