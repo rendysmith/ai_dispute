@@ -143,6 +143,7 @@ async def check_brandanalytics():
             playwright, browser, blocks = await blocks_vk(url_answer)
 
             if not blocks:
+                print('>>>>', blocks)
                 continue
 
             trend_alife = False
@@ -183,6 +184,8 @@ async def check_brandanalytics():
                 if (now - target_date) <= timedelta(days=days_ago):
                     trend_alife = True
 
+                id_content = await block.get_attribute('id')
+
                 author_content = await block.query_selector('a[class="author author_highlighted"]')
                 author = await author_content.inner_text()
                 print(author)
@@ -192,11 +195,12 @@ async def check_brandanalytics():
                 print(feedback)
 
                 datas = {'date': date,
+                         'id': id_content,
                          'author': author,
                          'feedback': feedback}
                 chat_list.append(datas)
 
-                input()
+                input(datas)
 
             if trend_alife == False:
                 print('Тренд мертв!')

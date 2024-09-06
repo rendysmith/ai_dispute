@@ -127,13 +127,14 @@ async def check_vk_sel(service, link, pattern, criteria, ss_id, project):
                                  criteria=criteria)
 
 async def blocks_vk(link):
-    playwright, browser, page = await get_playwright(link)
-    if not page:
-        return None, None, None
+    playwright, browser, page = await get_playwright(link, headless=False)
 
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
+
+    if not page:
+        return None, None, None
 
     blocks = await page.query_selector_all('div[id*="post"][class*="reply"][data-post-id*="-"]')
     len_b = len(blocks)
@@ -160,11 +161,16 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
     links = await pars_url(service, ss_id, project)
 
     playwright, browser, blocks = await blocks_vk(link)
+    print("blocks =", blocks)
 
     print('------------------')
-    if blocks is None or len(blocks) == 0:
-        return
+    if blocks is None:
+        return 'Сайт не отдал данные'
     print('------------------')
+
+    len_blocks = len(blocks)
+    if len_blocks == 0:
+        return
 
     for block in blocks:
         try:
@@ -258,11 +264,11 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
     await playwright.stop()
 
 
-
+async def main_vk():
+    service = await get_service()
+    url = 'https://vk.com/wall-11694885_373082?reply=373184'
+    url = 'https://vk.com/wall-7871245_252922?reply=253324&thread=252946'
+    await check_vk(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
 
 if __name__ == '__main__':
-
-    service = asyncio.run(get_service())
-    url = 'https://vk.com/wall-11694885_373082?reply=373184'
-    url = 'vk.com/wall-7871245_252922?reply=253324&thread=252946'
-    asyncio.run(check_vk(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet"))
+    asyncio.run(main_vk())

@@ -1,10 +1,4 @@
 import urllib3.exceptions
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 from playwright.async_api import async_playwright
 
@@ -134,7 +128,7 @@ async def get_selenium(url, headless=True):
 async def get_playwright(url, headless=True):
     """
     :param url: url
-    :param headless: headless (boot)
+    :param headless: headless (boot) headless=True
     :return:
     """
 
@@ -148,11 +142,8 @@ async def get_playwright(url, headless=True):
         return playwright, browser, page
 
     except Exception as Ex:
+        print("ERROR PW Ex:", Ex)
         return None, None, None
-
-
-
-
 
 async def main():
     url = 'https://irecommend.ru/content/ustraivaet-vo-vsekh-usloviyakh-ekspluatatsii'
@@ -167,4 +158,4 @@ async def main():
 
 
 if "__main__" in __name__:
-    asyncio.run(get_playwright('https://www.google.com', headless=False))
+    asyncio.run(get_playwright('https://vk.com/wall-7871245_252922?reply=253324&thread=252946', headless=False))
