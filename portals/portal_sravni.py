@@ -48,7 +48,12 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
     #       "https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=2cf24b82de26a43cbc9961575a28d5ed&from=2024-05-04       &isClient=false&locationRoute=&newIds=true&orderBy=byPopularity&pageIndex=1&pageSize=10 &reviewObjectId=126810&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true"
     url = f"https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=2cf24b82de26a43cbc9961575a28d5ed&from={formatted_7date}&isClient=false&locationRoute=&newIds=true&orderBy=byPopularity&pageIndex=1&pageSize=100&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true"
     url = 'https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=1a82bf4208be26b0cfc31659789b0174&isClient=false&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=100&rated=any&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true'
-    r = requests.get(url).json()
+    r = requests.get(url)
+    if r.status_code == 200:
+        r = r.json()
+
+    else:
+        return f'Сайт не отдал данные {r.status_code}'
 
     for i in r['items']:
         url_answer = f"{link}{i['id']}"
@@ -93,7 +98,7 @@ async def main():
     from utils.gs_editor import get_service
     service = await get_service()
     url = 'https://www.sravni.ru/strakhovaja-kompanija/sberbank-strah/otzyvy/'
-    await check_sravni(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet")
+    await check_sravni(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
 
 if __name__ == '__main__':
     asyncio.run(main())
