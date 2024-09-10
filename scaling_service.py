@@ -338,9 +338,6 @@ async def start_zoom(service):
                     await fix_error(service, link, str(status))
                     black_list.append('market.yandex')
 
-
-
-
         data = {'service_name': project, 'date': current_date}
         await write_log_sheet(service, ss_id, 'logs', data)
 
