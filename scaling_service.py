@@ -1,5 +1,6 @@
 import os.path
 import time
+from datetime import datetime
 
 import asyncio
 import re
@@ -24,6 +25,8 @@ from portals.portal_otvet import check_otvet
 from utils.constants import TABLES_LIST
 
 ss_id = TABLES_LIST['zoom']
+
+current_date = datetime.now().strftime("%d.%m.%Y")
 
 async def extract_company_name(pattern, url):
     match = re.search(pattern, url)
@@ -338,7 +341,7 @@ async def start_zoom(service):
 
 
 
-        data = {'service_name': project, 'date': time.ctime()}
+        data = {'service_name': project, 'date': current_date}
         await write_log_sheet(service, ss_id, 'logs', data)
 
 async def main_zoom():
