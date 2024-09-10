@@ -15,6 +15,8 @@ RUN apt-get update && \
         libxcomposite1 \
         libxcursor1 \
         libxdamage1 \
+        libpci3 \
+        libgl1-mesa-glx \
         libxfixes3 \
         libxi6 \
         libgtk-3-0 \

@@ -134,7 +134,7 @@ async def get_playwright(url, headless=True):
 
     try:
         playwright = await async_playwright().start()
-        browser = await playwright.firefox.launch(headless=headless)
+        browser = await playwright.firefox.launch(headless=headless, timeout=30000)
         context = await browser.new_context(
             user_agent=ua.random)
         page = await context.new_page()

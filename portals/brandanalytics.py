@@ -1,15 +1,16 @@
 import asyncio
 import os
-import random
+import re
 import time
 from datetime import datetime, timedelta
 
 import aiohttp
-
 from dotenv import load_dotenv
+from requests.auth import HTTPBasicAuth
 
-from utils.user_agent import get_soup
 from portals.portal_vk import blocks_vk, convert_date
+from utils.ai_module import get_answer_ai
+from utils.user_agent import get_soup
 
 """
 Данное упоминание нам не подходит:
@@ -18,7 +19,7 @@ from portals.portal_vk import blocks_vk, convert_date
 
 v+t+ 3) Не допускать мат в тексте
 
-v+ 4) Тред мертв (то есть за обсуждаемую тему давно забыли и смысла отвечать на упоминание, которое было написано в этом обсуждение, смысла нет)
+v+ 4) Тред мертв (то есть за обсуждаемую тему давно забыли и смысла отвечать на упоминание, которое было написано в этом обсуждение, смысла нет) - #если прошло 3 дня от последнего сообщения
 5) Тред ушел (упоминание ушло далеко вверх и в группе давно обсуждается другая тема уже)
 Тред мёртв:
    - если от нужного нам упоминания есть ещё 10+ комментариев (уже есть полотно других сообщений и мы понимаем что заходить туда не нативно)
@@ -34,12 +35,22 @@ v+ - если упоминанию в чате уже более 2-3 дней
 prompt_vk_trend_gone = """
 Ты аналитик 
 Твоя задача:
-прочитать переписку 
+прочитать переписку в виде списка
 --------- START CHATTING ----------
 {chat_list}
 --------- END CHATTING -----------
-и определить, 
-то есть за обсуждаемую тему давно забыли и смысла отвечать на упоминание, которое было написано в этом обсуждение, смысла нет
+за стартовую точку мы берем сообщение id = {user_id}
+
+Тебе нужно определить следующее:
+- наше сообщение затерялось, например если от нужного нам упоминания есть ещё 10+ комментариев не относящиеся к нашему сообщению
+- если после нашего упоминания органика перевела тему разговора и перестали говорить о нужном нам продукте/бренде/компании
+- в сообщения пошли упоминание не о продукт (то есть данное упоминание тинькофф банк обходит стороной, либо же он упоминается там просто вскользь)
+- обобщенное упоминание (автор говорит в целом о банках, а не конкретно о тинькофф. Может просто перечислять их)
+и определить следующие показатели
+
+результат ты должен выдать в виде: 
+True - если тренд еще жив и 
+False - если тренд 'умер'.
 """
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -50,6 +61,23 @@ days_ago = 3
 
 username = os.environ.get("LOGIN_DA")
 password = os.environ.get("PASS_DA")
+
+username = os.environ.get("HOST_USERNAME")
+password = os.environ.get("HOST_PASSWORD")
+auth = HTTPBasicAuth(username, password)
+
+
+async def extract_reply(url):
+    # Регулярное выражение для извлечения значения reply
+    pattern = r'\?reply=(\d+)(?:&thread=\d+)?'
+
+    # Поиск значения по шаблону
+    match = re.search(pattern, url)
+
+    if match:
+        return match.group(1)
+    else:
+        return None
 
 async def get_cookies() -> dict:
     url = 'https://brandanalytics.ru/account/login_check'
@@ -68,7 +96,6 @@ async def get_cookies() -> dict:
                 return {key: cookie.value for key, cookie in cookies.items()}
             else:
                 raise Exception(f"Request failed with status code {response.status}")
-
 
 async def check_brandanalytics():
 
@@ -140,6 +167,9 @@ async def check_brandanalytics():
             print(url_answer)
             print(text)
 
+            topic = await extract_reply(url_answer)
+            print(topic)
+
             playwright, browser, blocks = await blocks_vk(url_answer)
 
             if not blocks:
@@ -203,18 +233,25 @@ async def check_brandanalytics():
                          'feedback': feedback}
                 chat_list.append(datas)
 
-                input(datas)
-
             if trend_alife == False:
                 print('Тренд мертв!')
                 continue
 
-
-
-
-
-
+            user_id = [chat['id'] for chat in chat_list if topic in chat['id']][0]
+            print(user_id)
+            print(chat_list)
             input('OK!')
+
+            prompt = prompt_vk_trend_gone.format(chat_list=chat_list, user_id=user_id)
+            result = await get_answer_ai(auth, prompt)
+
+
+
+
+
+            await browser.close()
+            await playwright.stop()
+
 
 
 
