@@ -12,6 +12,19 @@ from portals.portal_vk import blocks_vk, convert_date
 from utils.ai_module import get_answer_ai
 from utils.user_agent import get_soup
 
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(dotenv_path)
+
+now = datetime.now()
+days_ago = 3
+
+username = os.environ.get("LOGIN_DA")
+password = os.environ.get("PASS_DA")
+
+auth_username = os.environ.get("HOST_USERNAME")
+auth_password = os.environ.get("HOST_PASSWORD")
+auth = HTTPBasicAuth(auth_username, auth_password)
+
 """
 Данное упоминание нам не подходит:
 1) Упоминание находится в закрытом сообществе
@@ -32,7 +45,7 @@ v+ - если упоминанию в чате уже более 2-3 дней
 9) Упоминание размещено в аккаунте технического аккаунта (бота) (это могут быть какие-то посты в сообществах, которые, к примеру, каждый день закидывает бот. 
 """
 
-prompt_vk_trend_gone = """
+prompt_vk_trend_gone_old = """
 Ты аналитик 
 Твоя задача:
 прочитать переписку в виде списка
@@ -53,18 +66,23 @@ True - если тренд еще жив и
 False - если тренд 'умер'.
 """
 
-dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
-load_dotenv(dotenv_path)
+prompt_vk_trend_gone = """
+Ты аналитик 
+Определите, активна или мертва тенденция общения на основе списка сообщений чата.
+--------- START CHATTING ----------
+{chat_list}
+--------- END CHATTING -----------
+Получив список переписки и определенный идентификатор сообщения id = {user_id} для начала, 
+проанализируйте сообщения, чтобы выявить следующие сценарии: 
+* Сообщения, которые не связаны с исходным сообщением и упоминают продукт/бренд/компанию, отличную от интересующей вас (например, «Тинькофф Банк»). 
+* Сообщения, которые меняют тему разговора и больше не обсуждают продукт/бренд/компанию после первоначального упоминания. 
+* Обобщенные упоминания продуктов/брендов/компаний, в которых автор не упоминает конкретно интересующий его продукт/бренд/компанию. 
 
-now = datetime.now()
-days_ago = 3
+Укажите, является ли тенденция все еще активной (True) или мертвой (False), исходя из этих сценариев. 
+Проанализируйте список чатов и верните результат в следующем формате: 'True' или 'False'
+"""
 
-username = os.environ.get("LOGIN_DA")
-password = os.environ.get("PASS_DA")
 
-username = os.environ.get("HOST_USERNAME")
-password = os.environ.get("HOST_PASSWORD")
-auth = HTTPBasicAuth(username, password)
 
 
 async def extract_reply(url):
@@ -143,7 +161,7 @@ async def check_brandanalytics():
         # Извлекаем весь текст из документа
         text = soup.get_text()
 
-        print(f'===================={url_answer}===================')
+        print(f'==================== {url_answer} ===================')
 
         if any(mt in text.lower() for mt in ['бляд', 'пизд', 'хуй', 'хуев', 'уета', 'хуёв', 'пидар', 'пидр', 'пидор','заеб', 'заёб', 'говн', 'ебан', 'ебон', "залуп", "долба", "отъеб"]):
             print('>>>>>>>>>>>>>>>>>> МАТ!!! <<<<<<<<<<<<<<<<<<<<')
@@ -240,17 +258,18 @@ async def check_brandanalytics():
             user_id = [chat['id'] for chat in chat_list if topic in chat['id']][0]
             print(user_id)
             print(chat_list)
-            input('OK!')
+
 
             prompt = prompt_vk_trend_gone.format(chat_list=chat_list, user_id=user_id)
+            print(prompt)
             result = await get_answer_ai(auth, prompt)
-
-
-
-
+            print("result:", result)
+            print(result==True)
 
             await browser.close()
             await playwright.stop()
+
+            input('OK!')
 
 
 
