@@ -23,6 +23,7 @@ from googleapiclient.errors import HttpError
 
 
 import pandas as pd
+from sqlalchemy.util import await_only
 
 # Получить текущую дату
 current_date = datetime.now()
@@ -524,6 +525,7 @@ async def write_log_sheet(service, sheet_id, worksheet_name, data):
         idx = index[0] + 2
         await append_data_to_sheet_cell(service, sheet_id, worksheet_name, 'date', idx, date)
 
+
 async def pars_url(service, SS_ID, R_N):
     try:
         df = await get_table_scope(service, SS_ID, R_N)
@@ -531,6 +533,16 @@ async def pars_url(service, SS_ID, R_N):
     except:
         links = []
     return links
+
+async def main():
+    service = await get_service()
+    data = {'service_name': "СберСтрахование_1", 'date': 'awefwefawe'}
+    ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
+    await write_log_sheet(service, ss_id, 'logs', data)
+
+if "__main__" == __name__:
+    asyncio.run(main())
+
 
 
 
