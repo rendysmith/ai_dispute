@@ -259,7 +259,6 @@ async def check_brandanalytics():
             print(user_id)
             print(chat_list)
 
-
             prompt = prompt_vk_trend_gone.format(chat_list=chat_list, user_id=user_id)
             print(prompt)
             result = await get_answer_ai(auth, prompt)
@@ -282,7 +281,7 @@ async def check_brandanalytics():
 
 
 
-    input('OK!')
+    input('OK!!!')
 
 
 async def main():
