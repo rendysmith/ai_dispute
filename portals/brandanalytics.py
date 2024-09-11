@@ -78,9 +78,9 @@ prompt_vk_trend_gone = """
 * Сообщения, которые не связаны с исходным сообщением и упоминают продукт/бренд/компанию, отличную от интересующей вас (например, «Тинькофф Банк»). 
 * Сообщения, которые меняют тему разговора и больше не обсуждают продукт/бренд/компанию после первоначального упоминания. 
 * Обобщенные упоминания продуктов/брендов/компаний, в которых автор не упоминает конкретно интересующий его продукт/бренд/компанию. 
-
 Укажите, является ли тенденция все еще активной (True) или мертвой (False), исходя из этих сценариев. 
-Проанализируйте список чатов и верните результат в следующем формате: 'True' или 'False'
+Верни только 'True' или 'False' в зависимости от результата.
+Перед выполнением, прочитай задание еще раз.
 """
 
 
@@ -185,7 +185,7 @@ async def check_brandanalytics():
             print(text)
 
             topic = await extract_reply(url_answer)
-            print(topic)
+            print("topic", topic)
 
             playwright, browser, blocks = await blocks_vk(url_answer)
 
@@ -198,6 +198,7 @@ async def check_brandanalytics():
             chat_list = []
 
             for block in blocks:
+                print('**********************************')
                 try:
                     date_content = await block.query_selector('span[class="rel_date"]')
                     if not date_content:
@@ -262,7 +263,7 @@ async def check_brandanalytics():
             print(chat_list)
 
             prompt = prompt_vk_trend_gone.format(chat_list=chat_list, user_id=user_id)
-            print(prompt)
+            #print(prompt)
             result = await get_answer_ai(auth, prompt)
             print("result:", result)
 
@@ -272,7 +273,9 @@ async def check_brandanalytics():
                 data = {'portal': url_answer,
                         'author': author,
                         'feedback': feedback}
+
                 await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
+
 
 
 async def main():
