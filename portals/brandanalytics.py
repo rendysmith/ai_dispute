@@ -251,6 +251,9 @@ async def check_brandanalytics():
                          'feedback': feedback}
                 chat_list.append(datas)
 
+            await browser.close()
+            await playwright.stop()
+
             if trend_alife == False:
                 print('Тренд мертв!')
                 continue
@@ -265,8 +268,6 @@ async def check_brandanalytics():
             print("result:", result)
             print(result==True)
 
-            await browser.close()
-            await playwright.stop()
 
             input('OK!')
 

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import zlib
 import base64
 
-from utils.gs_editor import pars_url, get_service
+from utils.gs_editor import pars_url, get_service, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
 from utils.user_agent import get_playwright
 
@@ -53,7 +53,18 @@ async def convert_date(month):
     return months[month]
 
 async def check_2gis(service, url, pattern, criteria, ss_id, project):
-    playwright, browser, page = await get_playwright(url)
+    url_split = url.split('/')
+    city_company = url_split[3]
+    id_obj = url_split[5]
+    top_url = f'https://2gis.ru/{city_company}/firm/{id_obj}'
+
+    datas = {'project': project,
+             'url': url,
+             'top_url': top_url}
+
+    await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+
+    playwright, browser, page = await get_playwright(top_url)
 
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')

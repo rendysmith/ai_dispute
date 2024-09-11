@@ -132,6 +132,17 @@ async def start_zoom(service):
 
             #---------------------------------------------------------------------------------------------------------
             elif '2gis' in link:
+                if black_list:
+                    if any(black in link for black in black_list):
+                        continue
+
+                top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
+                print(top_df)
+
+                if not top_df.empty:
+                    print('Есть общая ссылка на статью')
+                    link = top_df.loc[0, 'top_url']
+
                 if link in list_links:
                     continue
 
@@ -141,6 +152,7 @@ async def start_zoom(service):
                 status = await check_2gis(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
                 if status:
                     await fix_error(service, link, str(status))
+                    black_list.append('2gis')
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'sravni.ru' in link:
@@ -224,7 +236,7 @@ async def start_zoom(service):
                 status = await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
                 if status:
                     await fix_error(service, link, str(status))
-                    black_list.append('irecommend' )
+                    black_list.append('irecommend')
 
             #---------------------------------------------------------------------------------------------------------
             elif 'otzovik.com' in link:
