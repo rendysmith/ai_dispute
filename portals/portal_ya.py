@@ -104,8 +104,7 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
 
         for block in blocks:
             try:
-                date_element = await block.query_selector(
-                    'meta[itemprop="datePublished"]')  # Corrected selector (should be 'meta')
+                date_element = await block.query_selector('meta[itemprop="datePublished"]')  # Corrected selector (should be 'meta')
                 date_content = await date_element.get_attribute('content')
                 date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
 
@@ -116,19 +115,31 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
                 print('Date =', date)
 
                 date_split = date.split(' ')
-                print(date_split)
+                print("date_split", date_split)
 
                 if len(date_split) == 2:
                     month_str = date_split[1]
 
+                elif len(date_split) == 3:
+                    month_str = date_split[1]
+                    year_str = date_split[2]
+
+                    if int(year_str) != current_date.year:
+                        print('Next year >>>')
+                        continue
+
                 month = await convert_date(month_str)
+
                 if now_month != month:
+                    print('Next month >>>')
                     continue
 
                 else:
                     day = int(date_split[0])
                     year = current_date.year
                     date = datetime(year, month, day)
+
+                print("date =", date)
 
             if (current_date - date) > timedelta(days=days_ago):
                 print(f'--- Отзыв старше {days_ago} дней. = {date}')

@@ -80,6 +80,8 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
         print(url)
 
         soup = await get_soup(url)
+        if not soup:
+            continue
 
         blocks = soup.find_all('div', {"class": 'review', 'data-partly': 'short'})
         #print(len(blocks))
@@ -160,3 +162,12 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
                                      pattern=pattern,
                                      criteria=criteria)
 
+async def main():
+    service = await get_service()
+
+    url = 'https://yandex.ru/maps/org/artstudio_moskovsky/125846534919/?ll=30.329628%2C59.907103&mode=search&sll=30.301828%2C59.912472&sspn=0.022573%2C0.006756&text=Artstudio%20Moskovsky&z=14.86'
+    url = 'https://dreamjob.ru/employers/41950?review_id=2832885'
+    await check_dreamjob(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
+
+if __name__ == '__main__':
+    asyncio.run(main())
