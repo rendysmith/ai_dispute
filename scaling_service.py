@@ -291,6 +291,17 @@ async def start_zoom(service):
 
             #---------------------------------------------------------------------------------------------------------
             elif 'yandex.ru/maps' in link:
+                if black_list:
+                    if any(black in link for black in black_list):
+                        continue
+
+                top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
+                print(top_df)
+
+                if not top_df.empty:
+                    print('Есть общая ссылка на статью')
+                    link = top_df.loc[0, 'top_url']
+
                 link_split = link.split('/')
 
                 for lnk in link_split:
@@ -313,6 +324,7 @@ async def start_zoom(service):
                 status = await check_ya(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
                 if status:
                     await fix_error(service, link, str(status))
+                    black_list.append('yandex.ru/maps')
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'otvet.mail' in link:

@@ -4,7 +4,7 @@ import os
 
 from datetime import datetime, timedelta
 
-from utils.gs_editor import get_service, pars_url
+from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
 from utils.user_agent import get_playwright
 
@@ -51,6 +51,17 @@ def find_key_path(dct, target_key, path = None):
                 return result
 
 async def check_ya(service, url, pattern, criteria, ss_id, project):
+
+    url_split = url.split('/')
+    id_org = url_split[5]
+    top_url = f'https://yandex.ru/maps/org/{id_org}'
+
+    datas = {'project': project,
+             'url': url,
+             'top_url': top_url}
+
+    await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+
     print(f"New link = {url}")
 
     #playwright, browser, page = await get_playwright(url, headless=False)
@@ -200,6 +211,7 @@ async def main():
     service = await get_service()
 
     url = 'https://yandex.ru/maps/org/artstudio_moskovsky/125846534919/?ll=30.329628%2C59.907103&mode=search&sll=30.301828%2C59.912472&sspn=0.022573%2C0.006756&text=Artstudio%20Moskovsky&z=14.86'
+    url = 'https://yandex.ru/maps/org/73750909598/reviews?reviews%5BpublicId%5D=kg9khrxzghvm32kmz06ycvmfmg&si=yw3z07g8tc22ty0twyhbx3d43c&utm_source=review'
     await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
 
 if __name__ == '__main__':

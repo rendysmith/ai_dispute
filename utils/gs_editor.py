@@ -455,7 +455,7 @@ async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_na
         request = service.spreadsheets().values().update(
             spreadsheetId=sheet_id,
             range=range_name,
-            valueInputOption='RAW',
+            valueInputOption='USER_ENTERED',    #Было RAW
             body=value_range_body
         )
         response = request.execute()  # Асинхронный вызов
