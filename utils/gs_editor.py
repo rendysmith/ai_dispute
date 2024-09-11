@@ -33,6 +33,8 @@ formatted_date = current_date.strftime("%d.%m")
 
 warnings.simplefilter("ignore")
 
+value_input_option = 'USER_ENTERED'
+
 abspath = os.path.dirname(os.path.abspath(__file__))
 path_to_credentials = f"{abspath}/service_account.json"
 print(path_to_credentials)
@@ -135,7 +137,7 @@ async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANG
     result = service.spreadsheets().values().append(
         spreadsheetId=SAMPLE_SPREADSHEET_ID,
         range=SAMPLE_RANGE_NAME,
-        valueInputOption='RAW',
+        valueInputOption=value_input_option,
         insertDataOption='INSERT_ROWS',  # Вставляем данные в новые строки
         body=body
     ).execute()
@@ -450,7 +452,7 @@ async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_na
         request = service.spreadsheets().values().update(
             spreadsheetId=sheet_id,
             range=range_name,
-            valueInputOption='RAW',    #Было RAW
+            valueInputOption=value_input_option,    #Было RAW
             body=value_range_body
         )
         response = request.execute()  # Асинхронный вызов
@@ -474,7 +476,6 @@ async def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_n
     column_index = headers.index(column_names[0])
     column_letter = chr(65 + column_index)  # Преобразование индекса в букву (A, B, C и т.д.)
 
-    value_input_option = 'RAW'
     values = [datas]
 
     body = {
@@ -536,7 +537,8 @@ async def pars_url(service, SS_ID, R_N):
 
 async def main():
     service = await get_service()
-    data = {'service_name': "СберСтрахование_1", 'date': 'awefwefawe'}
+    current_date = datetime.now().strftime("%d.%m.%Y")
+    data = {'service_name': "СберСтрахование_2", 'date': current_date}
     ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
     await write_log_sheet(service, ss_id, 'logs', data)
 
