@@ -10,6 +10,7 @@ from requests.auth import HTTPBasicAuth
 
 from portals.portal_vk import blocks_vk, convert_date
 from utils.ai_module import get_answer_ai
+from utils.gs_editor import get_service, append_data_to_sheet_scope
 from utils.user_agent import get_soup
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -116,6 +117,7 @@ async def get_cookies() -> dict:
                 raise Exception(f"Request failed with status code {response.status}")
 
 async def check_brandanalytics():
+    service = await get_service()
 
     url_base = 'https://brandanalytics.ru/theme-data/12551940/'
 
@@ -176,9 +178,6 @@ async def check_brandanalytics():
 
         if 'telegram.me' in url_answer:
             pass
-
-
-
 
         elif 'vk.com' in url_answer:
             print(date_create)
@@ -266,23 +265,14 @@ async def check_brandanalytics():
             print(prompt)
             result = await get_answer_ai(auth, prompt)
             print("result:", result)
-            print(result==True)
 
-
-            input('OK!')
-
-
-
-
-        #print(soup)
-
-
-
-
-
-
-
-    input('OK!!!')
+            if result == 'True':
+                sheet_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
+                worksheet_name = 'BA'
+                data = {'portal': url_answer,
+                        'author': author,
+                        'feedback': feedback}
+                await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
 
 
 async def main():

@@ -8,7 +8,7 @@ import numpy as np
 import traceback
 
 import warnings
-#import gspread
+import gspread
 #from oauth2client.service_account import ServiceAccountCredentials
 
 #import gspread_dataframe as gd
@@ -363,18 +363,12 @@ async def read_table_id(service, spreadsheet_id, worksheet_name):
         # Преобразование данных в DataFrame
         df = pd.DataFrame(values[1:], columns=values[0])
         df = df.dropna(axis=0, how="all")  # Удаление пустых строк
-
         return df
 
-    except gspread.exceptions.APIError as AE:
-        print('--- Проблемы с API')
-        print(AE)
+    except Exception as Ex:
+        print(f'!!!Error Ex: {Ex}')
         return pd.DataFrame()
 
-    except gspread.exceptions.SpreadsheetNotFound as SNF:
-        print(f'--- Не найдена таблица с ID - {spreadsheet_id}.')
-        print(SNF)
-        return pd.DataFrame()
 
 def update_data(worktable_name, worksheet_name, idx, text):
     workfile = gc.open(worktable_name)
@@ -455,7 +449,7 @@ async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_na
         request = service.spreadsheets().values().update(
             spreadsheetId=sheet_id,
             range=range_name,
-            valueInputOption='USER_ENTERED',    #Было RAW
+            valueInputOption='RAW',    #Было RAW
             body=value_range_body
         )
         response = request.execute()  # Асинхронный вызов
