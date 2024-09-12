@@ -138,6 +138,18 @@ async def get_playwright(url, headless=True):
         context = await browser.new_context(
             user_agent=ua.random)
         page = await context.new_page()
+
+        # ---------------------------------------------------------
+        # Перехватываем запросы для блокировки изображений и видео
+        async def block_images_and_videos(route):
+            if route.request.resource_type in ["image", "media"]:
+                await route.abort()  # Отклоняем запросы на изображения и видео
+            else:
+                await route.continue_()  # Разрешаем все остальные запросы
+
+        # Применяем фильтр на все запросы
+        await page.route("**/*", block_images_and_videos)
+        #---------------------------------------------------------
         await page.goto(url)
         return playwright, browser, page
 
