@@ -79,7 +79,12 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
 
     print('=> Rating By date')
     n = 0
-    while n < 10:
+    while True:
+        if n == 10:
+            await browser.close()
+            await playwright.stop()
+            return 'Сайт не отдал данные'
+
         try:
             button_default = await page.query_selector('div[class="rating-ranking-view"]')
             await button_default.click()
@@ -91,7 +96,7 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
             break
 
         except Exception as e:
-            print('Error Click Review', e)
+            print('Error Click Review:', e)
             await asyncio.sleep(5)
             n += 1
 
@@ -101,6 +106,11 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
     while break_on == False:
         blocks = await page.query_selector_all('div[class="business-reviews-card-view__review"]')
         print(len(blocks))
+
+        if len(blocks) == 0:
+            await browser.close()
+            await playwright.stop()
+            return
 
         for block in blocks:
             try:
@@ -204,7 +214,7 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
                                      criteria=criteria)
 
 
-        print('Тут можно будет поставить скролл для загрузки доп отзывов')
+        print('Тут можно будет поставить скрол для загрузки доп отзывов')
         break
 
     await browser.close()
@@ -222,7 +232,7 @@ async def main():
     service = await get_service()
 
     url = 'https://yandex.ru/maps/org/artstudio_moskovsky/125846534919/?ll=30.329628%2C59.907103&mode=search&sll=30.301828%2C59.912472&sspn=0.022573%2C0.006756&text=Artstudio%20Moskovsky&z=14.86'
-    url = 'https://yandex.ru/maps/org/73750909598/reviews?reviews%5BpublicId%5D=kg9khrxzghvm32kmz06ycvmfmg&si=yw3z07g8tc22ty0twyhbx3d43c&utm_source=review'
+    url = 'https://yandex.ru/maps/org/188107784110/reviews'
     await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
 
 if __name__ == '__main__':
