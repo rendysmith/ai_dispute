@@ -187,6 +187,9 @@ async def check_brandanalytics():
             topic = await extract_reply(url_answer)
             print("topic", topic)
 
+            if not topic:
+                topic = ''
+
             playwright, browser, blocks = await blocks_vk(url_answer)
 
             if not blocks:
@@ -259,20 +262,22 @@ async def check_brandanalytics():
                 continue
 
             user_id = [chat['id'] for chat in chat_list if topic in chat['id']][0]
-            print(user_id)
-            print(chat_list)
+            #print(user_id)
+            #print(chat_list)
 
             prompt = prompt_vk_trend_gone.format(chat_list=chat_list, user_id=user_id)
             #print(prompt)
             result = await get_answer_ai(auth, prompt)
-            print("result:", result)
+            #print("result:", result)
 
             if result == 'True':
                 sheet_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
                 worksheet_name = 'BA'
-                data = {'portal': url_answer,
-                        'author': author,
-                        'feedback': feedback}
+                data = {
+                    'date_create': date_create,
+                    'portal': url_answer,
+                    'author': author,
+                    'feedback': feedback}
 
                 await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
 
