@@ -9,7 +9,7 @@ TABLES_LIST = {
     'Vkusvill': ['1HtUgQn3UJKbpjKHqqRqt5WSjDWKCJa0fOYLiM9UwcTw', 'reviews'],
     'OZON': ['1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'OZON', 'OZON_link'],
     'RBI': ['1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'RBI', 'RBI_link'],
-    'Article_fun': ['1Pzr-jIsZXrtzriouheL8F0Q3DUEMAV1uqh4hwF98IqA', "sep"],
+    'Article_fun': ['1Pzr-jIsZXrtzriouheL8F0Q3DUEMAV1uqh4hwF98IqA'],
     'Cordiant': ['1waN-H3ClPPuttkhD0CXM8ybJDIsAerbXJHD1j7CjayU', 'Отзывы'],
     'WineLab': ['1xAFv1aS1K9AxsCbYD-9bBGD2HKf0by4nuBL8diP12UI', 'Отзывы (отзовики)'],
     'Gloria Jeans': ['1-nJogtu91LB6FYfsmeZcpJafmeBUnaZ7YR1JwR3JIBs', 'Реакции АВ'],
