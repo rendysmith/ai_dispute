@@ -146,7 +146,7 @@ async def blocks_vk(link):
         print(len_b)
 
     if len_b == 0:
-        blocks = await page.query_selector_all('div[id*="post-"][class*="bp_post clear_fix "]')
+        blocks = await page.query_selector_all('div[id*="post-"][class="bp_post clear_fix "]')
         len_b = len(blocks)
         print(len_b)
 
@@ -266,7 +266,7 @@ async def check_vk(service, link, pattern, criteria, ss_id, project):
 async def main_vk():
     service = await get_service()
     url = 'https://vk.com/wall-11694885_373082?reply=373184'
-    url = 'https://vk.com/wall-7871245_252922?reply=253324&thread=252946'
+    url = 'https://vk.com/topic-9366309_24137320?post=6695'
     await check_vk(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
 
 if __name__ == '__main__':

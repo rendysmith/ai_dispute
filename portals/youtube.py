@@ -1,15 +1,15 @@
 import asyncio
-import random
 import os
-
-from datetime import datetime, timedelta
-
-from portals.portal_ya_market import check_ya_market
-from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
-from utils.ai_module import generate_and_white
-from utils.user_agent import get_playwright
+import random
+import time
+from datetime import datetime
 
 from dotenv import load_dotenv
+
+from utils.ai_module import generate_and_white
+from utils.compressor import compress_string
+from utils.gs_editor import get_service, pars_url
+from utils.user_agent import get_playwright
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -20,37 +20,6 @@ now_year = current_date.year
 
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
-
-async def convert_date(month):
-    months = {
-        'января': 1,
-        'февраля': 2,
-        "марта": 3,
-        "апреля": 4,
-        "мая": 5,
-        "июня": 6,
-        "июля": 7,
-        "августа": 8,
-        "сентября": 9,
-        "октября": 10,
-        "ноября": 11,
-        "декабря": 12
-    }
-    return months[month]
-
-def find_key_path(dct, target_key, path = None):
-    if path is None:
-        path = []
-
-    for k, v in dct.items():
-        if k == target_key:
-            path.append(k)
-            return path
-
-        elif isinstance(v, dict):
-            result = find_key_path(v, target_key, path + [k])
-            if result:
-                return result
 
 async def check_youtube(service, url, pattern, criteria, ss_id, project):
     playwright, browser, page = await get_playwright(url)
@@ -63,121 +32,95 @@ async def check_youtube(service, url, pattern, criteria, ss_id, project):
     if not page:
         return 'Сайт не отдал данные.'
 
-    await page.evaluate("document.body.style.zoom=0.4")
+    await page.evaluate("document.body.style.zoom=0.5")
     await page.wait_for_timeout(5000)
 
     for _ in range(3):  # Прокрутка 10 раз
         await page.evaluate("window.scrollBy(0, window.innerHeight)")
         await page.wait_for_timeout(1000)  # Ожидание 1 секунды между скроллами
 
-    break_on = False
-    while break_on == False:
-        blocks = await page.query_selector_all('ytd-comment-view-model[id="comment"]')
+
+    blocks = await page.query_selector_all('ytd-comment-view-model[id="comment"]')
+    print(len(blocks))
+
+    if len(blocks) == 0:
+        blocks = await page.query_selector_all('ytd-comment-thread-renderer[class="style-scope ytd-item-section-renderer"]')
         print(len(blocks))
 
-        if len(blocks) == 0:
-            blocks = await page.query_selector_all('ytd-comment-thread-renderer[class="style-scope ytd-item-section-renderer"]')
-            print(len(blocks))
+    if len(blocks) == 0:
+        await browser.close()
+        await playwright.stop()
+        return
 
-        if len(blocks) == 0:
-            await browser.close()
-            await playwright.stop()
-            return
-
-        for block in blocks:
-            try:
-                date_element = await block.query_selector_all('a[class="yt-simple-endpoint style-scope ytd-comment-view-model"][href]')  # Corrected selector (should be 'meta')
-                date = await date_element[-1].inner_text()
-                print('date -', date)
-                if any(dt in date for dt in ['год', 'year']):
-                    print(f'Next...({date})')
-                    continue
-
-                elif any(dt in date for dt in ['дн', 'day', 'недел', 'week']):
-                    print(f'Next...({date})')
-
-                else:
-                    continue
-
-                date_split = date.split(' ')
-                print(date_split)
-
-                if len(date_split) == 3:
-                    day_int = int(date_split[0])
-
-                    if any(dt in date for dt in ['дн', 'day']):
-                        days = day_int * 24 * 3600
-
-                    elif any(dt in date for dt in ['недел', 'week']):
-                        days = day_int * 7 * 24 * 3600
-
-            except AttributeError as AE:
-                print('Error AE', AE)
-
-
-
-
-
-            org_answer = await block.query_selector('div[class="business-review-view__comment-expand"]')
-            if org_answer:
-                print('Есть ответ представителя компании')
+    for block in blocks:
+        try:
+            date_element = await block.query_selector_all('a[class="yt-simple-endpoint style-scope ytd-comment-view-model"][href]')  # Corrected selector (should be 'meta')
+            date = await date_element[-1].inner_text()
+            print('date -', date)
+            if any(dt in date for dt in ['год', 'year']):
+                print(f'Next...({date})')
                 continue
+
+            elif any(dt in date for dt in ['дн', 'day', 'недел', 'week']):
+                print(f'Next...({date})')
+
             else:
-                print('Ответа нет!')
-
-            n = 0
-            while True:
-                if n == 10:
-                    return 'Сайт не предоставил данные'
-
-                try:
-                    #button_share = await block.query_selector('span[class="inline-image _loaded icon"]')
-                    button_share = await block.query_selector('div[class="business-review-view__share-control"]')
-                    print('-> Click share')
-                    await button_share.click()
-                    print('-> Click share - OK!')
-                    await asyncio.sleep(3)
-                    break
-
-                except:
-                    n += 1
-                    await asyncio.sleep(3)
-
-
-            button_open = await page.query_selector('input[class="input__control"]')
-            url_answer = await button_open.get_attribute('value')
-            print(url_answer)
-
-            await page.keyboard.press('Escape')
-
-            if url_answer in links:
-                print('Такой комментарий уже есть в списке')
                 continue
 
-            author_text = await block.query_selector('span[itemprop="name"]')
+            date_split = date.split(' ')
+            print(date_split)
+
+            if len(date_split) == 3:
+                day_int = int(date_split[0])
+
+                if any(dt in date for dt in ['дн', 'day']):
+                    sec = day_int * 24 * 3600
+
+                elif any(dt in date for dt in ['недел', 'week']):
+                    sec = day_int * 7 * 24 * 3600
+
+            else:
+                continue
+
+        except AttributeError as AE:
+            print('Error AE', AE)
+
+        feedback_text =  await block.query_selector('span[class="yt-core-attributed-string yt-core-attributed-string--white-space-pre-wrap"]')
+        feedback = await feedback_text.inner_text()
+        print(feedback)
+
+        url_answer = await compress_string(feedback)
+
+        if url_answer in links:
+            print('Такой комментарий уже есть в списке')
+            continue
+
+        try:
+            author_text = await block.query_selector('span[class=" style-scope ytd-comment-view-model style-scope ytd-comment-view-model"]')
             author = await author_text.inner_text()
-            print(author)
 
-            feedback_text =  await block.query_selector('span[class="business-review-view__body-text"]')
-            feedback = await feedback_text.inner_text()
-            print(feedback)
+        except AttributeError as AE:
+            print(f'Error AE: {AE}, Next...')
+            author_text = await block.query_selector('div[id="text-container"]')
+            author = await author_text.inner_text()
+        print(author)
 
-            formatted_date = date.strftime("%d.%m.%Y")
-            print(formatted_date)
+        date = datetime.fromtimestamp(time.time() - sec)
+        formatted_date = date.strftime("%d.%m.%Y")
+        print(formatted_date)
 
-            await generate_and_white(service=service,
-                                     url_answer=url_answer,
-                                     author=author,
-                                     formatted_date=formatted_date,
-                                     ss_id=ss_id,
-                                     project=project,
-                                     feedback=feedback,
-                                     pattern=pattern,
-                                     criteria=criteria)
+        input()
 
+        await generate_and_white(service=service,
+                                 url_answer=url_answer,
+                                 author=author,
+                                 formatted_date=formatted_date,
+                                 ss_id=ss_id,
+                                 project=project,
+                                 feedback=feedback,
+                                 pattern=pattern,
+                                 criteria=criteria)
 
-        print('Тут можно будет поставить скрол для загрузки доп отзывов')
-        break
 
     await browser.close()
     await playwright.stop()

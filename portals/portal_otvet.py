@@ -6,6 +6,7 @@ import zlib
 
 from datetime import datetime, timedelta, timezone
 
+from utils.compressor import compress_string
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
 from utils.user_agent import get_soup, get_playwright
@@ -27,13 +28,6 @@ max_sec = int(os.environ.get("MAX_SEC"))
 
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
-
-async def compress_string(input_string):
-    # Сжимаем строку с помощью zlib
-    compressed_data = zlib.compress(input_string.encode('utf-8'))
-    # Кодируем сжатые данные в Base64 для удобства хранения и передачи
-    compressed_base64 = base64.b64encode(compressed_data)
-    return compressed_base64.decode('utf-8')
 
 async def convert_date(month):
     months = {

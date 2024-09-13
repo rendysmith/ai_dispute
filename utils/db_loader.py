@@ -1,3 +1,5 @@
+from venv import logger
+
 import pandas as pd
 from datetime import datetime
 
@@ -12,6 +14,11 @@ from os.path import join, dirname, abspath
 from dotenv import load_dotenv
 
 from models.mdl_tables import Users, UsersBT24, Groups, Roles, Tokens, Hosts
+
+import logging
+
+# Настройка логирования
+logger = logging.getLogger(__name__)
 
 current_datetime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 current_path = dirname(abspath(__file__))
@@ -44,133 +51,159 @@ SessionLocal = sessionmaker(
 
 async def get_api_tokens():
     async with SessionLocal() as session:
-        async with session.begin():
-            result = await session.execute(select(Tokens))
-            tokens_data = result.scalars().all()
+        try:
+            async with session.begin():
+                result = await session.execute(select(Tokens))
+                tokens_data = result.scalars().all()
 
-            if tokens_data:
-                api_tokens = [token.api_token for token in tokens_data]
-                print(api_tokens)
-                return api_tokens
-            else:
-                print("No tokens found")
-                return None
+                if tokens_data:
+                    api_tokens = [token.api_token for token in tokens_data]
+                    print(api_tokens)
+                    return api_tokens
+                else:
+                    print("No tokens found")
+                    return None
 
-    # tokens_data = session.query(Tokens).all()
-    # if tokens_data:
-    #     api_tokens = [token.api_token for token in tokens_data]
-    #     print(api_tokens)
-    #     return api_tokens
-    # else:
-    #     print("No tokens found")
-    #     return None
+        except Exception as Ex:
+            logger.error(f"SQL Error Ex: {Ex}")
+            return False
+
 
 async def get_hosts():
     async with SessionLocal() as session:
-        async with session.begin():
-            try:
-                result = await session.execute(select(Hosts).filter_by(status="free"))
-                hosts_data = result.scalars().all()
-            except Exception as Ex:
-                print((Ex))
-                return None
+        try:
+            async with session.begin():
+                try:
+                    result = await session.execute(select(Hosts).filter_by(status="free"))
+                    hosts_data = result.scalars().all()
+                except Exception as Ex:
+                    print((Ex))
+                    return None
 
-            if hosts_data:
-                hosts = [host.host for host in hosts_data]
-                print(hosts)
-                return hosts
-            else:
-                print("No hosts found")
-                return None
+                if hosts_data:
+                    hosts = [host.host for host in hosts_data]
+                    print(hosts)
+                    return hosts
+                else:
+                    print("No hosts found")
+                    return None
+
+        except Exception as Ex:
+            logger.error(f"SQL Error Ex: {Ex}")
+            return False
 
 
 async def get_user_bt24(email):
     async with SessionLocal() as session:
-        async with session.begin():
-            result = await session.execute(select(UsersBT24).filter_by(email=email))
-            user_data = result.scalars().first()
-            if user_data:
-                full_name = f"{user_data.last_name} {user_data.name} {user_data.second_name}"
-                return user_data.email, full_name
-            else:
-                return False, False
+        try:
+            async with session.begin():
+                result = await session.execute(select(UsersBT24).filter_by(email=email))
+                user_data = result.scalars().first()
+                if user_data:
+                    full_name = f"{user_data.last_name} {user_data.name} {user_data.second_name}"
+                    return user_data.email, full_name
 
-    # user_data = session.query(UsersBT24).filter_by(email=email).first()
-    # if user_data:
-    #     full_name = f"{user_data.last_name} {user_data.name} {user_data.second_name}"
-    #     return user_data.email, full_name
-    # else:
-    #     return False, False
+                else:
+                    return False, False
+
+        except Exception as Ex:
+            logger.error(f"SQL Error Ex: {Ex}")
+            return False, False
+
 
 async def get_pass(username):
     async with SessionLocal() as session:
-        async with session.begin():
-            result = await session.execute(select(Users).filter_by(username=username))
-            user_data = result.scalars().first()
+        try:
+            async with session.begin():
+                result = await session.execute(select(Users).filter_by(username=username))
+                user_data = result.scalars().first()
 
-            if user_data:
-                return user_data.hash_pass, user_data.position
-            else:
-                return False, False
+                if user_data:
+                    return user_data.hash_pass, user_data.position
+                else:
+                    return False, False
+
+        except Exception as Ex:
+            logger.error(f"SQL Error Ex: {Ex}")
+            return False, False
 
 async def get_user_guid(username):
     async with SessionLocal() as session:
-        async with session.begin():
-            result = await session.execute(select(Users).filter_by(username=username))
-            user_data = result.scalars().first()
+        try:
+            async with session.begin():
+                result = await session.execute(select(Users).filter_by(username=username))
+                user_data = result.scalars().first()
 
-            if user_data:
-                return user_data.guid
-            else:
-                return False
+                if user_data:
+                    return user_data.guid
+                else:
+                    return False
+
+        except Exception as Ex:
+            logger.error(f"SQL Error Ex: {Ex}")
+            return False
 
 async def get_group_guid(group_name):
     async with SessionLocal() as session:
-        async with session.begin():
-            result = await session.execute(select(Groups).filter_by(group_name=group_name))
-            group_data = result.scalars().first()
+        try:
+            async with session.begin():
+                result = await session.execute(select(Groups).filter_by(group_name=group_name))
+                group_data = result.scalars().first()
 
-            if group_data:
-                return group_data.guid
-            else:
-                return False
+                if group_data:
+                    return group_data.guid
+                else:
+                    return False
+
+        except Exception as Ex:
+            logger.error(f"SQL Error Ex: {Ex}")
+            return False
 
 
 async def get_role_access(user_guid, group_guid):
     async with SessionLocal() as session:
-        async with session.begin():
-            result = await session.execute(select(Roles).filter_by(user_guid=user_guid, group_guid=group_guid))
-            role_data = result.scalars().first()
+        try:
+            async with session.begin():
+                result = await session.execute(select(Roles).filter_by(user_guid=user_guid, group_guid=group_guid))
+                role_data = result.scalars().first()
 
-            if role_data:
-                return role_data.guid
-            else:
-                return False
+                if role_data:
+                    return role_data.guid
+                else:
+                    return False
+
+        except Exception as Ex:
+            logger.error(f"SQL Error Ex: {Ex}")
+            return False
 
 async def add_user_to_db(username, full_name, position, hash_pass):
     async with SessionLocal() as session:
-        async with session.begin():
-            new_user = Users(username=username, full_name=full_name, position=position, hash_pass=hash_pass)
-            session.add(new_user)
-            await session.commit()
+        try:
+            async with session.begin():
+                new_user = Users(username=username, full_name=full_name, position=position, hash_pass=hash_pass)
+                session.add(new_user)
+                await session.commit()
 
-    # new_user = Users(username=username, full_name=full_name, position=position, hash_pass=hash_pass)
-    # session.add(new_user)
-    # session.commit()
-    # session.close()
-
+        except Exception as Ex:
+            logger.error(f"SQL Error Ex: {Ex}")
+            return False
 
 async def add_data_to_db(datas):
     async with SessionLocal() as session:
-        async with session.begin():
-            try:
-                session.add(datas)
-                await session.commit()
-                return True, 'Данные успешно добавлены в базу данных.'
+        try:
+            async with session.begin():
+                try:
+                    session.add(datas)
+                    await session.commit()
+                    return True, 'Данные успешно добавлены в базу данных.'
 
-            except Exception as Ex:
-                await session.rollback()
-                return False, Ex
+                except Exception as Ex:
+                    await session.rollback()
+                    return False, Ex
+
+        except Exception as Ex:
+            logger.error(f"SQL Error Ex: {Ex}")
+            return False, False
 
 
 async def add_datas_to_db(table_data, mappings):
@@ -278,6 +311,7 @@ async def append_to_postgres_results(df, table_name: str):
 
                 await session.commit()
         return True, 'OK!'
+
     except Exception as Ex:
         return False, f"Ошибка подключения к PostgreSQL: {Ex}"
 
@@ -311,77 +345,3 @@ async def read_from_postgres_old(table_name: str):
 
     except exc.OperationalError as e:
         return False, f"Ошибка подключения к PostgreSQL: {e}"
-
-# async def check_postgres():
-#     try:
-#         # Подключение к базе данных
-#         connection = await asyncpg.connect(
-#             database='gener_01',
-#             user='postgres',  # Замените на имя вашего пользователя
-#             password='D0g#Cat$123!',  # Замените на ваш пароль
-#             host='78.155.194.227',  # Замените на адрес вашего сервера базы данных, если он отличается
-#             port=5432  # Порт по умолчанию для PostgreSQL
-#         )
-#
-#         # Выполнение SQL-запроса
-#         result = await connection.fetch("SELECT version();")
-#         db_version = result[0][0]
-#         print("Версия сервера PostgreSQL:", db_version)
-#
-#         # Закрытие соединения с базой данных
-#         await connection.close()
-#
-#     except asyncpg.exceptions.PostgresError as e:
-#         print("Ошибка при подключении к базе данных:", e)
-
-# async def check_postgres_connection():
-#     try:
-#         # Замените параметры подключения на свои
-#         connection = await asyncpg.connect(user=DB_USERNAME,
-#                                            password=DB_PASSWORD,
-#                                            database=DB_NAME,
-#                                            host=DB_HOST,
-#                                            port=DB_PORT)
-#         await connection.close()
-#         return True
-#
-#     except asyncpg.exceptions.InvalidPasswordError:
-#         print("Ошибка: Неверный пароль")
-#
-#     except asyncpg.exceptions.InvalidCatalogNameError:
-#         print("Ошибка: Неверное имя базы данных")
-#
-#     except asyncpg.exceptions.ClientCannotConnectError:
-#         print("Ошибка: Не удалось подключиться к серверу")
-#
-#     except Exception as e:
-#         print(f"Ошибка: {e}")
-#     return False
-
-# async def check_postgres_connection_sqlal():
-#     try:
-#         url = f"postgresql://{DB_USERNAME}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-#         print(url)
-#         engine = create_engine(url)
-#         async with engine.connect():
-#             return True
-#     except exc.OperationalError as e:
-#         print(f"Ошибка подключения к PostgreSQL: {e}")
-
-# async def main():
-#     print('******************************************************')
-#     await check_postgres()
-#
-#     print('******************************************************')
-#     connected = await check_postgres_connection()
-#     if connected:
-#         print("\n---------1---------\nУспешное подключение к PostgreSQL")
-#     else:
-#         print("\n---------1---------\nНе удалось подключиться к PostgreSQL")
-#
-#     print('******************************************************')
-#     connected = await check_postgres_connection_sqlal()
-#     if connected:
-#         print("\n---------2---------\nУспешное подключение к PostgreSQL")
-#     else:
-#         print("\n----------2--------\nНе удалось подключиться к PostgreSQL")

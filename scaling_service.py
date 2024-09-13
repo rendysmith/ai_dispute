@@ -21,11 +21,11 @@ from portals.portal_drive2 import check_drive2
 from portals.portal_otzovik import check_otzovik
 from portals.portal_vk import check_vk
 from portals.portal_otvet import check_otvet
+from portals.youtube import check_youtube
 
 from utils.constants import TABLES_LIST
 
 ss_id = TABLES_LIST['zoom']
-
 current_date = datetime.now().strftime("%d.%m.%Y")
 
 async def extract_company_name(pattern, url):
@@ -273,6 +273,17 @@ async def start_zoom(service):
                     list_links.append(link)
 
                 status = await check_dzen(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                if status:
+                    await fix_error(service, link, str(status))
+
+            elif 'youtube' in link:
+                if link in list_links:
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                status = await check_youtube(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
                 if status:
                     await fix_error(service, link, str(status))
 
