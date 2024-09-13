@@ -3,7 +3,7 @@ from venv import logger
 import pandas as pd
 from datetime import datetime
 
-from sqlalchemy import text
+from sqlalchemy import text, update
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -334,14 +334,3 @@ async def read_from_postgres(table_name: str):
 
         except Exception as Ee:
             return False, f"Ошибка подключения к PostgreSQL: {Ee}"
-
-
-async def read_from_postgres_old(table_name: str):
-    try:
-        # Читаем данные из таблицы в DataFrame
-        df = pd.read_sql_table(table_name, con=engine)
-        print(type(df))
-        return True, df
-
-    except exc.OperationalError as e:
-        return False, f"Ошибка подключения к PostgreSQL: {e}"
