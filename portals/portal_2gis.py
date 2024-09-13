@@ -19,7 +19,6 @@ load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
-
 async def convert_date(month):
     months = {
         'января': 1,
@@ -37,8 +36,9 @@ async def convert_date(month):
     }
     return months[month]
 
-async def check_2gis(service, url, pattern, criteria, ss_id, project):
+async def send_top_url(service, ss_id, project, url):
     url_split = url.split('/')
+    #print("url_split", url_split)
     city_company = url_split[3]
     id_obj = url_split[5]
     top_url = f'https://2gis.ru/{city_company}/firm/{id_obj}'
@@ -49,11 +49,20 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project):
 
     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
 
-    playwright, browser, page = await get_playwright(top_url)
+async def check_2gis(service, url, pattern, criteria, ss_id, project):
+    playwright, browser, page = await get_playwright(url, headless=False)
 
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
+
+    if 'go' in url:
+        final_url = page.url
+        print("final_url:", final_url)
+        await send_top_url(service, ss_id, project, final_url)
+
+    else:
+        await send_top_url(service, ss_id, project, url)
 
     links = await pars_url(service, ss_id, project)
     if not page:
@@ -134,4 +143,5 @@ async def main_2gis(url):
 
 if __name__ == '__main__':
     url = 'https://2gis.ru/tyumen/firm/70000001078903378/65.581594%2C57.166876/tab/reviews'
+    url = 'https://go.2gis.com/dgzo35'
     asyncio.run(main_2gis(url))
