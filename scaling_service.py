@@ -45,7 +45,7 @@ async def fix_error(service, portal, error):
     tab_name = 'ERRORS'
     await append_data_to_sheet_scope(service, ss_id, tab_name, data)
 
-async def time_out_on(async_func, timeout=30, **kwargs):
+async def time_out_on(async_func, timeout=60, **kwargs):
     service = kwargs['service']
     link = kwargs['link']
     df_mini_pattern = kwargs['df_mini_pattern']
@@ -199,9 +199,19 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                status = await check_2gis(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # status = await check_2gis(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # if status:
+                #     await fix_error(service, link, str(status))
+                #     black_list.append('2gis')
+
+                status = await time_out_on(check_2gis,
+                                           service=service,
+                                           link=link,
+                                           df_mini_pattern=df_mini_pattern,
+                                           df_mini_criteria=df_mini_criteria,
+                                           ss_id=ss_id,
+                                           project=project)
                 if status:
-                    await fix_error(service, link, str(status))
                     black_list.append('2gis')
 
             # ---------------------------------------------------------------------------------------------------------
@@ -221,9 +231,21 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                status = await check_sravni(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # status = await check_sravni(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # if status:
+                #     await fix_error(service, link, str(status))
+
+                status = await time_out_on(check_sravni,
+                                           service=service,
+                                           link=link,
+                                           df_mini_pattern=df_mini_pattern,
+                                           df_mini_criteria=df_mini_criteria,
+                                           ss_id=ss_id,
+                                           project=project)
                 if status:
-                    await fix_error(service, link, str(status))
+                    black_list.append('sravni.ru')
+
+
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'drive2.ru' in link:
@@ -233,9 +255,19 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                status = await check_drive2(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # status = await check_drive2(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # if status:
+                #     await fix_error(service, link, str(status))
+
+                status = await time_out_on(check_drive2,
+                                           service=service,
+                                           link=link,
+                                           df_mini_pattern=df_mini_pattern,
+                                           df_mini_criteria=df_mini_criteria,
+                                           ss_id=ss_id,
+                                           project=project)
                 if status:
-                    await fix_error(service, link, str(status))
+                    black_list.append('drive2.ru')
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'vk.com' in link:
@@ -263,17 +295,15 @@ async def start_zoom(service):
                 #if status:
                  #   await fix_error(service, link, str(status))
 
-                try:
-                    status = await asyncio.wait_for(
-                        check_vk(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project), timeout=60)
-
-                    if status:  # Если статус истинен
-                        await fix_error(service, link, str(status))
-                        black_list.append('market.yandex')
-
-                except asyncio.TimeoutError:
-                    await fix_error(service, link, "TimeOut")
-                    print("Задача была отменена из-за таймаута.")
+                status = await time_out_on(check_vk,
+                                           service=service,
+                                           link=link_company,
+                                           df_mini_pattern=df_mini_pattern,
+                                           df_mini_criteria=df_mini_criteria,
+                                           ss_id=ss_id,
+                                           project=project)
+                if status:
+                    black_list.append('vk.com')
 
             #---------------------------------------------------------------------------------------------------------
             elif 'irecommend' in link:
@@ -294,10 +324,20 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                print('irecommend Бывают баны по IP')
-                status = await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # print('irecommend Бывают баны по IP')
+                # status = await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # if status:
+                #     await fix_error(service, link, str(status))
+                #     black_list.append('irecommend')
+
+                status = await time_out_on(check_irecommend,
+                                           service=service,
+                                           link=link,
+                                           df_mini_pattern=df_mini_pattern,
+                                           df_mini_criteria=df_mini_criteria,
+                                           ss_id=ss_id,
+                                           project=project)
                 if status:
-                    await fix_error(service, link, str(status))
                     black_list.append('irecommend')
 
             #---------------------------------------------------------------------------------------------------------
@@ -321,9 +361,19 @@ async def start_zoom(service):
 
                 print('otzovik Бывают баны по IP')
 
-                status = await check_otzovik(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # status = await check_otzovik(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # if status:
+                #     await fix_error(service, link, str(status))
+                #     black_list.append('otzovik.com')
+
+                status = await time_out_on(check_otzovik,
+                                           service=service,
+                                           link=link,
+                                           df_mini_pattern=df_mini_pattern,
+                                           df_mini_criteria=df_mini_criteria,
+                                           ss_id=ss_id,
+                                           project=project)
                 if status:
-                    await fix_error(service, link, str(status))
                     black_list.append('otzovik.com')
 
             #---------------------------------------------------------------------------------------------------------
@@ -345,9 +395,19 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                status = await check_youtube(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # status = await check_youtube(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # if status:
+                #     await fix_error(service, link, str(status))
+
+                status = await time_out_on(check_youtube,
+                                           service=service,
+                                           link=link,
+                                           df_mini_pattern=df_mini_pattern,
+                                           df_mini_criteria=df_mini_criteria,
+                                           ss_id=ss_id,
+                                           project=project)
                 if status:
-                    await fix_error(service, link, str(status))
+                    black_list.append('youtube')
 
             #---------------------------------------------------------------------------------------------------------
             elif 'aplaut.io' in link:
@@ -358,9 +418,19 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                status = await check_aplout(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # status = await check_aplout(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # if status:
+                #     await fix_error(service, link, str(status))
+
+                status = await time_out_on(check_aplout,
+                                           service=service,
+                                           link=link,
+                                           df_mini_pattern=df_mini_pattern,
+                                           df_mini_criteria=df_mini_criteria,
+                                           ss_id=ss_id,
+                                           project=project)
                 if status:
-                    await fix_error(service, link, str(status))
+                    black_list.append('aplaut.io')
 
             #---------------------------------------------------------------------------------------------------------
             elif 'yandex.ru/maps' in link:
@@ -394,9 +464,19 @@ async def start_zoom(service):
                 else:
                     list_links.append(link_company)
 
-                status = await check_ya(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # status = await check_ya(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # if status:
+                #     await fix_error(service, link, str(status))
+                #     black_list.append('yandex.ru/maps')
+
+                status = await time_out_on(check_ya,
+                                           service=service,
+                                           link=link_company,
+                                           df_mini_pattern=df_mini_pattern,
+                                           df_mini_criteria=df_mini_criteria,
+                                           ss_id=ss_id,
+                                           project=project)
                 if status:
-                    await fix_error(service, link, str(status))
                     black_list.append('yandex.ru/maps')
 
             # ---------------------------------------------------------------------------------------------------------
@@ -418,9 +498,19 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                status = await check_otvet(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # status = await check_otvet(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # if status:
+                #     await fix_error(service, link, str(status))
+
+                status = await time_out_on(check_otvet,
+                                           service=service,
+                                           link=link,
+                                           df_mini_pattern=df_mini_pattern,
+                                           df_mini_criteria=df_mini_criteria,
+                                           ss_id=ss_id,
+                                           project=project)
                 if status:
-                    await fix_error(service, link, str(status))
+                    black_list.append('otvet.mail')
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'market.yandex' in link and any(black not in link for black in black_list):
@@ -431,15 +521,16 @@ async def start_zoom(service):
                     list_links.append(link)
 
                 #status = await check_ya_market(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
-                try:
-                    status = await asyncio.wait_for(check_ya_market(service, link, df_mini_pattern, df_mini_criteria, ss_id, project), timeout=60)
-                    if status:
-                        await fix_error(service, link, str(status))
-                        black_list.append('market.yandex')
 
-                except asyncio.TimeoutError:
-                    await fix_error(service, link, "TimeOut")
-                    print("Задача была отменена из-за таймаута.")
+                status = await time_out_on(check_ya_market,
+                                           service=service,
+                                           link=link,
+                                           df_mini_pattern=df_mini_pattern,
+                                           df_mini_criteria=df_mini_criteria,
+                                           ss_id=ss_id,
+                                           project=project)
+                if status:
+                    black_list.append('market.yandex')
 
 
 
