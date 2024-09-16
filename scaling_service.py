@@ -45,6 +45,26 @@ async def fix_error(service, portal, error):
     tab_name = 'ERRORS'
     await append_data_to_sheet_scope(service, ss_id, tab_name, data)
 
+async def time_out_on(async_func, timeout=30, **kwargs):
+    service = kwargs['service']
+    link = kwargs['link']
+    df_mini_pattern = kwargs['df_mini_pattern']
+    df_mini_criteria = kwargs['df_mini_criteria']
+    ss_id = kwargs['ss_id']
+    project = kwargs['project']
+
+    try:
+        status = await asyncio.wait_for(
+            async_func(service, link, df_mini_pattern, df_mini_criteria, ss_id, project), timeout=timeout)
+
+        if status:  # Если статус истинен
+            await fix_error(service, link, str(status))
+            return status
+
+    except asyncio.TimeoutError:
+        await fix_error(service, link, "TimeOut")
+        print("Задача была отменена из-за таймаута.")
+
 async def start_zoom(service):
     df = await get_table_scope(service, ss_id, 'zoom')
     #print(df)
@@ -58,7 +78,7 @@ async def start_zoom(service):
         if 'Проект' in project:
             continue
 
-        #project = 'AlphaPet'
+        #project = 'Скиллбокс'
 
         df_mini = df[project]
         #print(len(df_mini))
@@ -98,9 +118,19 @@ async def start_zoom(service):
                 else:
                     list_links.append(company)
 
-                status = await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # status = await check_pravda(service, company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # if status:
+                #     await fix_error(service, link, str(status))
+
+                status = await time_out_on(check_pravda,
+                                           service=service,
+                                           link=company,
+                                           df_mini_pattern=df_mini_pattern,
+                                           df_mini_criteria=df_mini_criteria,
+                                           ss_id=ss_id,
+                                           project=project)
                 if status:
-                    await fix_error(service, link, str(status))
+                    black_list.append('pravda-sotrudnikov.ru')
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'ocompanii' in link:
@@ -112,9 +142,19 @@ async def start_zoom(service):
                     list_links.append(link)
                     print(len(list_links))
 
-                status = await check_ocompanii(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # status = await check_ocompanii(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # if status:
+                #     await fix_error(service, link, str(status))
+
+                status = await time_out_on(check_ocompanii,
+                                           service=service,
+                                           link=link,
+                                           df_mini_pattern=df_mini_pattern,
+                                           df_mini_criteria=df_mini_criteria,
+                                           ss_id=ss_id,
+                                           project=project)
                 if status:
-                    await fix_error(service, link, str(status))
+                    black_list.append('ocompanii')
 
             #---------------------------------------------------------------------------------------------------------
             elif 'dreamjob.ru' in link:
@@ -126,9 +166,19 @@ async def start_zoom(service):
                 else:
                     list_links.append(link_company)
 
-                status = await check_dreamjob(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # status = await check_dreamjob(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # if status:
+                #     await fix_error(service, link, str(status))
+
+                status = await time_out_on(check_dreamjob,
+                                           service=service,
+                                           link=link_company,
+                                           df_mini_pattern=df_mini_pattern,
+                                           df_mini_criteria=df_mini_criteria,
+                                           ss_id=ss_id,
+                                           project=project)
                 if status:
-                    await fix_error(service, link, str(status))
+                    black_list.append('dreamjob.ru')
 
             #---------------------------------------------------------------------------------------------------------
             elif '2gis' in link:
@@ -209,9 +259,21 @@ async def start_zoom(service):
                 else:
                     list_links.append(link_company)
 
-                status = await check_vk(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
-                if status:
-                    await fix_error(service, link, str(status))
+                #status = await check_vk(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
+                #if status:
+                 #   await fix_error(service, link, str(status))
+
+                try:
+                    status = await asyncio.wait_for(
+                        check_vk(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project), timeout=60)
+
+                    if status:  # Если статус истинен
+                        await fix_error(service, link, str(status))
+                        black_list.append('market.yandex')
+
+                except asyncio.TimeoutError:
+                    await fix_error(service, link, "TimeOut")
+                    print("Задача была отменена из-за таймаута.")
 
             #---------------------------------------------------------------------------------------------------------
             elif 'irecommend' in link:
@@ -368,12 +430,24 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                status = await check_ya_market(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
-                if status:
-                    await fix_error(service, link, str(status))
-                    black_list.append('market.yandex')
+                #status = await check_ya_market(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                try:
+                    status = await asyncio.wait_for(check_ya_market(service, link, df_mini_pattern, df_mini_criteria, ss_id, project), timeout=60)
+                    if status:
+                        await fix_error(service, link, str(status))
+                        black_list.append('market.yandex')
 
-        data = {'service_name': project, 'date': current_date}
+                except asyncio.TimeoutError:
+                    await fix_error(service, link, "TimeOut")
+                    print("Задача была отменена из-за таймаута.")
+
+
+
+
+        data = {'service_name': project,
+                'count': len_df,
+                'date': current_date}
+
         await write_log_sheet(service, ss_id, 'logs', data)
 
 async def main_zoom():

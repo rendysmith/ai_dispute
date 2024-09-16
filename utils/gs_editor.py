@@ -510,6 +510,7 @@ def column_name_to_letter(column_name):
 
 async def write_log_sheet(service, sheet_id, worksheet_name, data):
     service_name = data['service_name']
+    count = data['count']
     date = data['date']
 
     df = await read_table_id(service, sheet_id, worksheet_name)
@@ -520,11 +521,13 @@ async def write_log_sheet(service, sheet_id, worksheet_name, data):
     if index == []:
         print('Logs: Не найден элемент вводим на новую строку')
         await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
+        await append_data_to_sheet_scope(service, sheet_id, worksheet_name, count)
 
     else:
         print(f'Logs: {service_name} - есть в таблице, изменяем дату')
         idx = index[0] + 2
         await append_data_to_sheet_cell(service, sheet_id, worksheet_name, 'date', idx, date)
+        await append_data_to_sheet_cell(service, sheet_id, worksheet_name, 'count', idx, count)
 
 
 async def pars_url(service, SS_ID, R_N):
