@@ -26,7 +26,7 @@ async def nerab():
     forum_name = 'nerab'
     url = 'https://nerab.ru/agreement'
 
-    playwright, browser, page = await get_playwright(url, headless=False)
+    playwright, browser, page = await get_playwright(url)
     await page.wait_for_load_state('load')
 
     forum_rules = await page.query_selector_all('ul')

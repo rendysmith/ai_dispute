@@ -50,7 +50,7 @@ async def send_top_url(service, ss_id, project, url):
     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
 
 async def check_2gis(service, url, pattern, criteria, ss_id, project):
-    playwright, browser, page = await get_playwright(url, headless=False)
+    playwright, browser, page = await get_playwright(url)
 
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
