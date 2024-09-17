@@ -95,8 +95,12 @@ async def get_soup(url, only_pars=False):
                 return None
 
         except requests.exceptions.RequestException as RE:
-            print(f'Error RE: {RE}')
-            return None
+            try:
+                print(f'Error RE: {RE}')
+                proxies = await get_headers()
+                response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+            except:
+                return None
 
         if response.status_code != 200:
             return None

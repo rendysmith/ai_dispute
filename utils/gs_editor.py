@@ -508,27 +508,22 @@ def column_name_to_letter(column_name):
         letters = chr(65 + remainder) + letters
     return letters
 
-async def write_log_sheet(service, sheet_id, worksheet_name, data):
-    service_name = data['service_name']
-    count = data['count']
-    date = data['date']
-
+async def write_log_sheet(service, sheet_id, worksheet_name, datas):
     df = await read_table_id(service, sheet_id, worksheet_name)
-
+    service_name = datas['service_name']
     index = df.index[df['service_name'] == service_name].tolist()
     print(index)
 
     if index == []:
         print('Logs: Не найден элемент вводим на новую строку')
-        await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
-        await append_data_to_sheet_scope(service, sheet_id, worksheet_name, count)
+        await append_data_to_sheet_scope(service, sheet_id, worksheet_name, datas)
 
     else:
         print(f'Logs: {service_name} - есть в таблице, изменяем дату')
         idx = index[0] + 2
-        await append_data_to_sheet_cell(service, sheet_id, worksheet_name, 'date', idx, date)
-        await append_data_to_sheet_cell(service, sheet_id, worksheet_name, 'count', idx, count)
-
+        columns = list(datas.keys())
+        values = list(datas.values())
+        await append_data_to_sheet_cells(service, sheet_id, worksheet_name, columns, idx, values)
 
 async def pars_url(service, SS_ID, R_N):
     try:
@@ -541,7 +536,7 @@ async def pars_url(service, SS_ID, R_N):
 async def main():
     service = await get_service()
     current_date = datetime.now().strftime("%d.%m.%Y")
-    data = {'service_name': "СберСтрахование_2", 'date': current_date}
+    data = {'service_name': "СберСтрахование_2", 'count': 5, 'date': current_date}
     ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
     await write_log_sheet(service, ss_id, 'logs', data)
 

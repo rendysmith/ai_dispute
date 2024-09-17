@@ -246,7 +246,6 @@ async def start_zoom(service):
                     black_list.append('sravni.ru')
 
 
-
             # ---------------------------------------------------------------------------------------------------------
             elif 'drive2.ru' in link:
                 if link in list_links:
@@ -546,11 +545,11 @@ async def start_zoom(service):
 
 
 
-        data = {'service_name': project,
+        datas = {'service_name': project,
                 'count': len_df,
                 'date': current_date}
 
-        await write_log_sheet(service, ss_id, 'logs', data)
+        await write_log_sheet(service, ss_id, 'logs', datas)
 
 async def main_zoom():
     service = await get_service()
