@@ -384,10 +384,21 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                status = await check_dzen(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
-                if status:
-                    await fix_error(service, link, str(status))
+                # status = await check_dzen(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                # if status:
+                #     await fix_error(service, link, str(status))
 
+                status = await time_out_on(check_dzen,
+                                           service=service,
+                                           link=link,
+                                           df_mini_pattern=df_mini_pattern,
+                                           df_mini_criteria=df_mini_criteria,
+                                           ss_id=ss_id,
+                                           project=project)
+                if status:
+                    black_list.append('youtube')
+
+            # ---------------------------------------------------------------------------------------------------------
             elif 'youtube' in link:
                 if link in list_links:
                     continue
