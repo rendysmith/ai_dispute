@@ -95,6 +95,8 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project):
     await asyncio.sleep(ts)
 
     if not page:
+        await browser.close()
+        await playwright.stop()
         return 'Сайт не отдал данные.'
 
     try:
@@ -103,6 +105,8 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project):
         zen_object_id = zen_object_id.split(':')
 
     except:
+        await browser.close()
+        await playwright.stop()
         return 'Сайт не отдал данные.'
 
     #print(zen_object_id)
@@ -119,6 +123,8 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project):
         len_r = len(r['items'])
 
     if len_r == 0:
+        await browser.close()
+        await playwright.stop()
         return
 
     UsersByID = {v['uidSafe']: v['displayName'] for k, v in r['usersById'].items()}
@@ -160,6 +166,9 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project):
                                  feedback=feedback,
                                  pattern=pattern,
                                  criteria=criteria)
+
+    await browser.close()
+    await playwright.stop()
 
 
 if __name__ == '__main__':

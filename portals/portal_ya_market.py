@@ -60,6 +60,8 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project):
     await asyncio.sleep(ts)
 
     if not page:
+        await browser.close()
+        await playwright.stop()
         return 'Сайт не отдал данные.'
 
     await page.evaluate("document.body.style.zoom=0.5")
@@ -68,6 +70,8 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project):
     print(len(blocks))
 
     if not blocks:
+        await browser.close()
+        await playwright.stop()
         return "Страница не отдала данные"
 
     for block in blocks:
@@ -76,6 +80,8 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project):
         print("date", date)
 
         if not any(i in date for i in ['Неделю назад', 'дней назад', 'дня назад', 'вчера', 'день назад']):
+            await browser.close()
+            await playwright.stop()
             return
 
         link_content = await block.query_selector('div[data-apiary-widget-id]')

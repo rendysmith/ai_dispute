@@ -61,9 +61,15 @@ async def time_out_on(async_func, timeout=60, **kwargs):
             await fix_error(service, link, str(status))
             return status
 
-    except asyncio.TimeoutError:
-        await fix_error(service, link, "TimeOut")
-        print("Задача была отменена из-за таймаута.")
+    except asyncio.TimeoutError as TE:
+        await fix_error(service, link, f"TimeOut {TE}")
+        print(f"Error TE: Задача была отменена из-за таймаута. {TE}")
+        return None
+
+    except Exception as Ex:  # Обработка других исключений
+        await fix_error(service, link, f"Error Ex: {Ex}")
+        print(f"Error Ex: Произошла ошибка: {Ex}")
+        return None
 
 async def start_zoom(service):
     df = await get_table_scope(service, ss_id, 'zoom')

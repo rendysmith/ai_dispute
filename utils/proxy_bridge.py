@@ -73,7 +73,6 @@ async def get_proxy_list():
             text = await response.text()
             text = text.replace(',', '')
             print("Original text:", text)
-            input()
 
             formatted_text = '[{}]'.format(text.strip().replace('},\n{', '}, {'))
             print("Formatted text:", formatted_text)

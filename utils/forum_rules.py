@@ -41,10 +41,6 @@ async def nerab():
 
 
 
-    input()
-
-
-
 
 
 

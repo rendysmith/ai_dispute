@@ -30,6 +30,8 @@ async def check_youtube(service, url, pattern, criteria, ss_id, project):
     await asyncio.sleep(ts)
 
     if not page:
+        await browser.close()
+        await playwright.stop()
         return 'Сайт не отдал данные.'
 
     await page.evaluate("document.body.style.zoom=0.5")
@@ -38,7 +40,6 @@ async def check_youtube(service, url, pattern, criteria, ss_id, project):
     for _ in range(3):  # Прокрутка 10 раз
         await page.evaluate("window.scrollBy(0, window.innerHeight)")
         await page.wait_for_timeout(1000)  # Ожидание 1 секунды между скроллами
-
 
     blocks = await page.query_selector_all('ytd-comment-view-model[id="comment"]')
     print(len(blocks))
@@ -108,8 +109,6 @@ async def check_youtube(service, url, pattern, criteria, ss_id, project):
         date = datetime.fromtimestamp(time.time() - sec)
         formatted_date = date.strftime("%d.%m.%Y")
         print(formatted_date)
-
-        input()
 
         await generate_and_white(service=service,
                                  url_answer=url_answer,

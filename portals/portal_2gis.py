@@ -66,10 +66,17 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project):
 
     links = await pars_url(service, ss_id, project)
     if not page:
+        await browser.close()
+        await playwright.stop()
         return "Сайт не вернул данные"
 
     blocks = await page.query_selector_all('div[class="_11gvyqv"]')
     print('Len =', len(blocks))
+
+    if len(blocks) == 0:
+        await browser.close()
+        await playwright.stop()
+        return
 
     for block in blocks:
         try:
@@ -77,14 +84,15 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project):
             date = await date_content.inner_text()
             date_split = date.split(', ')[0].split(' ')
             date_split = [dt.replace(',', '') for dt in date_split]
-            print(date_split)
+            #print(date_split)
 
         except AttributeError as AE:
+            print(f'Error AE: {AE}')
             date_content = await block.query_selector('div[class="_139ll30"]')
             date = await date_content.inner_text()
             date_split = date.split(' ')
             date_split = [dt.replace(',', '') for dt in date_split]
-            print(date_split)
+            #print(date_split)
 
         day = int(date_split[0])
         month = await convert_date(date_split[1])
@@ -92,7 +100,7 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project):
 
         target_date = datetime(year, month, day)
         formatted_date = target_date.strftime("%d.%m.%Y")
-        print(formatted_date)
+        #print(formatted_date)
 
         if (current_date - target_date) > timedelta(days=days_ago):
             print(f'--- Отзыв старше {days_ago} дней = {date}.')
@@ -110,11 +118,11 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project):
         author_content = await block.query_selector('span[class="_16s5yj36"]')
         author = await author_content.inner_text()
         author = author.strip()
-        print('\n', author)
+        #print('\n', author)
 
         feedback_content = await block.query_selector('div[class="_49x36f"]')
         feedback = await feedback_content.inner_text()
-        print(feedback)
+        #print(feedback)
 
         url_answer = await compress_string(feedback)
 

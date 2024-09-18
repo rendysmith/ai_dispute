@@ -51,7 +51,6 @@ def find_key_path(dct, target_key, path = None):
                 return result
 
 async def check_ya(service, url, pattern, criteria, ss_id, project):
-
     url_split = url.split('/')
     id_org = url_split[5]
     top_url = f'https://yandex.ru/maps/org/{id_org}'
@@ -73,6 +72,8 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
     await asyncio.sleep(ts)
 
     if not page:
+        await browser.close()
+        await playwright.stop()
         return 'Сайт не отдал данные.'
 
     await page.evaluate("document.body.style.zoom=0.5")
@@ -105,7 +106,7 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
     break_on = False
     while break_on == False:
         blocks = await page.query_selector_all('div[class="business-reviews-card-view__review"]')
-        print(len(blocks))
+        print('Len ', len(blocks))
 
         if len(blocks) == 0:
             await browser.close()
@@ -166,6 +167,8 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
             n = 0
             while True:
                 if n == 10:
+                    await browser.close()
+                    await playwright.stop()
                     return 'Сайт не предоставил данные'
 
                 try:
@@ -214,7 +217,7 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
                                      criteria=criteria)
 
 
-        print('Тут можно будет поставить скрол для загрузки доп отзывов')
+        #print('Тут можно будет поставить скрол для загрузки доп отзывов')
         break
 
     await browser.close()
