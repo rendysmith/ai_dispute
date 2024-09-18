@@ -22,7 +22,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
     print(f"Wait {ts} sec.")
     await asyncio.sleep(ts)
 
-    print("\n", link)
+    #print("\n", link)
     links = await pars_url(service, ss_id, project)
 
     soup = await get_soup(link)
@@ -33,7 +33,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
     try:
         denied = soup.find('h1', {'class': 'largestHeader'}).text
         if denied:
-            print(denied)
+            #print(denied)
             return denied
     except:
         print('Страница доступна')
