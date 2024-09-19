@@ -23,6 +23,10 @@ RUN apt-get update && apt-get install -y \
     libxrender1 \
     libasound2
 
+# Установите Playwright
+RUN pip install playwright
+
+# Теперь установите зависимости Playwright и браузер Firefox
 RUN playwright install-deps
 RUN playwright install firefox
 
