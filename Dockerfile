@@ -1,13 +1,14 @@
 FROM python:3.10
 
-RUN apt-get update -y
-RUN apt-get install -y python3-pip
+# Обновление списка пакетов и установка pip
+RUN apt-get update -y && \
+    apt-get install -y python3-pip
 
-# Устанавливаем Playwright и необходимые браузеры
-RUN pip install playwright
-RUN playwright install
+# Установка Playwright и необходимых браузеров
+RUN pip install playwright && \
+    playwright install
 
-# Обновите список пакетов и установите необходимые библиотеки
+# Установка необходимых библиотек для работы Playwright
 RUN apt-get update && \
     apt-get install -y \
         libx11-xcb1 \
@@ -22,10 +23,16 @@ RUN apt-get update && \
         libgtk-3-0 \
         libatk1.0-0 \
         libasound2 \
-        libdbus-1-3 && \
+        libdbus-1-3 \
+        libatk-bridge2.0-0 \
+        libcups2 \
+        libxkbcommon0 \
+        libatspi2.0-0 \
+        libgbm1 \
+        libpango-1.0-0 \
+        libcairo2 && \
     apt-get clean
 
-#RUN apt-get install -y docker-compose
 RUN mkdir /app/
 
 COPY ./requirements.txt /app/requirements.txt
