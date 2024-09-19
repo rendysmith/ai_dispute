@@ -4,9 +4,31 @@ FROM python:3.10
 RUN apt-get update -y && \
     apt-get install -y python3-pip
 
-# Установка Playwright и необходимых браузеров
-RUN pip install playwright
+RUN apt-get update && apt-get install -y \
+    libxcb-shm0 \
+    libx11-xcb1 \
+    libxrandr2 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxi6 \
+    libgtk-3-0 \
+    libpangocairo-1.0-0 \
+    libpango-1.0-0 \
+    libatk1.0-0 \
+    libcairo-gobject2 \
+    libcairo2 \
+    libgdk-pixbuf-2.0-0 \
+    libxrender1 \
+    libasound2
+
+RUN playwright install-deps
 RUN playwright install firefox
+
+# Установка Playwright и необходимых браузеров
+#RUN pip install playwright
+#RUN playwright install firefox
 
 ## Установка необходимых библиотек для работы Playwright
 #RUN apt-get update && \
@@ -36,26 +58,7 @@ RUN playwright install firefox
 #        libcairo2 && \
 #    apt-get clean
 
-RUN apt-get update && apt-get install -y \
-    libx11-xcb1 \
-    libxcb1 \
-    libxcomposite1 \
-    libxcursor1 \
-    libxdamage1 \
-    libxext6 \
-    libxfixes3 \
-    libxi6 \
-    libxrandr2 \
-    libxrender1 \
-    libxss1 \
-    libxtst6 \
-    libglib2.0-0 \
-    libnss3 \
-    libcups2 \
-    libdbus-1-3 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libgtk-3-0
+
 
 RUN mkdir /app/
 
