@@ -4,6 +4,7 @@ FROM python:3.10
 RUN apt-get update -y && \
     apt-get install -y python3-pip
 
+# Установка системных зависимостей
 RUN apt-get update && apt-get install -y \
     libxcb-shm0 \
     libx11-xcb1 \
@@ -23,12 +24,12 @@ RUN apt-get update && apt-get install -y \
     libxrender1 \
     libasound2
 
-# Установите Playwright
+# Установка Playwright
 RUN pip install playwright
 
-# Теперь установите зависимости Playwright и браузер Firefox
-RUN playwright install-deps
+# Установка браузеров и зависимостей
 RUN playwright install firefox
+RUN playwright install-deps
 
 # Установка Playwright и необходимых браузеров
 #RUN pip install playwright
