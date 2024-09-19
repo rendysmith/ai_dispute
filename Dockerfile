@@ -63,6 +63,8 @@ RUN playwright install-deps
 #        libcairo2 && \
 #    apt-get clean
 
+RUN mkdir -p /root/.cache/ms-playwright \
+    && chmod -R 777 /root/.cache/ms-playwright \
 
 
 RUN mkdir /app/
