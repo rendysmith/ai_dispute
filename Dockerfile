@@ -26,6 +26,9 @@ RUN apt-get update && \
         libdbus-1-3 \
         libatk-bridge2.0-0 \
         libcups2 \
+        libnss3 \
+        libnspr4 \
+        libdrm2 \
         libxkbcommon0 \
         libatspi2.0-0 \
         libgbm1 \
