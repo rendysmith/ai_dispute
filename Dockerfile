@@ -2,12 +2,13 @@ FROM python:3.10
 
 # Обновление списка пакетов и установка pip
 RUN apt-get update -y && \
-    apt-get install -y python3-pip
+    apt-get install -y python3-pip firefox-esr
 
 RUN pip install --upgrade pip
 
+# Установка Playwright и браузеров
 RUN pip install playwright==1.47.0 && \
-    playwright install --with-deps
+    playwright install
 
 RUN mkdir /app/
 
@@ -19,7 +20,7 @@ WORKDIR /app/
 
 ENV PRJPATH /app/
 
-# Добавление команды для предоставления прав на выполнение файла
+# Добавление прав на выполнение скриптов (если необходимо)
 RUN chmod +x run_container.sh
 RUN chmod +x restart_build.sh
 
