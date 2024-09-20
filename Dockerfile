@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y \
 
 # Установка Playwright
 RUN pip install playwright
+RUN pip install --upgrade playwright
 
 # Установка браузеров и зависимостей
 RUN playwright install firefox --with-utils
