@@ -1,4 +1,4 @@
-FROM python:3.10
+FROM python:3.12-bookworm
 
 # Обновление списка пакетов и установка pip
 RUN apt-get update -y && \
@@ -6,68 +6,8 @@ RUN apt-get update -y && \
 
 RUN pip install --upgrade pip
 
-# Установка системных зависимостей
-RUN apt-get update && apt-get install -y \
-    libxcb-shm0 \
-    libx11-xcb1 \
-    libxrandr2 \
-    libxcomposite1 \
-    libxcursor1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxi6 \
-    libgtk-3-0 \
-    libpangocairo-1.0-0 \
-    libpango-1.0-0 \
-    libatk1.0-0 \
-    libcairo-gobject2 \
-    libcairo2 \
-    libgdk-pixbuf-2.0-0 \
-    libxrender1 \
-    libasound2
-
-# Установка Playwright
-RUN pip install playwright
-RUN pip install --upgrade playwright
-
-# Установка браузеров и зависимостей
-RUN playwright install firefox
-# Проверка установки и исправление возможных проблем
-RUN playwright install-deps
-
-# Установка Playwright и необходимых браузеров
-#RUN pip install playwright
-#RUN playwright install firefox
-
-## Установка необходимых библиотек для работы Playwright
-#RUN apt-get update && \
-#    apt-get install -y \
-#        libx11-xcb1 \
-#        libxrandr2 \
-#        libxcomposite1 \
-#        libxcursor1 \
-#        libxdamage1 \
-#        libpci3 \
-#        libgl1-mesa-glx \
-#        libxfixes3 \
-#        libxi6 \
-#        libgtk-3-0 \
-#        libatk1.0-0 \
-#        libasound2 \
-#        libdbus-1-3 \
-#        libatk-bridge2.0-0 \
-#        libcups2 \
-#        libnss3 \
-#        libnspr4 \
-#        libdrm2 \
-#        libxkbcommon0 \
-#        libatspi2.0-0 \
-#        libgbm1 \
-#        libpango-1.0-0 \
-#        libcairo2 && \
-#    apt-get clean
-
-RUN mkdir -p /root/.cache/ms-playwright && chmod -R 777 /root/.cache/ms-playwright
+RUN pip install playwright==@1.47.0 && \
+    playwright install --with-deps
 
 RUN mkdir /app/
 
