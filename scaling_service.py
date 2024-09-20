@@ -87,18 +87,18 @@ async def start_zoom(service):
         if 'Проект' in project:
             continue
 
-        idx_logs = df_logs[df_logs['service_name'] == project].index[0]
+        filtered_logs = df_logs[df_logs['service_name'] == project]
+        if not filtered_logs.empty:
+            idx_logs = filtered_logs.index[0]
+            date_logs = df_logs.loc[idx_logs, 'date']
+            if date_logs == current_date:
+                continue
 
-        # idx_logs = df_logs.index[df_logs['service_name'] == project].to_list()
-        # print(project, idx_logs)
+        else:
+            print(f"No logs found for service: {project}")
 
-        date_logs = df_logs.loc[idx_logs, 'date']
 
-        if date_logs == current_date:
-            continue
-        #
-        # if not 'СберСтрахование' in project:
-        #     continue
+
 
         #project = 'Скиллбокс'
 
