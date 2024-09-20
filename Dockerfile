@@ -2,13 +2,15 @@ FROM python:3.10
 
 # Обновление списка пакетов и установка pip
 RUN apt-get update -y && \
-    apt-get install -y python3-pip firefox-esr
+    apt-get install -y python3-pip firefox-esr libgbm1
 
 RUN pip install --upgrade pip
 
-# Установка Playwright и браузеров
-RUN pip install playwright==1.47.0 && \
-    playwright install
+# Установка Playwright
+RUN pip install playwright==1.47.0
+
+# Установка браузеров для Playwright
+RUN playwright install
 
 RUN mkdir /app/
 
