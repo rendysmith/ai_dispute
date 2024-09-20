@@ -1,4 +1,4 @@
-FROM python:3.12-bookworm
+FROM python:3.10
 
 # Обновление списка пакетов и установка pip
 RUN apt-get update -y && \
