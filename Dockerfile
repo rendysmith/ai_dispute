@@ -6,7 +6,7 @@ RUN apt-get update -y && \
 
 RUN pip install --upgrade pip
 
-RUN pip install playwright==@1.47.0 && \
+RUN pip install playwright==1.47.0 && \
     playwright install --with-deps
 
 RUN mkdir /app/
