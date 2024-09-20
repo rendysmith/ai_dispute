@@ -33,7 +33,6 @@ RUN pip install --upgrade playwright
 # Установка браузеров и зависимостей
 RUN playwright install firefox
 # Проверка установки и исправление возможных проблем
-RUN playwright show-installations
 RUN playwright install-deps
 
 # Установка Playwright и необходимых браузеров
