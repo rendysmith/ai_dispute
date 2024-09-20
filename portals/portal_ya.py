@@ -120,7 +120,7 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
                 date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
 
             except AttributeError as AE:
-                print(f'Error AE: {AE}')
+                print(f'AE: {AE}')
                 date_element = await block.query_selector('span[class="business-review-view__date"]')
                 date = await date_element.inner_text()
                 print('Date =', date)
@@ -187,7 +187,7 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
 
             button_open = await page.query_selector('input[class="input__control"]')
             url_answer = await button_open.get_attribute('value')
-            print(url_answer)
+            #print(url_answer)
 
             await page.keyboard.press('Escape')
 
@@ -197,14 +197,14 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
 
             author_text = await block.query_selector('span[itemprop="name"]')
             author = await author_text.inner_text()
-            print(author)
+            #print(author)
 
             feedback_text =  await block.query_selector('span[class="business-review-view__body-text"]')
             feedback = await feedback_text.inner_text()
-            print(feedback)
+            #print(feedback)
 
             formatted_date = date.strftime("%d.%m.%Y")
-            print(formatted_date)
+            #print(formatted_date)
 
             await generate_and_white(service=service,
                                      url_answer=url_answer,

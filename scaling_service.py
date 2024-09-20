@@ -80,8 +80,21 @@ async def start_zoom(service):
 
     df_uniq = await get_table_scope(service, ss_id, 'unique_url')
 
+    df_logs = await get_table_scope(service, ss_id, 'logs')
+    print(df_logs)
+
     for project in list_:
         if 'Проект' in project:
+            continue
+
+        idx_logs = df_logs[df_logs['service_name'] == project].index[0]
+
+        # idx_logs = df_logs.index[df_logs['service_name'] == project].to_list()
+        # print(project, idx_logs)
+
+        date_logs = df_logs.loc[idx_logs, 'date']
+
+        if date_logs == current_date:
             continue
         #
         # if not 'СберСтрахование' in project:
