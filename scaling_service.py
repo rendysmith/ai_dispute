@@ -81,7 +81,7 @@ async def start_zoom(service):
     df_uniq = await get_table_scope(service, ss_id, 'unique_url')
 
     df_logs = await get_table_scope(service, ss_id, 'logs')
-    print(df_logs)
+    #print(df_logs)
 
     for project in list_:
         if 'Проект' in project:
@@ -209,7 +209,7 @@ async def start_zoom(service):
                         continue
 
                 top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
-                print(top_df)
+                #print(top_df)
 
                 if not top_df.empty:
                     print('Есть общая ссылка на статью')
@@ -368,7 +368,7 @@ async def start_zoom(service):
                         continue
 
                 top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
-                print(top_df)
+                #print(top_df)
 
                 if not top_df.empty:
                     print('Есть общая ссылка на статью')
@@ -471,7 +471,7 @@ async def start_zoom(service):
                         continue
 
                 top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
-                print(top_df)
+                #print(top_df)
 
                 if not top_df.empty:
                     print('Есть общая ссылка на статью')
@@ -483,8 +483,8 @@ async def start_zoom(service):
                     if lnk.isdigit():
                         try:
                             idx = link_split.index(lnk)
-                            print(link_split)
-                            print(idx, lnk)
+                            #print(link_split)
+                            #print(idx, lnk)
                             link_company = os.path.join('https://yandex.ru/maps/org', lnk, 'reviews')
 
                         except:
@@ -518,7 +518,7 @@ async def start_zoom(service):
                         continue
 
                 top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
-                print(top_df)
+                #print(top_df)
 
                 if not top_df.empty:
                     print('Есть общая ссылка на статью')
