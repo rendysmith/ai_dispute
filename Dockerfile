@@ -2,12 +2,8 @@ FROM python:3.10
 
 # Обновление списка пакетов и установка pip
 RUN apt-get update -y && \
-    apt-get install -y python3-pip firefox-esr
-
-RUN apt-get update && apt-get install -y \
-    libgbm1 \
-    libgstreamer-plugins-base1.0-dev \
-    libgstreamer1-0-dev
+    apt-get install -y python3-pip firefox-esr  \
+    libgbm1
 
 RUN pip install --upgrade pip
 
