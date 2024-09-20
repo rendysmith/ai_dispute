@@ -4,6 +4,8 @@ FROM python:3.10
 RUN apt-get update -y && \
     apt-get install -y python3-pip
 
+RUN pip install --upgrade pip
+
 # Установка системных зависимостей
 RUN apt-get update && apt-get install -y \
     libxcb-shm0 \
@@ -29,7 +31,7 @@ RUN pip install playwright
 RUN pip install --upgrade playwright
 
 # Установка браузеров и зависимостей
-RUN playwright install firefox --with-utils
+RUN playwright install firefox
 # Проверка установки и исправление возможных проблем
 RUN playwright show-installations
 RUN playwright install-deps
