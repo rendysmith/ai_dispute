@@ -8,7 +8,6 @@ import random
 
 from portals.portal_aplaut import check_aplout
 from portals.portal_ya_market import check_ya_market
-from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_scope, write_log_sheet
 from portals.pravda_sotrudnikov import check_pravda
 from portals.dreamjob import check_dreamjob
 from portals.portal_2gis import check_2gis
@@ -22,6 +21,10 @@ from portals.portal_otzovik import check_otzovik
 from portals.portal_vk import check_vk
 from portals.portal_otvet import check_otvet
 from portals.youtube import check_youtube
+
+from models.mdl_tables import HostsZoom
+from utils.db_loader import read_data_from_db
+from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_scope, write_log_sheet
 
 from utils.constants import TABLES_LIST
 

@@ -6,6 +6,7 @@ from ai.ai_rbi_reactions import main_rbi
 from ai.ai_article import main_article
 from scaling_service import main_zoom
 
+
 now = datetime.now()
 now_hour = now.hour
 now_weekday = now.weekday()

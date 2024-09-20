@@ -86,6 +86,13 @@ class Hosts(Base):
     host = Column(String, nullable=False, index=True)
     status = Column(String, nullable=False, index=True)
 
+class HostsZoom(Base):
+    __tablename__ = 'hosts_zoom'
+
+    host_id = Column(Integer, primary_key=True, autoincrement=True)
+    host = Column(String, nullable=False, index=True)
+    status = Column(String, nullable=False, index=True)
+
 class Results(Base):
     __tablename__ = 'results'
 
