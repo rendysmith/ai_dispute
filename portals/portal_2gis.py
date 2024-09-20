@@ -87,12 +87,13 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project):
             #print(date_split)
 
         except AttributeError as AE:
-            print(f'Error AE: {AE}')
+            print(f'AE: {AE}')
             date_content = await block.query_selector('div[class="_139ll30"]')
             date = await date_content.inner_text()
             date_split = date.split(' ')
             date_split = [dt.replace(',', '') for dt in date_split]
             #print(date_split)
+            print(f'AE: OK!')
 
         day = int(date_split[0])
         month = await convert_date(date_split[1])

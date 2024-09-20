@@ -1,10 +1,15 @@
 import os.path
+import socket
 import time
 from datetime import datetime
+import requests
 
 import asyncio
 import re
 import random
+
+from pydantic.networks import host_regex
+from urllib3 import request
 
 from portals.portal_aplaut import check_aplout
 from portals.portal_ya_market import check_ya_market
@@ -22,14 +27,34 @@ from portals.portal_vk import check_vk
 from portals.portal_otvet import check_otvet
 from portals.youtube import check_youtube
 
-from models.mdl_tables import HostsZoom
-from utils.db_loader import read_data_from_db
 from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_scope, write_log_sheet
 
 from utils.constants import TABLES_LIST
 
 ss_id = TABLES_LIST['zoom']
 current_date = datetime.now().strftime("%d.%m.%Y")
+
+async def get_local_ip():
+    url = 'https://api.myip.com/'
+    r = requests.get(url)
+    if r.status_code == 200:
+        if r.json().get('ip'):
+            return r.json()['ip']
+
+    url = 'https://api.ipify.org?format=json'
+    r = requests.get(url)
+    if r.status_code == 200:
+        if r.json().get('ip'):
+            return r.json()['ip']
+
+    url = 'https://ifconfig.me/all.json'
+    r = requests.get(url)
+    if r.status_code == 200:
+        if r.json().get('ip_addr'):
+            return r.json()['ip_addr']
+
+    else:
+        return '127.0.0.1'
 
 async def extract_company_name(pattern, url):
     match = re.search(pattern, url)
@@ -75,6 +100,9 @@ async def time_out_on(async_func, timeout=60, **kwargs):
         return None
 
 async def start_zoom(service):
+    local_ip = await get_local_ip()
+    print(local_ip)
+
     df = await get_table_scope(service, ss_id, 'zoom')
     #print(df)
 
@@ -90,18 +118,22 @@ async def start_zoom(service):
         if 'Проект' in project:
             continue
 
+        #Если дата не совпадает с сегодняшней
         filtered_logs = df_logs[df_logs['service_name'] == project]
         if not filtered_logs.empty:
             idx_logs = filtered_logs.index[0]
+
             date_logs = df_logs.loc[idx_logs, 'date']
             if date_logs == current_date:
                 continue
 
+            host_logs = df_logs.loc[idx_logs, 'reserve']
+            print(host_logs, local_ip)
+            if host_logs != local_ip:
+                continue
+
         else:
             print(f"No logs found for service: {project}")
-
-
-
 
         #project = 'Скиллбокс'
 
