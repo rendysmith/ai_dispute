@@ -2,15 +2,15 @@ FROM python:3.10
 
 # Обновление списка пакетов и установка pip
 RUN apt-get update -y && \
-    apt-get install -y python3-pip firefox-esr libgbm1
+    apt-get install -y python3-pip firefox-esr
 
 RUN pip install --upgrade pip
 
 # Установка Playwright
 RUN pip install playwright==1.47.0
 
-# Установка браузеров для Playwright
-RUN playwright install
+# Установка браузеров и зависимостей для Playwright
+RUN playwright install && playwright install-deps
 
 RUN mkdir /app/
 
@@ -27,4 +27,4 @@ RUN chmod +x run_container.sh
 RUN chmod +x restart_build.sh
 
 # Запуск основного файла
-CMD ["python", "-um", "main"]
+CMD ["python", "-um", "main"]in"]
