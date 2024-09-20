@@ -1,4 +1,4 @@
-FROM python:3.8
+FROM python:3.10
 
 # Обновление списка пакетов и установка pip
 RUN apt-get update -y && \
@@ -28,7 +28,9 @@ RUN apt-get update && apt-get install -y \
 RUN pip install playwright
 
 # Установка браузеров и зависимостей
-RUN playwright install firefox
+RUN playwright install firefox --with-utils
+# Проверка установки и исправление возможных проблем
+RUN playwright show-installations
 RUN playwright install-deps
 
 # Установка Playwright и необходимых браузеров
