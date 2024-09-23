@@ -9,5 +9,6 @@ PASSWORD="tqB,u3o9_nHrDV"  # ваш пароль
 sshpass -p "$PASSWORD" ssh -tt -o StrictHostKeyChecking=no "$USER@$HOST" << EOF
 cd ~/ai_one_off
 git pull
+docker image prune -f
 docker build -t ai_one_off .
 EOF
