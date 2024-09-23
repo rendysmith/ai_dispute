@@ -190,9 +190,12 @@ async def check_brandanalytics():
             if not topic:
                 topic = ''
 
-            playwright, browser, blocks = await blocks_vk(url_answer)
+            playwright, browser, page = await get_playwright(url_answer)
+            playwright, browser, blocks = await blocks_vk(playwright, browser, page)
 
             if not blocks:
+                await browser.close()
+                await playwright.stop()
                 print('>>>>', blocks)
                 continue
 
@@ -212,6 +215,8 @@ async def check_brandanalytics():
                     print(date_split)
 
                 except:
+                    await browser.close()
+                    await playwright.stop()
                     continue
 
                 if any(date_str in date for date_str in ['hours, today, yesterday']):

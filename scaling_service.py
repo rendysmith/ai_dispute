@@ -131,7 +131,7 @@ async def time_out_play(async_func, timeout=60, **kwargs):
     finally:
         await browser.close()
         await playwright.stop()
-        print('Close browser and playwright')
+        print('-- Close browser and playwright is OK!')
         return status
 
 
@@ -171,7 +171,7 @@ async def start_zoom(service):
         else:
             print(f"No logs found for service: {project}")
 
-        project = 'Паритет'
+        project = 'AlphaPet'
 
         df_mini = df[project]
         #print(len(df_mini))
@@ -387,7 +387,7 @@ async def start_zoom(service):
                 #if status:
                  #   await fix_error(service, link, str(status))
 
-                status = await time_out_on(check_vk,
+                status = await time_out_play(check_vk,
                                            service=service,
                                            link=link_company,
                                            df_mini_pattern=df_mini_pattern,
@@ -480,7 +480,7 @@ async def start_zoom(service):
                 # if status:
                 #     await fix_error(service, link, str(status))
 
-                status = await time_out_on(check_dzen,
+                status = await time_out_play(check_dzen,
                                            service=service,
                                            link=link,
                                            df_mini_pattern=df_mini_pattern,
@@ -502,7 +502,7 @@ async def start_zoom(service):
                 # if status:
                 #     await fix_error(service, link, str(status))
 
-                status = await time_out_on(check_youtube,
+                status = await time_out_play(check_youtube,
                                            service=service,
                                            link=link,
                                            df_mini_pattern=df_mini_pattern,
@@ -572,7 +572,7 @@ async def start_zoom(service):
                 #     await fix_error(service, link, str(status))
                 #     black_list.append('yandex.ru/maps')
 
-                status = await time_out_on(check_ya,
+                status = await time_out_play(check_ya,
                                            service=service,
                                            link=link_company,
                                            df_mini_pattern=df_mini_pattern,
@@ -605,7 +605,7 @@ async def start_zoom(service):
                 # if status:
                 #     await fix_error(service, link, str(status))
 
-                status = await time_out_on(check_otvet,
+                status = await time_out_play(check_otvet,
                                            service=service,
                                            link=link,
                                            df_mini_pattern=df_mini_pattern,
@@ -625,7 +625,7 @@ async def start_zoom(service):
 
                 #status = await check_ya_market(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
-                status = await time_out_on(check_ya_market,
+                status = await time_out_play(check_ya_market,
                                            service=service,
                                            link=link,
                                            df_mini_pattern=df_mini_pattern,

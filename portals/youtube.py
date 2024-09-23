@@ -21,8 +21,8 @@ now_year = current_date.year
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
-async def check_youtube(service, url, pattern, criteria, ss_id, project):
-    playwright, browser, page = await get_playwright(url)
+async def check_youtube(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
+    #playwright, browser, page = await get_playwright(url)
 
     links = await pars_url(service, ss_id, project)
     ts = random.randint(5, max_sec)

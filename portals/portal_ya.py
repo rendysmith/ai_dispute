@@ -50,7 +50,7 @@ def find_key_path(dct, target_key, path = None):
             if result:
                 return result
 
-async def check_ya(service, url, pattern, criteria, ss_id, project):
+async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     url_split = url.split('/')
     id_org = url_split[5]
     top_url = f'https://yandex.ru/maps/org/{id_org}'
@@ -64,7 +64,7 @@ async def check_ya(service, url, pattern, criteria, ss_id, project):
     print(f"New link = {url}")
 
     #playwright, browser, page = await get_playwright(url, headless=False)
-    playwright, browser, page = await get_playwright(url)
+    #playwright, browser, page = await get_playwright(url)
 
     links = await pars_url(service, ss_id, project)
     ts = random.randint(5, max_sec)

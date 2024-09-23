@@ -146,21 +146,25 @@ async def check_otvet_soup(service, link, pattern, criteria, ss_id, project):
                                      pattern=pattern,
                                      criteria=criteria)
 
-async def check_otvet(service, link, pattern, criteria, ss_id, project):
+async def check_otvet(service, link, pattern, criteria, ss_id, project, playwright, browser, page):
     print(link)
-    playwright, browser, page = await get_playwright(link)
+    #playwright, browser, page = await get_playwright(link)
 
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
     if not page:
+        await browser.close()
+        await playwright.stop()
         return 'Сайт не отдал данные'
 
     n = 0
     while True:
         print(n)
         if n == 10:
+            await browser.close()
+            await playwright.stop()
             return 'Данные сайтом не отданы'
 
         try:
@@ -192,6 +196,8 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project):
         n += 1
 
         if n == 10:
+            await browser.close()
+            await playwright.stop()
             return 'Сайт не вернул данные.'
 
         await asyncio.sleep(3)
@@ -199,6 +205,8 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project):
     print(len_blocks)
 
     if len(blocks_1) == 0:
+        await browser.close()
+        await playwright.stop()
         return
 
     blocks3 = await page.query_selector_all('div[class="de_vs"]')
@@ -267,6 +275,8 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
+    await browser.close()
+    await playwright.stop()
 
 if __name__ == '__main__':
 

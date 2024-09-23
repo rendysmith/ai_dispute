@@ -49,10 +49,10 @@ async def convert_date(month):
     }
     return months[month]
 
-async def check_ya_market(service, url, pattern, criteria, ss_id, project):
+async def check_ya_market(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     print(f"New link = {url}")
 
-    playwright, browser, page = await get_playwright(url)
+    #playwright, browser, page = await get_playwright(url)
 
     links = await pars_url(service, ss_id, project)
     ts = random.randint(5, max_sec)

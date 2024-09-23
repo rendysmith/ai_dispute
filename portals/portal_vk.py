@@ -126,14 +126,16 @@ async def check_vk_sel(service, link, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
-async def blocks_vk(link):
-    playwright, browser, page = await get_playwright(link)
+async def blocks_vk(playwright, browser, page):
+    #playwright, browser, page = await get_playwright(link)
 
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
     if not page:
+        await browser.close()
+        await playwright.stop()
         return None, None, None
 
     blocks = await page.query_selector_all('div[id*="post"][class*="reply"][data-post-id*="-"]')
@@ -151,24 +153,30 @@ async def blocks_vk(link):
         print(len_b)
 
     if len_b == 0:
+        await browser.close()
+        await playwright.stop()
         return None, None, None
 
     return playwright, browser, blocks
 
 
-async def check_vk(service, link, pattern, criteria, ss_id, project):
+async def check_vk(service, link, pattern, criteria, ss_id, project, playwright, browser, page):
     print(link)
     links = await pars_url(service, ss_id, project)
 
-    playwright, browser, blocks = await blocks_vk(link)
+    playwright, browser, blocks = await blocks_vk(playwright, browser, page)
 
     print('------------------')
     if blocks is None:
+        await browser.close()
+        await playwright.stop()
         return 'Сайт не отдал данные'
     print('------------------')
 
     len_blocks = len(blocks)
     if len_blocks == 0:
+        await browser.close()
+        await playwright.stop()
         return
 
     for block in blocks:

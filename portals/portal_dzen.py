@@ -86,8 +86,8 @@ async def check_dzen_sel(service, url, pattern, criteria, ss_id, project):
                                  criteria=criteria)
 
 
-async def check_dzen(service, url, pattern, criteria, ss_id, project):
-    playwright, browser, page = await get_playwright(url)
+async def check_dzen(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
+    #playwright, browser, page = await get_playwright(url)
 
     links = await pars_url(service, ss_id, project)
     ts = random.randint(5, max_sec)
