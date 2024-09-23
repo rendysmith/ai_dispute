@@ -10,8 +10,8 @@ from requests.auth import HTTPBasicAuth
 
 from portals.portal_vk import blocks_vk, convert_date
 from utils.ai_module import get_answer_ai
-from utils.gs_editor import get_service, append_data_to_sheet_scope
-from utils.user_agent import get_soup
+from utils.gs_editor import get_service, append_data_to_sheet_scope, read_table_id
+from utils.user_agent import get_soup, get_playwright
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -25,6 +25,9 @@ password = os.environ.get("PASS_DA")
 auth_username = os.environ.get("HOST_USERNAME")
 auth_password = os.environ.get("HOST_PASSWORD")
 auth = HTTPBasicAuth(auth_username, auth_password)
+
+sheet_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
+worksheet_name = 'BA'
 
 """
 Данное упоминание нам не подходит:
@@ -119,6 +122,9 @@ async def get_cookies() -> dict:
 async def check_brandanalytics():
     service = await get_service()
 
+    df_links = await read_table_id(service, sheet_id, worksheet_name)
+    links = df_links['portal'].to_list()
+
     url_base = 'https://brandanalytics.ru/theme-data/12551940/'
 
     tst = int(time.time())
@@ -157,6 +163,10 @@ async def check_brandanalytics():
         author = msg['author']['fullname']
         date_create = msg['date_create']
         url_answer = msg['url']
+
+        if url_answer in links:
+            continue
+
         text_highlighted = msg['text_highlighted']
         # Создаем объект BeautifulSoup
         soup = await get_soup(text_highlighted, only_pars=True)
@@ -194,9 +204,10 @@ async def check_brandanalytics():
             playwright, browser, blocks = await blocks_vk(playwright, browser, page)
 
             if not blocks:
-                await browser.close()
-                await playwright.stop()
-                print('>>>>', blocks)
+                if browser:
+                    await browser.close()
+                    await playwright.stop()
+                print('Next >>>>')
                 continue
 
             trend_alife = False
@@ -266,7 +277,14 @@ async def check_brandanalytics():
                 print('Тренд мертв!')
                 continue
 
-            user_id = [chat['id'] for chat in chat_list if topic in chat['id']][0]
+            print("chat_list", chat_list)
+            user_id = [chat['id'] for chat in chat_list if topic in chat['id']]
+            if user_id:
+                user_id = user_id[0]
+
+            else:
+                continue
+
             #print(user_id)
             #print(chat_list)
 
@@ -276,8 +294,7 @@ async def check_brandanalytics():
             #print("result:", result)
 
             if result == 'True':
-                sheet_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
-                worksheet_name = 'BA'
+
                 data = {
                     'date_create': date_create,
                     'portal': url_answer,

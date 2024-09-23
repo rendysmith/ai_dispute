@@ -168,15 +168,17 @@ async def check_vk(service, link, pattern, criteria, ss_id, project, playwright,
 
     print('------------------')
     if blocks is None:
-        await browser.close()
-        await playwright.stop()
+        if browser:
+            await browser.close()
+            await playwright.stop()
         return 'Сайт не отдал данные'
     print('------------------')
 
     len_blocks = len(blocks)
     if len_blocks == 0:
-        await browser.close()
-        await playwright.stop()
+        if browser:
+            await browser.close()
+            await playwright.stop()
         return
 
     for block in blocks:
@@ -266,9 +268,9 @@ async def check_vk(service, link, pattern, criteria, ss_id, project, playwright,
                                  pattern=pattern,
                                  criteria=criteria)
 
-
-    await browser.close()
-    await playwright.stop()
+    if browser:
+        await browser.close()
+        await playwright.stop()
 
 
 async def main_vk():

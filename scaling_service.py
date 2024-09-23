@@ -1,6 +1,6 @@
 import os.path
-import socket
 import time
+import traceback
 from datetime import datetime
 import requests
 
@@ -8,8 +8,7 @@ import asyncio
 import re
 import random
 
-from pydantic.networks import host_regex
-from urllib3 import request
+import traceback
 
 from portals.portal_aplaut import check_aplout
 from portals.portal_ya_market import check_ya_market
@@ -121,11 +120,13 @@ async def time_out_play(async_func, timeout=60, **kwargs):
     except asyncio.TimeoutError as TE:
         await fix_error(service, link, f"TimeOut {TE}")
         print(f"Error TE: Задача была отменена из-за таймаута. {TE}")
+        traceback.print_exc()
         status = None
 
     except Exception as Ex:  # Обработка других исключений
         await fix_error(service, link, f"Error Ex: {Ex}")
         print(f"Error Ex: Произошла ошибка: {Ex}")
+        traceback.print_exc()
         status = None
 
     finally:
