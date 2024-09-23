@@ -172,7 +172,7 @@ async def start_zoom(service):
         else:
             print(f"No logs found for service: {project}")
 
-        project = 'AlphaPet'
+        #project = 'AlphaPet'
 
         df_mini = df[project]
         #print(len(df_mini))
