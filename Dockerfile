@@ -2,8 +2,7 @@ FROM python:3.10
 
 # Обновление списка пакетов и установка pip
 RUN apt-get update -y && \
-    apt-get install -y python3-pip firefox-esr  \
-    firefox
+    apt-get install -y python3-pip firefox-esr
 
 RUN pip install --upgrade pip
 
