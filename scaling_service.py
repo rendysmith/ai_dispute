@@ -30,6 +30,7 @@ from portals.youtube import check_youtube
 from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_scope, write_log_sheet
 
 from utils.constants import TABLES_LIST
+from utils.user_agent import get_playwright
 
 ss_id = TABLES_LIST['zoom']
 current_date = datetime.now().strftime("%d.%m.%Y")
@@ -99,6 +100,41 @@ async def time_out_on(async_func, timeout=60, **kwargs):
         print(f"Error Ex: Произошла ошибка: {Ex}")
         return None
 
+async def time_out_play(async_func, timeout=60, **kwargs):
+    service = kwargs['service']
+    link = kwargs['link']
+    df_mini_pattern = kwargs['df_mini_pattern']
+    df_mini_criteria = kwargs['df_mini_criteria']
+    ss_id = kwargs['ss_id']
+    project = kwargs['project']
+
+    playwright, browser, page = await get_playwright(link)
+    status = None
+
+    try:
+        status = await asyncio.wait_for(
+            async_func(service, link, df_mini_pattern, df_mini_criteria, ss_id, project, playwright, browser, page), timeout=timeout)
+
+        if status:  # Если статус истинен
+            await fix_error(service, link, str(status))
+
+    except asyncio.TimeoutError as TE:
+        await fix_error(service, link, f"TimeOut {TE}")
+        print(f"Error TE: Задача была отменена из-за таймаута. {TE}")
+        status = None
+
+    except Exception as Ex:  # Обработка других исключений
+        await fix_error(service, link, f"Error Ex: {Ex}")
+        print(f"Error Ex: Произошла ошибка: {Ex}")
+        status = None
+
+    finally:
+        await browser.close()
+        await playwright.stop()
+        print('Close browser and playwright')
+        return status
+
+
 async def start_zoom(service):
     local_ip = await get_local_ip()
     print(local_ip)
@@ -135,7 +171,7 @@ async def start_zoom(service):
         else:
             print(f"No logs found for service: {project}")
 
-        #project = 'Скиллбокс'
+        project = 'Паритет'
 
         df_mini = df[project]
         #print(len(df_mini))
@@ -261,7 +297,7 @@ async def start_zoom(service):
                 #     await fix_error(service, link, str(status))
                 #     black_list.append('2gis')
 
-                status = await time_out_on(check_2gis,
+                status = await time_out_play(check_2gis,
                                            service=service,
                                            link=link,
                                            df_mini_pattern=df_mini_pattern,
