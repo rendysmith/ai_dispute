@@ -191,7 +191,7 @@ async def start_zoom(service):
         random.shuffle(df_link_list)
 
         len_df = len(df_link_list)
-        print(f'========================= Project = {project} = Len ({len_df})==============================')
+        print(f'\n========================= Project = {project} = Len ({len_df})==============================')
 
         list_links = []
         black_list = []
@@ -199,7 +199,7 @@ async def start_zoom(service):
         for idx, link in enumerate(df_link_list):
 
             left = len_df - df_link_list.index(link)
-            print(f'*************************{idx}*({left})***************************\n----------------- {link} ----------------')
+            print(f'\n*************************{idx}*({left})***************************\n----------------- {link} ----------------')
 
             #link = row[project]
             #---------------------------------------------------------------------------------------------------------

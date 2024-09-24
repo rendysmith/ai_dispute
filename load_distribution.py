@@ -12,7 +12,7 @@ ss_id = TABLES_LIST['zoom']
 tab_name = 'logs'
 
 async def load_distribution(service):
-    status, results = await read_data_from_db(HostsZoom, 1, 1)
+    status, results = await read_data_from_db(HostsZoom, 100, 1)
 
     hosts = [result.host for result in results]
     #hosts = ['85.192.49.227', '85.192.49.224']
@@ -35,20 +35,9 @@ async def load_distribution(service):
         await append_data_to_sheet_cell(service, ss_id, tab_name, 'reserve', idx+2, hst)
         await asyncio.sleep(3)
 
-
-
-
-
-
-
-
-
 async def main_distribution():
     service = await get_service()
     await load_distribution(service)
-
-
-
 
 if "__main__" in __name__:
     asyncio.run(main_distribution())

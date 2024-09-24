@@ -255,8 +255,10 @@ async def check_vk(service, link, pattern, criteria, ss_id, project, playwright,
         try:
             feedback = await feedback_content.inner_text()
             print("feedback", feedback)
+
         except:
             print('Нет отзыва.')
+            continue
 
         await generate_and_white(service=service,
                                  url_answer=url_answer,
@@ -276,8 +278,9 @@ async def check_vk(service, link, pattern, criteria, ss_id, project, playwright,
 async def main_vk():
     service = await get_service()
     url = 'https://vk.com/wall-11694885_373082?reply=373184'
-    url = 'https://vk.com/topic-9366309_24137320?post=6695'
-    await check_vk(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
+    url = 'https://vk.com/amurr24?w=wall-72072592_6066'
+    playwright, browser, page = await get_playwright(url)
+    await check_vk(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, playwright, browser, page)
 
 if __name__ == '__main__':
     asyncio.run(main_vk())
