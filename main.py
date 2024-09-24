@@ -5,7 +5,7 @@ from datetime import datetime
 from ai.ai_rbi_reactions import main_rbi
 from ai.ai_article import main_article
 from scaling_service import main_zoom
-
+from load_distribution import main_distribution
 
 now = datetime.now()
 now_hour = now.hour
