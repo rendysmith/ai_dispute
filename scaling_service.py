@@ -138,7 +138,7 @@ async def time_out_play(async_func, timeout=60, **kwargs):
 
 async def start_zoom(service):
     local_ip = await get_local_ip()
-    print(local_ip)
+    print('local_ip', local_ip)
 
     df = await get_table_scope(service, ss_id, 'zoom')
     #print(df)
@@ -167,6 +167,7 @@ async def start_zoom(service):
             host_logs = df_logs.loc[idx_logs, 'reserve']
             print(host_logs, local_ip)
             if host_logs != local_ip:
+
                 continue
 
         else:
@@ -197,7 +198,6 @@ async def start_zoom(service):
         black_list = []
 
         for idx, link in enumerate(df_link_list):
-
             left = len_df - df_link_list.index(link)
             print(f'\n*************************{idx}*({left})***************************\n----------------- {link} ----------------')
 

@@ -103,122 +103,115 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, 
 
     print('=> Get blocks')
 
-    break_on = False
-    while break_on == False:
-        blocks = await page.query_selector_all('div[class="business-reviews-card-view__review"]')
-        print('Len ', len(blocks))
+    blocks = await page.query_selector_all('div[class="business-reviews-card-view__review"]')
+    print('Len ', len(blocks))
 
-        if len(blocks) == 0:
-            await browser.close()
-            await playwright.stop()
-            return
+    if len(blocks) == 0:
+        await browser.close()
+        await playwright.stop()
+        return
 
-        for block in blocks:
-            try:
-                date_element = await block.query_selector('meta[itemprop="datePublished"]')  # Corrected selector (should be 'meta')
-                date_content = await date_element.get_attribute('content')
-                date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
+    for block in blocks:
+        try:
+            date_element = await block.query_selector('meta[itemprop="datePublished"]')  # Corrected selector (should be 'meta')
+            date_content = await date_element.get_attribute('content')
+            date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
 
-            except AttributeError as AE:
-                print(f'AE: {AE}')
-                date_element = await block.query_selector('span[class="business-review-view__date"]')
-                date = await date_element.inner_text()
-                print('Date =', date)
+        except AttributeError as AE:
+            print(f'AE: {AE}')
+            date_element = await block.query_selector('span[class="business-review-view__date"]')
+            date = await date_element.inner_text()
+            print('Date =', date)
 
-                date_split = date.split(' ')
-                print("date_split", date_split)
+            date_split = date.split(' ')
+            print("date_split", date_split)
 
-                if len(date_split) == 2:
-                    month_str = date_split[1]
+            if len(date_split) == 2:
+                month_str = date_split[1]
 
-                elif len(date_split) == 3:
-                    month_str = date_split[1]
-                    year_str = date_split[2]
+            elif len(date_split) == 3:
+                month_str = date_split[1]
+                year_str = date_split[2]
 
-                    if int(year_str) != current_date.year:
-                        print('Next year >>>')
-                        continue
-
-                month = await convert_date(month_str)
-
-                if now_month != month:
-                    print('Next month >>>')
+                if int(year_str) != current_date.year:
+                    print('Next year >>>')
                     continue
 
-                else:
-                    day = int(date_split[0])
-                    year = current_date.year
-                    date = datetime(year, month, day)
+            month = await convert_date(month_str)
 
-                print("date =", date)
+            if now_month != month:
+                print('Next month >>>')
+                continue
 
-            if (current_date - date) > timedelta(days=days_ago):
-                print(f'--- Отзыв старше {days_ago} дней. = {date}')
-                break_on = True
+            else:
+                day = int(date_split[0])
+                year = current_date.year
+                date = datetime(year, month, day)
+
+            print("date =", date)
+
+        if (current_date - date) > timedelta(days=days_ago):
+            print(f'--- Отзыв старше {days_ago} дней. = {date}')
+            break_on = True
+            break
+
+        org_answer = await block.query_selector('div[class="business-review-view__comment-expand"]')
+        if org_answer:
+            print('Есть ответ представителя компании')
+            continue
+        else:
+            print('Ответа нет!')
+
+        n = 0
+        while True:
+            if n == 10:
+                await browser.close()
+                await playwright.stop()
+                return 'Сайт не предоставил данные'
+
+            try:
+                #button_share = await block.query_selector('span[class="inline-image _loaded icon"]')
+                button_share = await block.query_selector('div[class="business-review-view__share-control"]')
+                print('-> Click share')
+                await button_share.click()
+                print('-> Click share - OK!')
+                await asyncio.sleep(3)
                 break
 
-            org_answer = await block.query_selector('div[class="business-review-view__comment-expand"]')
-            if org_answer:
-                print('Есть ответ представителя компании')
-                continue
-            else:
-                print('Ответа нет!')
+            except:
+                n += 1
+                await asyncio.sleep(3)
 
-            n = 0
-            while True:
-                if n == 10:
-                    await browser.close()
-                    await playwright.stop()
-                    return 'Сайт не предоставил данные'
+        button_open = await page.query_selector('input[class="input__control"]')
+        url_answer = await button_open.get_attribute('value')
+        #print(url_answer)
 
-                try:
-                    #button_share = await block.query_selector('span[class="inline-image _loaded icon"]')
-                    button_share = await block.query_selector('div[class="business-review-view__share-control"]')
-                    print('-> Click share')
-                    await button_share.click()
-                    print('-> Click share - OK!')
-                    await asyncio.sleep(3)
-                    break
+        await page.keyboard.press('Escape')
 
-                except:
-                    n += 1
-                    await asyncio.sleep(3)
+        if url_answer in links:
+            print('Такой комментарий уже есть в списке')
+            continue
 
+        author_text = await block.query_selector('span[itemprop="name"]')
+        author = await author_text.inner_text()
+        #print(author)
 
-            button_open = await page.query_selector('input[class="input__control"]')
-            url_answer = await button_open.get_attribute('value')
-            #print(url_answer)
+        feedback_text =  await block.query_selector('span[class="business-review-view__body-text"]')
+        feedback = await feedback_text.inner_text()
+        #print(feedback)
 
-            await page.keyboard.press('Escape')
+        formatted_date = date.strftime("%d.%m.%Y")
+        #print(formatted_date)
 
-            if url_answer in links:
-                print('Такой комментарий уже есть в списке')
-                continue
-
-            author_text = await block.query_selector('span[itemprop="name"]')
-            author = await author_text.inner_text()
-            #print(author)
-
-            feedback_text =  await block.query_selector('span[class="business-review-view__body-text"]')
-            feedback = await feedback_text.inner_text()
-            #print(feedback)
-
-            formatted_date = date.strftime("%d.%m.%Y")
-            #print(formatted_date)
-
-            await generate_and_white(service=service,
-                                     url_answer=url_answer,
-                                     author=author,
-                                     formatted_date=formatted_date,
-                                     ss_id=ss_id,
-                                     project=project,
-                                     feedback=feedback,
-                                     pattern=pattern,
-                                     criteria=criteria)
-
-
-        #print('Тут можно будет поставить скрол для загрузки доп отзывов')
-        break
+        await generate_and_white(service=service,
+                                 url_answer=url_answer,
+                                 author=author,
+                                 formatted_date=formatted_date,
+                                 ss_id=ss_id,
+                                 project=project,
+                                 feedback=feedback,
+                                 pattern=pattern,
+                                 criteria=criteria)
 
     await browser.close()
     await playwright.stop()
@@ -235,8 +228,11 @@ async def main():
     service = await get_service()
 
     url = 'https://yandex.ru/maps/org/artstudio_moskovsky/125846534919/?ll=30.329628%2C59.907103&mode=search&sll=30.301828%2C59.912472&sspn=0.022573%2C0.006756&text=Artstudio%20Moskovsky&z=14.86'
-    url = 'https://yandex.ru/maps/org/188107784110/reviews'
-    await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
+    url = 'https://yandex.ru/maps/org/165131132044/reviews'
+    url = 'https://yandex.kz/maps/org/schastye/187776871438/reviews/?ll=66.272509%2C56.632288&utm_source=review&z=16'
+
+    playwright, browser, page = await get_playwright(url)
+    await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, playwright, browser, page)
 
 if __name__ == '__main__':
     asyncio.run(main())
