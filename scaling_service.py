@@ -362,42 +362,6 @@ async def start_zoom(service):
                 if status:
                     black_list.append('drive2.ru')
 
-            # ---------------------------------------------------------------------------------------------------------
-            elif 'vk.com' in link:
-                print(link)
-                if 'wall' in link:
-                    pattern = r'(https?://vk\.com/wall-\d+_\d+)'
-                    link_company = await extract_company_name(pattern, link)
-
-                elif '?w=' in link:
-                    edit_link = link.split("?w=")
-                    link_company = "http://vk.com/" + edit_link[-1]
-
-                else:
-                    link_company = link
-
-                print("link_company =", link_company)
-
-                if link_company in list_links:
-                    continue
-
-                else:
-                    list_links.append(link_company)
-
-                #status = await check_vk(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
-                #if status:
-                 #   await fix_error(service, link, str(status))
-
-                status = await time_out_play(check_vk,
-                                           service=service,
-                                           link=link_company,
-                                           df_mini_pattern=df_mini_pattern,
-                                           df_mini_criteria=df_mini_criteria,
-                                           ss_id=ss_id,
-                                           project=project)
-                if status:
-                    black_list.append('vk.com')
-
             #---------------------------------------------------------------------------------------------------------
             elif 'irecommend' in link:
                 if black_list:
@@ -635,6 +599,38 @@ async def start_zoom(service):
                                            project=project)
                 if status:
                     black_list.append('market.yandex')
+
+            # ---------------------------------------------------------------------------------------------------------
+            # elif 'vk.com' in link:
+            #     print(link)
+            #     if 'wall' in link:
+            #         pattern = r'(https?://vk\.com/wall-\d+_\d+)'
+            #         link_company = await extract_company_name(pattern, link)
+            #
+            #     elif '?w=' in link:
+            #         edit_link = link.split("?w=")
+            #         link_company = "http://vk.com/" + edit_link[-1]
+            #
+            #     else:
+            #         link_company = link
+            #
+            #     print("link_company =", link_company)
+            #
+            #     if link_company in list_links:
+            #         continue
+            #
+            #     else:
+            #         list_links.append(link_company)
+            #
+            #     status = await time_out_play(check_vk,
+            #                                service=service,
+            #                                link=link_company,
+            #                                df_mini_pattern=df_mini_pattern,
+            #                                df_mini_criteria=df_mini_criteria,
+            #                                ss_id=ss_id,
+            #                                project=project)
+            #     if status:
+            #         black_list.append('vk.com')
 
 
 
