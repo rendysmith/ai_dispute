@@ -87,8 +87,6 @@ prompt_vk_trend_gone = """
 """
 
 
-
-
 async def extract_reply(url):
     # Регулярное выражение для извлечения значения reply
     pattern = r'\?reply=(\d+)(?:&thread=\d+)?'
@@ -181,6 +179,8 @@ async def check_brandanalytics():
             continue
 
         soup = await get_soup(url_answer)
+        if not soup:
+            continue
 
         if "Message in a private group or channel" in soup:
             print('Телеграм - закрытая группа')
