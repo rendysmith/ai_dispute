@@ -119,7 +119,7 @@ async def time_out_play(async_func, timeout=60, **kwargs):
 
     except asyncio.TimeoutError as TE:
         await fix_error(service, link, f"TimeOut {TE}")
-        print(f"Error TE: Задача была отменена из-за таймаута. {TE}")
+        print(f"Error PLAY TE: Задача была отменена из-за таймаута. {TE}")
         traceback.print_exc()
         status = None
 

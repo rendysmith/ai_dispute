@@ -75,8 +75,9 @@ async def check_aplout(service, link, pattern, criteria, ss_id, project):
     for block in response.json()['reviews']:
         url_answer = 'https://app.aplaut.io/b/reviews/' + block['id']
 
+
         if url_answer in links:
-            print("Такой комментарий уже отмечен")
+            print(f"Такой комментарий уже отмечен {url_answer}")
             continue
 
         if not block['comments']:
@@ -108,7 +109,7 @@ async def main_aplaut():
     from utils.gs_editor import get_service
     service = await get_service()
     url = 'https://app.aplaut.io/b/reviews/668b49b07e0e34001a4a2fb5'
-    await check_aplout(service, url, 1,1,'1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w','DESPORT')
+    await check_aplout(service, url, 1,1,'1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w',1)
 
 if "__main__" in __name__:
     asyncio.run(main_aplaut())

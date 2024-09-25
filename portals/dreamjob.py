@@ -84,15 +84,25 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
             continue
 
         blocks = soup.find_all('div', {"class": 'review', 'data-partly': 'short'})
-        #print(len(blocks))
+        print('Len:', len(blocks))
+        if len(blocks) == 0:
+            return None
 
         for block in blocks:
             print('\n*******************************************')
             url_answer = block.find('a', {'class': 'bt bt--32 bt--primary-link icon-copy'}).get('href')
+            if not url_answer:
+                url_answer = block.find('a', role='button', tabindex='0').get('href')
 
+            if not url_answer:
+                url_answer = block.find('a', tabindex='0').get('href')
+
+            print(url_answer)
             if url_answer in links:
                 print('Отзыв уже есть в таблице')
                 continue
+
+            print(url_answer)
 
             date = block.find_next('div', {'class': 'review__header-date'}).text
             #print(date)
@@ -124,22 +134,36 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
             author = block.find('h2', {'class': 'review__header-title'}).text.strip()
             #print(author)
 
-            title_div_plus = soup.find('div', class_='review__title review__gap')
+            #title_div_plus = soup.find('div', class_='review__title review__gap')
+            title_div_plus = block.find('div', class_='review__title review__gap')
             plus_title = title_div_plus.text
+            #print(plus_title)
 
-            title_plus = await get_content(title_div_plus)
+            # Находим следующий div
+            next_div = title_div_plus.find_next('div', class_='review__title')
 
-            if title_plus:
-                plus = title_plus
+            # Получаем весь текст между двумя div
+            full_text = ''
+            for sibling in title_div_plus.next_siblings:
+                if sibling == next_div:
+                    break
+                if isinstance(sibling, str):
+                    full_text += sibling
+                elif sibling.name == 'br':
+                    full_text += '\n'
 
-            #title_div_minus = soup.find('div', class_='review__title')
-            title_div_minus = soup.find('div', class_='review__title', string='Что можно улучшить')
+            # Очищаем текст от лишних пробелов и переносов строк
+            plus = ' '.join(full_text.split())
+            #print(plus)
+
+            title_div_minus = block.select_one('div.review__title:not(.review__gap)')
+            #print(title_div_minus)
             minus_title = title_div_minus.text
+            #print(minus_title)
 
-            title_minus = await get_content(title_div_minus)
-
-            if title_minus:
-                minus = title_minus
+            if title_div_minus:
+                minus = title_div_minus.find_next_sibling(text=True).strip()
+                #print(minus)
 
             feedback = f"""
             {plus_title}:
@@ -147,11 +171,14 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
             {minus_title}:
             {minus}
             """
+            #print(feedback)
+
             feedback = textwrap.dedent(feedback)
 
-            print(url_answer)
-            print(feedback)
-            input()
+            #print('///////////////')
+            #print(url_answer)
+            #print(feedback)
+            #input()
 
             formatted_date = target_date.strftime("%d.%m.%Y")
 
