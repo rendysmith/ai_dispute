@@ -64,7 +64,7 @@ async def get_content(title_div):
 
 async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
     print(link)
-    ts = random.randint(5, 120)
+    ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
@@ -149,6 +149,10 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
             """
             feedback = textwrap.dedent(feedback)
 
+            print(url_answer)
+            print(feedback)
+            input()
+
             formatted_date = target_date.strftime("%d.%m.%Y")
 
             #await generate_and_white(service, url_answer, author, formatted_date, prompt)
@@ -167,6 +171,7 @@ async def main():
 
     url = 'https://yandex.ru/maps/org/artstudio_moskovsky/125846534919/?ll=30.329628%2C59.907103&mode=search&sll=30.301828%2C59.912472&sspn=0.022573%2C0.006756&text=Artstudio%20Moskovsky&z=14.86'
     url = 'https://dreamjob.ru/employers/41950?review_id=2832885'
+    url = 'https://dreamjob.ru/employers/41950'
     await check_dreamjob(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
 
 if __name__ == '__main__':

@@ -25,7 +25,7 @@ max_sec = int(os.environ.get("MAX_SEC"))
 
 async def check_dzen_sel(service, url, pattern, criteria, ss_id, project):
     links = await pars_url(service, ss_id, project)
-    ts = random.randint(5, 6)
+    ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 

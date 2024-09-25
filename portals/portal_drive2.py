@@ -16,7 +16,6 @@ load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
-
 async def check_drive2(service, link, pattern, criteria, ss_id, project):
     print(link)
     ts = random.randint(5, max_sec)
@@ -75,8 +74,6 @@ async def check_drive2(service, link, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
-    ts = random.randint(5, 15)
-    await asyncio.sleep(ts)
 
 
 if __name__ == '__main__':

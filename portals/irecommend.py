@@ -16,9 +16,10 @@ current_date = datetime.now()
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
+max_sec = int(os.environ.get("MAX_SEC"))
 
 async def check_irecommend(service, link, pattern, criteria, ss_id, project):
-    ts = random.randint(5, 30)
+    ts = random.randint(5, max_sec)
     print(f"Wait {ts} sec.")
     await asyncio.sleep(ts)
 
