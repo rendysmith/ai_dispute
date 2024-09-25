@@ -79,27 +79,38 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, 
     await page.evaluate("document.body.style.zoom=0.5")
 
     print('=> Rating By date')
-    n = 0
-    while True:
+
+    for n in range(12):
         if n == 10:
             await browser.close()
             await playwright.stop()
             return 'Сайт не отдал данные'
 
         try:
-            button_default = await page.query_selector('div[class="rating-ranking-view"]')
+            #button_default = await page.query_selector('div[class="rating-ranking-view"]')
+            button_default = await page.wait_for_selector('div[class="rating-ranking-view"]', timeout=5000)
             await button_default.click()
-            await asyncio.sleep(1)
+            #await asyncio.sleep(1)
 
-            button_new = await page.query_selector('div[class="rating-ranking-view__popup-line"][aria-label="По новизне"]')
+            #button_new = await page.query_selector('div[class="rating-ranking-view__popup-line"][aria-label="По новизне"]')
+            button_new = await page.wait_for_selector('div[class="rating-ranking-view__popup-line"][aria-label="По новизне"]', timeout=5000)
             await button_new.click()
-            await asyncio.sleep(5)
+            #await asyncio.sleep(3)
             break
+
+        except playwright.errors.TimeoutError as TE:
+            print(f"Попытка {attempt + 1} не удалась: {e}")
+            if n < 10:  # Если не последняя попытка
+                await page.reload()  # Перезагрузить страницу
+
+            else:
+                await browser.close()
+                await playwright.stop()
+                return 'Не удалось нажать на кнопку.'  # Вернуть ошибку
 
         except Exception as e:
             print('Error Click Review:', e)
-            await asyncio.sleep(5)
-            n += 1
+            await asyncio.sleep(2)
 
     print('=> Get blocks')
 
@@ -162,8 +173,7 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, 
         else:
             print('Ответа нет!')
 
-        n = 0
-        while True:
+        for n in range(12):
             if n == 10:
                 await browser.close()
                 await playwright.stop()
@@ -171,7 +181,8 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, 
 
             try:
                 #button_share = await block.query_selector('span[class="inline-image _loaded icon"]')
-                button_share = await block.query_selector('div[class="business-review-view__share-control"]')
+                #button_share = await block.query_selector('div[class="business-review-view__share-control"]')
+                button_share = await page.wait_for_selector('div[class="business-review-view__share-control"]', timeout=5000)
                 print('-> Click share')
                 await button_share.click()
                 print('-> Click share - OK!')
@@ -179,8 +190,7 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, 
                 break
 
             except:
-                n += 1
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
 
         button_open = await page.query_selector('input[class="input__control"]')
         url_answer = await button_open.get_attribute('value')
@@ -229,7 +239,8 @@ async def main():
 
     url = 'https://yandex.ru/maps/org/artstudio_moskovsky/125846534919/?ll=30.329628%2C59.907103&mode=search&sll=30.301828%2C59.912472&sspn=0.022573%2C0.006756&text=Artstudio%20Moskovsky&z=14.86'
     url = 'https://yandex.ru/maps/org/165131132044/reviews'
-    url = 'https://yandex.kz/maps/org/schastye/187776871438/reviews/?ll=66.272509%2C56.632288&utm_source=review&z=16'
+    #url = 'https://yandex.kz/maps/org/schastye/187776871438/reviews/?ll=66.272509%2C56.632288&utm_source=review&z=16'
+    #url = 'https://yandex.kz/maps/org/krylya/115857625887/reviews/?ll=65.263154%2C57.147658&utm_source=review&z=16'
 
     playwright, browser, page = await get_playwright(url)
     await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, playwright, browser, page)
