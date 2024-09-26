@@ -63,9 +63,10 @@ async def extract_company_name(pattern, url):
     else:
         return None
 
-async def fix_error(service, portal, error):
+async def fix_error(service, project, portal, error):
     data = {
         'date': time.ctime(),
+        'project': project,
         'portal': portal,
         'error': error,
     }
@@ -86,16 +87,16 @@ async def time_out_on(async_func, timeout=60, **kwargs):
             async_func(service, link, df_mini_pattern, df_mini_criteria, ss_id, project), timeout=timeout)
 
         if status:  # Если статус истинен
-            await fix_error(service, link, str(status))
+            await fix_error(service, project, link, str(status))
             return status
 
     except asyncio.TimeoutError as TE:
-        await fix_error(service, link, f"TimeOut {TE}")
+        await fix_error(service, project, link, f"TimeOut {TE}")
         print(f"Error TE: Задача была отменена из-за таймаута. {TE}")
         return None
 
     except Exception as Ex:  # Обработка других исключений
-        await fix_error(service, link, f"Error Ex: {Ex}")
+        await fix_error(service, project, link, f"Error Ex: {Ex}")
         print(f"Error Ex: Произошла ошибка: {Ex}")
         return None
 
@@ -115,16 +116,16 @@ async def time_out_play(async_func, timeout=60, **kwargs):
             async_func(service, link, df_mini_pattern, df_mini_criteria, ss_id, project, playwright, browser, page), timeout=timeout)
 
         if status:  # Если статус истинен
-            await fix_error(service, link, str(status))
+            await fix_error(service, project, link, str(status))
 
     except asyncio.TimeoutError as TE:
-        await fix_error(service, link, f"TimeOut {TE}")
+        await fix_error(service, project, link, f"TimeOut {TE}")
         print(f"Error PLAY TE: Задача была отменена из-за таймаута. {TE}")
         traceback.print_exc()
         status = None
 
     except Exception as Ex:  # Обработка других исключений
-        await fix_error(service, link, f"Error Ex: {Ex}")
+        await fix_error(service, project, link, f"Error Ex: {Ex}")
         print(f"Error Ex: Произошла ошибка: {Ex}")
         traceback.print_exc()
         status = None
@@ -293,11 +294,6 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                # status = await check_2gis(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
-                # if status:
-                #     await fix_error(service, link, str(status))
-                #     black_list.append('2gis')
-
                 status = await time_out_play(check_2gis,
                                            service=service,
                                            link=link,
@@ -325,10 +321,6 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                # status = await check_sravni(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
-                # if status:
-                #     await fix_error(service, link, str(status))
-
                 status = await time_out_on(check_sravni,
                                            service=service,
                                            link=link,
@@ -347,10 +339,6 @@ async def start_zoom(service):
 
                 else:
                     list_links.append(link)
-
-                # status = await check_drive2(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
-                # if status:
-                #     await fix_error(service, link, str(status))
 
                 status = await time_out_on(check_drive2,
                                            service=service,
@@ -380,12 +368,6 @@ async def start_zoom(service):
 
                 else:
                     list_links.append(link)
-
-                # print('irecommend Бывают баны по IP')
-                # status = await check_irecommend(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
-                # if status:
-                #     await fix_error(service, link, str(status))
-                #     black_list.append('irecommend')
 
                 status = await time_out_on(check_irecommend,
                                            service=service,
@@ -418,11 +400,6 @@ async def start_zoom(service):
 
                 print('otzovik Бывают баны по IP')
 
-                # status = await check_otzovik(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
-                # if status:
-                #     await fix_error(service, link, str(status))
-                #     black_list.append('otzovik.com')
-
                 status = await time_out_on(check_otzovik,
                                            service=service,
                                            link=link,
@@ -440,10 +417,6 @@ async def start_zoom(service):
 
                 else:
                     list_links.append(link)
-
-                # status = await check_dzen(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
-                # if status:
-                #     await fix_error(service, link, str(status))
 
                 status = await time_out_play(check_dzen,
                                            service=service,
@@ -566,10 +539,6 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                # status = await check_otvet(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
-                # if status:
-                #     await fix_error(service, link, str(status))
-
                 status = await time_out_play(check_otvet,
                                            service=service,
                                            link=link,
@@ -587,8 +556,6 @@ async def start_zoom(service):
 
                 else:
                     list_links.append(link)
-
-                #status = await check_ya_market(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
                 status = await time_out_play(check_ya_market,
                                            service=service,

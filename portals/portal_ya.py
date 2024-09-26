@@ -99,7 +99,7 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, 
             break
 
         except Exception as Ex:
-            print(f"Попытка {attempt + 1} не удалась: {Ex}")
+            print(f"Попытка не удалась: {Ex}")
             if n < 10:  # Если не последняя попытка
                 await page.reload()  # Перезагрузить страницу
 
@@ -159,7 +159,6 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, 
 
         if (current_date - date) > timedelta(days=days_ago):
             print(f'--- Отзыв старше {days_ago} дней. = {date}')
-            break_on = True
             break
 
         org_answer = await block.query_selector('div[class="business-review-view__comment-expand"]')
