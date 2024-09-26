@@ -6,14 +6,13 @@ from ai.ai_rbi_reactions import main_rbi
 from ai.ai_article import main_article
 from scaling_service import main_zoom
 from load_distribution import main_distribution
-
-from portals.brandanalytics import check_ba
-
-now = datetime.now()
-now_hour = now.hour
-now_weekday = now.weekday()
+from portals.brandanalytics import main_ba
 
 async def main_total():
+    now = datetime.now()
+    now_hour = now.hour
+    now_weekday = now.weekday()
+
     #every hour
     await main_rbi()
     await asyncio.sleep(60)
