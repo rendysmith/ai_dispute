@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 from utils.ai_module import generate_and_white
 from utils.compressor import compress_string
 from utils.gs_editor import get_service, pars_url
-from utils.user_agent import get_playwright
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -85,6 +84,11 @@ async def check_youtube(service, url, pattern, criteria, ss_id, project, playwri
 
         except AttributeError as AE:
             print('Error AE', AE)
+            continue
+
+        except Exception as Ex:
+            print('Error Ex', Ex)
+            continue
 
         feedback_text =  await block.query_selector('span[class="yt-core-attributed-string yt-core-attributed-string--white-space-pre-wrap"]')
         feedback = await feedback_text.inner_text()
@@ -104,6 +108,7 @@ async def check_youtube(service, url, pattern, criteria, ss_id, project, playwri
             print(f'Error AE: {AE}, Next...')
             author_text = await block.query_selector('div[id="text-container"]')
             author = await author_text.inner_text()
+
         print(author)
 
         date = datetime.fromtimestamp(time.time() - sec)
