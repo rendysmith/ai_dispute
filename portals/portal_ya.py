@@ -98,8 +98,8 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, 
             #await asyncio.sleep(3)
             break
 
-        except playwright.errors.TimeoutError as TE:
-            print(f"Попытка {attempt + 1} не удалась: {e}")
+        except Exception as Ex:
+            print(f"Попытка {attempt + 1} не удалась: {Ex}")
             if n < 10:  # Если не последняя попытка
                 await page.reload()  # Перезагрузить страницу
 
@@ -107,10 +107,6 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, 
                 await browser.close()
                 await playwright.stop()
                 return 'Не удалось нажать на кнопку.'  # Вернуть ошибку
-
-        except Exception as e:
-            print('Error Click Review:', e)
-            await asyncio.sleep(2)
 
     print('=> Get blocks')
 

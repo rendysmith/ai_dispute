@@ -66,14 +66,14 @@ async def check_dzen_sel(service, url, pattern, criteria, ss_id, project):
             print(f'--- Отзыв старше 30 дней = {date}.')
             continue
 
-        date = datetime.fromtimestamp(timestamp_sec)
+        #date = datetime.fromtimestamp(timestamp_sec)
         # Форматирование даты
         formatted_date = date.strftime('%d.%m.%Y')
         print(formatted_date)
 
         #authorSafeUid = block['authorSafeUid']
         author = UsersByID[block['entityData']['authorSafeUid']]
-        print(author)
+        #print(author)
 
         await generate_and_white(service=service,
                                  url_answer=url_answer,
@@ -122,6 +122,7 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, playwright
         r = requests.get(url_json).json()
         len_r = len(r['items'])
 
+    print(len_r)
     if len_r == 0:
         await browser.close()
         await playwright.stop()
@@ -140,15 +141,15 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, playwright
             continue
 
         date = block['entityData']['createdTs']/1000
+        print(date)
 
-        if (time.time() - date) > 7 * 24 * 3600:
-            print(f'--- Отзыв старше 30 дней = {date}.')
-            continue
+        # if (time.time() - date) > 7 * 24 * 3600:
+        #     print(f'--- Отзыв старше 30 дней = {date}.')
+        #     continue
 
-        date = datetime.fromtimestamp(timestamp_sec)
         # Форматирование даты
-        formatted_date = date.strftime('%d.%m.%Y')
-        #print(formatted_date)
+        #formatted_date = date.strftime('%d.%m.%Y')
+        formatted_date = datetime.fromtimestamp(date).strftime('%d.%m.%Y')
 
         #authorSafeUid = block['authorSafeUid']
         author = UsersByID[block['entityData']['authorSafeUid']]
@@ -171,8 +172,12 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, playwright
     await playwright.stop()
 
 
-if __name__ == '__main__':
-    service = asyncio.run(get_service())
+async def main_dzen():
+    service = await get_service()
 
-    url = 'https://dzen.ru/a/ZF3kG27fcA39RZbS#comment_1650504031'
-    asyncio.run(check_dzen(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет"))
+    url = 'https://dzen.ru/a/Y1o2zJjP7VPVFVdJ'
+    playwright, browser, page = await get_playwright(url)
+    await check_dzen(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет", playwright, browser, page)
+
+if __name__ == '__main__':
+    asyncio.run(main_dzen())
