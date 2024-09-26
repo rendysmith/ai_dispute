@@ -7,6 +7,8 @@ from ai.ai_article import main_article
 from scaling_service import main_zoom
 from load_distribution import main_distribution
 
+from portals.brandanalytics import check_ba
+
 now = datetime.now()
 now_hour = now.hour
 now_weekday = now.weekday()

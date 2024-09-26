@@ -117,7 +117,7 @@ async def get_cookies() -> dict:
             else:
                 raise Exception(f"Request failed with status code {response.status}")
 
-async def check_brandanalytics():
+async def check_ba():
     service = await get_service()
 
     df_links = await read_table_id(service, sheet_id, worksheet_name)
@@ -306,10 +306,9 @@ async def check_brandanalytics():
 
 
 async def main():
-    await check_brandanalytics()
+    await check_ba()
     #cookies = await get_cookies()
     #print(cookies)
-
 
 if "__main__" in __name__:
      asyncio.run(main())

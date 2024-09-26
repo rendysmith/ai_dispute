@@ -70,17 +70,18 @@ async def check_aplout(service, link, pattern, criteria, ss_id, project):
     if not session:
         return 'Проблемы с авторизацией'
 
+    #https://app.aplaut.io/b/api/reviews.json?filter=comments:eq:not_exists&page=1&sort=imported_at:desc
     link = 'https://app.aplaut.io/b/api/reviews.json'
     response = session.get(link, headers=headers)
     for block in response.json()['reviews']:
         url_answer = 'https://app.aplaut.io/b/reviews/' + block['id']
 
-
         if url_answer in links:
             print(f"Такой комментарий уже отмечен {url_answer}")
             continue
 
-        if not block['comments']:
+        if block['comments'] != []:
+            print('Уже есть комментарий, пропускаем.')
             continue
 
         date_content = block['created_at']
