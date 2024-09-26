@@ -37,27 +37,33 @@ async def convert_date(month):
     }
     return months[month]
 
+async def get_top_link(link):
+    try:
+        soup = await get_soup(link)
+        top_link = soup.find('h1', {"class": "product-name"})
+        top_url = "https://otzovik.com" + top_link.find('a')['href'] + '?order=date_desc'
+        print("top_url", top_url)
+        return True, top_url
+
+    except Exception as Ex:
+        print(f"Error Ex: {Ex}")
+        top_url = link
+        return False, top_url
+
 async def check_otzovik(service, link, pattern, criteria, ss_id, project):
     print(link)
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
-    try:
-        soup = await get_soup(link)
-        top_link = soup.find('h1', {"class": "product-name"})
-        top_url = "https://otzovik.com" + top_link.find('a')['href'] + '?order=date_desc'
-        print("top_url", top_url)
+    status, top_url = await get_top_link(link)
 
+    if status:
         datas = {'project': project,
                  'url': link,
                  'top_url': top_url}
 
         await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
-
-    except Exception as Ex:
-        print(f"Error Ex: {Ex}")
-        top_url = link
 
     soup = await get_soup(top_url)
     if not soup:

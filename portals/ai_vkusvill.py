@@ -14,6 +14,9 @@ from utils.db_loader import read_data_from_db_filter
 from utils.gs_editor import get_service, write_log_sheet, get_table_scope, append_data_to_sheet_cell, \
     append_data_to_sheet_cells
 
+from portals.portal_otzovik import get_top_link
+from utils.user_agent import get_soup
+
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
@@ -63,12 +66,13 @@ text = """
 # * Краткое описание нарушений, включая правило и соответствующий текст комментария, если таковой имеется.
 # Выведите результат в формате, который можно использовать напрямую, с каждым элементом, заключенным в двойные кавычки."""
 
-async def cheak_vkusvill(service, market):
-    worktable_id = TABLES_LIST[market][0]
-    worksheet_name = TABLES_LIST[market][1]
+market = 'Vkusvill'
+worktable_id = TABLES_LIST[market][0]
+worksheet_name = TABLES_LIST[market][1]
+print(worktable_id, worksheet_name)
 
-    print(worktable_id, worksheet_name)
 
+async def cheak_vkusvill(service):
     df = await get_table_scope(service, worktable_id, worksheet_name)
     add_column = 'Текст для поддержки'
     df = df[df[add_column].isnull()]
@@ -113,20 +117,58 @@ async def cheak_vkusvill(service, market):
 
 
 async def main_vkusvill():
-    market = 'Vkusvill'
-
     service = await get_service()
-    await cheak_vkusvill(service, market)
+    await cheak_vkusvill(service)
 
     data = {'service_name': market, 'date': time.ctime()}
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
 
 async def grade_analysis():
+    service = await get_service()
+    df = await get_table_scope(service, worktable_id, worksheet_name)
+    not_null = 'Текст'
+    is_null = 'Общий Url'
+    df = df[(df[not_null].notnull() & df[is_null].isnull())]
+
+    print(df)
+    for idx, row in df.iterrows():
+        portal = row['Источник']
+        link = row['Url']
+
+        if portal == 'otzovik.com':
+            status, top_link = await get_top_link(link)
+            print("top_link",top_link)
+
+            soup = await get_soup(top_link)
+            if not soup:
+                await asyncio.sleep(5)
+                continue
+
+            error_page = soup.find('h1')
+            for er in error_page:
+                if 'Ошибка' in er.text:
+                    await asyncio.sleep(5)
+                    continue
+
+            overall_grade = soup.find('div', class_='rating-score-2 big').text.strip()
+            number_grades = soup.find('span', class_='votes').text.strip()
+
+            columns = ['Общий Url', 'Кол-во отзывов', 'Оценка компании до удаления']
+            result = [top_link, number_grades, overall_grade]
+            await append_data_to_sheet_cells(service, worktable_id, worksheet_name, columns, idx + 2, result)
+
+
+            await asyncio.sleep(5)
+
+
+
+
+
 
 
 
 if __name__ == '__main__':
     #asyncio.run(main_vkusvill())
 
-
+    asyncio.run(grade_analysis())
