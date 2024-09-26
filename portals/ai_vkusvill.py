@@ -121,7 +121,12 @@ async def main_vkusvill():
     data = {'service_name': market, 'date': time.ctime()}
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
+
+async def grade_analysis():
+
+
+
 if __name__ == '__main__':
-    asyncio.run(main_vkusvill())
+    #asyncio.run(main_vkusvill())
 
 
