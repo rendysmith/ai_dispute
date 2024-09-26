@@ -135,9 +135,21 @@ async def proxy_tor():
     result = requests.get(url, proxies=proxies)
     print(result.json())
 
-#
-#
-# asyncio.run(proxy_tor())
+async def main_proxy():
+    host_port = await get_iplist()
+    print(host_port)
+    input()
+
+    proxies = {
+        'http': f'http://{login_proxy}:{pass_proxy}@{host_port}',
+        'https': f'https://{login_proxy}:{pass_proxy}@{host_port}'
+    }
+
+    response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+
+
+if "__main__" in __name__:
+    asyncio.run(main_proxy())
 
 
 

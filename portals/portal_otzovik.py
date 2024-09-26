@@ -47,7 +47,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
         soup = await get_soup(link)
         top_link = soup.find('h1', {"class": "product-name"})
         top_url = "https://otzovik.com" + top_link.find('a')['href'] + '?order=date_desc'
-        print(top_url)
+        print("top_url", top_url)
 
         datas = {'project': project,
                  'url': link,
@@ -105,34 +105,38 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
-async def ya_soup():
-    url = 'https://otzovik.com/review_14926330.html?&capt4a=4291688985409980'
-    soup = await get_soup(url)
+# async def ya_soup():
+#     url = 'https://otzovik.com/review_14926330.html?&capt4a=4291688985409980'
+#     soup = await get_soup(url)
+#
+#     top_link = soup.find('h1', {"class": "product-name"})
+#     top_url = "https://otzovik.com" + top_link.find('a')['href'] + '?order=date_desc'
+#     print(top_url)
+#
+#     soup = await get_soup(top_url)
+#
+#     blocks = soup.find_all("div", {"itemprop": "review"})
+#     print(len(blocks))
+#
+#     if len(blocks) == 0:
+#         return
+#
+#     links = await pars_url(service, ss_id, project)
+#
+#     for block in blocks:
+#         url_answer = block['id']
+#         if url_answer in links:
+#             print("Такой комментарий уже отмечен")
+#             continue
 
-    top_link = soup.find('h1', {"class": "product-name"})
-    top_url = "https://otzovik.com" + top_link.find('a')['href'] + '?order=date_desc'
-    print(top_url)
-
-    soup = await get_soup(top_url)
-
-    blocks = soup.find_all("div", {"itemprop": "review"})
-    print(len(blocks))
-
-    if len(blocks) == 0:
-        return
-
-    links = await pars_url(service, ss_id, project)
-
-    for block in blocks:
-        url_answer = block['id']
-        if url_answer in links:
-            print("Такой комментарий уже отмечен")
-            continue
 
 
+
+async def main_otzovik():
+    service = await get_service()
+    url = 'https://otzovik.com/review_16566023.html'
+    await check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
 
 
 if __name__ == '__main__':
-    service = asyncio.run(get_service())
-    url = 'https://otzovik.com/review_15737943.html'
-    asyncio.run(check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет"))
+    asyncio.run(main_otzovik())
