@@ -171,7 +171,7 @@ async def check_ba(service):
 
         print(f'==================== {url_answer} ===================')
 
-        if any(mt in text.lower() for mt in ['бляд', 'пизд', 'хуй', 'хуев', 'уета', 'хуёв', 'пидар', 'пидр', 'пидор','заеб', 'заёб', 'говн', 'ебан', 'ебон', "залуп", "долба", "отъеб"]):
+        if any(mt in text.lower() for mt in ['похе', 'срать', 'бляд', 'пизд', 'хуй', 'хуев', 'уета', 'хуёв', 'пидар', 'пидр', 'пидор','заеб', 'заёб', 'говн', 'ебан', 'ебон', "залуп", "долба", "отъеб"]):
             print('>>>>>>>>>>>>>>>>>> МАТ!!! <<<<<<<<<<<<<<<<<<<<')
             print(text)
             continue
@@ -221,11 +221,11 @@ async def check_ba(service):
                     date = await date_content.inner_text()
                     print("date =", date)
                     date_split = date.split(' ')
-                    print(date_split)
+                    #print(date_split)
 
                 except:
-                    await browser.close()
-                    await playwright.stop()
+                    #await browser.close()
+                    #await playwright.stop()
                     continue
 
                 if any(date_str in date for date_str in ['hours, today, yesterday']):
@@ -244,7 +244,7 @@ async def check_ba(service):
                     month = now.month
                     year = now.year
 
-                print(year, month, day)
+                #print(year, month, day)
                 target_date = datetime(year, month, day)
                 if (now - target_date) <= timedelta(days=days_ago):
                     trend_alife = True
@@ -252,13 +252,16 @@ async def check_ba(service):
                 id_content = await block.get_attribute('id')
 
                 author_content = await block.query_selector('a[class="author author_highlighted"]')
-                author = await author_content.inner_text()
-                print(author)
+                try:
+                    author = await author_content.inner_text()
+                except:
+                    author = ''
+                #print(author)
 
                 feedback_content = await block.query_selector('div[class="wall_reply_text onclick="]')
                 try:
                     feedback = await feedback_content.inner_text()
-                    print(feedback)
+                    #print(feedback)
                 except:
                     feedback = ''
 
