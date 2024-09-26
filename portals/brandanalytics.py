@@ -10,7 +10,7 @@ from requests.auth import HTTPBasicAuth
 
 from portals.portal_vk import blocks_vk, convert_date
 from utils.ai_module import get_answer_ai
-from utils.gs_editor import get_service, append_data_to_sheet_scope, read_table_id
+from utils.gs_editor import get_service, append_data_to_sheet_scope, read_table_id, write_log_sheet
 from utils.user_agent import get_soup, get_playwright
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -117,9 +117,7 @@ async def get_cookies() -> dict:
             else:
                 raise Exception(f"Request failed with status code {response.status}")
 
-async def check_ba():
-    service = await get_service()
-
+async def check_ba(service):
     df_links = await read_table_id(service, sheet_id, worksheet_name)
     links = df_links['portal'].to_list()
 
@@ -305,10 +303,14 @@ async def check_ba():
 
 
 
-async def main():
-    await check_ba()
-    #cookies = await get_cookies()
-    #print(cookies)
+async def main_ba():
+    project = 'BA'
+    service = await get_service()
+
+    await check_ba(service)
+
+    data = {'service_name': project, 'date': time.ctime()}
+    await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
 if "__main__" in __name__:
-     asyncio.run(main())
+     asyncio.run(main_ba())
