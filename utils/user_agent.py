@@ -37,14 +37,28 @@ async def gen_ua(url):
 
     return headers
 
-async def get_soup(url, only_pars=False):
-    async def get_headers():
-        host_port = await get_iplist()
+async def get_headers(module):
+    host_port = await get_iplist()
+    if not host_port:
+        return None
+
+    if module == 'soup':
         proxies = {
             'http': f'http://{login_proxy}:{pass_proxy}@{host_port}',
             'https': f'https://{login_proxy}:{pass_proxy}@{host_port}'
         }
-        return proxies
+
+    elif module == 'pw':
+        proxies = {
+            "server": "host_port",
+            "username": login_proxy,  # Опционально, если прокси требует аутентификации
+            "password": pass_proxy  # Опционально, если прокси требует аутентификации
+        }
+
+    return proxies
+
+
+async def get_soup(url, only_pars=False):
 
     if only_pars == False:
         domen = await extract_main_site(url)
@@ -58,7 +72,7 @@ async def get_soup(url, only_pars=False):
         except requests.exceptions.ConnectTimeout as CT:
             try:
                 print(f'Error CT: {CT}')
-                proxies = await get_headers()
+                proxies = await get_headers('soup')
                 response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
 
             except:
@@ -67,7 +81,7 @@ async def get_soup(url, only_pars=False):
         except requests.exceptions.ProxyError as PE:
             try:
                 print(f'Error PE: {PE}')
-                proxies = await get_headers()
+                proxies = await get_headers('soup')
                 response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
             except:
                 return None
@@ -75,7 +89,7 @@ async def get_soup(url, only_pars=False):
         except requests.exceptions.Timeout as To:
             try:
                 print(f'Error To: {To}')
-                proxies = await get_headers()
+                proxies = await get_headers('soup')
                 response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
             except:
                 return None
@@ -83,7 +97,7 @@ async def get_soup(url, only_pars=False):
         except urllib3.exceptions.ConnectTimeoutError as CTE:
             try:
                 print(f'Error CTE: {CTE}')
-                proxies = await get_headers()
+                proxies = await get_headers('soup')
                 response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
             except:
                 return None
@@ -91,7 +105,7 @@ async def get_soup(url, only_pars=False):
         except urllib3.exceptions.MaxRetryError as MRE:
             try:
                 print(f'Error MRE: {MRE}')
-                proxies = await get_headers()
+                proxies = await get_headers('soup')
                 response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
             except:
                 return None
@@ -99,14 +113,14 @@ async def get_soup(url, only_pars=False):
         except requests.exceptions.RequestException as RE:
             try:
                 print(f'Error RE: {RE}')
-                proxies = await get_headers()
+                proxies = await get_headers('soup')
                 response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
             except:
                 return None
 
         if response.status_code != 200:
             print(response.status_code)
-            proxies = await get_headers()
+            proxies = await get_headers('soup')
             response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
 
             if response.status_code != 200:
@@ -137,7 +151,7 @@ async def get_selenium(url, headless=True):
     wait = WebDriverWait(driver, 10)
     return driver
 
-async def get_playwright(url, headless=True):
+async def get_playwright(url, headless=True, proxy=False):
     """
     :param url: url
     :param headless: headless (boot) headless=True
@@ -146,7 +160,16 @@ async def get_playwright(url, headless=True):
 
     try:
         playwright = await async_playwright().start()
-        browser = await playwright.firefox.launch(headless=headless, timeout=30000)
+        if proxy:
+            proxies = await get_headers('pw')
+            browser = await playwright.firefox.launch(
+                headless=headless,
+                proxy=proxies,  # Прокси передаётся здесь
+                timeout=30000)
+
+        else:
+            browser = await playwright.firefox.launch(headless=headless, timeout=30000)
+
         context = await browser.new_context(
             user_agent=ua.random)
         page = await context.new_page()

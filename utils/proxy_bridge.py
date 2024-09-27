@@ -61,6 +61,8 @@ async def get_iplist():
 
     response = requests.request('GET', url, headers=headers)
     r_json = response.json()
+    if r_json.get('error'):
+        return None
     print(r_json)
     host_port = random.choice(r_json)
     print(host_port)
