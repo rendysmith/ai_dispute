@@ -40,13 +40,17 @@ async def convert_date(month):
 async def get_top_link(link):
     try:
         soup = await get_soup(link)
+        print('Soup:', soup)
+        if not soup:
+            return False, False
+
         top_link = soup.find('h1', {"class": "product-name"})
         top_url = "https://otzovik.com" + top_link.find('a')['href'] + '?order=date_desc'
         print("top_url", top_url)
         return True, top_url
 
     except Exception as Ex:
-        print(f"Error Ex: {Ex}")
+        print(f"Error Top Link Ex: {Ex}")
         top_url = link
         return False, top_url
 
@@ -57,6 +61,9 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
     await asyncio.sleep(ts)
 
     status, top_url = await get_top_link(link)
+    if not top_url:
+        return 'Сайт не отдал данные!'
+    print(status, top_url)
 
     if status:
         datas = {'project': project,
@@ -145,4 +152,8 @@ async def main_otzovik():
 
 
 if __name__ == '__main__':
-    asyncio.run(main_otzovik())
+    url = 'https://otzovik.com/review_16566023.html'
+    a = asyncio.run(get_top_link(url))
+    print(a)
+
+    #asyncio.run(main_otzovik())

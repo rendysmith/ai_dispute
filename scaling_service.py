@@ -100,7 +100,7 @@ async def time_out_on(async_func, timeout=180, **kwargs):
         print(f"Error Ex: Произошла ошибка: {Ex}")
         return None
 
-async def time_out_play(async_func, timeout=60, **kwargs):
+async def time_out_play(async_func, timeout=180, **kwargs):
     service = kwargs['service']
     link = kwargs['link']
     df_mini_pattern = kwargs['df_mini_pattern']
@@ -119,20 +119,27 @@ async def time_out_play(async_func, timeout=60, **kwargs):
             await fix_error(service, project, link, str(status))
 
     except asyncio.TimeoutError as TE:
-        await fix_error(service, project, link, f"TimeOut {TE}")
+        await fix_error(service, project, link, f"TimeoutError {TE}")
         print(f"Error PLAY TE: Задача была отменена из-за таймаута. {TE}")
+        traceback.print_exc()
+        status = None
+
+    except asyncio.CancelledError as CE:
+        await fix_error(service, project, link, f"CancelledError {CE}")
+        print(f"Error PLAY CE: Задача была отменена из-за таймаута. {CE}")
         traceback.print_exc()
         status = None
 
     except Exception as Ex:  # Обработка других исключений
         await fix_error(service, project, link, f"Error Ex: {Ex}")
-        print(f"Error Ex: Произошла ошибка: {Ex}")
+        print(f"Error PLAY Ex: Произошла ошибка: {Ex}")
         traceback.print_exc()
         status = None
 
     finally:
-        await browser.close()
-        await playwright.stop()
+        if browser:
+            await browser.close()
+            await playwright.stop()
         print('-- Close browser and playwright is OK!')
         return status
 
@@ -165,7 +172,7 @@ async def start_zoom(service):
             date_logs = df_logs.loc[idx_logs, 'date']
             if date_logs == current_date:
                 print()
-                #continue
+                continue
 
             #Пропуск по IP
             host_logs = df_logs.loc[idx_logs, 'reserve']

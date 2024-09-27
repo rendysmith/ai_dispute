@@ -1,5 +1,6 @@
 import asyncio
 import os
+import random
 import time
 
 from dotenv import load_dotenv
@@ -19,6 +20,8 @@ from utils.user_agent import get_soup
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
+
+max_sec = int(os.environ.get("MAX_SEC"))
 
 username = os.environ.get("HOST_USERNAME")
 password = os.environ.get("HOST_PASSWORD")
@@ -136,8 +139,12 @@ async def grade_analysis():
         portal = row['Источник']
         link = row['Url']
 
+        ts = random.randint(5, max_sec)
+        print(f'Wait {ts} sec...')
+        await asyncio.sleep(ts)
+
         if portal == 'otzovik.com':
-            status, top_link = await get_top_link(link)
+            status, top_link = await get_top_link(link) #Получаем топовую ссылку
             print("top_link",top_link)
 
             soup = await get_soup(top_link)
@@ -148,6 +155,9 @@ async def grade_analysis():
             error_page = soup.find('h1')
             for er in error_page:
                 if 'Ошибка' in er.text:
+                    columns = ['Общий Url']
+                    result = ['Ошибка, проверить страницу на актульность.']
+                    await append_data_to_sheet_cells(service, worktable_id, worksheet_name, columns, idx + 2, result)
                     await asyncio.sleep(5)
                     continue
 
