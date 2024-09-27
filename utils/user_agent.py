@@ -49,16 +49,18 @@ async def get_soup(url, only_pars=False):
     if only_pars == False:
         domen = await extract_main_site(url)
         headers = await gen_ua(domen)
+        timeout = 30000
 
         try:
             print('No proxy!')
-            response = requests.get(url, headers=headers, timeout=10)
+            response = requests.get(url, headers=headers, timeout=timeout)
 
         except requests.exceptions.ConnectTimeout as CT:
             try:
                 print(f'Error CT: {CT}')
                 proxies = await get_headers()
-                response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+                response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
+
             except:
                 return None
 
@@ -66,7 +68,7 @@ async def get_soup(url, only_pars=False):
             try:
                 print(f'Error PE: {PE}')
                 proxies = await get_headers()
-                response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+                response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
             except:
                 return None
 
@@ -74,7 +76,7 @@ async def get_soup(url, only_pars=False):
             try:
                 print(f'Error To: {To}')
                 proxies = await get_headers()
-                response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+                response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
             except:
                 return None
 
@@ -82,7 +84,7 @@ async def get_soup(url, only_pars=False):
             try:
                 print(f'Error CTE: {CTE}')
                 proxies = await get_headers()
-                response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+                response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
             except:
                 return None
 
@@ -90,7 +92,7 @@ async def get_soup(url, only_pars=False):
             try:
                 print(f'Error MRE: {MRE}')
                 proxies = await get_headers()
-                response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+                response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
             except:
                 return None
 
@@ -98,12 +100,17 @@ async def get_soup(url, only_pars=False):
             try:
                 print(f'Error RE: {RE}')
                 proxies = await get_headers()
-                response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+                response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
             except:
                 return None
 
         if response.status_code != 200:
-            return None
+            print(response.status_code)
+            proxies = await get_headers()
+            response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
+
+            if response.status_code != 200:
+                return None
 
         soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -175,4 +182,5 @@ async def main():
 
 
 if "__main__" in __name__:
-    asyncio.run(get_playwright('https://vk.com/wall-7871245_252922?reply=253324&thread=252946', headless=False))
+    #asyncio.run(get_playwright('https://vk.com/wall-7871245_252922?reply=253324&thread=252946', headless=False))
+    asyncio.run(get_soup('https://mail.ru'))

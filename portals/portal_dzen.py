@@ -143,9 +143,9 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, playwright
         date = block['entityData']['createdTs']/1000
         print(date)
 
-        # if (time.time() - date) > 7 * 24 * 3600:
-        #     print(f'--- Отзыв старше 30 дней = {date}.')
-        #     continue
+        if (time.time() - date) > 7 * 24 * 3600:
+            print(f'--- Отзыв старше 30 дней = {date}.')
+            continue
 
         # Форматирование даты
         #formatted_date = date.strftime('%d.%m.%Y')

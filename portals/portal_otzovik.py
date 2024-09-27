@@ -153,6 +153,7 @@ async def main_otzovik():
 
 if __name__ == '__main__':
     url = 'https://otzovik.com/review_16566023.html'
+    url = 'https://otzovik.com/reviews/serial_grotesk_2024/'
     a = asyncio.run(get_top_link(url))
     print(a)
 
