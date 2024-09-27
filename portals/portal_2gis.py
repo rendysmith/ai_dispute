@@ -38,10 +38,16 @@ async def convert_date(month):
 
 async def send_top_url(service, ss_id, project, url):
     url_split = url.split('/')
-    #print("url_split", url_split)
-    city_company = url_split[3]
-    id_obj = url_split[5]
-    top_url = f'https://2gis.ru/{city_company}/firm/{id_obj}'
+    print("url_split", url_split)
+    #city_company = url_split[3]
+
+    for idx, v in enumerate(url_split):
+        if v == 'firm':
+            id_obj = url_split[idx+1]
+            break
+
+    top_url = f'https://2gis.ru/firm/{id_obj}'
+    print(top_url)
 
     datas = {'project': project,
              'url': url,
@@ -148,9 +154,11 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project, playwright
 
 async def main_2gis(url):
     service = await get_service()
-    await check_2gis(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
+    playwright, browser, page = await get_playwright(url)
+    await check_2gis(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, playwright, browser, page)
 
 if __name__ == '__main__':
     url = 'https://2gis.ru/tyumen/firm/70000001078903378/65.581594%2C57.166876/tab/reviews'
     url = 'https://go.2gis.com/dgzo35'
+    url = 'https://2gis.ru/ufa/search/%D0%BD%D0%BE%D0%B2%D0%B8%D0%BA%D0%BE%D0%BC%D0%B1%D0%B0%D0%BD%D0%BA%20%D1%83%D1%84%D0%B0/firm/70000001064543956/56.135469%2C54.787878/tab/reviews?m=56.039914%2C54.760852%2F12.5'
     asyncio.run(main_2gis(url))

@@ -74,7 +74,7 @@ async def fix_error(service, project, portal, error):
     tab_name = 'ERRORS'
     await append_data_to_sheet_scope(service, ss_id, tab_name, data)
 
-async def time_out_on(async_func, timeout=60, **kwargs):
+async def time_out_on(async_func, timeout=180, **kwargs):
     service = kwargs['service']
     link = kwargs['link']
     df_mini_pattern = kwargs['df_mini_pattern']
