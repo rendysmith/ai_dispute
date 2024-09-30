@@ -18,6 +18,7 @@ now_month = current_date.month
 
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
+timeout = 10000
 
 async def convert_date(month):
     months = {
@@ -88,22 +89,22 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, 
 
         try:
             #button_default = await page.query_selector('div[class="rating-ranking-view"]')
-            button_default = await page.wait_for_selector('div[class="rating-ranking-view"]', timeout=5000)
+            button_default = await page.wait_for_selector('div[class="rating-ranking-view"]', timeout=timeout)
             await button_default.click()
             #await asyncio.sleep(1)
 
             #button_new = await page.query_selector('div[class="rating-ranking-view__popup-line"][aria-label="По новизне"]')
-            button_new = await page.wait_for_selector('div[class="rating-ranking-view__popup-line"][aria-label="По новизне"]', timeout=5000)
+            button_new = await page.wait_for_selector('div[class="rating-ranking-view__popup-line"][aria-label="По новизне"]', timeout=timeout)
             await button_new.click()
             #await asyncio.sleep(3)
             break
 
         except Exception as Ex:
             print(f"Попытка не удалась: {Ex}")
-            if n < 10:  # Если не последняя попытка
+            if n == 5:  # Если не последняя попытка
                 await page.reload()  # Перезагрузить страницу
 
-            else:
+            elif n == 10:
                 await browser.close()
                 await playwright.stop()
                 return 'Не удалось нажать на кнопку.'  # Вернуть ошибку
@@ -233,7 +234,7 @@ async def main():
     service = await get_service()
 
     url = 'https://yandex.ru/maps/org/artstudio_moskovsky/125846534919/?ll=30.329628%2C59.907103&mode=search&sll=30.301828%2C59.912472&sspn=0.022573%2C0.006756&text=Artstudio%20Moskovsky&z=14.86'
-    url = 'https://yandex.ru/maps/org/165131132044/reviews'
+    url = 'https://yandex.ru/maps/org/124956693444/reviews'
     #url = 'https://yandex.kz/maps/org/schastye/187776871438/reviews/?ll=66.272509%2C56.632288&utm_source=review&z=16'
     #url = 'https://yandex.kz/maps/org/krylya/115857625887/reviews/?ll=65.263154%2C57.147658&utm_source=review&z=16'
 
