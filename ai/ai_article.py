@@ -38,7 +38,7 @@ auth = HTTPBasicAuth(username, password)
 # Перед выполнением, прочитай задание еще раз.
 # """
 
-text = """
+text_fun = """
 Напишите статью на тему "{subject}" в блоге, 
 написанном представителем {sex} по имени {fio}, которому {age} лет и который живет в городе {region}. 
 Ты {person_description}
@@ -79,7 +79,7 @@ async def ai_generator_article_fun(service, auth, project):
         person_description = result[0].person_description
         volume = result[0].volume
 
-        prompt = text.format(fio=fio, subject=subject, region=region, sex=sex, age=age, person_description=person_description, volume=volume)
+        prompt = text_fun.format(fio=fio, subject=subject, region=region, sex=sex, age=age, person_description=person_description, volume=volume)
         result = await get_answer_ai(auth, prompt)
         await append_data_to_sheet_cell(service, worktable_id, worksheet_name, 'Result', idx + 2, result)
 
@@ -87,6 +87,8 @@ async def main_article():
     project = 'Article_fun'
     service = await get_service()
     await ai_generator_article_fun(service, auth, project)
+
+
 
     data = {'service_name': project, 'date': time.ctime()}
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
