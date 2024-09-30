@@ -131,7 +131,6 @@ async def get_soup(url, only_pars=False):
     else:
         soup = BeautifulSoup(url, 'html.parser')
 
-    print(soup)
     return soup
 
 async def get_selenium(url, headless=True):
