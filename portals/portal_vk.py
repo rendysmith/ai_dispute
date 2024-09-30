@@ -134,8 +134,8 @@ async def blocks_vk(playwright, browser, page):
     await asyncio.sleep(ts)
 
     if not page:
-        await browser.close()
-        await playwright.stop()
+        # await browser.close()
+        # await playwright.stop()
         return None, None, None
 
     blocks = await page.query_selector_all('div[id*="post"][class*="reply"][data-post-id*="-"]')

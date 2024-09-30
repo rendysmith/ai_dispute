@@ -72,8 +72,8 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, 
     await asyncio.sleep(ts)
 
     if not page:
-        await browser.close()
-        await playwright.stop()
+        # await browser.close()
+        # await playwright.stop()
         return 'Сайт не отдал данные.'
 
     await page.evaluate("document.body.style.zoom=0.5")

@@ -22,16 +22,15 @@ max_sec = int(os.environ.get("MAX_SEC"))
 
 async def check_youtube(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     #playwright, browser, page = await get_playwright(url)
+    if not page:
+        # await browser.close()
+        # await playwright.stop()
+        return 'Сайт не отдал данные.'
 
     links = await pars_url(service, ss_id, project)
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
-
-    if not page:
-        await browser.close()
-        await playwright.stop()
-        return 'Сайт не отдал данные.'
 
     await page.evaluate("document.body.style.zoom=0.5")
     await page.wait_for_timeout(5000)

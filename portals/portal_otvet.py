@@ -155,8 +155,8 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project, playwrig
     await asyncio.sleep(ts)
 
     if not page:
-        await browser.close()
-        await playwright.stop()
+        # await browser.close()
+        # await playwright.stop()
         return 'Сайт не отдал данные'
 
     n = 0

@@ -66,6 +66,11 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project, playwright
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
+    if not page:
+        # await browser.close()
+        # await playwright.stop()
+        return "Сайт не вернул данные"
+
     if 'go' in url:
         final_url = page.url
         print("final_url:", final_url)
@@ -75,10 +80,6 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project, playwright
         await send_top_url(service, ss_id, project, url)
 
     links = await pars_url(service, ss_id, project)
-    if not page:
-        await browser.close()
-        await playwright.stop()
-        return "Сайт не вернул данные"
 
     blocks = await page.query_selector_all('div[class="_11gvyqv"]')
     print('Len =', len(blocks))
@@ -159,11 +160,12 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project, playwright
 async def main_2gis(url):
     service = await get_service()
     playwright, browser, page = await get_playwright(url)
+    #print(playwright, browser, page)
     await check_2gis(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, playwright, browser, page)
 
 if __name__ == '__main__':
     url = 'https://2gis.ru/tyumen/firm/70000001078903378/65.581594%2C57.166876/tab/reviews'
-    url = 'https://go.2gis.com/dgzo35'
+    #url = 'https://go.2gis.com/dgzo35'
     url = 'https://2gis.ru/ufa/search/%D0%BD%D0%BE%D0%B2%D0%B8%D0%BA%D0%BE%D0%BC%D0%B1%D0%B0%D0%BD%D0%BA%20%D1%83%D1%84%D0%B0/firm/70000001064543956/56.135469%2C54.787878/tab/reviews?m=56.039914%2C54.760852%2F12.5'
-    url = 'https://react-account.2gis.com/orgs/70000001054643107/reviews '
+    #url = 'https://react-account.2gis.com/orgs/70000001054643107/reviews '
     asyncio.run(main_2gis(url))

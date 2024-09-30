@@ -109,6 +109,9 @@ async def time_out_play(async_func, timeout=180, **kwargs):
     project = kwargs['project']
 
     playwright, browser, page = await get_playwright(link)
+    if not page:
+        return None, None, None
+
     status = None
 
     try:
