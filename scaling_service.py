@@ -175,7 +175,7 @@ async def start_zoom(service):
             date_logs = df_logs.loc[idx_logs, 'date']
             if date_logs == current_date:
                 print()
-                continue
+                #continue
 
             #Пропуск по IP
             host_logs = df_logs.loc[idx_logs, 'reserve']
