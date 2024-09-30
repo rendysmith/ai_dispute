@@ -40,7 +40,7 @@ async def convert_date(month):
 async def get_top_link(link):
     try:
         soup = await get_soup(link)
-        print('Soup:', soup)
+        #print('Soup:', soup)
         if not soup:
             return False, False
 
