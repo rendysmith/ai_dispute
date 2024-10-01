@@ -9,7 +9,7 @@ import re
 
 from fake_useragent import UserAgent
 
-from utils.proxy_bridge import get_iplist
+from utils.proxy_bridge import get_iplist, get_one_proxy
 import os
 from dotenv import load_dotenv
 
@@ -38,14 +38,16 @@ async def gen_ua(url):
     return headers
 
 async def get_headers(module):
-    host_port = await get_iplist()
-    if not host_port:
+    host, port = await get_one_proxy()
+    print(host, port)
+    #port = '1080'
+    if not host:
         return None
 
     if module == 'soup':
         proxies = {
-            'http': f'http://{login_proxy}:{pass_proxy}@{host_port}',
-            'https': f'https://{login_proxy}:{pass_proxy}@{host_port}'
+            'http': f'http://{login_proxy}:{pass_proxy}@{host}:{port}',
+            'https': f'https://{login_proxy}:{pass_proxy}@{host}:{port}'
         }
 
     elif module == 'pw':
@@ -58,73 +60,79 @@ async def get_headers(module):
     return proxies
 
 
-async def get_soup(url, only_pars=False):
-
+async def get_soup(url, only_pars=False, proxy=True):
     if only_pars == False:
         domen = await extract_main_site(url)
         headers = await gen_ua(domen)
         timeout = 30000
 
-        try:
-            print('No proxy!')
-            response = requests.get(url, headers=headers, timeout=timeout)
-
-        except requests.exceptions.ConnectTimeout as CT:
-            try:
-                print(f'Error CT: {CT}')
-                proxies = await get_headers('soup')
-                response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
-
-            except:
-                return None
-
-        except requests.exceptions.ProxyError as PE:
-            try:
-                print(f'Error PE: {PE}')
-                proxies = await get_headers('soup')
-                response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
-            except:
-                return None
-
-        except requests.exceptions.Timeout as To:
-            try:
-                print(f'Error To: {To}')
-                proxies = await get_headers('soup')
-                response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
-            except:
-                return None
-
-        except urllib3.exceptions.ConnectTimeoutError as CTE:
-            try:
-                print(f'Error CTE: {CTE}')
-                proxies = await get_headers('soup')
-                response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
-            except:
-                return None
-
-        except urllib3.exceptions.MaxRetryError as MRE:
-            try:
-                print(f'Error MRE: {MRE}')
-                proxies = await get_headers('soup')
-                response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
-            except:
-                return None
-
-        except requests.exceptions.RequestException as RE:
-            try:
-                print(f'Error RE: {RE}')
-                proxies = await get_headers('soup')
-                response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
-            except:
-                return None
-
-        if response.status_code != 200:
-            print(response.status_code)
+        if proxy:
             proxies = await get_headers('soup')
+            #print(proxies)
+            #input()
             response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
 
+        else:
+            try:
+                response = requests.get(url, headers=headers, timeout=timeout)
+                print('No proxy!')
+
+            except requests.exceptions.ConnectTimeout as CT:
+                try:
+                    print(f'Error CT: {CT}')
+                    proxies = await get_headers('soup')
+                    response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
+
+                except:
+                    return None
+
+            except requests.exceptions.ProxyError as PE:
+                try:
+                    print(f'Error PE: {PE}')
+                    proxies = await get_headers('soup')
+                    response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
+                except:
+                    return None
+
+            except requests.exceptions.Timeout as To:
+                try:
+                    print(f'Error To: {To}')
+                    proxies = await get_headers('soup')
+                    response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
+                except:
+                    return None
+
+            except urllib3.exceptions.ConnectTimeoutError as CTE:
+                try:
+                    print(f'Error CTE: {CTE}')
+                    proxies = await get_headers('soup')
+                    response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
+                except:
+                    return None
+
+            except urllib3.exceptions.MaxRetryError as MRE:
+                try:
+                    print(f'Error MRE: {MRE}')
+                    proxies = await get_headers('soup')
+                    response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
+                except:
+                    return None
+
+            except requests.exceptions.RequestException as RE:
+                try:
+                    print(f'Error RE: {RE}')
+                    proxies = await get_headers('soup')
+                    response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
+                except:
+                    return None
+
             if response.status_code != 200:
-                return None
+                print(response.status_code)
+                proxies = await get_headers('soup')
+                response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
+
+                if response.status_code != 200:
+                    return None
 
         soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -202,7 +210,28 @@ async def main():
     else:
         print(2)
 
+async def tst_proxy():
+    print('---------1--------')
+    url = 'http://httpbin.org/'
+    soup = await get_soup(url)
+    print(soup)
+
+    print('---------http--------')
+    url = 'http://government.ru/'
+    soup = await get_soup(url)
+    print(soup)
+
+    print('---------2--------')
+    url = 'https://api.ipify.org?format=json'
+    soup = await get_soup(url)
+    print(soup)
+
+    print('-----------------')
+    url = 'https://ifconfig.me/all.json'
+    soup = await get_soup(url)
+    print(soup['ip_addr'])
+
 
 if "__main__" in __name__:
     #asyncio.run(get_playwright('https://vk.com/wall-7871245_252922?reply=253324&thread=252946', headless=False))
-    asyncio.run(get_soup('https://mail.ru'))
+    asyncio.run(tst_proxy())
