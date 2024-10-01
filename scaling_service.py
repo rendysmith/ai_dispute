@@ -236,8 +236,8 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                if status:
-                    black_list.append('pravda-sotrudnikov.ru')
+                # if status:
+                #     black_list.append('pravda-sotrudnikov.ru')
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'ocompanii' in link:
@@ -260,8 +260,8 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                if status:
-                    black_list.append('ocompanii')
+                # if status:
+                #     black_list.append('ocompanii')
 
             #---------------------------------------------------------------------------------------------------------
             elif 'dreamjob.ru' in link:
@@ -284,8 +284,8 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                if status:
-                    black_list.append('dreamjob.ru')
+                # if status:
+                #     black_list.append('dreamjob.ru')
 
             #---------------------------------------------------------------------------------------------------------
             elif '2gis' in link:
@@ -313,8 +313,8 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                if status:
-                    black_list.append('2gis')
+                # if status:
+                #     black_list.append('2gis')
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'sravni.ru' in link:
@@ -340,8 +340,8 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                if status:
-                    black_list.append('sravni.ru')
+                # if status:
+                #     black_list.append('sravni.ru')
 
 
             # ---------------------------------------------------------------------------------------------------------
@@ -359,8 +359,8 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                if status:
-                    black_list.append('drive2.ru')
+                # if status:
+                #     black_list.append('drive2.ru')
 
             #---------------------------------------------------------------------------------------------------------
             elif 'irecommend' in link:
@@ -388,8 +388,8 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                if status:
-                    black_list.append('irecommend')
+                # if status:
+                #     black_list.append('irecommend')
 
             #---------------------------------------------------------------------------------------------------------
             elif 'otzovik.com' in link:
@@ -419,8 +419,8 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                if status:
-                    black_list.append('otzovik.com')
+                # if status:
+                #     black_list.append('otzovik.com')
 
             #---------------------------------------------------------------------------------------------------------
             elif 'dzen.ru' in link:
@@ -437,8 +437,8 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                if status:
-                    black_list.append('youtube')
+                # if status:
+                #     black_list.append('youtube')
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'youtube' in link:
@@ -459,8 +459,8 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                if status:
-                    black_list.append('youtube')
+                # if status:
+                #     black_list.append('youtube')
 
             #---------------------------------------------------------------------------------------------------------
             elif 'aplaut.io' in link:
@@ -482,8 +482,8 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                if status:
-                    black_list.append('aplaut.io')
+                # if status:
+                #     black_list.append('aplaut.io')
 
             #---------------------------------------------------------------------------------------------------------
             elif 'yandex.ru/maps' in link:
@@ -529,8 +529,8 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                if status:
-                    black_list.append('yandex.ru/maps')
+                # if status:
+                #     black_list.append('yandex.ru/maps')
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'otvet.mail' in link:
@@ -558,8 +558,8 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                if status:
-                    black_list.append('otvet.mail')
+                # if status:
+                #     black_list.append('otvet.mail')
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'market.yandex' in link and any(black not in link for black in black_list):
@@ -576,8 +576,8 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                if status:
-                    black_list.append('market.yandex')
+                # if status:
+                #     black_list.append('market.yandex')
 
             # ---------------------------------------------------------------------------------------------------------
             # elif 'vk.com' in link:
