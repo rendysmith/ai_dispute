@@ -4,9 +4,12 @@ from datetime import datetime
 
 from ai.ai_rbi_reactions import main_rbi
 from ai.ai_article import main_article
+from ai.ai_dzen import main_article_eco
+
 from scaling_service import main_zoom
 from load_distribution import main_distribution
 from portals.brandanalytics import main_ba
+
 
 async def main_total():
     now = datetime.now()

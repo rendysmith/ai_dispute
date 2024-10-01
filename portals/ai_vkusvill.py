@@ -1,8 +1,13 @@
 import asyncio
 import os
 import random
+import re
 import time
+from xml.sax.handler import feature_external_ges
 
+import numpy as np
+import pandas as pd
+from asyncpg.compat import wait_for
 from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
@@ -74,6 +79,19 @@ worktable_id = TABLES_LIST[market][0]
 worksheet_name = TABLES_LIST[market][1]
 print(worktable_id, worksheet_name)
 
+async def extract_link_from_line(url):
+    # Шаблон для поиска ссылки от https: до .html
+    pattern = r"https:.*?\.html"
+    # Поиск ссылки в строке
+    match = re.search(pattern, url)
+    if match:
+        return match.group(0)
+    return None
+
+async def wait_for_portal():
+    ts = random.randint(5, max_sec)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
 
 async def cheak_vkusvill(service):
     df = await get_table_scope(service, worktable_id, worksheet_name)
@@ -134,17 +152,25 @@ async def grade_analysis():
     is_null = 'Общий Url'
     df = df[(df[not_null].notnull() & df[is_null].isnull())]
 
+    columns = ['Общий Url', 'Ссылка Url']
+
     print(df)
     for idx, row in df.iterrows():
         portal = row['Источник']
         link = row['Url']
-
-        ts = random.randint(5, max_sec)
-        print(f'Wait {ts} sec...')
-        await asyncio.sleep(ts)
+        print(link)
 
         if portal == 'otzovik.com':
+            feeback_link = await extract_link_from_line(link)
+
+            await wait_for_portal()
             status, top_link = await get_top_link(link) #Получаем топовую ссылку
+            if not status:
+                result = ['Ошибка, проверить страницу на актульность.', feeback_link]
+                await append_data_to_sheet_cells(service, worktable_id, worksheet_name, columns, idx + 2, result)
+                await asyncio.sleep(5)
+                continue
+
             print("top_link",top_link)
 
             soup = await get_soup(top_link)
@@ -155,30 +181,80 @@ async def grade_analysis():
             error_page = soup.find('h1')
             for er in error_page:
                 if 'Ошибка' in er.text:
-                    columns = ['Общий Url']
-                    result = ['Ошибка, проверить страницу на актульность.']
+
+                    result = ['Ошибка, проверить страницу на актульность.', feeback_link]
                     await append_data_to_sheet_cells(service, worktable_id, worksheet_name, columns, idx + 2, result)
                     await asyncio.sleep(5)
                     continue
 
+
             overall_grade = soup.find('div', class_='rating-score-2 big').text.strip()
             number_grades = soup.find('span', class_='votes').text.strip()
 
-            columns = ['Общий Url', 'Кол-во отзывов', 'Оценка компании до удаления']
-            result = [top_link, number_grades, overall_grade]
+            columns = ['Общий Url', 'Ссылка Url', 'Кол-во отзывов', 'Оценка компании до удаления']
+            result = [top_link, feeback_link, number_grades, overall_grade]
             await append_data_to_sheet_cells(service, worktable_id, worksheet_name, columns, idx + 2, result)
-
 
             await asyncio.sleep(5)
 
+        elif portal == 'nerab.ru':
+            pass
 
 
+
+
+async def total_grade_analysis(service):
+    df = await get_table_scope(service, worktable_id, worksheet_name)
+
+    data_rows = []
+    for idx, row in df.iterrows():
+        company_link = row['Общий Url']
+        feedback_counts = row['Кол-во отзывов']
+
+        if pd.isna(feedback_counts):
+            # print('Next...')
+            continue
+
+        df_mini = df[df['Общий Url'] == company_link]
+        df_mini = df_mini.drop_duplicates(subset=["Ссылка Url"])
+        df_mini["Оценка"] = pd.to_numeric(df_mini["Оценка"], errors='coerce')  # Преобразуем в числа
+
+        counts_feedback = float(df_mini['Кол-во отзывов'].iloc[-1])
+        company_rating = float(df_mini['Оценка компании до удаления'].iloc[-1])
+
+        total_sum = counts_feedback * company_rating
+        total_negative_sum = df_mini["Оценка"].sum()
+        total_negative_count = df_mini["Оценка"].count()
+
+        finish_sum = total_sum - total_negative_sum
+        finish_counts = counts_feedback - total_negative_count
+        finish_rating = round(finish_sum / finish_counts, 1)
+
+        for idx_mini, row_mini in df_mini.iterrows():
+            rating = row_mini['Оценка компании после удаления']
+
+            if pd.notnull(rating):
+                #print('Next...')
+                continue
+
+            if idx_mini not in data_rows:
+                await append_data_to_sheet_cell(service, worktable_id, worksheet_name,'Оценка компании после удаления', idx_mini + 2, finish_rating)
+                data_rows.append(idx_mini)
+
+
+
+
+
+async def main_grade():
+    service = await get_service()
+    #asyncio.run(main_vkusvill())
+
+    #asyncio.run(grade_analysis())
+    await total_grade_analysis(service)
 
 
 
 
 
 if __name__ == '__main__':
-    #asyncio.run(main_vkusvill())
-
-    asyncio.run(grade_analysis())
+    asyncio.run(main_grade())
