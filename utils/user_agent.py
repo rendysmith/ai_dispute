@@ -3,6 +3,9 @@ import urllib3.exceptions
 from playwright.async_api import async_playwright
 
 import asyncio
+import aiohttp
+from aiohttp_proxy import ProxyConnector, ProxyType
+
 import requests
 from bs4 import BeautifulSoup
 import re
@@ -39,8 +42,9 @@ async def gen_ua(url):
 
 async def get_headers(module):
     host, port = await get_one_proxy()
+    #port = '8080'
     print(host, port)
-    #port = '1080'
+
     if not host:
         return None
 
@@ -52,7 +56,7 @@ async def get_headers(module):
 
     elif module == 'pw':
         proxies = {
-            "server": "host_port",
+            "server": f"{host}:{port}",
             "username": login_proxy,  # Опционально, если прокси требует аутентификации
             "password": pass_proxy  # Опционально, если прокси требует аутентификации
         }
@@ -67,10 +71,8 @@ async def get_soup(url, only_pars=False, proxy=True):
         timeout = 30000
 
         if proxy:
-            proxies = await get_headers('soup')
-            #print(proxies)
-            #input()
-            response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
+            #proxies = await get_headers('soup')
+            response_text = await get_data_with_proxy(url)
 
         else:
             try:
@@ -134,7 +136,7 @@ async def get_soup(url, only_pars=False, proxy=True):
                 if response.status_code != 200:
                     return None
 
-        soup = BeautifulSoup(response.text, 'html.parser')
+        soup = BeautifulSoup(response_text, 'html.parser')
 
     else:
         soup = BeautifulSoup(url, 'html.parser')
@@ -158,7 +160,7 @@ async def get_selenium(url, headless=True):
     wait = WebDriverWait(driver, 10)
     return driver
 
-async def get_playwright(url, headless=True, proxy=False):
+async def get_playwright(url, headless=True, proxy=True):
     """
     :param url: url
     :param headless: headless (boot) headless=True
@@ -199,6 +201,16 @@ async def get_playwright(url, headless=True, proxy=False):
         print("ERROR PW Ex:", Ex)
         return None, None, None
 
+async def get_data_with_proxy(url):
+    proxy_host, proxy_port = await get_one_proxy()
+    connector = ProxyConnector(proxy_type=ProxyType.HTTP, host=proxy_host, port=proxy_port, username=login_proxy,
+                               password=pass_proxy)
+
+    async with aiohttp.ClientSession(connector=connector) as session:
+        async with session.get(url) as response:
+            response.raise_for_status()
+            return await response.text()
+
 async def main():
     url = 'https://irecommend.ru/content/ustraivaet-vo-vsekh-usloviyakh-ekspluatatsii'
     driver = await get_playwright(url)
@@ -211,27 +223,24 @@ async def main():
         print(2)
 
 async def tst_proxy():
-    print('---------1--------')
-    url = 'http://httpbin.org/'
+
+    print('-----------------')
+    url = 'https://ifconfig.me/all.json'
+    response = await get_data_with_proxy(url)
+    print(response)
+
     soup = await get_soup(url)
     print(soup)
 
-    print('---------http--------')
-    url = 'http://government.ru/'
-    soup = await get_soup(url)
-    print(soup)
 
     print('---------2--------')
     url = 'https://api.ipify.org?format=json'
     soup = await get_soup(url)
     print(soup)
 
-    print('-----------------')
-    url = 'https://ifconfig.me/all.json'
-    soup = await get_soup(url)
-    print(soup['ip_addr'])
+
 
 
 if "__main__" in __name__:
-    #asyncio.run(get_playwright('https://vk.com/wall-7871245_252922?reply=253324&thread=252946', headless=False))
-    asyncio.run(tst_proxy())
+    asyncio.run(get_playwright('https://yandex.ru/maps/org/149979773456/reviews', headless=False))
+    #asyncio.run(tst_proxy())

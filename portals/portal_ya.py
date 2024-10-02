@@ -1,6 +1,8 @@
 import asyncio
+import json
 import random
 import os
+import re
 
 from datetime import datetime, timedelta
 
@@ -51,9 +53,19 @@ def find_key_path(dct, target_key, path = None):
             if result:
                 return result
 
-async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
-    url_split = url.split('/')
-    id_org = url_split[5]
+async def check_ya_2(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
+    links = await pars_url(service, ss_id, project)
+    ts = random.randint(5, max_sec)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
+
+    if not page:
+        return 'Сайт не отдал данные.'
+
+    url = page.url
+
+    id_org = await get_id_org(url)
+
     top_url = f'https://yandex.ru/maps/org/{id_org}'
 
     datas = {'project': project,
@@ -64,9 +76,78 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, 
 
     print(f"New link = {url}")
 
-    #playwright, browser, page = await get_playwright(url, headless=False)
-    #playwright, browser, page = await get_playwright(url)
 
+    await page.evaluate("document.body.style.zoom=0.5")
+
+    reviews_data = None
+
+    TARGET_URL_PATTERN = r'/maps/api/business/fetchReviews\?.*'
+
+    async def handle_response(response):
+        nonlocal reviews_data
+        if 'fetchReviews' in response.url and re.match(TARGET_URL_PATTERN, response.url):
+            try:
+                reviews_data = await response.json()
+                print(f"Перехвачен JSON-ответ fetchReviews с URL: {response.url}")
+            except json.JSONDecodeError:
+                print(f"Не удалось декодировать JSON с URL: {response.url}")
+
+    # Устанавливаем обработчик для всех ответов
+    page.on("response", handle_response)
+    await page.goto(top_url + '/reviews')
+
+    for n in range(12):
+        if n == 10:
+            await browser.close()
+            await playwright.stop()
+            return 'Сайт не отдал данные'
+
+        try:
+            #button_default = await page.query_selector('div[class="rating-ranking-view"]')
+            button_default = await page.wait_for_selector('div[class="rating-ranking-view"]', timeout=timeout)
+            await button_default.click()
+            #await asyncio.sleep(1)
+            print('Click role...')
+
+            #button_new = await page.query_selector('div[class="rating-ranking-view__popup-line"][aria-label="По новизне"]')
+            button_new = await page.wait_for_selector('div[class="rating-ranking-view__popup-line"][role="button"]', timeout=timeout)
+            print('- 1')
+            button_new = await page.query_selector_all('div[class="rating-ranking-view__popup-line"][role="button"]')
+            print(len(button_new))
+            print('- 2')
+            await button_new[1].click()
+            print('- 3')
+            #await asyncio.sleep(3)
+            break
+
+        except Exception as Ex:
+            print(f"Попытка не удалась: {Ex}")
+            if n == 5:  # Если не последняя попытка
+                await page.reload()  # Перезагрузить страницу
+
+            elif n == 10:
+                await browser.close()
+                await playwright.stop()
+                return 'Не удалось нажать на кнопку.'  # Вернуть ошибку
+
+    await asyncio.sleep(5)
+
+
+
+
+    input('Stop')
+
+
+
+
+async def get_id_org(url):
+    url_split = url.split('/')
+    for k, v in enumerate(url_split):
+        if v.isdigit():
+            return v
+
+
+async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     links = await pars_url(service, ss_id, project)
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
@@ -77,6 +158,21 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, 
         # await playwright.stop()
         return 'Сайт не отдал данные.'
 
+    url = page.url
+
+    id_org = await get_id_org(url)
+
+    top_url = f'https://yandex.ru/maps/org/{id_org}'
+
+    datas = {'project': project,
+             'url': url,
+             'top_url': top_url}
+
+    await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+
+    print(f"New link = {url}")
+
+    await page.goto(top_url + '/reviews')
     await page.evaluate("document.body.style.zoom=0.5")
 
     print('=> Rating By date')
@@ -92,10 +188,16 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, 
             button_default = await page.wait_for_selector('div[class="rating-ranking-view"]', timeout=timeout)
             await button_default.click()
             #await asyncio.sleep(1)
+            print('Click role...')
 
             #button_new = await page.query_selector('div[class="rating-ranking-view__popup-line"][aria-label="По новизне"]')
-            button_new = await page.wait_for_selector('div[class="rating-ranking-view__popup-line"][aria-label="По новизне"]', timeout=timeout)
-            await button_new.click()
+            button_new = await page.wait_for_selector('div[class="rating-ranking-view__popup-line"][role="button"]', timeout=timeout)
+            print(1)
+            button_new = await page.query_selector_all('div[class="rating-ranking-view__popup-line"][role="button"]')
+            print(len(button_new))
+            print(2)
+            await button_new[1].click()
+            print(3)
             #await asyncio.sleep(3)
             break
 
@@ -238,8 +340,8 @@ async def main():
     #url = 'https://yandex.kz/maps/org/schastye/187776871438/reviews/?ll=66.272509%2C56.632288&utm_source=review&z=16'
     #url = 'https://yandex.kz/maps/org/krylya/115857625887/reviews/?ll=65.263154%2C57.147658&utm_source=review&z=16'
 
-    playwright, browser, page = await get_playwright(url)
-    await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, playwright, browser, page)
+    playwright, browser, page = await get_playwright(url, headless=False)
+    await check_ya_2(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, playwright, browser, page)
 
 if __name__ == '__main__':
     asyncio.run(main())
