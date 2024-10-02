@@ -33,6 +33,7 @@ text = """
 Ты должен внимательно прочитать комментарий:
 --------------------START COMMENT----------------------
 Author: {author}
+Object: {object}
 Comment: {comment}
 --------------------END COMMENT----------------------
 Ваша цель - написать последовательные ответы, которые укрепят репутацию бренда. 
@@ -58,7 +59,7 @@ Comment: {comment}
 - Четыре горизонта
 - Болконский
 
-Ты получил набор данных: ОТЗЫВ, ИМЯ, МЕСТОПОЛОЖЕНИЕ. Ты должен вернуть ТОЛЬКО ответ.
+Ты получил набор данных: ИМЯ, МЕСТОПОЛОЖЕНИЕ, ОТЗЫВ. Ты должен вернуть ТОЛЬКО ответ.
 Для примера ты можешь использовать образцы текста и ответа на них:
 --------------------START PATTERN----------------------
 {patterns}
@@ -109,7 +110,7 @@ async def ai_reaction_data_processing(service, auth, market):
         author = row['Имя автора']
         object = row['Объект']
 
-        prompt = text.format(author=author, comment=comment, patterns=patterns)
+        prompt = text.format(author=author, comment=comment, patterns=patterns, object=object)
 
         result = await get_answer_ai(auth, prompt)
 
