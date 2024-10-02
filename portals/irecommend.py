@@ -118,7 +118,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
 async def main(url):
     from utils.gs_editor import get_service
     service = await get_service()
-    await check_irecommend(service, url, 1,1,'1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w','Кордиант')
+    await check_irecommend(service, url, 1,1,'1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w',1)
 
 if "__main__" in __name__:
     url = "https://irecommend.ru/content/podderzhka-super-dazhe-za-rubezhom-nikakikh-yazykovykh-barerov-i-nikakogo-moroza-ne-po-print"

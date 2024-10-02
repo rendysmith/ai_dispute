@@ -72,7 +72,9 @@ async def get_soup(url, only_pars=False):
         timeout = 30000
 
         response = requests.get(url, headers=headers, timeout=timeout)
-        if response.status_code == 200:
+        status_code = response.status_code
+        print(f'Status code = {status_code}')
+        if status_code == 200:
             response_text = response.text
 
         else:
@@ -200,5 +202,5 @@ async def tst_proxy():
 
 
 if "__main__" in __name__:
-    asyncio.run(get_playwright('https://yandex.ru/maps/org/149979773456/reviews', headless=False))
-    #asyncio.run(tst_proxy())
+    #asyncio.run(get_playwright('https://yandex.ru/maps/org/149979773456/reviews', headless=False))
+    asyncio.run(tst_proxy())

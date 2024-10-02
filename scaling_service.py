@@ -96,7 +96,7 @@ async def time_out_on(async_func, timeout=180, **kwargs):
         return None
 
     except Exception as Ex:  # Обработка других исключений
-        await fix_error(service, project, link, f"Error Ex: {Ex}")
+        await fix_error(service, project, link, f"Error TOO Ex: {Ex}")
         print(f"Error Ex: Произошла ошибка: {Ex}")
         return None
 
@@ -134,7 +134,7 @@ async def time_out_play(async_func, timeout=180, **kwargs):
         status = None
 
     except Exception as Ex:  # Обработка других исключений
-        await fix_error(service, project, link, f"Error Ex: {Ex}")
+        await fix_error(service, project, link, f"Error TOP Ex: {Ex}")
         print(f"Error PLAY Ex: Произошла ошибка: {Ex}")
         traceback.print_exc()
         status = None
