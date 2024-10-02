@@ -46,7 +46,7 @@ async def get_top_link(link):
 
         top_link = soup.find('h1', {"class": "product-name"})
         top_url = "https://otzovik.com" + top_link.find('a')['href'] + '?order=date_desc'
-        print("top_url", top_url)
+        print("+ top_url", top_url)
         return True, top_url
 
     except Exception as Ex:
@@ -105,18 +105,20 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
             return
 
         author = block.find("span", {"itemprop": "name"}).text
-
         feedback = block.find("div", {"class": "review-body-wrap"}).text
 
-        await generate_and_white(service=service,
-                                 url_answer=url_answer,
-                                 author=author,
-                                 formatted_date=formatted_date,
-                                 ss_id=ss_id,
-                                 project=project,
-                                 feedback=feedback,
-                                 pattern=pattern,
-                                 criteria=criteria)
+        try:
+            await generate_and_white(service=service,
+                                     url_answer=url_answer,
+                                     author=author,
+                                     formatted_date=formatted_date,
+                                     ss_id=ss_id,
+                                     project=project,
+                                     feedback=feedback,
+                                     pattern=pattern,
+                                     criteria=criteria)
+        except:
+            print('No generate!')
 
 # async def ya_soup():
 #     url = 'https://otzovik.com/review_14926330.html?&capt4a=4291688985409980'
@@ -147,14 +149,15 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
 
 async def main_otzovik():
     service = await get_service()
-    url = 'https://otzovik.com/review_16566023.html'
+    url = 'https://otzovik.com/review_16549731.html'
+    url = 'https://otzovik.com/review_14095857.html'
     await check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
 
 
 if __name__ == '__main__':
-    url = 'https://otzovik.com/review_16566023.html'
-    url = 'https://otzovik.com/reviews/serial_grotesk_2024/'
-    a = asyncio.run(get_top_link(url))
-    print(a)
+    # url = 'https://otzovik.com/review_16566023.html'
+    # url = 'https://otzovik.com/review_16549731.html'
+    # a = asyncio.run(get_top_link(url))
+    # print(a)
 
-    #asyncio.run(main_otzovik())
+    asyncio.run(main_otzovik())

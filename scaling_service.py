@@ -410,8 +410,6 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                print('otzovik Бывают баны по IP')
-
                 status = await time_out_on(check_otzovik,
                                            service=service,
                                            link=link,

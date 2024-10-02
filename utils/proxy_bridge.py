@@ -135,7 +135,7 @@ async def get_one_proxy():
             one_proxy = await response.text()
             data = one_proxy.split(':')
             #print(type(data))
-            print(data)
+            print('Proxy', data)
             return data[0], data[1]
 
 async def change_setip(ip):

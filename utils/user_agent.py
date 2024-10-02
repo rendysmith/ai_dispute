@@ -1,4 +1,5 @@
 import urllib3.exceptions
+from aiohttp import ClientResponse, ClientHttpProxyError
 
 from playwright.async_api import async_playwright
 
@@ -64,77 +65,28 @@ async def get_headers(module):
     return proxies
 
 
-async def get_soup(url, only_pars=False, proxy=True):
+async def get_soup(url, only_pars=False):
     if only_pars == False:
         domen = await extract_main_site(url)
         headers = await gen_ua(domen)
         timeout = 30000
 
-        if proxy:
-            #proxies = await get_headers('soup')
-            response_text = await get_data_with_proxy(url)
+        response = requests.get(url, headers=headers, timeout=timeout)
+        if response.status_code == 200:
+            response_text = response.text
 
         else:
+            #proxies = await get_headers('soup')
             try:
-                response = requests.get(url, headers=headers, timeout=timeout)
-                print('No proxy!')
+                response_text = await get_data_with_proxy(url)
 
-            except requests.exceptions.ConnectTimeout as CT:
-                try:
-                    print(f'Error CT: {CT}')
-                    proxies = await get_headers('soup')
-                    response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
+            except ClientHttpProxyError as CHPE:
+                print(CHPE)
+                response_text = await get_data_with_proxy(url)
 
-                except:
-                    return None
-
-            except requests.exceptions.ProxyError as PE:
-                try:
-                    print(f'Error PE: {PE}')
-                    proxies = await get_headers('soup')
-                    response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
-                except:
-                    return None
-
-            except requests.exceptions.Timeout as To:
-                try:
-                    print(f'Error To: {To}')
-                    proxies = await get_headers('soup')
-                    response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
-                except:
-                    return None
-
-            except urllib3.exceptions.ConnectTimeoutError as CTE:
-                try:
-                    print(f'Error CTE: {CTE}')
-                    proxies = await get_headers('soup')
-                    response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
-                except:
-                    return None
-
-            except urllib3.exceptions.MaxRetryError as MRE:
-                try:
-                    print(f'Error MRE: {MRE}')
-                    proxies = await get_headers('soup')
-                    response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
-                except:
-                    return None
-
-            except requests.exceptions.RequestException as RE:
-                try:
-                    print(f'Error RE: {RE}')
-                    proxies = await get_headers('soup')
-                    response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
-                except:
-                    return None
-
-            if response.status_code != 200:
-                print(response.status_code)
-                proxies = await get_headers('soup')
-                response = requests.get(url, headers=headers, proxies=proxies, timeout=timeout)
-
-                if response.status_code != 200:
-                    return None
+            except Exception as Ex:
+                print(f'Proxy Ex: {Ex}')
+                return None
 
         soup = BeautifulSoup(response_text, 'html.parser')
 
@@ -202,14 +154,20 @@ async def get_playwright(url, headless=True, proxy=True):
         return None, None, None
 
 async def get_data_with_proxy(url):
-    proxy_host, proxy_port = await get_one_proxy()
-    connector = ProxyConnector(proxy_type=ProxyType.HTTP, host=proxy_host, port=proxy_port, username=login_proxy,
-                               password=pass_proxy)
+    for i in range(5):
+        proxy_host, proxy_port = await get_one_proxy()
+        connector = ProxyConnector(proxy_type=ProxyType.HTTP, host=proxy_host, port=proxy_port, username=login_proxy,
+                                   password=pass_proxy)
 
-    async with aiohttp.ClientSession(connector=connector) as session:
-        async with session.get(url) as response:
-            response.raise_for_status()
-            return await response.text()
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.get(url) as response:
+                try:
+                    response.raise_for_status()
+                    return await response.text()
+
+                except Exception as Ex:
+                    print(f"{i} Error Proxy Ex: {Ex}")
+                    await asyncio.sleep(5)
 
 async def main():
     url = 'https://irecommend.ru/content/ustraivaet-vo-vsekh-usloviyakh-ekspluatatsii'
