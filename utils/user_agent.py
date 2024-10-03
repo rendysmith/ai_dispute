@@ -78,12 +78,7 @@ async def get_soup(url, only_pars=False):
             response_text = response.text
 
         else:
-            #proxies = await get_headers('soup')
             try:
-                response_text = await get_data_with_proxy(url)
-
-            except ClientHttpProxyError as CHPE:
-                print(CHPE)
                 response_text = await get_data_with_proxy(url)
 
             except Exception as Ex:
