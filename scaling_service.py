@@ -107,11 +107,13 @@ async def time_out_on(async_func, timeout=180, **kwargs):
     except asyncio.TimeoutError as TE:
         await fix_error(service, project, link, f"TimeOut {TE}")
         print(f"Error TE: Задача была отменена из-за таймаута. {TE}")
+        traceback.print_exc()
         return None
 
     except Exception as Ex:  # Обработка других исключений
         await fix_error(service, project, link, f"Error TOO Ex: {Ex}")
-        print(f"Error Ex: Произошла ошибка: {Ex}")
+        print(f"Error TOO Ex: {Ex}")
+        traceback.print_exc()
         return None
 
 async def time_out_play(async_func, timeout=180, **kwargs):
@@ -191,9 +193,11 @@ async def start_zoom(service):
         if 'Проект' in project:
             continue
 
+        #-----------------------------------------------------
         # if project not in project_on: #Не берем в работу те у кого не стоит галочка
         #     print(f"Пропускаем - {project}")
         #     continue
+        # -----------------------------------------------------
 
         #Если дата не совпадает с сегодняшней
         filtered_logs = df_logs[df_logs['service_name'] == project]
@@ -208,8 +212,8 @@ async def start_zoom(service):
 
             #Пропуск по IP
             host_logs = df_logs.loc[idx_logs, 'reserve']
-            print(host_logs, local_ip)
             if host_logs != local_ip:
+                print('Skip:', host_logs, local_ip)
                 continue
 
         else:

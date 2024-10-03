@@ -86,7 +86,7 @@ async def check_youtube(service, url, pattern, criteria, ss_id, project, playwri
             continue
 
         except Exception as Ex:
-            print('Error Ex', Ex)
+            print('Error YT Ex', Ex)
             continue
 
         feedback_text =  await block.query_selector('span[class="yt-core-attributed-string yt-core-attributed-string--white-space-pre-wrap"]')

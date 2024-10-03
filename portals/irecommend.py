@@ -65,7 +65,11 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
 
     try:
         blocks = soup.find_all("div", {"data-photos-count": '0', "data-type": "1"})
-        print(len(blocks))
+        len_b = len(blocks)
+        print(f'Leb blocks = {len_b}')
+        if len_b == 0:
+            return
+
     except:
         return 'Возможно сработала защита Cloudflore'
 

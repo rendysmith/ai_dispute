@@ -134,7 +134,7 @@ async def get_answer_ai(auth: HTTPBasicAuth, prompt: str):
             await asyncio.sleep(1)
 
         except Exception as Ex:
-            print(f'ERROR Ex: {Ex}')
+            print(f'ERROR AI Ex: {Ex}')
 
             if try_n == 10:
                 return f"{random_host} {response.status_code}"
