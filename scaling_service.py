@@ -2,6 +2,8 @@ import os.path
 import time
 import traceback
 from datetime import datetime
+
+import pandas as pd
 import requests
 
 import asyncio
@@ -153,9 +155,18 @@ async def start_zoom(service):
 
     df = await get_table_scope(service, ss_id, 'zoom')
     #print(df)
+    idx_num_row = df.index[df['Проект'] == 'Кол-во строк'].tolist()[0]
+    print(idx_num_row)
+    df_counts = pd.Series(df.iloc[idx_num_row].values, index=df.columns).reset_index()
+    df_counts[0] = pd.to_numeric(df_counts[0], errors='coerce')
+    # Удаляем строки с NaN значениями в указанной колонке
+    df_counts = df_counts.dropna(subset=[0])
+    df_counts = df_counts.sort_values(by=0)
+    #print(df_counts)
 
-    list_ = list(df)
-    random.shuffle(list_)
+    list_ = df_counts['index'].to_list()
+    #print(list_)
+    #random.shuffle(list_)
 
     df_uniq = await get_table_scope(service, ss_id, 'unique_url')
 
