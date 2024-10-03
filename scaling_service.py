@@ -36,6 +36,18 @@ from utils.user_agent import get_playwright
 ss_id = TABLES_LIST['zoom']
 current_date = datetime.now().strftime("%d.%m.%Y")
 
+async def get_set():
+    url = 'http://konstyaj.beget.tech/demo/wp-start/wp-json/custom/v1/projects'
+    r = requests.get(url)
+    status_code = r.status_code
+    if status_code == 200:
+        project_on = [i['project'] for i in r.json() if i['publish'] == '1']
+        print(project_on)
+        return project_on
+
+    else:
+        return []
+
 async def get_local_ip():
     url = 'https://api.myip.com/'
     r = requests.get(url)
@@ -150,6 +162,8 @@ async def time_out_play(async_func, timeout=180, **kwargs):
 
 
 async def start_zoom(service):
+    project_on = await get_set()
+
     local_ip = await get_local_ip()
     print('local_ip', local_ip)
 
@@ -176,6 +190,10 @@ async def start_zoom(service):
     for project in list_:
         if 'Проект' in project:
             continue
+
+        # if project not in project_on: #Не берем в работу те у кого не стоит галочка
+        #     print(f"Пропускаем - {project}")
+        #     continue
 
         #Если дата не совпадает с сегодняшней
         filtered_logs = df_logs[df_logs['service_name'] == project]
