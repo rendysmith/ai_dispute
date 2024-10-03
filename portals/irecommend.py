@@ -28,8 +28,9 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
 
     soup = await get_soup(link)
     if not soup:
-        return 'Сайт не отдал данные!'
-    #print(soup)
+        no_data = 'Сайт не отдал данные!'
+        print('Irecommend', no_data)
+        return no_data
 
     try:
         denied = soup.find('h1', {'class': 'largestHeader'}).text
@@ -125,7 +126,7 @@ async def main(url):
     await check_irecommend(service, url, 1,1,'1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w',1)
 
 if "__main__" in __name__:
-    url = "https://irecommend.ru/content/otlichnyi-servis-v-sberstrakhovanii-i-eto-pri-samoi-deshevoi-stoimosti-strakhovki-chto-ya-na"
+    url = "https://irecommend.ru/content/mne-zaplatili-dengi-po-polisu-zashchita-dom"
     #top_url = "https://irecommend.ru/content/cordiant-snow-cross-2"
     #print(top_url)
 

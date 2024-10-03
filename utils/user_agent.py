@@ -77,9 +77,15 @@ async def get_soup(url, only_pars=False):
         if status_code == 200:
             response_text = response.text
 
+        elif status_code == 403:
+            print('403 - необходима регистрация.')
+            return None
+
         else:
             try:
                 response_text = await get_data_with_proxy(url)
+                if not response_text:
+                    return None
 
             except Exception as Ex:
                 print(f'Proxy Ex: {Ex}')
@@ -159,6 +165,11 @@ async def get_data_with_proxy(url):
         async with aiohttp.ClientSession(connector=connector) as session:
             async with session.get(url) as response:
                 try:
+                    status_code = response.status
+                    print("Status:", status_code)
+                    if status_code == 403:
+                        return None
+
                     response.raise_for_status()
                     return await response.text()
 
