@@ -110,10 +110,14 @@ async def check_otvet_soup(service, link, pattern, criteria, ss_id, project):
 
     if datas.get('@graph'):
         blocks = datas['@graph']
+        if len(blocks) == 0:
+            return
         print('--- Новые данные!!!')
 
     elif datas.get('result'):
         blocks = datas['result']['answers']
+        if len(blocks) == 0:
+            return
 
         for block in blocks:
             date_content = block['created_at']

@@ -26,7 +26,6 @@ days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
 async def extract_ids(url):
-    print(url)
     pattern = r'id=(\d+)'
     ids = re.search(pattern, url).group(1)
     return ids
@@ -36,7 +35,6 @@ async def check_ocompanii(service, url, pattern, criteria, ss_id, project):
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
-    print(url)
     links = await pars_url(service, ss_id, project)
     domen = "https://ocompanii.net"
     headers = await gen_ua(domen)
@@ -46,7 +44,11 @@ async def check_ocompanii(service, url, pattern, criteria, ss_id, project):
     soup = BeautifulSoup(response.text, 'html.parser')
 
     blocks = soup.find_all('div', class_='col-sm-12 col-md-12')
-    print(len(blocks))
+    len_b = len(blocks)
+    print(f'Len B = {len_b}')
+
+    if len_b == 0:
+        return
 
     for block in blocks:
         #print('**************************************')

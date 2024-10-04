@@ -42,7 +42,7 @@ async def get_set():
     status_code = r.status_code
     if status_code == 200:
         project_on = [i['project'] for i in r.json() if i['publish'] == '1']
-        print(project_on)
+        #print(project_on)
         return project_on
 
     else:
@@ -181,7 +181,7 @@ async def start_zoom(service):
     #print(df_counts)
 
     list_ = df_counts['index'].to_list()
-    #print(list_)
+    print(list_)
     #random.shuffle(list_)
 
     df_uniq = await get_table_scope(service, ss_id, 'unique_url')
@@ -254,6 +254,7 @@ async def start_zoom(service):
 
                 company = await extract_company_name(pattern, link) #Наименование компании в pravda-sotrudnikov.ru
                 if company in list_links:
+                    print('Ссылка уже проверена.')
                     continue
                 else:
                     list_links.append(company)
@@ -276,6 +277,7 @@ async def start_zoom(service):
             elif 'ocompanii' in link:
                 link = 'https://ocompanii.net/company/information.php?cid=764047'
                 if link in list_links:
+                    print('Ссылка уже проверена.')
                     continue
 
                 else:
@@ -301,6 +303,7 @@ async def start_zoom(service):
                 pattern = r'(https://dreamjob\.ru/employers/\d+)'
                 link_company = await extract_company_name(pattern, link)
                 if link_company in list_links:
+                    print('Ссылка уже проверена.')
                     continue
 
                 else:
@@ -334,6 +337,7 @@ async def start_zoom(service):
                     link = top_df.loc[0, 'top_url']
 
                 if link in list_links:
+                    print('Ссылка уже проверена.')
                     continue
 
                 else:
@@ -361,6 +365,7 @@ async def start_zoom(service):
                 link = f"https://www.sravni.ru/{link_company}/otzyvy/"
 
                 if link in list_links:
+                    print('Ссылка уже проверена.')
                     continue
 
                 else:
@@ -380,6 +385,7 @@ async def start_zoom(service):
             # ---------------------------------------------------------------------------------------------------------
             elif 'drive2.ru' in link:
                 if link in list_links:
+                    print('Ссылка уже проверена.')
                     continue
 
                 else:
@@ -409,6 +415,7 @@ async def start_zoom(service):
                     link = top_df.loc[0, 'top_url']
 
                 if link in list_links:
+                    print('Ссылка уже проверена.')
                     continue
 
                 else:
@@ -438,6 +445,7 @@ async def start_zoom(service):
                     link = top_df.loc[0, 'top_url']
 
                 if link in list_links:
+                    print('Ссылка уже проверена.')
                     continue
 
                 else:
@@ -456,6 +464,7 @@ async def start_zoom(service):
             #---------------------------------------------------------------------------------------------------------
             elif 'dzen.ru' in link:
                 if link in list_links:
+                    print('Ссылка уже проверена.')
                     continue
 
                 else:
@@ -474,6 +483,7 @@ async def start_zoom(service):
             # ---------------------------------------------------------------------------------------------------------
             elif 'youtube' in link:
                 if link in list_links:
+                    print('Ссылка уже проверена.')
                     continue
 
                 else:
@@ -497,6 +507,7 @@ async def start_zoom(service):
             elif 'aplaut.io' in link:
                 link = 'https://app.aplaut.io/b/reviews'
                 if link in list_links:
+                    print('Ссылка уже проверена.')
                     continue
 
                 else:
@@ -543,6 +554,7 @@ async def start_zoom(service):
                             continue
 
                 if link_company in list_links:
+                    print('Ссылка уже проверена.')
                     continue
 
                 else:
@@ -577,6 +589,7 @@ async def start_zoom(service):
                     link = top_df.loc[0, 'top_url']
 
                 if link in list_links:
+                    print('Ссылка уже проверена.')
                     continue
 
                 else:
@@ -595,6 +608,7 @@ async def start_zoom(service):
             # ---------------------------------------------------------------------------------------------------------
             elif 'market.yandex' in link and any(black not in link for black in black_list):
                 if link in list_links:
+                    print('Ссылка уже проверена.')
                     continue
 
                 else:
