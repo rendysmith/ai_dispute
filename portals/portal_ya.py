@@ -1,16 +1,16 @@
 import asyncio
 import json
-import random
 import os
-import re
-
+import random
 from datetime import datetime, timedelta
+from pprint import pprint
 
-from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
-from utils.ai_module import generate_and_white
-from utils.user_agent import get_playwright
-
+import requests
 from dotenv import load_dotenv
+
+from utils.ai_module import generate_and_white
+from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
+from utils.user_agent import get_playwright
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -53,9 +53,45 @@ def find_key_path(dct, target_key, path = None):
             if result:
                 return result
 
+async def get_requestId(dictionary):
+    if dictionary.get("stack"):
+        reqId_1 = dictionary['stack'][0]
+        if reqId_1.get('results'):
+            reqId_2 = dictionary['stack'][0]['results']
+
+            if reqId_2.get('requestId'):
+                reqId = reqId_2['requestId']
+
+            elif reqId_2.get('requestSerpId'):
+                reqId = reqId_2['requestSerpId']
+
+            elif reqId_2.get('items'):
+                reqId_3 = reqId_2['items'][0]
+
+                if reqId_3.get('requestId'):
+                     reqId = reqId_3['requestId']
+
+        elif reqId_1.get('response'):
+            reqId_2 = dictionary['stack'][0]['response']
+
+            if reqId_2.get('requestId'):
+                reqId = reqId_2['requestId']
+
+            elif reqId_2.get('items'):
+                reqId_3 = reqId_2['items'][0]
+
+                if reqId_3.get('requestId'):
+                     reqId = reqId_3['requestId']
+
+    print(reqId)
+    return reqId
+
+#asyncio.run(get_requestId(dic))
+#input()
+
 async def check_ya_2(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     links = await pars_url(service, ss_id, project)
-    ts = random.randint(5, max_sec)
+    ts = random.randint(5, 6)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
@@ -75,67 +111,103 @@ async def check_ya_2(service, url, pattern, criteria, ss_id, project, playwright
     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
 
     print(f"New link = {url}")
-
-
+    await page.goto(top_url + '/reviews')
     await page.evaluate("document.body.style.zoom=0.5")
 
-    reviews_data = None
+    #await page.wait_for_selector('script[class="state-view"]', timeout=timeout)
+    data_site_content = await page.query_selector('script[class="state-view"]')
+    data_site = await data_site_content.inner_text()
 
-    TARGET_URL_PATTERN = r'/maps/api/business/fetchReviews\?.*'
+    dictionary = json.loads(data_site)
+    #pprint(dictionary)
 
-    async def handle_response(response):
-        nonlocal reviews_data
-        if 'fetchReviews' in response.url and re.match(TARGET_URL_PATTERN, response.url):
-            try:
-                reviews_data = await response.json()
-                print(f"Перехвачен JSON-ответ fetchReviews с URL: {response.url}")
-            except json.JSONDecodeError:
-                print(f"Не удалось декодировать JSON с URL: {response.url}")
+    if dictionary['stack'][0].get("results"):
+        reviews = dictionary['stack'][0]['results']['items'][0]['reviewResults']['reviews']
 
-    # Устанавливаем обработчик для всех ответов
-    page.on("response", handle_response)
-    await page.goto(top_url + '/reviews')
+    elif dictionary['stack'][0].get("response"):
+        reviews = dictionary['stack'][0]['response']['items'][0]['reviewResults']['reviews']
 
-    for n in range(12):
-        if n == 10:
-            await browser.close()
-            await playwright.stop()
-            return 'Сайт не отдал данные'
+    len_r = len(reviews)
 
-        try:
-            #button_default = await page.query_selector('div[class="rating-ranking-view"]')
-            button_default = await page.wait_for_selector('div[class="rating-ranking-view"]', timeout=timeout)
-            await button_default.click()
-            #await asyncio.sleep(1)
-            print('Click role...')
+    if len_r == 0:
+        await browser.close()
+        await playwright.stop()
+        return
 
-            #button_new = await page.query_selector('div[class="rating-ranking-view__popup-line"][aria-label="По новизне"]')
-            button_new = await page.wait_for_selector('div[class="rating-ranking-view__popup-line"][role="button"]', timeout=timeout)
-            print('- 1')
-            button_new = await page.query_selector_all('div[class="rating-ranking-view__popup-line"][role="button"]')
-            print(len(button_new))
-            print('- 2')
-            await button_new[1].click()
-            print('- 3')
-            #await asyncio.sleep(3)
-            break
+    for rew in reviews:
+        #pprint(rew)
+        if rew.get('text'):
+            date_content = rew['updatedTime']
+            date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
+            if (current_date - date) > timedelta(days=days_ago):
+                print(f'--- Отзыв старше {days_ago} дней. = {date}')
+                continue
 
-        except Exception as Ex:
-            print(f"Попытка не удалась: {Ex}")
-            if n == 5:  # Если не последняя попытка
-                await page.reload()  # Перезагрузить страницу
+            author = rew['author']['name']
+            #print(author)
 
-            elif n == 10:
-                await browser.close()
-                await playwright.stop()
-                return 'Не удалось нажать на кнопку.'  # Вернуть ошибку
+            url_answer = rew['reviewId']
+            #print(url_answer)
+            if url_answer in links:
+                print('Такой комментарий уже есть в списке')
+                continue
 
-    await asyncio.sleep(5)
+            feedback = rew['text']
+            print(feedback)
+
+            formatted_date = date.strftime("%d.%m.%Y")
+            # print(formatted_date)
+
+            await generate_and_white(service=service,
+                                     url_answer=url_answer,
+                                     author=author,
+                                     formatted_date=formatted_date,
+                                     ss_id=ss_id,
+                                     project=project,
+                                     feedback=feedback,
+                                     pattern=pattern,
+                                     criteria=criteria)
+    #
+    await browser.close()
+    await playwright.stop()
+    #
+    #
+    #
+    #
+    #
+    # print('**************************************************')
+    # businessId = id_org
+    # csrfToken = dictionary['config']['csrfToken']
+    # print(csrfToken)
+    #
+    # print('----------------------------------')
+    #
+    # reqId = await get_requestId(dictionary)
+    # print(reqId)
+    #
+    # sessionId = dictionary['config']['counters']['analytics']['sessionId']
+    # print(sessionId)
+    #
+    # url = (f'https://yandex.kz/maps/api/business/fetchReviews?ajax=1'
+    #        f'&businessId={businessId}'
+    #        f'&csrfToken={csrfToken}'
+    #        f'&locale=ru_KZ'
+    #        f'&page=1'
+    #        f'&pageSize=50'
+    #        f'&ranking=by_time'
+    #        f'&reqId={reqId}'
+    #        f'&s=2862124894'
+    #        f'&sessionId={sessionId}')
+    #
+    # print(url)
+    # r = requests.get(url)
+    # print(r)
+    #
+    # print(r.json())
+    #
 
 
 
-
-    input('Stop')
 
 
 
@@ -146,8 +218,7 @@ async def get_id_org(url):
         if v.isdigit():
             return v
 
-
-async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
+async def check_ya_old(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     links = await pars_url(service, ss_id, project)
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
@@ -336,7 +407,7 @@ async def main():
     service = await get_service()
 
     url = 'https://yandex.ru/maps/org/artstudio_moskovsky/125846534919/?ll=30.329628%2C59.907103&mode=search&sll=30.301828%2C59.912472&sspn=0.022573%2C0.006756&text=Artstudio%20Moskovsky&z=14.86'
-    url = 'https://yandex.ru/maps/org/124956693444/reviews'
+    #url = 'https://yandex.ru/maps/org/124956693444/reviews'
     #url = 'https://yandex.kz/maps/org/schastye/187776871438/reviews/?ll=66.272509%2C56.632288&utm_source=review&z=16'
     #url = 'https://yandex.kz/maps/org/krylya/115857625887/reviews/?ll=65.263154%2C57.147658&utm_source=review&z=16'
 
