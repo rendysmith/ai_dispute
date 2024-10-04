@@ -89,9 +89,9 @@ async def get_requestId(dictionary):
 #asyncio.run(get_requestId(dic))
 #input()
 
-async def check_ya_2(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
+async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     links = await pars_url(service, ss_id, project)
-    ts = random.randint(5, 6)
+    ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
@@ -126,6 +126,9 @@ async def check_ya_2(service, url, pattern, criteria, ss_id, project, playwright
 
     elif dictionary['stack'][0].get("response"):
         reviews = dictionary['stack'][0]['response']['items'][0]['reviewResults']['reviews']
+
+    else:
+        reviews = []
 
     len_r = len(reviews)
 

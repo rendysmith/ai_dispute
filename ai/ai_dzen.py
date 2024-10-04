@@ -22,6 +22,9 @@ next_month = now_time + timedelta(days=30)  # Прибавляет 30 дней
 worksheet_name = next_month.strftime("%b_%Y") + '_economy'
 print(worksheet_name)
 
+worksheet_name_2 = now_time.strftime("%b_%Y") + '_economy'
+print(worksheet_name_2)
+
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
@@ -127,7 +130,12 @@ async def ai_generate_article_economy(service, auth, project):
     worktable_id = TABLES_LIST[project][0]
 
     print(worktable_id, worksheet_name)
-    df = await get_table_scope(service, worktable_id, worksheet_name)
+    try:
+        df = await get_table_scope(service, worktable_id, worksheet_name)
+
+    except:
+        df = await get_table_scope(service, worktable_id, worksheet_name_2)
+
     # print(list(df))
     print(df)
 

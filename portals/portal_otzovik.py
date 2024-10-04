@@ -40,7 +40,6 @@ async def convert_date(month):
 async def get_top_link(link):
     try:
         soup = await get_soup(link)
-        #print('Soup:', soup)
         if not soup:
             return False, False
 
@@ -51,8 +50,7 @@ async def get_top_link(link):
 
     except Exception as Ex:
         print(f"Error Top Link Ex: {Ex}")
-        top_url = link
-        return False, top_url
+        return False, False
 
 async def check_otzovik(service, link, pattern, criteria, ss_id, project):
     print(link)
@@ -63,6 +61,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
     status, top_url = await get_top_link(link)
     if not top_url:
         return 'Сайт не отдал данные!'
+
     print(status, top_url)
 
     if status:
@@ -150,7 +149,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
 async def main_otzovik():
     service = await get_service()
 
-    url = 'https://otzovik.com/review_13087095.html'
+    url = 'https://otzovik.com/review_15746617.html'
     await check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
 
 
