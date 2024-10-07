@@ -3,14 +3,14 @@ import asyncio
 from datetime import datetime
 
 from ai.ai_rbi_reactions import main_rbi #Обработка данных RBI
+from portals.brandanalytics import main_ba #Анализ на сайте brandanalytic
 
 from ai.ai_article import main_article #Генерация развлекательных статей
 from ai.ai_dzen import main_article_eco #Генерация экономических статей
 
-from scaling_service import main_zoom #Запуск парсинга масштабирования
 from load_distribution import main_distribution #Распределение сервером на масштабировании
-from portals.brandanalytics import main_ba #Анализ на сайте brandanalytic
 
+from scaling_service import main_zoom #Запуск парсинга масштабирования
 
 async def main_total():
     now = datetime.now()
@@ -30,5 +30,5 @@ async def main_total():
         pass
 
 if __name__ == '__main__':
-    asyncio.run(main_article_eco())
+    asyncio.run(main_distribution())
     print('OK!')

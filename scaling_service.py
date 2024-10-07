@@ -162,7 +162,6 @@ async def time_out_play(async_func, timeout=180, **kwargs):
         print('-- Close browser and playwright is OK!')
         return status
 
-
 async def start_zoom(service):
     project_on = await get_set()
 
@@ -187,7 +186,7 @@ async def start_zoom(service):
     df_uniq = await get_table_scope(service, ss_id, 'unique_url')
 
     df_logs = await get_table_scope(service, ss_id, 'logs')
-    #print(df_logs)
+    print(df_logs)
 
     for project in list_:
         if 'Проект' in project:
@@ -207,8 +206,8 @@ async def start_zoom(service):
             #Пропуск по дате
             date_logs = df_logs.loc[idx_logs, 'date']
             if date_logs == current_date:
-                print()
-                #continue
+                #print()
+                continue
 
             #Пропуск по IP
             host_logs = df_logs.loc[idx_logs, 'reserve']

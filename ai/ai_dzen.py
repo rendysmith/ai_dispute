@@ -14,16 +14,7 @@ from utils.ai_module import get_answer_ai
 from utils.constants import TABLES_LIST
 from utils.gs_editor import get_table_scope, get_service, write_log_sheet, append_data_to_sheet_cell
 
-now_time = datetime.now()
-current_date = now_time.strftime("%d.%m.%Y")
-print(current_date)
 
-next_month = now_time + timedelta(days=30)  # Прибавляет 30 дней
-worksheet_name = next_month.strftime("%b_%Y") + '_economy'
-print(worksheet_name)
-
-worksheet_name_2 = now_time.strftime("%b_%Y") + '_economy'
-print(worksheet_name_2)
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -125,18 +116,30 @@ async def get_articles():
 
 
 async def ai_generate_article_economy(service, auth, project):
+    now_time = datetime.now()
+    current_date = now_time.strftime("%d.%m.%Y")
+    print(current_date)
+
+    next_month = now_time + timedelta(days=30)  # Прибавляет 30 дней
+    worksheet_name = next_month.strftime("%b_%Y") + '_economy'
+    print(worksheet_name)
+
+    worksheet_name_2 = now_time.strftime("%b_%Y") + '_economy'
+    print(worksheet_name_2)
+
     df_aricles = await get_articles()
 
     worktable_id = TABLES_LIST[project][0]
 
-    print(worktable_id, worksheet_name)
     try:
         df = await get_table_scope(service, worktable_id, worksheet_name)
 
     except:
         df = await get_table_scope(service, worktable_id, worksheet_name_2)
+        worksheet_name = worksheet_name_2
 
-    # print(list(df))
+    print(worktable_id, worksheet_name)
+
     print(df)
 
     for idx, row in df.iterrows():
@@ -155,15 +158,8 @@ async def ai_generate_article_economy(service, auth, project):
         prompt = prompt_economy.format(subject=subject)
         result = await get_answer_ai(auth, prompt)
 
-
-        status = await append_data_to_sheet_cell(service, worktable_id, worksheet_name, 'Result', idx + 2, result)
-
-        if status:
-            print(f'{worksheet_name} - OK!')
-
-        else:
-            await append_data_to_sheet_cell(service, worktable_id, worksheet_name_2, 'Result', idx + 2, result)
-            print(f'{worksheet_name_2} - OK!')
+        await append_data_to_sheet_cell(service, worktable_id, worksheet_name, 'Result', idx + 2, result)
+        print(f'{worksheet_name} - OK!')
 
 
 
