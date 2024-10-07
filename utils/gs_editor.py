@@ -460,6 +460,7 @@ async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_na
 
     except Exception as e:
         print(f"An error occurred: {e}")
+        return None
 
 
 async def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_names: list, row_number, datas: list):

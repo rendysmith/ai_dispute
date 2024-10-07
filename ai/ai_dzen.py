@@ -150,11 +150,20 @@ async def ai_generate_article_economy(service, auth, project):
         print(top_number)
 
         subject = df_aricles.loc[top_number - 1, 0]
-        print(subject)
+        print("Subject:", subject)
 
         prompt = prompt_economy.format(subject=subject)
         result = await get_answer_ai(auth, prompt)
-        await append_data_to_sheet_cell(service, worktable_id, worksheet_name, 'Result', idx + 2, result)
+
+
+        status = await append_data_to_sheet_cell(service, worktable_id, worksheet_name, 'Result', idx + 2, result)
+
+        if status:
+            print(f'{worksheet_name} - OK!')
+
+        else:
+            await append_data_to_sheet_cell(service, worktable_id, worksheet_name_2, 'Result', idx + 2, result)
+            print(f'{worksheet_name_2} - OK!')
 
 
 
