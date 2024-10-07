@@ -1,6 +1,7 @@
 import asyncio
 import os
 import random
+import traceback
 
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -50,6 +51,7 @@ async def get_top_link(link):
 
     except Exception as Ex:
         print(f"Error Top Link Ex: {Ex}")
+        traceback.print_exc()
         return False, False
 
 async def check_otzovik(service, link, pattern, criteria, ss_id, project):
@@ -149,7 +151,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
 async def main_otzovik():
     service = await get_service()
 
-    url = 'https://otzovik.com/review_15746617.html'
+    url = 'https://otzovik.com/review_15581163.html'
     await check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
 
 

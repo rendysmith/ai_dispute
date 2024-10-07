@@ -239,6 +239,7 @@ async def start_zoom(service):
         len_df = len(df_link_list)
         print(f'\n========================= Project = {project} = Len ({len_df})==============================')
 
+        start_time = time.time()
         list_links = []
         black_list = []
 
@@ -655,12 +656,11 @@ async def start_zoom(service):
             #     if status:
             #         black_list.append('vk.com')
 
-
-
-
+        finish_sec = time.time() - start_time
         datas = {'service_name': project,
                 'count': len_df,
-                'date': current_date}
+                'date': current_date,
+                 'time': finish_sec}
 
         await write_log_sheet(service, ss_id, 'logs', datas)
 
