@@ -3,6 +3,7 @@ import random
 import json
 import time
 import os
+import traceback
 
 import google.generativeai as genai
 import google.api_core.exceptions
@@ -109,7 +110,7 @@ async def get_answer_ai(auth: HTTPBasicAuth, prompt: str):
                 "prompt": prompt
             }
 
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=60) as client:
                 response = await client.post(url, json=data, auth=auth)
 
             if response.status_code == 200:
@@ -118,6 +119,7 @@ async def get_answer_ai(auth: HTTPBasicAuth, prompt: str):
                 return result
 
             else:
+                print(response.status_code, response.json())
                 if try_n == 10:
                     return f"{random_host} {response.status_code}"
 
@@ -133,8 +135,18 @@ async def get_answer_ai(auth: HTTPBasicAuth, prompt: str):
             try_n += 1
             await asyncio.sleep(1)
 
+        except httpx.ReadTimeout as RT:
+            print(f'ERROR AI RT: {RT}')
+            traceback.print_exc()
+            if try_n == 10:
+                return f"{random_host} {response.status_code} {RT}"
+
+            try_n += 1
+            await asyncio.sleep(1)
+
         except Exception as Ex:
             print(f'ERROR AI Ex: {Ex}')
+            traceback.print_exc()
 
             if try_n == 10:
                 return f"{random_host} {response.status_code}"

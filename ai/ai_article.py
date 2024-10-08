@@ -2,6 +2,7 @@ import asyncio
 import os
 import time
 
+import pandas as pd
 from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
@@ -21,6 +22,9 @@ print(current_date)
 next_month = now_time + timedelta(days=30)  # Прибавляет 30 дней
 worksheet_name = next_month.strftime("%b_%Y")
 print(worksheet_name)
+
+worksheet_name_2 = now_time.strftime("%b_%Y")
+print(worksheet_name_2)
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -51,10 +55,17 @@ async def ai_generator_article_fun(service, auth, project):
     #worksheet_name = TABLES_LIST[project][1]
     #worksheet_name_rec = TABLES_LIST[project][2]
 
-    print(worktable_id, worksheet_name)
-    df = await get_table_scope(service, worktable_id, worksheet_name)
+    try:
+        df = await get_table_scope(service, worktable_id, worksheet_name)
+
+    except:
+        worksheet_name = worksheet_name_2
+        df = await get_table_scope(service, worktable_id, worksheet_name)
+
     #print(list(df))
-    print(df)
+    #print(df)
+
+    print(worktable_id, worksheet_name)
 
     for idx, row in df.iterrows():
         date = row['Date']
@@ -66,6 +77,11 @@ async def ai_generator_article_fun(service, auth, project):
 
         fio = row['Person']
         subject = row['Subject']
+        result = row['Result']
+
+        if pd.notna(result):
+            print(f'Next {idx}...')
+            continue
 
         status, result = await read_data_from_db_filter(DatasetArticlePersons, fio=fio)
         print(status)
