@@ -1,3 +1,6 @@
+import traceback
+
+import brotli
 import urllib3.exceptions
 from aiohttp import ClientResponse, ClientHttpProxyError
 
@@ -65,7 +68,7 @@ async def get_headers(module):
     return proxies
 
 
-async def get_soup(url, only_pars=False):
+async def get_soup_bs4(url, only_pars=False):
     if only_pars == False:
         domen = await extract_main_site(url)
         headers = await gen_ua(domen)
@@ -90,6 +93,38 @@ async def get_soup(url, only_pars=False):
             except Exception as Ex:
                 print(f'Proxy Ex: {Ex}')
                 return None
+
+        soup = BeautifulSoup(response_text, 'html.parser')
+
+    else:
+        soup = BeautifulSoup(url, 'html.parser')
+
+    return soup
+
+async def get_soup(url):
+    r_text = await get_data_with_proxy(url)
+    if r_text:
+        soup = await get_soup_bs4(r_text, only_pars=True)
+
+    else:
+        soup = await get_soup_bs4(url)
+    return soup
+
+async def get_soup_new(url, only_pars=False):
+    if not only_pars:
+        domen = await extract_main_site(url)
+        headers = await gen_ua(domen)
+        proxies = await get_headers('soup')
+        timeout = aiohttp.ClientTimeout(total=60)  # Устанавливаем таймаут в 30 секунд
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, proxy=proxies['https'], timeout=timeout) as response:
+                status_code = response.status
+                print(status_code)
+
+                if status_code == 200:
+                    response_text = await response.text()
+                    print(response_text)
 
         soup = BeautifulSoup(response_text, 'html.parser')
 
@@ -159,7 +194,10 @@ async def get_playwright(url, headless=True, proxy=True):
 async def get_data_with_proxy(url):
     for i in range(5):
         proxy_host, proxy_port = await get_one_proxy()
-        connector = ProxyConnector(proxy_type=ProxyType.HTTP, host=proxy_host, port=proxy_port, username=login_proxy,
+        connector = ProxyConnector(proxy_type=ProxyType.HTTP,
+                                   host=proxy_host,
+                                   port=proxy_port,
+                                   username=login_proxy,
                                    password=pass_proxy)
 
         async with aiohttp.ClientSession(connector=connector) as session:
@@ -167,7 +205,11 @@ async def get_data_with_proxy(url):
                 try:
                     status_code = response.status
                     print("Status:", status_code)
+
                     if status_code == 403:
+                        return None
+
+                    elif status_code == 507:
                         return None
 
                     response.raise_for_status()
@@ -209,4 +251,7 @@ async def tst_proxy():
 
 if "__main__" in __name__:
     #asyncio.run(get_playwright('https://yandex.ru/maps/org/149979773456/reviews', headless=False))
-    asyncio.run(tst_proxy())
+    #asyncio.run(tst_proxy())
+    url = 'https://ocompanii.net/reviews/detail.php?id=1137222'
+    #url = "https://httpbin.org/ip"
+    asyncio.run(get_data_with_proxy(url))

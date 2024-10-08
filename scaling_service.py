@@ -275,7 +275,12 @@ async def start_zoom(service):
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'ocompanii' in link:
-                link = 'https://ocompanii.net/company/information.php?cid=764047'
+                #link = 'https://ocompanii.net/company/information.php?cid=764047'
+                top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
+                if not top_df.empty:
+                    print('Есть общая ссылка на статью')
+                    link = top_df.loc[0, 'top_url']
+
                 if link in list_links:
                     print('Ссылка уже проверена.')
                     continue
@@ -283,10 +288,6 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
                     print(len(list_links))
-
-                # status = await check_ocompanii(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
-                # if status:
-                #     await fix_error(service, link, str(status))
 
                 status = await time_out_on(check_ocompanii,
                                            service=service,

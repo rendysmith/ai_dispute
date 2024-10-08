@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
-from utils.user_agent import get_soup
+from utils.user_agent import get_soup, get_data_with_proxy
 
 current_date = datetime.now()
 
@@ -41,6 +41,7 @@ async def convert_date(month):
 async def get_top_link(link):
     try:
         soup = await get_soup(link)
+
         if not soup:
             return False, False
 
@@ -78,7 +79,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
         return 'Сайт не отдал данные!'
 
     blocks = soup.find_all("div", {"itemprop": "review"})
-    print(len(blocks))
+    print('Len B', len(blocks))
 
     if len(blocks) == 0:
         return
@@ -86,16 +87,21 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
     links = await pars_url(service, ss_id, project)
 
     for block in blocks:
-        url_answer = block.find('meta', {'itemprop': "url"}).get('content')
-        print(url_answer)
+        try:
+            url_answer = block.find('meta', {'itemprop': "url"}).get('content')
+        except:
+            url_answer = block.find('meta', {'itemprop': "url"})
 
         if url_answer in links:
             print("Такой комментарий уже отмечен")
             continue
 
-        date_content = block.find("div", {"class": "review-postdate"}).get('content')
-        print(date_content)
+        try:
+            date_content = block.find("div", {"class": "review-postdate"}).get('content')
+        except:
+            date_content = block.find("div", {"class": "review-postdate"})
 
+        print(date_content)
         date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S%z")
         date = date.replace(tzinfo=None)  # offset-naive
 
@@ -151,7 +157,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
 async def main_otzovik():
     service = await get_service()
 
-    url = 'https://otzovik.com/review_15581163.html'
+    url = 'https://otzovik.com/review_16606112.html'
     await check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
 
 
@@ -162,3 +168,4 @@ if __name__ == '__main__':
     # print(a)
 
     asyncio.run(main_otzovik())
+    print('The End!')

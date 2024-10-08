@@ -2,16 +2,13 @@ import asyncio
 import random
 import textwrap
 
-import requests
 import os, re
-
-from bs4 import BeautifulSoup
 
 from datetime import datetime, timedelta
 
-from utils.gs_editor import pars_url
+from utils.gs_editor import pars_url, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
-from utils.user_agent import gen_ua
+from utils.user_agent import get_data_with_proxy, get_soup, extract_main_site
 
 current_date = datetime.now()
 
@@ -36,12 +33,28 @@ async def check_ocompanii(service, url, pattern, criteria, ss_id, project):
     await asyncio.sleep(ts)
 
     links = await pars_url(service, ss_id, project)
-    domen = "https://ocompanii.net"
-    headers = await gen_ua(domen)
 
-    #url = 'https://ocompanii.net/company/information.php?cid=764047'
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, 'html.parser')
+    soup = await get_soup(url)
+
+    if not soup:
+        no_data = 'Сайт не отдал данные!'
+        print('Irecommend', no_data)
+        return no_data
+
+    domen = await extract_main_site(url)
+
+    top_url = domen + soup.find('a', class_='btn btn-xs btn-danger').get('href')
+
+    datas = {'project': project,
+             'url': url,
+             'top_url': top_url}
+    await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+
+    soup = await get_soup(top_url)
+    if not soup:
+        no_data = 'Сайт не отдал данные!'
+        print('Irecommend', no_data)
+        return no_data
 
     blocks = soup.find_all('div', class_='col-sm-12 col-md-12')
     len_b = len(blocks)
@@ -81,15 +94,17 @@ async def check_ocompanii(service, url, pattern, criteria, ss_id, project):
         #print(author)
 
         id_ = await extract_ids(url_answer)
-
         url_full_comm = f'https://ocompanii.net/reviews/load_detail.php?id={id_}'
 
-        response = requests.get(url_full_comm, headers=headers)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser').text
+        soup = await get_soup(url_full_comm)
+
+        if not soup:
+            no_data = 'Сайт не отдал данные!'
+            print('Irecommend', no_data)
+            return no_data
+
         #print(type(soup))
         #print(soup)
-
         p_m = soup.split('###')
 
         plus = p_m[-2]
@@ -113,3 +128,11 @@ async def check_ocompanii(service, url, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
+async def main_oco(url):
+    from utils.gs_editor import get_service
+    service = await get_service()
+    await check_ocompanii(service, url, 1, 1, '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w', 1)
+
+if "__main__" in __name__:
+    url = "https://ocompanii.net/reviews/detail.php?id=1137222"
+    asyncio.run(main_oco(url))
