@@ -287,7 +287,6 @@ async def start_zoom(service):
 
                 else:
                     list_links.append(link)
-                    print(len(list_links))
 
                 status = await time_out_on(check_ocompanii,
                                            service=service,
@@ -326,12 +325,7 @@ async def start_zoom(service):
 
             #---------------------------------------------------------------------------------------------------------
             elif '2gis' in link:
-                if black_list:
-                    if any(black in link for black in black_list):
-                        continue
-
                 top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
-                #print(top_df)
 
                 if not top_df.empty:
                     print('Есть общая ссылка на статью')
@@ -351,8 +345,7 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                # if status:
-                #     black_list.append('2gis')
+
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'sravni.ru' in link:
@@ -434,9 +427,6 @@ async def start_zoom(service):
 
             #---------------------------------------------------------------------------------------------------------
             elif 'otzovik.com' in link:
-                if black_list:
-                    if any(black in link for black in black_list):
-                        continue
 
                 top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
                 #print(top_df)

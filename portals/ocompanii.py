@@ -3,12 +3,13 @@ import random
 import textwrap
 
 import os, re
+import traceback
 
 from datetime import datetime, timedelta
 
 from utils.gs_editor import pars_url, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
-from utils.user_agent import get_data_with_proxy, get_soup, extract_main_site
+from utils.user_agent import get_soup
 
 current_date = datetime.now()
 
@@ -27,33 +28,45 @@ async def extract_ids(url):
     ids = re.search(pattern, url).group(1)
     return ids
 
+async def get_top_link(link):
+    try:
+        soup = await get_soup(link)
+        if not soup:
+            return False, False
+
+        top_url = 'https://ocompanii.net' + soup.find('a', class_='btn btn-xs btn-danger').get('href')
+        print("+ top_url", top_url)
+        return True, top_url
+
+    except Exception as Ex:
+        print(f"Error Top Link Ex: {Ex}")
+        traceback.print_exc()
+        return False, False
+
 async def check_ocompanii(service, url, pattern, criteria, ss_id, project):
+    print(url)
     ts = random.randint(5, max_sec)
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
     links = await pars_url(service, ss_id, project)
 
-    soup = await get_soup(url)
+    status, top_link = await get_top_link(url)
+
+    if status:
+        datas = {'project': project,
+                 'url': url,
+                 'top_url': top_link}
+        await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+
+    else:
+        top_link = url
+
+    soup = await get_soup(top_link)
 
     if not soup:
         no_data = 'Сайт не отдал данные!'
-        print('Irecommend', no_data)
-        return no_data
-
-    domen = await extract_main_site(url)
-
-    top_url = domen + soup.find('a', class_='btn btn-xs btn-danger').get('href')
-
-    datas = {'project': project,
-             'url': url,
-             'top_url': top_url}
-    await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
-
-    soup = await get_soup(top_url)
-    if not soup:
-        no_data = 'Сайт не отдал данные!'
-        print('Irecommend', no_data)
+        print('Ocompanii', no_data)
         return no_data
 
     blocks = soup.find_all('div', class_='col-sm-12 col-md-12')
@@ -136,3 +149,8 @@ async def main_oco(url):
 if "__main__" in __name__:
     url = "https://ocompanii.net/reviews/detail.php?id=1137222"
     asyncio.run(main_oco(url))
+
+    print('*************************************************************')
+    url = 'https://ocompanii.net/company/information.php?cid=764047'
+    asyncio.run(main_oco(url))
+

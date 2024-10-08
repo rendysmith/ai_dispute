@@ -119,7 +119,7 @@ async def get_answer_ai(auth: HTTPBasicAuth, prompt: str):
                 return result
 
             else:
-                print(response.status_code, response.json())
+                print(response.status_code, response.text)
                 if try_n == 10:
                     return f"{random_host} {response.status_code}"
 
