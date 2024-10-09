@@ -100,9 +100,12 @@ async def get_soup(url):
     r_text = await get_data_with_proxy(url)
     if r_text:
         soup = await get_soup_bs4(r_text, only_pars=True)
+        print('Soup Proxy!')
 
     else:
         soup = await get_soup_bs4(url)
+        print('Soup No Proxy!')
+
     return soup
 
 async def get_soup_new(url, only_pars=False):
@@ -193,7 +196,8 @@ async def get_playwright(url, headless=True):
         return None, None, None
 
 async def get_data_with_proxy(url):
-    for i in range(5):
+    for i in range(3):
+        print(f'Proxy {i}')
         proxy_host, proxy_port = await get_one_proxy()
         connector = ProxyConnector(proxy_type=ProxyType.HTTP,
                                    host=proxy_host,
@@ -201,8 +205,12 @@ async def get_data_with_proxy(url):
                                    username=login_proxy,
                                    password=pass_proxy)
 
-        async with aiohttp.ClientSession(connector=connector) as session:
+        timeout = aiohttp.ClientTimeout(total=30)
+
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            print('--1--')
             async with session.get(url) as response:
+                print('--2--')
                 try:
                     status_code = response.status
                     print("Status:", status_code)
@@ -216,9 +224,15 @@ async def get_data_with_proxy(url):
                     response.raise_for_status()
                     return await response.text()
 
+                except asyncio.TimeoutError as TE:
+                    print(f"Proxy Error TE {i}: {TE}")
+                    await asyncio.sleep(5)  # Ждем перед повторной попыткой
+
                 except Exception as Ex:
                     print(f"{i} Error Proxy Ex: {Ex}")
                     await asyncio.sleep(5)
+
+    return None
 
 async def main():
     url = 'https://irecommend.ru/content/ustraivaet-vo-vsekh-usloviyakh-ekspluatatsii'

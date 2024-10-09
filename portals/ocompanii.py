@@ -153,4 +153,5 @@ if "__main__" in __name__:
     print('*************************************************************')
     url = 'https://ocompanii.net/company/information.php?cid=764047'
     asyncio.run(main_oco(url))
+    print('OK!')
 
