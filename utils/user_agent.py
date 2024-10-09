@@ -1,3 +1,5 @@
+import traceback
+
 from playwright.async_api import async_playwright
 
 import asyncio
@@ -60,7 +62,6 @@ async def get_headers(module):
         }
 
     return proxies
-
 
 async def get_soup_bs4(url, only_pars=False):
     if only_pars == False:
@@ -144,45 +145,51 @@ async def get_selenium(url, headless=True):
     wait = WebDriverWait(driver, 10)
     return driver
 
-async def get_playwright(url, headless=True, proxy=True):
+async def get_playwright(url, headless=True):
     """
-    :param url: url
-    :param headless: headless (boot) headless=True
-    :return:
-    """
-
+     :param url: url
+     :param headless: headless (boot) headless=True
+     :return:
+     """
     try:
         playwright = await async_playwright().start()
-        if proxy:
-            proxies = await get_headers('pw')
+
+        async def launch_browser(proxy=None):
+            """Запуск браузера с опциональным прокси и настройкой контекста"""
             browser = await playwright.firefox.launch(
                 headless=headless,
-                proxy=proxies,  # Прокси передаётся здесь
-                timeout=30000)
+                proxy=proxy,
+                timeout=15000 if proxy else 30000
+            )
+            context = await browser.new_context(user_agent=ua.random)
+            page = await context.new_page()
 
-        else:
-            browser = await playwright.firefox.launch(headless=headless, timeout=30000)
+            # Перехватываем запросы для блокировки изображений и видео
+            async def block_images_and_videos(route):
+                if route.request.resource_type in ["image", "media"]:
+                    await route.abort()
+                else:
+                    await route.continue_()
 
-        context = await browser.new_context(
-            user_agent=ua.random)
-        page = await context.new_page()
+            await page.route("**/*", block_images_and_videos)
+            await page.goto(url)
+            return browser, page
 
-        # ---------------------------------------------------------
-        # Перехватываем запросы для блокировки изображений и видео
-        async def block_images_and_videos(route):
-            if route.request.resource_type in ["image", "media"]:
-                await route.abort()  # Отклоняем запросы на изображения и видео
-            else:
-                await route.continue_()  # Разрешаем все остальные запросы
+        # Пытаемся запустить с прокси
+        try:
+            proxies = await get_headers('pw')
+            browser, page = await launch_browser(proxies)
+            print('Proxy')
+        except:
+            # Если ошибка, запускаем без прокси
+            browser, page = await launch_browser()
+            print('No Proxy')
 
-        # Применяем фильтр на все запросы
-        await page.route("**/*", block_images_and_videos)
-        #---------------------------------------------------------
-        await page.goto(url)
         return playwright, browser, page
 
     except Exception as Ex:
         print("ERROR PW Ex:", Ex)
+        traceback.print_exc()
         return None, None, None
 
 async def get_data_with_proxy(url):
@@ -238,12 +245,13 @@ async def tst_proxy():
     soup = await get_soup(url)
     print(soup)
 
-
-
-
 if "__main__" in __name__:
     #asyncio.run(get_playwright('https://yandex.ru/maps/org/149979773456/reviews', headless=False))
     #asyncio.run(tst_proxy())
     url = 'https://ocompanii.net/reviews/detail.php?id=1137222'
     #url = "https://httpbin.org/ip"
-    asyncio.run(get_data_with_proxy(url))
+    url = 'https://yandex.ru/maps/2/saint-petersburg/geo/zhiloy_kompleks_biografiya/4184971603/?ll=30.281608%2C59.960850&z=15.46'
+    playwright, browser, page = asyncio.run(get_playwright(url))
+    if page:
+        print(page.url)
+        print('OK!')
