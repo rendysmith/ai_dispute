@@ -337,7 +337,7 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                status = await time_out_play(check_2gis,
+                status = await time_out_on(check_2gis,
                                            service=service,
                                            link=link,
                                            df_mini_pattern=df_mini_pattern,

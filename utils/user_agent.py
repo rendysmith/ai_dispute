@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 import re
 
 from fake_useragent import UserAgent
+from sqlalchemy.util import await_only
 
 from utils.proxy_bridge import get_iplist, get_one_proxy
 import os
@@ -96,17 +97,26 @@ async def get_soup_bs4(url, only_pars=False):
 
     return soup
 
-async def get_soup(url):
-    r_text = await get_data_with_proxy(url)
-    if r_text:
+async def get_soup(url, only_text=True):
+    if only_text:
+        r_text = await get_data_without_proxy(url)
+        if not r_text:
+            r_text = await get_data_without_proxy(url)
+            print('Soup Proxy!')
+
         soup = await get_soup_bs4(r_text, only_pars=True)
-        print('Soup Proxy!')
+        return soup
 
     else:
-        soup = await get_soup_bs4(url)
-        print('Soup No Proxy!')
+        r_json = await get_data_without_proxy(url, text_format=False)
+        if not r_json:
+            r_json = await get_data_with_proxy(url, text_format=False)
 
-    return soup
+        return r_json
+
+
+
+
 
 async def get_soup_new(url, only_pars=False):
     if not only_pars:
@@ -183,6 +193,7 @@ async def get_playwright(url, headless=True):
             proxies = await get_headers('pw')
             browser, page = await launch_browser(proxies)
             print('Proxy')
+
         except:
             # Если ошибка, запускаем без прокси
             browser, page = await launch_browser()
@@ -195,7 +206,7 @@ async def get_playwright(url, headless=True):
         traceback.print_exc()
         return None, None, None
 
-async def get_data_with_proxy(url):
+async def get_data_with_proxy(url, text_format=True):
     for i in range(2):
         print(f'Proxy {i}')
         proxy_host, proxy_port = await get_one_proxy()
@@ -222,7 +233,10 @@ async def get_data_with_proxy(url):
                         return None
 
                     response.raise_for_status()
-                    return await response.text()
+                    if text_format:
+                        return await response.text()
+                    else:
+                        return await response.json()
 
             except asyncio.TimeoutError as TE:
                 print(f"Error Proxy TE: {TE}")
@@ -231,19 +245,41 @@ async def get_data_with_proxy(url):
             except Exception as Ex:
                 print(f"{i} Error Proxy Ex: {Ex}")
                 await asyncio.sleep(5)
-
     return None
 
-async def main():
-    url = 'https://irecommend.ru/content/ustraivaet-vo-vsekh-usloviyakh-ekspluatatsii'
-    driver = await get_playwright(url)
-    input('Wait')
+async def get_data_without_proxy(url, text_format=True):
+    for i in range(2):
+        print(f'Proxy {i}')
 
-    top_block = driver.find_element(By.CSS_SELECTOR, 'h1[class="largeHeader"]')
-    if top_block:
-        print(1)
-    else:
-        print(2)
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            print('--1--')
+            try:
+                async with session.get(url) as response:
+                    print('--2--')
+                    status_code = response.status
+                    print("Status:", status_code)
+
+                    if status_code == 403:
+                        return None
+
+                    elif status_code == 507:
+                        return None
+
+                    response.raise_for_status()
+                    if text_format:
+                        return await response.text()
+                    else:
+                        return await response.json()
+
+            except asyncio.TimeoutError as TE:
+                print(f"Error Proxy TE: {TE}")
+                await asyncio.sleep(5)  # Ждем перед повторной попыткой
+
+            except Exception as Ex:
+                print(f"{i} Error Proxy Ex: {Ex}")
+                await asyncio.sleep(5)
+    return None
 
 async def tst_proxy():
     print('-----------------')
@@ -259,13 +295,21 @@ async def tst_proxy():
     soup = await get_soup(url)
     print(soup)
 
+async def main(url):
+    soup = await get_soup(url, only_text=False)
+    print(soup)
+
+
+
 if "__main__" in __name__:
     #asyncio.run(get_playwright('https://yandex.ru/maps/org/149979773456/reviews', headless=False))
     #asyncio.run(tst_proxy())
     url = 'https://ocompanii.net/reviews/detail.php?id=1137222'
-    #url = "https://httpbin.org/ip"
-    url = 'https://yandex.ru/maps/2/saint-petersburg/geo/zhiloy_kompleks_biografiya/4184971603/?ll=30.281608%2C59.960850&z=15.46'
-    playwright, browser, page = asyncio.run(get_playwright(url))
-    if page:
-        print(page.url)
-        print('OK!')
+    url = "https://httpbin.org/ip"
+
+    asyncio.run(main(url))
+    # url = 'https://yandex.ru/maps/2/saint-petersburg/geo/zhiloy_kompleks_biografiya/4184971603/?ll=30.281608%2C59.960850&z=15.46'
+    # playwright, browser, page = asyncio.run(get_playwright(url))
+    # if page:
+    #     print(page.url)
+    #     print('OK!')
