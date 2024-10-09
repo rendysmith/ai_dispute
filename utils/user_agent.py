@@ -101,7 +101,7 @@ async def get_soup(url, only_text=True):
     if only_text:
         r_text = await get_data_without_proxy(url)
         if not r_text:
-            r_text = await get_data_without_proxy(url)
+            r_text = await get_data_with_proxy(url)
             print('Soup Proxy!')
 
         soup = await get_soup_bs4(r_text, only_pars=True)

@@ -69,6 +69,8 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project):
     print(f'Wait {ts} sec...')
     await asyncio.sleep(ts)
 
+    await send_top_url(service, ss_id, project, url)
+
     id_org = await get_id_obj(url)
     url = f'https://public-api.reviews.2gis.com/2.0/branches/{id_org}/reviews?limit=50&is_advertiser=true&fields=meta.providers,meta.branch_rating,meta.branch_reviews_count,meta.total_count,reviews.hiding_reason,reviews.is_verified&without_my_first_review=false&rated=true&sort_by=friends&key=b0209295-ae15-48b2-acb2-58309b333c37&locale=ru_RU'
 
@@ -215,9 +217,15 @@ async def check_2gis_old(service, url, pattern, criteria, ss_id, project, playwr
     await playwright.stop()
 
 async def main_2gis(url):
+    soup = await get_soup(url)
+    print(soup)
+    input()
+
+
+
     service = await get_service()
     #playwright, browser, page = await get_playwright(url)
-    await check_2gis_new(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
+    await check_2gis(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
 
 if __name__ == '__main__':
     url = 'https://2gis.ru/tyumen/firm/70000001078903378/65.581594%2C57.166876/tab/reviews'
@@ -225,5 +233,6 @@ if __name__ == '__main__':
     url = 'https://2gis.ru/ufa/search/%D0%BD%D0%BE%D0%B2%D0%B8%D0%BA%D0%BE%D0%BC%D0%B1%D0%B0%D0%BD%D0%BA%20%D1%83%D1%84%D0%B0/firm/70000001064543956/56.135469%2C54.787878/tab/reviews?m=56.039914%2C54.760852%2F12.5'
     url = 'https://2gis.ru/voronezh/firm/70000001044544643/tab/reviews'
 
-    #url = 'https://2gis.ru/tyumen/firm/70000001083501286/tab/reviews'
+    url = 'http://ip-api.com/json'
     asyncio.run(main_2gis(url))
+    print('OK!')

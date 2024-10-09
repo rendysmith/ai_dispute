@@ -323,7 +323,7 @@ async def start_zoom(service):
                 #     black_list.append('dreamjob.ru')
 
             #---------------------------------------------------------------------------------------------------------
-            elif '2gis' in link:
+            elif '2gis.ru' in link:
                 top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
 
                 if not top_df.empty:
