@@ -1,9 +1,3 @@
-import traceback
-
-import brotli
-import urllib3.exceptions
-from aiohttp import ClientResponse, ClientHttpProxyError
-
 from playwright.async_api import async_playwright
 
 import asyncio
