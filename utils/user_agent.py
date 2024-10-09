@@ -225,7 +225,6 @@ async def main():
         print(2)
 
 async def tst_proxy():
-
     print('-----------------')
     url = 'https://ifconfig.me/all.json'
     response = await get_data_with_proxy(url)
@@ -233,7 +232,6 @@ async def tst_proxy():
 
     soup = await get_soup(url)
     print(soup)
-
 
     print('---------2--------')
     url = 'https://api.ipify.org?format=json'
