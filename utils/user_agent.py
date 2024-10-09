@@ -190,14 +190,14 @@ async def get_playwright(url, headless=True):
 
         # Пытаемся запустить с прокси
         try:
-            proxies = await get_headers('pw')
-            browser, page = await launch_browser(proxies)
-            print('Proxy')
-
-        except:
             # Если ошибка, запускаем без прокси
             browser, page = await launch_browser()
             print('No Proxy')
+
+        except:
+            proxies = await get_headers('pw')
+            browser, page = await launch_browser(proxies)
+            print('Proxy')
 
         return playwright, browser, page
 

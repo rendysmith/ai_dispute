@@ -12,6 +12,7 @@ import random
 import traceback
 
 from portals.portal_aplaut import check_aplout
+from portals.portal_rustore import check_rustore
 from portals.portal_ya_market import check_ya_market
 from portals.pravda_sotrudnikov import check_pravda
 from portals.dreamjob import check_dreamjob
@@ -23,7 +24,7 @@ from portals.ocompanii import check_ocompanii
 from portals.irecommend import check_irecommend
 from portals.portal_drive2 import check_drive2
 from portals.portal_otzovik import check_otzovik
-from portals.portal_vk import check_vk
+#from portals.portal_vk import check_vk
 from portals.portal_otvet import check_otvet
 from portals.youtube import check_youtube
 
@@ -198,6 +199,7 @@ async def start_zoom(service):
         # -----------------------------------------------------
 
         #Если дата не совпадает с сегодняшней
+        host_logs = ''
         filtered_logs = df_logs[df_logs['service_name'] == project]
         if not filtered_logs.empty:
             idx_logs = filtered_logs.index[0]
@@ -244,7 +246,7 @@ async def start_zoom(service):
 
         for idx, link in enumerate(df_link_list):
             left = len_df - df_link_list.index(link)
-            print(f'\n*************************{idx}*({left})***************************\n----------------- {link} ----------------')
+            print(f'\n*************************{idx}*({left})*[{host_logs}]**************************\n----------------- {link} ----------------')
 
             #link = row[project]
             #---------------------------------------------------------------------------------------------------------
@@ -613,6 +615,22 @@ async def start_zoom(service):
                                            project=project)
                 # if status:
                 #     black_list.append('market.yandex')
+
+            elif 'rustore.ru' in link:
+                if link in list_links:
+                    print('Ссылка уже проверена.')
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                await time_out_play(check_rustore,
+                                             service=service,
+                                             link=link,
+                                             df_mini_pattern=df_mini_pattern,
+                                             df_mini_criteria=df_mini_criteria,
+                                             ss_id=ss_id,
+                                             project=project)
 
             # ---------------------------------------------------------------------------------------------------------
             # elif 'vk.com' in link:
