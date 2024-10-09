@@ -1,6 +1,5 @@
 import os.path
 import time
-import traceback
 from datetime import datetime
 
 import pandas as pd
