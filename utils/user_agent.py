@@ -196,7 +196,7 @@ async def get_playwright(url, headless=True):
         return None, None, None
 
 async def get_data_with_proxy(url):
-    for i in range(3):
+    for i in range(2):
         print(f'Proxy {i}')
         proxy_host, proxy_port = await get_one_proxy()
         connector = ProxyConnector(proxy_type=ProxyType.HTTP,
@@ -205,13 +205,13 @@ async def get_data_with_proxy(url):
                                    username=login_proxy,
                                    password=pass_proxy)
 
-        timeout = aiohttp.ClientTimeout(total=30)
+        timeout = aiohttp.ClientTimeout(total=10)
 
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             print('--1--')
-            async with session.get(url) as response:
-                print('--2--')
-                try:
+            try:
+                async with session.get(url) as response:
+                    print('--2--')
                     status_code = response.status
                     print("Status:", status_code)
 
@@ -224,13 +224,13 @@ async def get_data_with_proxy(url):
                     response.raise_for_status()
                     return await response.text()
 
-                except asyncio.TimeoutError as TE:
-                    print(f"Proxy Error TE {i}: {TE}")
-                    await asyncio.sleep(5)  # Ждем перед повторной попыткой
+            except asyncio.TimeoutError as TE:
+                print(f"Error Proxy TE: {TE}")
+                await asyncio.sleep(5)  # Ждем перед повторной попыткой
 
-                except Exception as Ex:
-                    print(f"{i} Error Proxy Ex: {Ex}")
-                    await asyncio.sleep(5)
+            except Exception as Ex:
+                print(f"{i} Error Proxy Ex: {Ex}")
+                await asyncio.sleep(5)
 
     return None
 
