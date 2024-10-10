@@ -50,6 +50,11 @@ async def get_top_link(link):
         print("+ top_url", top_url)
         return True, top_url
 
+    except TypeError as TE:
+        print(f"Error Top Link TE: {TE}")
+        traceback.print_exc()
+        return False, link
+
     except Exception as Ex:
         print(f"Error Top Link Ex: {Ex}")
         traceback.print_exc()
