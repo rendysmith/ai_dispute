@@ -142,7 +142,7 @@ async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANG
         body=body
     ).execute()
 
-    print('{0} cells appended.'.format(result.get('updates').get('updatedCells')))
+    print('GS: {0} cells appended.'.format(result.get('updates').get('updatedCells')))
     return 'OK!'
 
 

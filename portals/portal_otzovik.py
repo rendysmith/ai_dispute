@@ -106,7 +106,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
         except:
             date_content = block.find("div", {"class": "review-postdate"})
 
-        print(date_content)
+        print("Date_content", date_content)
         date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S%z")
         date = date.replace(tzinfo=None)  # offset-naive
 
