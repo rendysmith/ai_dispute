@@ -5,6 +5,7 @@ import time
 from datetime import datetime, timedelta
 
 import aiohttp
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
@@ -164,8 +165,10 @@ async def check_ba(service):
             continue
 
         text_highlighted = msg['text_highlighted']
+        print(text_highlighted)
+        #input('---------------')
         # Создаем объект BeautifulSoup
-        soup = await get_soup(text_highlighted, only_pars=True)
+        soup = BeautifulSoup(text_highlighted, 'html.parser')
         # Извлекаем весь текст из документа
         text = soup.get_text()
 

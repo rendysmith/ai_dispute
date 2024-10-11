@@ -98,7 +98,7 @@ async def get_soup_bs4(url, only_pars=False):
     return soup
 
 async def get_soup(url, only_text=True):
-    if only_text:
+    if only_text: #Получить только текст
         r_text = await get_data_without_proxy(url)
         if not r_text:
             r_text = await get_data_with_proxy(url)
@@ -110,7 +110,7 @@ async def get_soup(url, only_text=True):
         soup = await get_soup_bs4(r_text, only_pars=True)
         return soup
 
-    else:
+    else: #Получить json()
         r_json = await get_data_without_proxy(url, text_format=False)
         if not r_json:
             r_json = await get_data_with_proxy(url, text_format=False)
