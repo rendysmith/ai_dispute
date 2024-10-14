@@ -27,6 +27,7 @@ from portals.portal_otzovik import check_otzovik
 #from portals.portal_vk import check_vk
 from portals.portal_otvet import check_otvet
 from portals.youtube import check_youtube
+from portals.rocketdata import check_rocketdata
 
 from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_scope, write_log_sheet
 
@@ -598,7 +599,7 @@ async def start_zoom(service):
                 #     black_list.append('otvet.mail')
 
             # ---------------------------------------------------------------------------------------------------------
-            elif 'market.yandex' in link and any(black not in link for black in black_list):
+            elif 'market.yandex' in link:
                 if link in list_links:
                     print('Ссылка уже проверена.')
                     continue
@@ -616,6 +617,7 @@ async def start_zoom(service):
                 # if status:
                 #     black_list.append('market.yandex')
 
+            #---------------------------------------------------------------------------------------
             elif 'rustore.ru' in link:
                 if link in list_links:
                     print('Ссылка уже проверена.')
@@ -625,6 +627,24 @@ async def start_zoom(service):
                     list_links.append(link)
 
                 await time_out_play(check_rustore,
+                                             service=service,
+                                             link=link,
+                                             df_mini_pattern=df_mini_pattern,
+                                             df_mini_criteria=df_mini_criteria,
+                                             ss_id=ss_id,
+                                             project=project)
+
+                #--------------------------------------------------------------------
+            elif 'rocketdata' in link:
+                link = 'https://go.rocketdata.io/reviews-management/reviews?ordering=-creation_date'
+                if link in list_links:
+                    print('Ссылка уже проверена.')
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                await time_out_on(check_rocketdata,
                                              service=service,
                                              link=link,
                                              df_mini_pattern=df_mini_pattern,

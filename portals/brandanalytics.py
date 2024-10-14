@@ -165,12 +165,14 @@ async def check_ba(service):
             continue
 
         text_highlighted = msg['text_highlighted']
-        print(text_highlighted)
-        #input('---------------')
+        print('text', text_highlighted)
+
         # Создаем объект BeautifulSoup
         soup = BeautifulSoup(text_highlighted, 'html.parser')
         # Извлекаем весь текст из документа
         text = soup.get_text()
+        print('text', text)
+        #input('---------------')
 
         print(f'==================== {url_answer} ===================')
 
@@ -303,7 +305,7 @@ async def check_ba(service):
                     'date_create': date_create,
                     'portal': url_answer,
                     'author': author,
-                    'feedback': feedback}
+                    'feedback': text}
 
                 await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
 
