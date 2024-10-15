@@ -8,6 +8,7 @@ from aiohttp_proxy import ProxyConnector, ProxyType
 
 import requests
 from bs4 import BeautifulSoup
+import cloudscraper
 import re
 
 from fake_useragent import UserAgent
@@ -117,6 +118,25 @@ async def get_soup(url, only_text=True):
 
         return r_json
 
+async def get_soup_anticloud(url):
+    scraper = cloudscraper.create_scraper(
+        browser={
+            "browser": "chrome",
+            "platform": "windows",
+        },
+    )
+
+    proxy = await get_headers('soup')
+    response = scraper.get(url, proxies=proxy)
+
+    if response.status_code != 200:
+        response = scraper.get(url)
+
+        if response.status_code != 200:
+            return None
+
+    soup = BeautifulSoup(response.text, "html.parser")
+    return soup
 
 
 
@@ -254,7 +274,6 @@ async def get_data_with_proxy(url, text_format=True):
 async def get_data_without_proxy(url, text_format=True):
     for i in range(2):
         print(f'Proxy {i}')
-
         timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             print('--1--')

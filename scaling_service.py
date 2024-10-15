@@ -38,16 +38,18 @@ ss_id = TABLES_LIST['zoom']
 current_date = datetime.now().strftime("%d.%m.%Y")
 
 async def get_set():
-    url = 'http://konstyaj.beget.tech/demo/wp-start/wp-json/custom/v1/projects'
+    url = 'http://147.45.164.92/json/parsing.php'
     r = requests.get(url)
     status_code = r.status_code
     if status_code == 200:
-        project_on = [i['project'] for i in r.json() if i['publish'] == '1']
-        #print(project_on)
-        return project_on
+        r_json = r.json()
+        timetable = [k for k, v in r_json['Timetable'].items() if v == 'True']
+        projects = [k for k, v in r_json['projects'].items() if v == 'True']
+        portal = [k for k, v in r_json['portal'].items() if v == 'True']
+        return timetable, projects, portal
 
     else:
-        return []
+        return [], [], []
 
 async def get_local_ip():
     url = 'https://api.myip.com/'
@@ -164,7 +166,8 @@ async def time_out_play(async_func, timeout=180, **kwargs):
         return status
 
 async def start_zoom(service):
-    project_on = await get_set()
+    timetable, projects, portal = [], [], []
+    #timetable, projects, portal = await get_set()
 
     local_ip = await get_local_ip()
     print('local_ip', local_ip)
@@ -697,4 +700,7 @@ async def main_zoom():
     await start_zoom(service)
 
 if "__main__" in __name__:
-    asyncio.run(main_zoom())
+    timetable, projects, portal = asyncio.run(get_set())
+
+    print(timetable, projects, portal)
+    #asyncio.run(main_zoom())

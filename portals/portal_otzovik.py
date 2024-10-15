@@ -162,9 +162,8 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project):
 async def main_otzovik():
     service = await get_service()
 
-    url = 'https://otzovik.com/review_16606112.html'
+    url = 'https://otzovik.com/review_12749714.html'
     await check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
-
 
 if __name__ == '__main__':
     # url = 'https://otzovik.com/review_16566023.html'
