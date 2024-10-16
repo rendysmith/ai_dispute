@@ -267,8 +267,7 @@ async def check_ba(service):
 
                 if "Т-Банк" in author: #если есть ответ от оф.представителя.
                     print('--->Т-Банк<---')
-                    pass
-                    #continue
+                    continue
 
                 feedback_content = await block.query_selector('div[class="wall_reply_text onclick="]')
                 try:

@@ -12,7 +12,6 @@ import cloudscraper
 import re
 
 from fake_useragent import UserAgent
-from sqlalchemy.util import await_only
 
 from utils.proxy_bridge import get_iplist, get_one_proxy
 import os
@@ -127,11 +126,11 @@ async def get_soup_anticloud(url):
     )
 
     proxy = await get_headers('soup')
-    response = scraper.get(url, proxies=proxy)
-
+    response = scraper.get(url, proxies=proxy, timeout=15000)
+    print(response.status_code)
     if response.status_code != 200:
-        response = scraper.get(url)
-
+        response = scraper.get(url, timeout=15000)
+        print(response.status_code)
         if response.status_code != 200:
             return None
 

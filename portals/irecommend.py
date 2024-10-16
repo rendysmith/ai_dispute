@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 from utils.gs_editor import pars_url, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
-from utils.user_agent import get_soup, extract_main_site
+from utils.user_agent import get_soup, extract_main_site, get_soup_anticloud
 import textwrap
 
 import os
@@ -26,7 +26,11 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
     #print("\n", link)
     links = await pars_url(service, ss_id, project)
 
-    soup = await get_soup(link)
+    #soup = await get_soup(link)
+    print('-SStart-')
+    soup = await get_soup_anticloud(link)
+    print('-SStop-')
+
     if not soup:
         no_data = 'Сайт не отдал данные!'
         print('Irecommend', no_data)
@@ -62,7 +66,8 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
 
     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
 
-    soup = await get_soup(top_url)
+    #soup = await get_soup(top_url)
+    soup = await get_soup_anticloud(top_url)
 
     try:
         blocks = soup.find_all("div", {"data-photos-count": '0', "data-type": "1"})

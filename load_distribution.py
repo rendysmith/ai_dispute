@@ -1,7 +1,9 @@
 import asyncio
+import os
 
 import numpy as np
-import pandas as pd
+import requests
+from dotenv import load_dotenv
 
 from models.mdl_tables import HostsZoom
 from utils.constants import TABLES_LIST
@@ -10,6 +12,18 @@ from utils.gs_editor import get_table_scope, get_service, append_data_to_sheet_c
 
 ss_id = TABLES_LIST['zoom']
 tab_name = 'logs'
+
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(dotenv_path)
+
+login_proxy = os.environ.get("LOGIN_PROXY")
+pass_proxy = os.environ.get("PASS_PROXY")
+
+async def change_ip(ip):
+    url = f'https://proxy5.net/api/getproxy/?action=setip&login={login_proxy}&{pass_proxy}=LbLYF35E&ip={ip}'
+    r = requests.get(url)
+    print(r)
+
 
 async def load_distribution(service):
     status, results = await read_data_from_db(HostsZoom, 100, 1)
@@ -34,6 +48,8 @@ async def load_distribution(service):
         print(idx, hst)
         await append_data_to_sheet_cell(service, ss_id, tab_name, 'reserve', idx+2, hst)
         await asyncio.sleep(3)
+
+    await change_ip(hosts[0])
 
 async def main_distribution():
     service = await get_service()
