@@ -23,9 +23,6 @@ timeout = 10000
 async def check_rustore(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     # print(link)
     links = await pars_url(service, ss_id, project)
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
 
     if 'reviews' not in url:
         url = url + '/reviews'

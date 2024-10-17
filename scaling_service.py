@@ -11,6 +11,8 @@ import random
 
 import traceback
 
+from dotenv import load_dotenv
+
 from portals.portal_aplaut import check_aplout
 from portals.portal_rustore import check_rustore
 from portals.portal_ya_market import check_ya_market
@@ -33,6 +35,11 @@ from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_s
 
 from utils.constants import TABLES_LIST
 from utils.user_agent import get_playwright
+
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(dotenv_path)
+
+max_sec = int(os.environ.get("MAX_SEC"))
 
 ss_id = TABLES_LIST['zoom']
 current_date = datetime.now().strftime("%d.%m.%Y")
@@ -92,6 +99,10 @@ async def fix_error(service, project, portal, error):
     await append_data_to_sheet_scope(service, ss_id, tab_name, data)
 
 async def time_out_on(async_func, timeout=180, **kwargs):
+    ts = random.randint(5, max_sec)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
+
     service = kwargs['service']
     link = kwargs['link']
     df_mini_pattern = kwargs['df_mini_pattern']
@@ -120,6 +131,10 @@ async def time_out_on(async_func, timeout=180, **kwargs):
         return None
 
 async def time_out_play(async_func, timeout=180, **kwargs):
+    ts = random.randint(5, max_sec)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
+
     service = kwargs['service']
     link = kwargs['link']
     df_mini_pattern = kwargs['df_mini_pattern']
@@ -401,11 +416,7 @@ async def start_zoom(service):
                 #     black_list.append('drive2.ru')
 
             #---------------------------------------------------------------------------------------------------------
-            elif 'irecommend' in link:
-                if black_list:
-                    if any(black in link for black in black_list):
-                        continue
-
+            elif 'irecommend_off' in link:
                 top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
                 #print(top_df)
 
@@ -447,15 +458,14 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                status = await time_out_on(check_otzovik,
+                await time_out_play(check_otzovik,
                                            service=service,
                                            link=link,
                                            df_mini_pattern=df_mini_pattern,
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                # if status:
-                #     black_list.append('otzovik.com')
+
 
             #---------------------------------------------------------------------------------------------------------
             elif 'dzen.ru' in link:
@@ -525,9 +535,6 @@ async def start_zoom(service):
 
             #---------------------------------------------------------------------------------------------------------
             elif 'yandex.ru/maps' in link:
-                if black_list:
-                    if any(black in link for black in black_list):
-                        continue
 
                 top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
                 #print(top_df)
@@ -555,11 +562,6 @@ async def start_zoom(service):
 
                 else:
                     list_links.append(link_company)
-
-                # status = await check_ya(service, link_company, df_mini_pattern, df_mini_criteria, ss_id, project)
-                # if status:
-                #     await fix_error(service, link, str(status))
-                #     black_list.append('yandex.ru/maps')
 
                 status = await time_out_play(check_ya,
                                            service=service,
@@ -700,7 +702,4 @@ async def main_zoom():
     await start_zoom(service)
 
 if "__main__" in __name__:
-    timetable, projects, portal = asyncio.run(get_set())
-
-    print(timetable, projects, portal)
-    #asyncio.run(main_zoom())
+    asyncio.run(main_zoom())

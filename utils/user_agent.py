@@ -17,6 +17,8 @@ from utils.proxy_bridge import get_iplist, get_one_proxy
 import os
 from dotenv import load_dotenv
 
+from utils.constants import status_codes
+
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
@@ -125,13 +127,42 @@ async def get_soup_anticloud(url):
         },
     )
 
-    proxy = await get_headers('soup')
-    response = scraper.get(url, proxies=proxy, timeout=15000)
-    print(response.status_code)
-    if response.status_code != 200:
+    proxy_host, proxy_port = await get_one_proxy()
+    scraper.proxies = {
+        "http": f"http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}",
+        "https": f"http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}",
+    }
+
+    # Установка прокси с авторизацией
+    response = scraper.get(url, timeout=15000)
+    status_code_1 = response.status_code
+    print(f"Anti CF Proxy {status_code_1}:", status_code_1)
+
+    if status_code_1 == 507:
+        print(f'{status_code_1}: {status_codes.get(status_code_1)}')
+
+    if status_code_1 == 521:
+        print(f'{status_code_1}: {status_codes.get(status_code_1)}')
+
+    if status_code_1 != 200:
+        scraper = cloudscraper.create_scraper(
+            browser={
+                "browser": "chrome",
+                "platform": "windows",
+            },
+        )
+        print(scraper.proxies)
         response = scraper.get(url, timeout=15000)
-        print(response.status_code)
-        if response.status_code != 200:
+        status_code_2 = response.status_code
+        print(f"Anti CF No proxy {status_code_2}:", status_code_2)
+
+        if status_code_2 == 507:
+            print(f'{status_code_2}: {status_codes.get(status_code_2)}')
+
+        if status_code_2 == 521:
+            print(f'{status_code_2}: {status_codes.get(status_code_2)}')
+
+        if status_code_2 != 200:
             return None
 
     soup = BeautifulSoup(response.text, "html.parser")

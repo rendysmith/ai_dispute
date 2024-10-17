@@ -3,9 +3,9 @@ import random
 
 from datetime import datetime, timedelta
 
-from utils.gs_editor import pars_url, append_data_to_sheet_scope
+from utils.gs_editor import pars_url, append_data_to_sheet_scope, get_service
 from utils.ai_module import generate_and_white
-from utils.user_agent import get_soup, extract_main_site, get_soup_anticloud
+from utils.user_agent import get_soup, extract_main_site, get_soup_anticloud, get_playwright
 import textwrap
 
 import os
@@ -18,11 +18,7 @@ load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
-async def check_irecommend(service, link, pattern, criteria, ss_id, project):
-    ts = random.randint(5, max_sec)
-    print(f"Wait {ts} sec.")
-    await asyncio.sleep(ts)
-
+async def check_irecommend_old(service, link, pattern, criteria, ss_id, project):
     #print("\n", link)
     links = await pars_url(service, ss_id, project)
 
@@ -124,14 +120,51 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
+async def check_irecommend(service, link, pattern, criteria, ss_id, project, playwright, browser, page):
+    timeout = 10000
+
+    # Создание новой вкладки
+    new_page = await browser.new_page()
+
+    # Теперь вы можете работать с new_page
+    await new_page.goto(link)
+
+
+    input('1')
+
+    try:
+        checkbox = page.locator('input[type="checkbox"]')
+        await checkbox.wait_for(state='visible', timeout=timeout)
+        await checkbox.click()
+
+        # # Ждем появления чекбокса
+        # await page.wait_for_selector('input[type="checkbox"]', timeout=timeout)
+        # input('Next..')
+        # # Если чекбокс появился, кликаем по нему
+        # await page.click('input[type="checkbox"]')
+
+    except TimeoutError:
+        # Если чекбокс не появился в течение времени таймаута, продолжаем выполнение
+        print("Чекбокс не найден, продолжаем выполнение")
+
+    input('Wait...')
+
+    await browser.close()
+    await playwright.stop()
+
+
+
+
+
 
 async def main(url):
-    from utils.gs_editor import get_service
     service = await get_service()
-    await check_irecommend(service, url, 1,1,'1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w',1)
+
+    playwright, browser, page = await get_playwright(url, headless=False)
+    await check_irecommend(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, playwright, browser, page)
 
 if "__main__" in __name__:
-    url = "https://irecommend.ru/content/mne-zaplatili-dengi-po-polisu-zashchita-dom"
+    url = "https://irecommend.ru/content/dlya-bystrogo-rosta-i-razvitiya"
     #top_url = "https://irecommend.ru/content/cordiant-snow-cross-2"
     #print(top_url)
 

@@ -25,10 +25,6 @@ max_sec = int(os.environ.get("MAX_SEC"))
 
 async def check_dzen_sel(service, url, pattern, criteria, ss_id, project):
     links = await pars_url(service, ss_id, project)
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
-
     driver = await get_selenium(url)
 
     zen_object_id = driver.find_element(By.CSS_SELECTOR, 'meta[property="zen_object_id"]').get_attribute('content').split(':')
@@ -90,9 +86,6 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, playwright
     #playwright, browser, page = await get_playwright(url)
 
     links = await pars_url(service, ss_id, project)
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
 
     if not page:
         # await browser.close()

@@ -24,9 +24,6 @@ password = os.environ.get("PASS_ROCKETDATA")
 
 async def check_rocketdata(service, link, pattern, criteria, ss_id, project):
     print(link)
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
 
     async with aiohttp.ClientSession() as session:
 
@@ -105,7 +102,7 @@ async def check_rocketdata(service, link, pattern, criteria, ss_id, project):
 async def main_rocketdata():
     service = await get_service()
 
-    url = '1'
+    link = 'https://go.rocketdata.io/reviews-management/reviews?ordering=-creation_date'
     await check_rocketdata(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
 
 

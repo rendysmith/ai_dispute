@@ -65,9 +65,6 @@ async def send_top_url(service, ss_id, project, url):
 
 async def check_2gis(service, url, pattern, criteria, ss_id, project):
     links = await pars_url(service, ss_id, project)
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
 
     await send_top_url(service, ss_id, project, url)
 
@@ -120,10 +117,6 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project):
 
 async def check_2gis_old(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     #playwright, browser, page = await get_playwright(url)
-
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
 
     if not page:
         # await browser.close()

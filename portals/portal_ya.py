@@ -91,9 +91,6 @@ async def get_requestId(dictionary):
 
 async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     links = await pars_url(service, ss_id, project)
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
 
     if not page:
         return 'Сайт не отдал данные.'
@@ -223,9 +220,6 @@ async def get_id_org(url):
 
 async def check_ya_old(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     links = await pars_url(service, ss_id, project)
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
 
     if not page:
         # await browser.close()

@@ -45,9 +45,6 @@ async def get_top_link(link):
 
 async def check_ocompanii(service, url, pattern, criteria, ss_id, project):
     print(url)
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
 
     links = await pars_url(service, ss_id, project)
 

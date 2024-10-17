@@ -58,9 +58,6 @@ async def auth_aplout():
 
 
 async def check_aplout(service, link, pattern, criteria, ss_id, project):
-    ts = random.randint(5, max_sec)
-    print(f"Wait {ts} sec.")
-    await asyncio.sleep(ts)
 
     print("\n", link)
     links = await pars_url(service, ss_id, project)

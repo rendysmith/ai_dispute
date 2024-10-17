@@ -20,10 +20,6 @@ days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
 async def check_pravda(service, link, pattern, criteria, ss_id, project):
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
-
     url = f'https://pravda-sotrudnikov.ru/company/{link}?sort=date'
     print(url)
     links = await pars_url(service, ss_id, project)

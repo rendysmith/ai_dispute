@@ -18,9 +18,6 @@ max_sec = int(os.environ.get("MAX_SEC"))
 
 async def check_drive2(service, link, pattern, criteria, ss_id, project):
     print(link)
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
 
     links = await pars_url(service, ss_id, project)
     if "#comments" not in link:

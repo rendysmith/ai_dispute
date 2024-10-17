@@ -57,9 +57,6 @@ async def convert_date(month):
 
 async def check_vk_sel(service, link, pattern, criteria, ss_id, project):
     print(link)
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
 
     links = await pars_url(service, ss_id, project)
     driver = await get_selenium(link)
@@ -128,10 +125,6 @@ async def check_vk_sel(service, link, pattern, criteria, ss_id, project):
 
 async def blocks_vk(playwright, browser, page):
     #playwright, browser, page = await get_playwright(link)
-
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
 
     if not page:
         # await browser.close()
