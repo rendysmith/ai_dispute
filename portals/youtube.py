@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from utils.ai_module import generate_and_white
 from utils.compressor import compress_string
 from utils.gs_editor import get_service, pars_url
+from utils.user_agent import get_playwright
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -136,7 +137,10 @@ async def check_youtube(service, url, pattern, criteria, ss_id, project, playwri
 async def main():
     service = await get_service()
     url = 'https://www.youtube.com/watch?v=ExrG6AhR-wI'
-    await check_youtube(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
+    url = 'http://www.youtube.com/watch?v=nJHzC7sWxFs&lc=UgwYFlveUMUVhuO5h4p4AaABAg.9sVKNzEV3469sWa8w5YnUi'
+
+    playwright, browser, page = await get_playwright(url)
+    await check_youtube(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, playwright, browser, page)
 
 if __name__ == '__main__':
     asyncio.run(main())

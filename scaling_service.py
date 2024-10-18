@@ -30,6 +30,7 @@ from portals.portal_otzovik import check_otzovik
 from portals.portal_otvet import check_otvet
 from portals.youtube import check_youtube
 from portals.rocketdata import check_rocketdata
+from utils.converter import extract_company_name
 
 from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_scope, write_log_sheet
 
@@ -79,13 +80,6 @@ async def get_local_ip():
 
     else:
         return '127.0.0.1'
-
-async def extract_company_name(pattern, url):
-    match = re.search(pattern, url)
-    if match:
-        return match.group(1)
-    else:
-        return None
 
 async def fix_error(service, project, portal, error):
     data = {
@@ -369,8 +363,20 @@ async def start_zoom(service):
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'sravni.ru' in link:
-                pattern = r'https://www\.sravni\.ru/(.*?)/otzyvy/'
+                top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
 
+                if not top_df.empty:
+                    print('Есть общая ссылка на статью')
+                    link = top_df.loc[0, 'top_url']
+
+                if link in list_links:
+                    print('Ссылка уже проверена.')
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                pattern = r'https://www\.sravni\.ru/(.*?)/otzyvy/'
                 link_company = await extract_company_name(pattern, link)
 
                 if not link_company:
@@ -385,15 +391,13 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                status = await time_out_on(check_sravni,
+                await time_out_on(check_sravni,
                                            service=service,
                                            link=link,
                                            df_mini_pattern=df_mini_pattern,
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project)
-                # if status:
-                #     black_list.append('sravni.ru')
 
 
             # ---------------------------------------------------------------------------------------------------------

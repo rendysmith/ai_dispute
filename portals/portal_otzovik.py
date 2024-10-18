@@ -114,30 +114,41 @@ async def check_otzovik_old(service, link, pattern, criteria, ss_id, project):
         except:
             print('No generate!')
 
-async def check_otzovik(service, link, pattern, criteria, ss_id, project, playwright, browser, page):
+async def check_otzovik(service, link, pattern, criteria, ss_id, project, playwright, browser, page, skip=False):
     timeout = 10000
 
-    await page.wait_for_selector('h1[class="product-name"]', timeout=timeout)
-    top_link_content_0 = await page.query_selector('h1[class="product-name"]')
-    top_link_content = await top_link_content_0.query_selector('a')
-    #print('-', top_link_content)
-    top_link = await top_link_content.get_attribute('href')
-    #print('--', top_link)
-    top_url = "https://otzovik.com" + top_link + '?order=date_desc'
+    await page.wait_for_selector('h1', timeout=timeout)
+    title_page_content = await page.query_selector('h1')
+    title_page = await title_page_content.inner_text()
 
-    print('Top url:', top_url)
+    if title_page == 'Ошибка: Страница не найдена!':
+        print(title_page)
+        return
 
-    if not top_url:
-        return 'Сайт не отдал данные!'
+    try:
+        await page.wait_for_selector('h1[class="product-name"]', timeout=timeout)
+        top_link_content_0 = await page.query_selector('h1[class="product-name"]')
+        top_link_content = await top_link_content_0.query_selector('a')
 
-    else:
-        datas = {'project': project,
-                 'url': link,
-                 'top_url': top_url}
+        top_link = await top_link_content.get_attribute('href')
 
-        await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+        top_url = "https://otzovik.com" + top_link + '?order=date_desc'
 
-    await page.goto(top_url)
+        print('Top url:', top_url)
+
+        if not top_url:
+            return 'Сайт не отдал данные!'
+
+        else:
+            datas = {'project': project,
+                     'url': link,
+                     'top_url': top_url}
+
+            await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+        await page.goto(top_url)
+
+    except:
+        print('This is top_url')
 
     await page.wait_for_selector('div[itemprop="review"]', timeout=timeout)
     blocks = await page.query_selector_all('div[itemprop="review"]')
@@ -184,7 +195,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, playwr
         feedback = await feedback_content.inner_text()
         #print(feedback)
 
-        try:
+        if skip == False:
             await generate_and_white(service=service,
                                      url_answer=url_answer,
                                      author=author,
@@ -194,8 +205,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, playwr
                                      feedback=feedback,
                                      pattern=pattern,
                                      criteria=criteria)
-        except:
-            print('No generate!')
+
 
     await browser.close()
     await playwright.stop()
@@ -207,12 +217,14 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, playwr
 
 
 async def main_otzovik():
-    url = 'https://otzovik.com/review_15821087.html'
+    url = 'https://otzovik.com/review_8584006.html'
+    url = 'https://otzovik.com/review_14851230.html'
+    url = 'https://otzovik.com/reviews/molochnaya_smes_nutrilon_gipoallergenniy/?order=date_desc'
 
     service = await get_service()
     playwright, browser, page = await get_playwright(url, headless=False)
 
-    await check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, playwright, browser, page)
+    await check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, playwright, browser, page, skip=True)
 
 if __name__ == '__main__':
     # url = 'https://otzovik.com/review_16566023.html'

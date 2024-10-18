@@ -6,9 +6,14 @@ from datetime import datetime, timedelta
 
 import requests
 from dotenv import load_dotenv
+from pandas import pivot
+from pandas.io.stata import excessive_string_length_error
 
 from utils.ai_module import generate_and_white
-from utils.gs_editor import get_table_scope
+from utils.compressor import compress_string
+from utils.converter import extract_company_name
+from utils.gs_editor import get_table_scope, append_data_to_sheet_scope, pars_url
+from utils.user_agent import get_data_with_proxy
 
 current_date = datetime.now()
 
@@ -20,26 +25,47 @@ max_sec = int(os.environ.get("MAX_SEC"))
 seven_days_ago = current_date - timedelta(days=days_ago)
 formatted_7date = seven_days_ago.strftime('%Y-%m-%d')
 
-async def pars_url(service, SS_ID, R_N):
-    try:
-        df = await get_table_scope(service, SS_ID, R_N)
-        links = df['Link'].to_list()
-    except:
-        links = []
-    return links
+companies = {'strakhovaja-kompanija/sberbank-strah': 147351}
 
-async def check_sravni(service, link, pattern, criteria, ss_id, project):
-    links = await pars_url(service, ss_id, project)
-    #       "https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=2cf24b82de26a43cbc9961575a28d5ed&from=2024-05-04       &isClient=false&locationRoute=&newIds=true&orderBy=byPopularity&pageIndex=1&pageSize=10 &reviewObjectId=126810&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true"
-    url = f"https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=2cf24b82de26a43cbc9961575a28d5ed&from={formatted_7date}&isClient=false&locationRoute=&newIds=true&orderBy=byPopularity&pageIndex=1&pageSize=100&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true"
-    url = 'https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=1a82bf4208be26b0cfc31659789b0174&isClient=false&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=100&rated=any&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true'
-    url = 'https://www.sravni.ru/proxy-reviews/reviews/?filterBy=all&fingerPrint=90afd98450203b85cd796220e7680745&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true'
-    r = requests.get(url)
-    if r.status_code == 200:
-        r = r.json()
+async def get_top_url(link):
+    pattern = r'https://www\.sravni\.ru/(.*?)/otzyvy/'
+    link_company = await extract_company_name(pattern, link)
+
+    if not link_company:
+        return None, None
+
+    return f"https://www.sravni.ru/{link_company}/otzyvy/", companies[link_company]
+
+async def check_sravni(service, link, pattern, criteria, ss_id, project, skip=False):
+    top_url, reviewObjectId = await get_top_url(link)
+
+    if top_url:
+        datas = {'project': project,
+                 'url': link,
+                 'top_url': top_url}
+
+        await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
 
     else:
+        return
+
+    url = f'https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=-1&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId={reviewObjectId}&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true'
+    print(url)
+    #r = await get_data_with_proxy(url, text_format=False)
+    #print(r)
+
+    r = requests.get(url)
+
+    if r.status_code == 200:
+        r = r.json()
+        print(r)
+    else:
+        print(r.json())
         return f'Сайт не отдал данные {r.status_code}'
+
+    links = await pars_url(service, ss_id, project)
+    len_b = len(r['items'])
+    print(len_b)
 
     for i in r['items']:
         url_answer = f"{link}{i['id']}"
@@ -69,22 +95,24 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
         formatted_date = dt.strftime('%d.%m.%Y')
         feedback = i['text']
 
-        await generate_and_white(service=service,
-                                 url_answer=url_answer,
-                                 author=author,
-                                 formatted_date=formatted_date,
-                                 ss_id=ss_id,
-                                 project=project,
-                                 feedback=feedback,
-                                 pattern=pattern,
-                                 criteria=criteria)
+        if skip == False:
+            await generate_and_white(service=service,
+                                     url_answer=url_answer,
+                                     author=author,
+                                     formatted_date=formatted_date,
+                                     ss_id=ss_id,
+                                     project=project,
+                                     feedback=feedback,
+                                     pattern=pattern,
+                                     criteria=criteria)
 
 
 async def main():
     from utils.gs_editor import get_service
     service = await get_service()
     url = 'https://www.sravni.ru/strakhovaja-kompanija/sberbank-strah/otzyvy/'
-    await check_sravni(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
+    url = 'https://www.sravni.ru/strakhovaja-kompanija/sberbank-strah/otzyvy/575086/'
+    await check_sravni(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, skip=True)
 
 if __name__ == '__main__':
     asyncio.run(main())

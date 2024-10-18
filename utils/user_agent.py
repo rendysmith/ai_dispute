@@ -232,17 +232,16 @@ async def get_playwright(url, headless=True):
             await page.goto(url)
             return browser, page
 
-
         try:
-            # Пытаемся запустить без прокси
-            browser, page = await launch_browser()
-            print('No Proxy')
-
-        except:
             # Если ошибка, запускаем c прокси
             proxies = await get_headers('pw')
             browser, page = await launch_browser(proxies)
             print('Proxy')
+
+        except:
+            # Пытаемся запустить без прокси
+            browser, page = await launch_browser()
+            print('No Proxy')
 
         return playwright, browser, page
 
