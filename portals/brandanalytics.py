@@ -171,6 +171,7 @@ async def check_ba(service):
         soup = BeautifulSoup(text_highlighted, 'html.parser')
         # Извлекаем весь текст из документа
         text = soup.get_text()
+        text_pars = text
         print('text', text)
         #input('---------------')
 
@@ -215,12 +216,16 @@ async def check_ba(service):
                 print('Next >>>>')
                 continue
 
-            trend_alife = False
+            await browser.close()
+            await playwright.stop()
 
             chat_list = []
 
-            for block in blocks:
-                print('**********************************')
+            trend_alife = False
+            break_mode = False
+
+            for idx, block in enumerate(blocks):
+                print(f'****************Block*{idx}*****************')
                 try:
                     date_content = await block.query_selector('span[class="rel_date"]')
                     if not date_content:
@@ -265,9 +270,10 @@ async def check_ba(service):
                     author = ''
                 #print(author)
 
-                if "Т-Банк" in author: #если есть ответ от оф.представителя.
-                    print('--->Т-Банк<---')
-                    continue
+                if  any(bank in author for bank in ['Альфа-Банк', "Т-Банк"]): #если есть ответ от оф.представителя.
+                    print(f"Bank = {author}")
+                    break_mode = True
+                    break  # Выход из внутреннего цикла
 
                 feedback_content = await block.query_selector('div[class="wall_reply_text onclick="]')
                 try:
@@ -282,8 +288,9 @@ async def check_ba(service):
                          'feedback': feedback}
                 chat_list.append(datas)
 
-            await browser.close()
-            await playwright.stop()
+
+            if break_mode:
+                continue  # Переход к следующей итерации внешнего цикла
 
             if trend_alife == False:
                 print('Тренд мертв!')
@@ -306,14 +313,14 @@ async def check_ba(service):
             #print("result:", result)
 
             if result == 'True':
-
                 data = {
                     'date_create': date_create,
                     'portal': url_answer,
                     'author': author,
-                    'feedback': text}
+                    'feedback': text_pars}
 
                 await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
+                print('Wrote data...')
 
 
 

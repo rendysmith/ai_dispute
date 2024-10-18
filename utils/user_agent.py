@@ -127,12 +127,6 @@ async def get_soup_anticloud(url):
         },
     )
 
-    proxy_host, proxy_port = await get_one_proxy()
-    scraper.proxies = {
-        "http": f"http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}",
-        "https": f"http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}",
-    }
-
     # Установка прокси с авторизацией
     response = scraper.get(url, timeout=15000)
     status_code_1 = response.status_code
@@ -145,13 +139,13 @@ async def get_soup_anticloud(url):
         print(f'{status_code_1}: {status_codes.get(status_code_1)}')
 
     if status_code_1 != 200:
-        scraper = cloudscraper.create_scraper(
-            browser={
-                "browser": "chrome",
-                "platform": "windows",
-            },
-        )
-        print(scraper.proxies)
+        proxy_host, proxy_port = await get_one_proxy()
+        scraper.proxies = {
+            "http": f"http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}",
+            "https": f"http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}",
+        }
+
+        #print(scraper.proxies)
         response = scraper.get(url, timeout=15000)
         status_code_2 = response.status_code
         print(f"Anti CF No proxy {status_code_2}:", status_code_2)
@@ -167,9 +161,6 @@ async def get_soup_anticloud(url):
 
     soup = BeautifulSoup(response.text, "html.parser")
     return soup
-
-
-
 
 async def get_soup_new(url, only_pars=False):
     if not only_pars:
@@ -227,7 +218,7 @@ async def get_playwright(url, headless=True):
                 proxy=proxy,
                 timeout=15000 if proxy else 30000
             )
-            context = await browser.new_context(user_agent=ua.random)
+            context = await browser.new_context(user_agent=ua.firefox)
             page = await context.new_page()
 
             # Перехватываем запросы для блокировки изображений и видео
@@ -349,7 +340,8 @@ async def tst_proxy():
     print(soup)
 
 async def main(url):
-    soup = await get_soup(url, only_text=False)
+    soup = await get_soup_anticloud(url)
+    #soup = await get_soup(url, only_text=False)
     print(soup)
 
 
@@ -359,6 +351,7 @@ if "__main__" in __name__:
     #asyncio.run(tst_proxy())
     url = 'https://ocompanii.net/reviews/detail.php?id=1137222'
     url = "https://httpbin.org/ip"
+    url = 'https://irecommend.ru/content/2-nedeli-polet-normalnyi'
 
     asyncio.run(main(url))
     # url = 'https://yandex.ru/maps/2/saint-petersburg/geo/zhiloy_kompleks_biografiya/4184971603/?ll=30.281608%2C59.960850&z=15.46'

@@ -108,6 +108,7 @@ async def ai_reaction_data_processing(service, auth, market):
         if comment in df_comments:
             continue
 
+        date = row['Дата']
         author = row['Имя автора']
         object = row['Объект']
 
@@ -115,7 +116,8 @@ async def ai_reaction_data_processing(service, auth, market):
 
         result = await get_answer_ai(auth, prompt)
 
-        data = {'Текст упоминания': comment,
+        data = {'Дата': date,
+                'Текст упоминания': comment,
                 'Имя автора': author,
                 'Объект': object,
                 'Реакция': result}
