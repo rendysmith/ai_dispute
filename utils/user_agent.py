@@ -1,3 +1,4 @@
+import json
 import traceback
 
 from playwright.async_api import async_playwright
@@ -12,6 +13,12 @@ import cloudscraper
 import re
 
 from fake_useragent import UserAgent
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 from utils.proxy_bridge import get_iplist, get_one_proxy
 import os
@@ -202,7 +209,38 @@ async def get_selenium(url, headless=True):
     wait = WebDriverWait(driver, 10)
     return driver
 
+async def get_selenium_proxy(url, headless=True):
+    from seleniumwire.undetected_chromedriver import Chrome
+
+    chrome_options = Options()
+    if headless == True:
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+
+    chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
+    proxy_host, proxy_port = await get_one_proxy()
+
+
+    seleniumwire_options = {
+        'proxy': {
+            'http': f'http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}',
+            'verify_ssl': False,
+        },
+    }
+
+    # driver = webdriver.Chrome(
+    #     seleniumwire_options=seleniumwire_options
+    # )
+    driver = Chrome(options=chrome_options, seleniumwire_options=seleniumwire_options)
+    driver.get(url)
+
+    # Ожидание загрузки определенного элемента (например, заголовка)
+    wait = WebDriverWait(driver, 10)
+    return driver
+
 async def get_playwright(url, headless=True):
+    print('>>> start PW')
     """
      :param url: url
      :param headless: headless (boot) headless=True
@@ -218,7 +256,20 @@ async def get_playwright(url, headless=True):
                 proxy=proxy,
                 timeout=15000 if proxy else 30000
             )
-            context = await browser.new_context(user_agent=ua.firefox)
+
+            # browser = await playwright.firefox.launch_persistent_context(
+            #     user_data_dir='setting/ai_one_off_setting',  # Путь для сохранения данных сессии
+            #     headless=headless,
+            #     proxy=proxy,
+            #     timeout=15000 if proxy else 30000
+            # )
+
+            json_file = os.path.join(os.path.dirname(__file__), 'setting/context.json')
+            try:
+                context = await browser.new_context(user_agent=ua.firefox, storage_state=json.load(open(json_file)))
+            except:
+                context = await browser.new_context(user_agent=ua.firefox)
+
             page = await context.new_page()
 
             # Перехватываем запросы для блокировки изображений и видео
@@ -228,8 +279,13 @@ async def get_playwright(url, headless=True):
                 else:
                     await route.continue_()
 
-            await page.route("**/*", block_images_and_videos)
+            #await page.route("**/*", block_images_and_videos)
             await page.goto(url)
+            # Сохранение контекста в файл
+            context_state = await context.storage_state()
+            with open(json_file, 'w') as f:
+                json.dump(context_state, f)
+
             return browser, page
 
         try:
@@ -339,9 +395,14 @@ async def tst_proxy():
     print(soup)
 
 async def main(url):
-    soup = await get_soup_anticloud(url)
+    #soup = await get_soup_anticloud(url)
     #soup = await get_soup(url, only_text=False)
-    print(soup)
+
+    playwright, browser, page = await get_playwright(url, headless=False)
+
+
+
+    input()
 
 
 
@@ -351,6 +412,7 @@ if "__main__" in __name__:
     url = 'https://ocompanii.net/reviews/detail.php?id=1137222'
     url = "https://httpbin.org/ip"
     url = 'https://irecommend.ru/content/2-nedeli-polet-normalnyi'
+    url = 'https://otzovik.com/reviews/molochnaya_smes_nutrilon_gipoallergenniy/?order=date_desc'
 
     asyncio.run(main(url))
     # url = 'https://yandex.ru/maps/2/saint-petersburg/geo/zhiloy_kompleks_biografiya/4184971603/?ll=30.281608%2C59.960850&z=15.46'

@@ -3,12 +3,14 @@ import os
 import random
 import traceback
 
+from playwright.async_api import TimeoutError
+
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
-from utils.user_agent import get_soup, get_data_with_proxy, get_soup_anticloud, get_playwright
+from utils.user_agent import get_soup, get_data_with_proxy, get_soup_anticloud, get_playwright, get_selenium
 
 current_date = datetime.now()
 
@@ -116,6 +118,43 @@ async def check_otzovik_old(service, link, pattern, criteria, ss_id, project):
 
 async def check_otzovik(service, link, pattern, criteria, ss_id, project, playwright, browser, page, skip=False):
     timeout = 10000
+
+    full_content = await page.content()
+    print(full_content)
+
+    try:
+        await page.wait_for_selector("center", timeout=timeout)
+        tech_content = await page.query_selector('center')
+        tech = await tech_content.text_content()
+
+        if 'Технический перерыв' in tech:
+            return
+
+    except TimeoutError as TE:
+        await page.wait_for_selector('td[align="left"]', timeout=timeout)
+        capcha_content = await page.query_selector('td[align="left"]')
+        #print('cont 1', await capcha_content)
+        txt1 =  await capcha_content.text_content()
+        txt2 = await capcha_content.inner_text()
+
+        print("txt1", txt1)
+        print("txt2", txt2)
+
+        capcha_link = await capcha_content.get_attribute('align')
+        print('get 1', capcha_link)
+
+        capcha_link = await capcha_content.get_attribute('scr')
+        print('get 2', capcha_link)
+
+        capcha_content = await capcha_content.query_selector('img')
+        capcha_link = await capcha_content.get_attribute('scr')
+        print('get 3', capcha_link)
+
+    except Exception as Ex:
+        print('No capcha')
+
+    input('Next...')
+
 
     await page.wait_for_selector('h1', timeout=timeout)
     title_page_content = await page.query_selector('h1')

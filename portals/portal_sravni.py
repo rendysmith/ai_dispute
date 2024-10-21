@@ -34,7 +34,7 @@ async def get_top_url(link):
     if not link_company:
         return None, None
 
-    return f"https://www.sravni.ru/{link_company}/otzyvy/", companies[link_company]
+    return f"https://www.sravni.ru/{link_company}/otzyvy/", companies.get(link_company)
 
 async def check_sravni(service, link, pattern, criteria, ss_id, project, skip=False):
     top_url, reviewObjectId = await get_top_url(link)
