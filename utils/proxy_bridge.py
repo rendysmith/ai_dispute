@@ -139,6 +139,7 @@ async def get_one_proxy():
             return data[0], data[1]
 
 async def change_setip(ip):
+    print('Change action IP')
     url = f'https://proxy5.net/api/getproxy/?action=setip&login={login_proxy}&password={pass_proxy}&ip={ip}'
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
@@ -217,7 +218,7 @@ async def main_proxy():
 
 
 if "__main__" in __name__:
-    asyncio.run(main_proxy())
+    asyncio.run(change_setip('95.57.222.150'))
 
 
 

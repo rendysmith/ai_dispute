@@ -1,8 +1,10 @@
 import asyncio
 import os
 import random
+import time
 import traceback
 
+import requests
 from playwright.async_api import TimeoutError
 
 from dotenv import load_dotenv
@@ -10,9 +12,17 @@ from datetime import datetime, timedelta
 
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
-from utils.user_agent import get_soup, get_data_with_proxy, get_soup_anticloud, get_playwright, get_selenium
+from utils.user_agent import get_soup, get_data_with_proxy, get_soup_anticloud, get_playwright, get_selenium, \
+    get_selenium_proxy
+
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 current_date = datetime.now()
+
+corn_folder = os.path.dirname(os.path.dirname(__file__))
+
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -116,8 +126,17 @@ async def check_otzovik_old(service, link, pattern, criteria, ss_id, project):
         except:
             print('No generate!')
 
-async def check_otzovik(service, link, pattern, criteria, ss_id, project, playwright, browser, page, skip=False):
+
+
+async def check_otzovik_py(service, link, pattern, criteria, ss_id, project, playwright, browser, page, skip=False):
     timeout = 10000
+
+
+
+    input()
+
+
+
 
     full_content = await page.content()
     print(full_content)
@@ -128,11 +147,16 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, playwr
         tech = await tech_content.text_content()
 
         if 'Технический перерыв' in tech:
+            await asyncio.sleep(30)
             return
 
     except TimeoutError as TE:
         await page.wait_for_selector('td[align="left"]', timeout=timeout)
         capcha_content = await page.query_selector('td[align="left"]')
+
+        tech = await capcha_content.text_content()
+        print(tech)
+
         #print('cont 1', await capcha_content)
         txt1 =  await capcha_content.text_content()
         txt2 = await capcha_content.inner_text()
@@ -154,7 +178,6 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, playwr
         print('No capcha')
 
     input('Next...')
-
 
     await page.wait_for_selector('h1', timeout=timeout)
     title_page_content = await page.query_selector('h1')
@@ -249,6 +272,26 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, playwr
     await browser.close()
     await playwright.stop()
 
+async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver, skip=False):
+    timeout = 10000
+
+    element = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "img")))
+    print('---', element.text)
+
+    capcha = driver.find_element(By.CSS_SELECTOR, 'img[src]')
+
+    number_file = int(time.time())
+    file_link = os.path.join(corn_folder, 'temp', f'captcha_image_{number_file}.png')
+    # Сохранение скриншота капчи
+    capcha.screenshot(file_link)
+    print("Скриншот капчи сохранен.")
+
+
+
+    input('Wait...')
+
+
+
 
 
 
@@ -261,9 +304,10 @@ async def main_otzovik():
     url = 'https://otzovik.com/reviews/molochnaya_smes_nutrilon_gipoallergenniy/?order=date_desc'
 
     service = await get_service()
-    playwright, browser, page = await get_playwright(url, headless=False)
+    #playwright, browser, page = await get_playwright(url, headless=False)
 
-    await check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, playwright, browser, page, skip=True)
+    driver = await get_selenium_proxy(url, headless=False)
+    await check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver, skip=True)
 
 if __name__ == '__main__':
     # url = 'https://otzovik.com/review_16566023.html'

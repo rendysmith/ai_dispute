@@ -1,5 +1,6 @@
 import json
 import traceback
+import zipfile
 
 from playwright.async_api import async_playwright
 
@@ -15,6 +16,7 @@ import re
 from fake_useragent import UserAgent
 
 from selenium import webdriver
+from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -210,34 +212,54 @@ async def get_selenium(url, headless=True):
     return driver
 
 async def get_selenium_proxy(url, headless=True):
-    from seleniumwire.undetected_chromedriver import Chrome
 
-    chrome_options = Options()
-    if headless == True:
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
 
-    chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
     proxy_host, proxy_port = await get_one_proxy()
+    proxy = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
 
+    chrome_options = webdriver.ChromeOptions()
 
-    seleniumwire_options = {
-        'proxy': {
-            'http': f'http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}',
-            'verify_ssl': False,
-        },
-    }
+    # Initialize SeleniumAuthenticatedProxy
+    proxy_helper = SeleniumAuthenticatedProxy(proxy_url=f"http://{proxy}")
 
-    # driver = webdriver.Chrome(
-    #     seleniumwire_options=seleniumwire_options
-    # )
-    driver = Chrome(options=chrome_options, seleniumwire_options=seleniumwire_options)
+    # Enrich Chrome options with proxy authentication
+    proxy_helper.enrich_chrome_options(chrome_options)
+
+    # Start WebDriver with enriched options
+    driver = webdriver.Chrome(options=chrome_options)
+
     driver.get(url)
-
-    # Ожидание загрузки определенного элемента (например, заголовка)
-    wait = WebDriverWait(driver, 10)
     return driver
+
+
+    # from seleniumwire.undetected_chromedriver import Chrome
+    #
+    # chrome_options = Options()
+    # if headless == True:
+    #     chrome_options.add_argument("--headless")
+    #     chrome_options.add_argument("--no-sandbox")
+    #     chrome_options.add_argument("--disable-dev-shm-usage")
+    #
+    # chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
+    #
+    #
+    #
+    # seleniumwire_options = {
+    #     'proxy': {
+    #         'http': f'http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}',
+    #         'verify_ssl': False,
+    #     },
+    # }
+    #
+    # # driver = webdriver.Chrome(
+    # #     seleniumwire_options=seleniumwire_options
+    # # )
+    # driver = Chrome(options=chrome_options, seleniumwire_options=seleniumwire_options)
+    # driver.get(url)
+    #
+    # # Ожидание загрузки определенного элемента (например, заголовка)
+    # wait = WebDriverWait(driver, 10)
+    # return driver
 
 async def get_playwright(url, headless=True):
     print('>>> start PW')
@@ -398,11 +420,11 @@ async def main(url):
     #soup = await get_soup_anticloud(url)
     #soup = await get_soup(url, only_text=False)
 
-    playwright, browser, page = await get_playwright(url, headless=False)
+    #playwright, browser, page = await get_playwright(url, headless=False)
 
+    driver = await get_selenium_proxy(url, headless=False)
 
-
-    input()
+    input('OK!')
 
 
 

@@ -49,7 +49,11 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project, skip=Fa
     else:
         return
 
-    url = f'https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=-1&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId={reviewObjectId}&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true'
+    #https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=-1&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true
+    #https://www.sravni.ru/proxy-reviews/reviews/?filterBy=all&fingerPrint=90afd98450203b85cd796220e7680745&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true
+
+    pageSize = "100"
+    url = f'https://www.sravni.ru/proxy-reviews/reviews/?filterBy=all&fingerPrint=-1&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize={pageSize}&rated=any&reviewObjectId={reviewObjectId}&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true'
     print(url)
     #r = await get_data_with_proxy(url, text_format=False)
     #print(r)
@@ -58,9 +62,9 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project, skip=Fa
 
     if r.status_code == 200:
         r = r.json()
-        print(r)
+        #print(r)
     else:
-        print(r.json())
+        #print(r.json())
         return f'Сайт не отдал данные {r.status_code}'
 
     links = await pars_url(service, ss_id, project)
@@ -72,7 +76,7 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project, skip=Fa
         if url_answer in links:
             continue
 
-        if i['hasCompanyResponse'] == True:
+        if i['hasCompanyResponse'] == True: #есть ответ компании
             continue
 
         if i['commentsCount'] > 0:
