@@ -1,25 +1,27 @@
 import asyncio
+import os
 import random
+import textwrap
 import time
-
+import traceback
 from datetime import datetime, timedelta
 
 import pandas as pd
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
+from dotenv import load_dotenv
+
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
+
+from utils.ai_module import generate_and_white
 from utils.central_module import get_local_ip, wait_for_portal
 from utils.constants import TABLES_LIST
 from utils.gs_editor import pars_url, append_data_to_sheet_scope, get_service, get_table_scope, write_log_sheet
-from utils.ai_module import generate_and_white
-from utils.user_agent import get_soup, extract_main_site, get_soup_anticloud, get_playwright, get_selenium_proxy
-import textwrap
+from utils.user_agent import extract_main_site, get_soup_anticloud, get_selenium_proxy
 
-import os
-from dotenv import load_dotenv
-
-current_date = datetime.now().strftime("%d.%m.%Y")
+current_date = datetime.now()
+record_date = current_date.strftime("%d.%m.%Y")
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -130,70 +132,100 @@ async def check_irecommend_old(service, link, pattern, criteria, ss_id, project)
                                  criteria=criteria)
 
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
-    timeout = 10000
     driver.get(link)
-    await wait_for_portal()
+    links = await pars_url(service, ss_id, project)
+    await wait_for_portal() #Время ожидания
 
-    element = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'h1[class="largeHeader"]')))
-    print('---', element.text)
+    #----------------------------------------------------------------
+    try:
+        element = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'h1[class="largeHeader"]')))
+        print('---', element.text)
+        #domen = await extract_main_site(link)
+        top_block_content = driver.find_element(By.CSS_SELECTOR, 'h1[class="largeHeader"]')
+
+        top_block_get = top_block_content.find_element(By.CSS_SELECTOR, 'a[href]')
+        top_block = top_block_get.get_attribute('href')
+        top_url = top_block + "?new=1"
+        print(top_url)
+
+        datas = {'project': project,
+                 'url': link,
+                 'top_url': top_url}
+
+        await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+
+    except Exception as Ex:
+        traceback.print_exc()
+        print(f'Error Ex: {Ex}')
+        return None
+        #----------------------------------------------------------------
+
+    driver.get(top_url)
+    await wait_for_portal()  # Время ожидания
+
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-type="1"]')))
+
+    driver.execute_script("window.scrollBy(0, 1000);")  # Скроллит вниз на 500 пикселей
+
+    blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-type="1"]')
+    len_b = len(blocks)
+    print('Len_b =', len_b)
+
+    if len_b == 0:
+        return
 
     domen = await extract_main_site(link)
-    top_block_content = driver.find_element(By.CSS_SELECTOR, 'h1[class="largeHeader"]')
-    top_block = top_block_content.find_element(By.CSS_SELECTOR, 'a').get_attribute('href')
-    top_url = domen + top_block + "?new=1"
-    print(top_url)
 
-    input('2')
+    for block in blocks:
+        print('****************************')
+        url_n_content = block.find_element(By.CSS_SELECTOR, 'a.reviewTextSnippet')
+        url_n = url_n_content.get_attribute('href')
+        url_answer = domen + url_n
+        print(url_answer)
 
-    try:
-        await page.wait_for_selector('h1[class="largeHeader"]', timeout=timeout)
+        if url_answer in links:
+            print('Отзыв уже есть в таблице')
+            continue
 
-        top_url = await page.query_selector('h1[class="largeHeader"]')
-        print(f'Получение главной темы на основании комментов.')
-        top_block_content = await top_url.query_selector('a')
-        top_block = await top_block_content.get_attribute('href')
-        top_url = domen + top_block + "?new=1"
+        try:
+            date = block.find_element(By.CSS_SELECTOR, "div.created").text
+            target_date = datetime.strptime(date, "%d.%m.%Y")
 
-    except:
-        print('Это уже топовая ссылка')
-        top_url = link
+        except:
+            date_1 = block.find_element(By.CSS_SELECTOR, "div.created")
+            date = date_1.find_element(By.CSS_SELECTOR, "span.date-created").text
+            target_date = datetime.strptime(date, "%d.%m.%Y")
 
-    print(top_url)
+        if (current_date - target_date) > timedelta(days=days_ago):
+            print(f'--- Отзыв старше {days_ago} дней = {date}.')
+            continue
 
-    await page.goto(top_url)
+        author = block.find_element(By.CSS_SELECTOR, "div.authorName").text
 
+        title = block.find_element(By.CSS_SELECTOR, "div.reviewTitle").text
+        title_txt = block.find_element(By.CSS_SELECTOR, "span.reviewTeaserText").text
 
+        feedback = f"""
+        {title}
+        {title_txt}
+        """
+        feedback = textwrap.dedent(feedback)
+        #print(feedback)
 
+        formatted_date = date
 
+        #await generate_and_white(service, url_answer, author, formatted_date, prompt)
+        await generate_and_white(service=service,
+                                 url_answer=url_answer,
+                                 author=author,
+                                 formatted_date=formatted_date,
+                                 ss_id=ss_id,
+                                 project=project,
+                                 feedback=feedback,
+                                 pattern=pattern,
+                                 criteria=criteria)
 
-
-
-
-
-
-
-    try:
-        checkbox = page.locator('input[type="checkbox"]')
-        await checkbox.wait_for(state='visible', timeout=timeout)
-        await checkbox.click()
-
-        # # Ждем появления чекбокса
-        # await page.wait_for_selector('input[type="checkbox"]', timeout=timeout)
-        # input('Next..')
-        # # Если чекбокс появился, кликаем по нему
-        # await page.click('input[type="checkbox"]')
-
-    except TimeoutError:
-        # Если чекбокс не появился в течение времени таймаута, продолжаем выполнение
-        print("Чекбокс не найден, продолжаем выполнение")
-
-    input('Wait...')
-
-    await browser.close()
-    await playwright.stop()
-
-
-
+    return 'OK!'
 
 
 
@@ -293,7 +325,7 @@ async def main_irecommend():
                 else:
                     list_links.append(link)
 
-                await check_irecommend(service=service,
+                status = await check_irecommend(service=service,
                                        link=link,
                                        pattern=df_mini_pattern,
                                        criteria=df_mini_criteria,
@@ -301,11 +333,17 @@ async def main_irecommend():
                                        project=project,
                                        driver=driver)
 
+
+                if not status:
+                    driver.quit()
+                    driver = await get_selenium_proxy('https://irecommend.ru/')
+
+
         if record:
             finish_sec = time.time() - start_time
             datas = {'service_name': 'Only_irecommend',
                     'count': len_df,
-                    'date': current_date,
+                    'date': record_date,
                     'time': finish_sec}
 
             print('datas', datas)
@@ -313,21 +351,16 @@ async def main_irecommend():
 
     driver.close()
 
+async def tst_main():
+    url = 'https://irecommend.ru/content/lechenie-v-turtsii-v-odnoi-iz-luchshikh-klinik-v-kotorykh-ya-kogda-libo-byla-tak-zhe-strakho'
+    driver = await get_selenium_proxy('https://irecommend.ru/')
 
-
-
-
-
-
-
-
-
-
-
-
+    await check_irecommend(1, url, 1, 1, 1, 1, driver)
 
 
 if "__main__" in __name__:
+
+    #asyncio.run(tst_main())
     asyncio.run(main_irecommend())
 
 

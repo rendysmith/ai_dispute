@@ -15,6 +15,8 @@ import re
 
 from fake_useragent import UserAgent
 
+from seleniumbase import Driver
+
 from selenium import webdriver
 from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
 from selenium.webdriver.chrome.options import Options
@@ -215,10 +217,11 @@ async def get_selenium_proxy(url, headless=True):
     proxy_host, proxy_port = await get_one_proxy()
     proxy = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
 
-    # from seleniumbase import Driver
-    # # create a Driver instance with undetected_chromedriver (uc) and headless mode
-    # driver = Driver(uc=True, headless=False, proxy=proxy, agent=ua.chrome)
-    # driver.get(url)
+
+    # create a Driver instance with undetected_chromedriver (uc) and headless mode
+    driver = Driver(uc=True, headless=False, proxy=proxy, agent=ua.chrome, block_images=True)
+    driver.get(url)
+    return driver
 
 
     def enable_secure_dns(driver):
