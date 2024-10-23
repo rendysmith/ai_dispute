@@ -126,8 +126,6 @@ async def check_otzovik_old(service, link, pattern, criteria, ss_id, project):
         except:
             print('No generate!')
 
-
-
 async def check_otzovik_py(service, link, pattern, criteria, ss_id, project, playwright, browser, page, skip=False):
     timeout = 10000
 

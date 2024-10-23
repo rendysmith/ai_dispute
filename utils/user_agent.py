@@ -212,12 +212,27 @@ async def get_selenium(url, headless=True):
     return driver
 
 async def get_selenium_proxy(url, headless=True):
-
-
     proxy_host, proxy_port = await get_one_proxy()
     proxy = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
 
+    # from seleniumbase import Driver
+    # # create a Driver instance with undetected_chromedriver (uc) and headless mode
+    # driver = Driver(uc=True, headless=False, proxy=proxy, agent=ua.chrome)
+    # driver.get(url)
+
+
+    def enable_secure_dns(driver):
+        # Включаем Secure DNS и выбираем Cloudflare (1.1.1.1)
+        driver.execute_cdp_cmd("Network.setExtraHTTPHeaders", {
+            "headers": {
+                "Secure-DNS": "1.1.1.1"
+            }
+        })
+
     chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_argument(f'--user-agent={ua.chrome}')
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
 
     # Initialize SeleniumAuthenticatedProxy
     proxy_helper = SeleniumAuthenticatedProxy(proxy_url=f"http://{proxy}")
@@ -227,8 +242,9 @@ async def get_selenium_proxy(url, headless=True):
 
     # Start WebDriver with enriched options
     driver = webdriver.Chrome(options=chrome_options)
-
+    enable_secure_dns(driver)
     driver.get(url)
+
     return driver
 
 
@@ -279,19 +295,13 @@ async def get_playwright(url, headless=True):
                 timeout=15000 if proxy else 30000
             )
 
-            # browser = await playwright.firefox.launch_persistent_context(
-            #     user_data_dir='setting/ai_one_off_setting',  # Путь для сохранения данных сессии
-            #     headless=headless,
-            #     proxy=proxy,
-            #     timeout=15000 if proxy else 30000
-            # )
-
             json_file = os.path.join(os.path.dirname(__file__), 'setting/context.json')
             try:
                 context = await browser.new_context(user_agent=ua.firefox, storage_state=json.load(open(json_file)))
             except:
                 context = await browser.new_context(user_agent=ua.firefox)
 
+            await context.set_extra_http_headers(await gen_ua(url))
             page = await context.new_page()
 
             # Перехватываем запросы для блокировки изображений и видео
