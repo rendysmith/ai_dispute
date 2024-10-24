@@ -213,42 +213,47 @@ async def get_selenium(url, headless=True):
     wait = WebDriverWait(driver, 10)
     return driver
 
-async def get_selenium_proxy(url, headless=True):
+async def get_selenium_proxy(url=None, headless=True):
     proxy_host, proxy_port = await get_one_proxy()
     proxy = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
 
-
     # create a Driver instance with undetected_chromedriver (uc) and headless mode
-    driver = Driver(uc=True, headless=False, proxy=proxy, agent=ua.chrome, block_images=True)
-    driver.get(url)
+    driver = Driver(uc=True,
+                    headless=headless,
+                    headless1=headless,
+                    headless2=headless,
+                    proxy=proxy,
+                    agent=ua.chrome)
+    #driver.get(url)
     return driver
 
-
-    def enable_secure_dns(driver):
-        # Включаем Secure DNS и выбираем Cloudflare (1.1.1.1)
-        driver.execute_cdp_cmd("Network.setExtraHTTPHeaders", {
-            "headers": {
-                "Secure-DNS": "1.1.1.1"
-            }
-        })
-
-    chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument(f'--user-agent={ua.chrome}')
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-
-    # Initialize SeleniumAuthenticatedProxy
-    proxy_helper = SeleniumAuthenticatedProxy(proxy_url=f"http://{proxy}")
-
-    # Enrich Chrome options with proxy authentication
-    proxy_helper.enrich_chrome_options(chrome_options)
-
-    # Start WebDriver with enriched options
-    driver = webdriver.Chrome(options=chrome_options)
-    enable_secure_dns(driver)
-    driver.get(url)
-
-    return driver
+    #
+    #
+    # def enable_secure_dns(driver):
+    #     # Включаем Secure DNS и выбираем Cloudflare (1.1.1.1)
+    #     driver.execute_cdp_cmd("Network.setExtraHTTPHeaders", {
+    #         "headers": {
+    #             "Secure-DNS": "1.1.1.1"
+    #         }
+    #     })
+    #
+    # chrome_options = webdriver.ChromeOptions()
+    # chrome_options.add_argument(f'--user-agent={ua.chrome}')
+    # chrome_options.add_argument("--no-sandbox")
+    # chrome_options.add_argument("--disable-dev-shm-usage")
+    #
+    # # Initialize SeleniumAuthenticatedProxy
+    # proxy_helper = SeleniumAuthenticatedProxy(proxy_url=f"http://{proxy}")
+    #
+    # # Enrich Chrome options with proxy authentication
+    # proxy_helper.enrich_chrome_options(chrome_options)
+    #
+    # # Start WebDriver with enriched options
+    # driver = webdriver.Chrome(options=chrome_options)
+    # enable_secure_dns(driver)
+    # driver.get(url)
+    #
+    # return driver
 
 
     # from seleniumwire.undetected_chromedriver import Chrome

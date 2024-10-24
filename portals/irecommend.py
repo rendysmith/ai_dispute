@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
+from selenium.common.exceptions import NoSuchWindowException
 
 from utils.ai_module import generate_and_white
 from utils.central_module import get_local_ip, wait_for_portal
@@ -132,46 +133,81 @@ async def check_irecommend_old(service, link, pattern, criteria, ss_id, project)
                                  criteria=criteria)
 
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
+    print(f'Link: {link}')
     driver.get(link)
     links = await pars_url(service, ss_id, project)
     await wait_for_portal() #Время ожидания
-
     #----------------------------------------------------------------
-    try:
-        element = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'h1[class="largeHeader"]')))
-        print('---', element.text)
-        #domen = await extract_main_site(link)
-        top_block_content = driver.find_element(By.CSS_SELECTOR, 'h1[class="largeHeader"]')
 
-        top_block_get = top_block_content.find_element(By.CSS_SELECTOR, 'a[href]')
-        top_block = top_block_get.get_attribute('href')
-        top_url = top_block + "?new=1"
-        print(top_url)
+    if 'new=1' not in link:
+        n = 0
+        while n < 10:
+            print('- Поиск TOP страницы, если мы еще не на ней.')
+            try:
+                top_block_content = driver.find_element(By.CSS_SELECTOR, 'a[class=" active"]')
+                top_url = top_block_content.get_attribute('href')
+                print(top_url)
+                break
+
+            except Exception as Ex:
+                traceback.print_exc()
+                top_block_content = driver.find_element(By.CSS_SELECTOR, 'h1[class="largeHeader"]')
+                top_block_get = top_block_content.find_element(By.CSS_SELECTOR, 'a[href]')
+                top_block = top_block_get.get_attribute('href')
+                top_url = top_block + "?new=1"
+                print(top_url)
+                break
+                #----------------------------------------------------------------
+
+            except NoSuchWindowException as NSEE:
+                print(f'Error NSEE: {NSEE}')
+                return None
+
+            except:
+                print(f'--- driver refresh')
+                driver.refresh()
+                await asyncio.sleep(5)
+                n += 1
+
+                if n == 10:
+                    return None
 
         datas = {'project': project,
                  'url': link,
                  'top_url': top_url}
 
+        #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+        print('-- Record TOP link')
 
-    except Exception as Ex:
-        traceback.print_exc()
-        print(f'Error Ex: {Ex}')
-        return None
-        #----------------------------------------------------------------
+        driver.get(top_url)
+        await wait_for_portal()  # Время ожидания
 
-    driver.get(top_url)
-    await wait_for_portal()  # Время ожидания
+    else:
+        print('- Это уже TOP страница.')
 
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-type="1"]')))
+    print('- Get Blocks')
+    n = 0
+    len_b = 0
+    while n < 10:
+        try:
+            print('Search blocks')
+            #WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-type="1"]')))
+            driver.execute_script("window.scrollBy(0, 1000);")  # Скроллит вниз на 500 пикселей
+            print('- 1')
+            blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-type="1"]')
+            print('- 2')
+            len_b = len(blocks)
+            print('Len_b =', len_b)
+            break
 
-    driver.execute_script("window.scrollBy(0, 1000);")  # Скроллит вниз на 500 пикселей
-
-    blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-type="1"]')
-    len_b = len(blocks)
-    print('Len_b =', len_b)
+        except:
+            #driver.refresh()
+            await asyncio.sleep(5)
+            n += 1
 
     if len_b == 0:
+        print('Len_b =', len_b)
         return
 
     domen = await extract_main_site(link)
@@ -181,7 +217,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
         url_n_content = block.find_element(By.CSS_SELECTOR, 'a.reviewTextSnippet')
         url_n = url_n_content.get_attribute('href')
         url_answer = domen + url_n
-        print(url_answer)
+        #print(url_answer)
 
         if url_answer in links:
             print('Отзыв уже есть в таблице')
@@ -198,7 +234,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
 
         if (current_date - target_date) > timedelta(days=days_ago):
             print(f'--- Отзыв старше {days_ago} дней = {date}.')
-            continue
+            return "Next..."
 
         author = block.find_element(By.CSS_SELECTOR, "div.authorName").text
 
@@ -214,7 +250,6 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
 
         formatted_date = date
 
-        #await generate_and_white(service, url_answer, author, formatted_date, prompt)
         await generate_and_white(service=service,
                                  url_answer=url_answer,
                                  author=author,
@@ -226,8 +261,6 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
                                  criteria=criteria)
 
     return 'OK!'
-
-
 
 async def main_irecommend():
     local_ip = await get_local_ip()
@@ -254,7 +287,7 @@ async def main_irecommend():
     df_logs = await get_table_scope(service, ss_id, 'logs')
     print(df_logs)
 
-    driver = await get_selenium_proxy('https://irecommend.ru/')
+    driver = await get_selenium_proxy()
 
     for project in list_:
         if 'Проект' in project:
@@ -295,6 +328,9 @@ async def main_irecommend():
         df_mini = df_mini.drop_duplicates().reset_index()
 
         df_link_list = df_mini[project].to_list()
+        irec_link = [i for i in df_link_list if 'irecommend' in i]
+        len_irec = len(irec_link)
+
         random.shuffle(df_link_list)
 
         len_df = len(df_link_list)
@@ -307,7 +343,7 @@ async def main_irecommend():
         for idx, link in enumerate(df_link_list):
             left = len_df - df_link_list.index(link)
             print(
-                f'\n*************************{idx}*({left})***************************\n----------------- {link} ----------------')
+                f'\n*************************{idx}*({left})*{project}**************************\n----------------- {link} ----------------')
 
             if 'irecommend' in link:
                 record = True
@@ -333,16 +369,14 @@ async def main_irecommend():
                                        project=project,
                                        driver=driver)
 
-
                 if not status:
                     driver.quit()
-                    driver = await get_selenium_proxy('https://irecommend.ru/')
-
+                    driver = await get_selenium_proxy()
 
         if record:
             finish_sec = time.time() - start_time
-            datas = {'service_name': 'Only_irecommend',
-                    'count': len_df,
+            datas = {'service_name': f'{project}_irecommend',
+                    'count': len_irec,
                     'date': record_date,
                     'time': finish_sec}
 
@@ -353,8 +387,8 @@ async def main_irecommend():
 
 async def tst_main():
     url = 'https://irecommend.ru/content/lechenie-v-turtsii-v-odnoi-iz-luchshikh-klinik-v-kotorykh-ya-kogda-libo-byla-tak-zhe-strakho'
-    driver = await get_selenium_proxy('https://irecommend.ru/')
-
+    url = 'https://irecommend.ru/content/strakhovka-rabotaet'
+    driver = await get_selenium_proxy()
     await check_irecommend(1, url, 1, 1, 1, 1, driver)
 
 
