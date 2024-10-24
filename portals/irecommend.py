@@ -11,8 +11,6 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.wait import WebDriverWait
 from selenium.common.exceptions import NoSuchWindowException
 
 from utils.ai_module import generate_and_white
