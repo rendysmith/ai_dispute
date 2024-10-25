@@ -1,44 +1,35 @@
+
+
+import asyncio
 import os.path
+import random
 import time
 from datetime import datetime
 
 import pandas as pd
-import requests
-
-import asyncio
-import re
-import random
-
-import traceback
-
 from dotenv import load_dotenv
 
+from portals.dreamjob import check_dreamjob
+from portals.irecommend import check_irecommend
+from portals.ocompanii import check_ocompanii
+from portals.portal_2gis import check_2gis
 from portals.portal_aplaut import check_aplout
+from portals.portal_drive2 import check_drive2
+from portals.portal_dzen import check_dzen
+# from portals.portal_vk import check_vk
+from portals.portal_otvet import check_otvet
+from portals.portal_otzovik import check_otzovik
 from portals.portal_rustore import check_rustore
+from portals.portal_sravni import check_sravni
+from portals.portal_ya import check_ya
 from portals.portal_ya_market import check_ya_market
 from portals.pravda_sotrudnikov import check_pravda
-from portals.dreamjob import check_dreamjob
-from portals.portal_2gis import check_2gis
-from portals.portal_ya import check_ya
-from portals.portal_dzen import check_dzen
-from portals.portal_sravni import check_sravni
-from portals.ocompanii import check_ocompanii
-
-from portals.portal_drive2 import check_drive2
-
-#from portals.portal_vk import check_vk
-from portals.portal_otvet import check_otvet
-from portals.youtube import check_youtube
 from portals.rocketdata import check_rocketdata
-from utils.converter import extract_company_name
-
-from portals.irecommend import check_irecommend, main_irecommend
-from portals.portal_otzovik import check_otzovik, main_otzovik
-
-from utils.gs_editor import get_service, get_table_scope, append_data_to_sheet_scope, write_log_sheet
-
+from portals.youtube import check_youtube
+from utils.central_module import get_local_ip, time_out_on, time_out_play
 from utils.constants import TABLES_LIST
-from utils.user_agent import get_playwright
+from utils.converter import extract_company_name
+from utils.gs_editor import get_service, get_table_scope, write_log_sheet
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -422,11 +413,10 @@ async def start_zoom(service):
                     link = top_df.loc[0, 'top_url']
 
                 link_split = link.split('/')
-
                 for lnk in link_split:
                     if lnk.isdigit():
                         try:
-                            idx = link_split.index(lnk)
+                            #idx = link_split.index(lnk)
                             #print(link_split)
                             #print(idx, lnk)
                             link_company = os.path.join('https://yandex.ru/maps/org', lnk, 'reviews')
