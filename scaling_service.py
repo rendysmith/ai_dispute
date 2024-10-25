@@ -48,8 +48,6 @@ max_sec = int(os.environ.get("MAX_SEC"))
 ss_id = TABLES_LIST['zoom']
 current_date = datetime.now().strftime("%d.%m.%Y")
 
-
-
 async def start_zoom(service):
     timetable, projects, portal = [], [], []
     #timetable, projects, portal = await get_set()

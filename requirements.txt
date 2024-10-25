@@ -25,3 +25,4 @@ aiohttp~=3.9.1
 asyncpg==0.27.0
 aiohttp_proxy==0.1.2
 cloudscraper==1.2.71
+seleniumbase==4.31.6
