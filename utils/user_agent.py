@@ -18,11 +18,9 @@ from fake_useragent import UserAgent
 from seleniumbase import Driver
 
 from selenium import webdriver
-from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
+#from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
 from utils.proxy_bridge import get_iplist, get_one_proxy
 import os
