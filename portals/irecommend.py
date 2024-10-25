@@ -391,7 +391,6 @@ async def tst_main():
 
 
 if "__main__" in __name__:
-
     #asyncio.run(tst_main())
     asyncio.run(main_irecommend())
 

@@ -10,15 +10,13 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from portals.dreamjob import check_dreamjob
-from portals.irecommend import check_irecommend
+
 from portals.ocompanii import check_ocompanii
 from portals.portal_2gis import check_2gis
 from portals.portal_aplaut import check_aplout
 from portals.portal_drive2 import check_drive2
 from portals.portal_dzen import check_dzen
-# from portals.portal_vk import check_vk
 from portals.portal_otvet import check_otvet
-from portals.portal_otzovik import check_otzovik
 from portals.portal_rustore import check_rustore
 from portals.portal_sravni import check_sravni
 from portals.portal_ya import check_ya
@@ -26,6 +24,11 @@ from portals.portal_ya_market import check_ya_market
 from portals.pravda_sotrudnikov import check_pravda
 from portals.rocketdata import check_rocketdata
 from portals.youtube import check_youtube
+
+# from portals.portal_vk import check_vk
+#from portals.portal_otzovik import check_otzovik
+#from portals.irecommend import check_irecommend
+
 from utils.central_module import get_local_ip, time_out_on, time_out_play
 from utils.constants import TABLES_LIST
 from utils.converter import extract_company_name
@@ -284,56 +287,7 @@ async def start_zoom(service):
                 # if status:
                 #     black_list.append('drive2.ru')
 
-            #---------------------------------------------------------------------------------------------------------
-            elif 'irecommend_off' in link:
-                top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
-                #print(top_df)
 
-                if not top_df.empty:
-                    print('Есть общая ссылка на статью')
-                    link = top_df.loc[0, 'top_url']
-
-                if link in list_links:
-                    print('Ссылка уже проверена.')
-                    continue
-
-                else:
-                    list_links.append(link)
-
-                await time_out_play(check_irecommend,
-                                           service=service,
-                                           link=link,
-                                           df_mini_pattern=df_mini_pattern,
-                                           df_mini_criteria=df_mini_criteria,
-                                           ss_id=ss_id,
-                                           project=project)
-                # if status:
-                #     black_list.append('irecommend')
-
-            #---------------------------------------------------------------------------------------------------------
-            elif 'otzovik.com_off' in link:
-
-                top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
-                #print(top_df)
-
-                if not top_df.empty:
-                    print('Есть общая ссылка на статью')
-                    link = top_df.loc[0, 'top_url']
-
-                if link in list_links:
-                    print('Ссылка уже проверена.')
-                    continue
-
-                else:
-                    list_links.append(link)
-
-                await time_out_play(check_otzovik,
-                                           service=service,
-                                           link=link,
-                                           df_mini_pattern=df_mini_pattern,
-                                           df_mini_criteria=df_mini_criteria,
-                                           ss_id=ss_id,
-                                           project=project)
 
 
             #---------------------------------------------------------------------------------------------------------
@@ -557,6 +511,57 @@ async def start_zoom(service):
             #                                project=project)
             #     if status:
             #         black_list.append('vk.com')
+
+            #---------------------------------------------------------------------------------------------------------
+            # elif 'irecommend_off' in link:
+            #     top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
+            #     #print(top_df)
+            #
+            #     if not top_df.empty:
+            #         print('Есть общая ссылка на статью')
+            #         link = top_df.loc[0, 'top_url']
+            #
+            #     if link in list_links:
+            #         print('Ссылка уже проверена.')
+            #         continue
+            #
+            #     else:
+            #         list_links.append(link)
+            #
+            #     await time_out_play(check_irecommend,
+            #                                service=service,
+            #                                link=link,
+            #                                df_mini_pattern=df_mini_pattern,
+            #                                df_mini_criteria=df_mini_criteria,
+            #                                ss_id=ss_id,
+            #                                project=project)
+            #     # if status:
+            #     #     black_list.append('irecommend')
+            #
+            # #---------------------------------------------------------------------------------------------------------
+            # elif 'otzovik.com_off' in link:
+            #
+            #     top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
+            #     #print(top_df)
+            #
+            #     if not top_df.empty:
+            #         print('Есть общая ссылка на статью')
+            #         link = top_df.loc[0, 'top_url']
+            #
+            #     if link in list_links:
+            #         print('Ссылка уже проверена.')
+            #         continue
+            #
+            #     else:
+            #         list_links.append(link)
+            #
+            #     await time_out_play(check_otzovik,
+            #                                service=service,
+            #                                link=link,
+            #                                df_mini_pattern=df_mini_pattern,
+            #                                df_mini_criteria=df_mini_criteria,
+            #                                ss_id=ss_id,
+            #                                project=project)
 
         finish_sec = time.time() - start_time
         datas = {'service_name': project,

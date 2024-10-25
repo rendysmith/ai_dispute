@@ -1,27 +1,20 @@
 import asyncio
 import os
 import random
+import sys
 import time
-import traceback
+from datetime import datetime, timedelta
 
 import pandas as pd
-
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from twocaptcha import TwoCaptcha
 
 from utils.central_module import get_local_ip, wait_for_portal
 from utils.constants import TABLES_LIST
-from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope, get_table_scope, write_log_sheet
-from utils.ai_module import generate_and_white
+from utils.gs_editor import get_service, pars_url, get_table_scope, write_log_sheet
 from utils.user_agent import get_selenium_proxy
-
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-
-import sys
-import os
-
-from twocaptcha import TwoCaptcha
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
@@ -92,11 +85,20 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
     print(f'Link: {link}')
     driver.get(link)
 
-    input()
+    #input('Wait..')
 
-    driver = await captcha_check(driver)
+    #driver = await captcha_check(driver) #обработка капчи
     links = await pars_url(service, ss_id, project)
     await wait_for_portal()  # Время ожидания
+
+    try:
+        breadcrumbs = driver.find_element(By.CSS_SELECTOR, 'div.page-caption').text
+        if 'Ошибка' in breadcrumbs:
+            print(breadcrumbs)
+            return 'Next ...'
+
+    except:
+        pass
 
     if 'order=date_desc' not in link:
         input('Get TOP link')
@@ -137,6 +139,38 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
         if url_answer in links:
             print("Такой комментарий уже отмечен")
             continue
+
+        try:
+            date_content = block.find_element(By.CSS_SELECTOR, "div.review-postdate").get_attribute('content')
+
+        except:
+            date_content = block.find_element(By.CSS_SELECTOR, "div.review-postdate")
+
+        #print("Date_content", date_content)
+        date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S%z")
+        date = date.replace(tzinfo=None)  # offset-naive
+
+        formatted_date = date.strftime("%d.%m.%Y")
+
+        if (current_date - date) > timedelta(days=days_ago):
+            print(f'--- Отзыв старше {days_ago} дней. = {date}')
+            return 'Next'
+
+        author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
+        feedback = block.find_element(By.CSS_SELECTOR, "div.review-body-wrap").text
+
+        try:
+            await generate_and_white(service=service,
+                                     url_answer=url_answer,
+                                     author=author,
+                                     formatted_date=formatted_date,
+                                     ss_id=ss_id,
+                                     project=project,
+                                     feedback=feedback,
+                                     pattern=pattern,
+                                     criteria=criteria)
+        except:
+            print('No generate!')
 
 
 
@@ -274,14 +308,12 @@ async def main_otzovik():
     driver.close()
 
 async def tst_otzovik():
-    file_link = '/home/andy/PycharmProjects/sidorin/ai_one_off/temp/captcha_image_1729773670.png'
-    capcha_text = await sent_captcha(file_link)
-    print(capcha_text)
-    input('Wait...')
+    # file_link = '/home/andy/PycharmProjects/sidorin/ai_one_off/temp/captcha_image_1729773670.png'
+    # capcha_text = await sent_captcha(file_link)
+    # print(capcha_text)
+    # input('Wait...')
 
-    url = 'https://otzovik.com/review_8584006.html'
-    url = 'https://otzovik.com/review_14851230.html'
-    url = 'https://otzovik.com/reviews/molochnaya_smes_nutrilon_gipoallergenniy/?order=date_desc'
+    url = 'https://otzovik.com/review_15376402.html'
 
     service = await get_service()
     #playwright, browser, page = await get_playwright(url, headless=False)
@@ -290,8 +322,8 @@ async def tst_otzovik():
     await check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver)
 
 if __name__ == '__main__':
-    #asyncio.run(tst_otzovik())
-    asyncio.run(main_otzovik())
+    asyncio.run(tst_otzovik())
+    #asyncio.run(main_otzovik())
     print('The End!')
 
 
