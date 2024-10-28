@@ -1,26 +1,43 @@
-FROM python:3.10
+FROM python:3.10-slim
 
-# Обновление списка пакетов и установка pip
+# Установка системных зависимостей в одном слое для уменьшения размера образа
 RUN apt-get update -y && \
-    apt-get install -y python3-pip firefox-esr
+    apt-get install -y --no-install-recommends \
+    python3-pip \
+    firefox-esr \
+    wget \
+    gnupg2 \
+    apt-transport-https \
+    ca-certificates && \
+    # Добавление репозитория и установка Chrome
+    wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/sources.list.d/google.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends google-chrome-stable && \
+    # Очистка кэша и ненужных файлов
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    # Обновление pip
+    pip install --no-cache-dir --upgrade pip
 
-RUN pip install --upgrade pip
+# Создание рабочей директории
+WORKDIR /app
 
-RUN mkdir /app/
+# Копирование и установка зависимостей Python
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ./requirements.txt /app/requirements.txt
-RUN pip install -r /app/requirements.txt
+# Установка Playwright
+RUN playwright install --with-deps chromium
 
-RUN playwright install --with-deps
+# Копирование остальных файлов проекта
+COPY . .
 
-COPY . /app/
-WORKDIR /app/
+# Установка переменной окружения
+ENV PRJPATH=/app/
 
-ENV PRJPATH /app/
+# Установка прав на выполнение скриптов
+RUN chmod +x run_container.sh restart_build.sh
 
-# Добавление прав на выполнение скриптов (если необходимо)
-RUN chmod +x run_container.sh
-RUN chmod +x restart_build.sh
-
-# Запуск основного файла
+# Запуск приложения
 CMD ["python", "-um", "main"]

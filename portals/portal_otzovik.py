@@ -11,6 +11,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from twocaptcha import TwoCaptcha
 
+from utils.ai_module import generate_and_white
 from utils.central_module import get_local_ip, wait_for_portal
 from utils.constants import TABLES_LIST
 from utils.gs_editor import get_service, pars_url, get_table_scope, write_log_sheet

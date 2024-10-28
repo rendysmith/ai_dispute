@@ -301,7 +301,9 @@ async def get_playwright(url, headless=True):
                 timeout=15000 if proxy else 30000
             )
 
+
             json_file = os.path.join(os.path.dirname(__file__), 'setting/context.json')
+
             try:
                 context = await browser.new_context(user_agent=ua.firefox, storage_state=json.load(open(json_file)))
             except:
