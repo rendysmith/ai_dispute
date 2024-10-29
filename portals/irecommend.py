@@ -305,6 +305,7 @@ async def main_irecommend():
 
         #Если дата не совпадает с сегодняшней
         host_logs = ''
+
         project_irecommend = f'{project}_irecommend'
         filtered_logs = df_logs[df_logs['service_name'] == project_irecommend]
         if not filtered_logs.empty:

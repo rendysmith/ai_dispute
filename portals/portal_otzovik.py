@@ -76,6 +76,12 @@ async def captcha_check(driver):
             await asyncio.sleep(3)
             input_captcha.send_keys(Keys.RETURN)
 
+            if os.path.exists(file_link):
+                os.remove(file_link)
+                print("-- Файл удален")
+            else:
+                print("-- Файл не найден")
+
         except:
             n += 1
             await asyncio.sleep(3)
@@ -173,18 +179,6 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
         except:
             print('No generate!')
 
-
-
-
-
-
-
-    input('Wait...')
-
-
-
-
-
 async def main_otzovik():
     local_ip = await get_local_ip()
     print('local_ip', local_ip)
@@ -217,16 +211,17 @@ async def main_otzovik():
             continue
 
         #Если дата не совпадает с сегодняшней
-        # host_logs = ''
-        # filtered_logs = df_logs[df_logs['service_name'] == project]
-        # if not filtered_logs.empty:
-        #     idx_logs = filtered_logs.index[0]
-        #
-        #     #Пропуск по дате
-        #     date_logs = df_logs.loc[idx_logs, 'date']
-        #     if date_logs == current_date:
-        #         #print()
-        #         continue
+        host_logs = ''
+        project_otzovik = f'{project}_otzovik'
+        filtered_logs = df_logs[df_logs['service_name'] == project_otzovik]
+        if not filtered_logs.empty:
+            idx_logs = filtered_logs.index[0]
+
+            #Пропуск по дате
+            date_logs = df_logs.loc[idx_logs, 'date']
+            if date_logs == current_date:
+                #print()
+                continue
         #
         #     #Пропуск по IP
         #     host_logs = df_logs.loc[idx_logs, 'reserve']
@@ -298,7 +293,7 @@ async def main_otzovik():
 
         if record:
             finish_sec = time.time() - start_time
-            datas = {'service_name': f'{project}_otzovik',
+            datas = {'service_name': project_otzovik,
                     'count': len_irec,
                     'date': record_date,
                     'time': finish_sec}

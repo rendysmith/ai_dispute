@@ -16,12 +16,13 @@ tab_name = 'logs'
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
-token_proxy = 'cG0uc2lkb3JpbmxhYkBnbWFpbC5jb218cHVzaGtpbi4x'
+token_proxy = os.environ.get("TOKEN_PROXY")
+id_proxy = os.environ.get("ID_PROXY")
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
 
-async def get_token():
-    url = 'https://api.proxy5.net/api/service/vel'
+async def get_service():
+    url = f'https://api.proxy5.net/api/service/{id_proxy}'
     headers = {
         'Authorization': f'Basic {token_proxy}',
         'Content-Type': 'application/json',
@@ -63,21 +64,29 @@ async def load_distribution(service):
     df['assigned_service'] = np.tile(hosts, len(df) // hosts_number + 1)[:len(df)]
     print(df)
 
+    service_data = await get_service()
+
     for idx, row in df.iterrows():
         hst = row['assigned_service']
+
+        if service_data['status'] != 'Active':
+            hst = 'status = Deactive'
+
         print(idx, hst)
         await append_data_to_sheet_cell(service, ss_id, tab_name, 'reserve', idx+2, hst)
         await asyncio.sleep(3)
 
-    await change_ip(hosts[0])
+    bindedip = service_data['bindedip']
+    if bindedip not in hosts:
+        await change_ip(hosts[0])
 
 async def main_distribution():
     service = await get_service()
     await load_distribution(service)
 
 if "__main__" in __name__:
-    asyncio.run(get_token())
+    #asyncio.run(())
     # ip = '176.124.192.164'
     # asyncio.run(change_ip(ip))
-    # #asyncio.run(main_distribution())
+    asyncio.run(main_distribution())
 

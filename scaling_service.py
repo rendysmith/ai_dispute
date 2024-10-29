@@ -357,44 +357,44 @@ async def start_zoom(service):
                 #     black_list.append('aplaut.io')
 
             #---------------------------------------------------------------------------------------------------------
-            elif 'yandex.ru/maps' in link or 'yandex.ru/web-maps' in link:
-
-                top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
-                #print(top_df)
-
-                if not top_df.empty:
-                    print('Есть общая ссылка на статью')
-                    link = top_df.loc[0, 'top_url']
-
-                link_split = link.split('/')
-                for lnk in link_split:
-                    if lnk.isdigit():
-                        try:
-                            #idx = link_split.index(lnk)
-                            #print(link_split)
-                            #print(idx, lnk)
-                            link_company = os.path.join('https://yandex.ru/maps/org', lnk, 'reviews')
-                            print('-- cut link:', link_company)
-
-                        except:
-                            continue
-
-                if link_company in list_links:
-                    print('Ссылка уже проверена.')
-                    continue
-
-                else:
-                    list_links.append(link_company)
-
-                status = await time_out_play(check_ya,
-                                           service=service,
-                                           link=link_company,
-                                           df_mini_pattern=df_mini_pattern,
-                                           df_mini_criteria=df_mini_criteria,
-                                           ss_id=ss_id,
-                                           project=project)
-                # if status:
-                #     black_list.append('yandex.ru/maps')
+            # elif 'yandex.ru/maps' in link or 'yandex.ru/web-maps' in link:
+            #
+            #     top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
+            #     #print(top_df)
+            #
+            #     if not top_df.empty:
+            #         print('Есть общая ссылка на статью')
+            #         link = top_df.loc[0, 'top_url']
+            #
+            #     link_split = link.split('/')
+            #     for lnk in link_split:
+            #         if lnk.isdigit():
+            #             try:
+            #                 #idx = link_split.index(lnk)
+            #                 #print(link_split)
+            #                 #print(idx, lnk)
+            #                 link_company = os.path.join('https://yandex.ru/maps/org', lnk, 'reviews')
+            #                 print('-- cut link:', link_company)
+            #
+            #             except:
+            #                 continue
+            #
+            #     if link_company in list_links:
+            #         print('Ссылка уже проверена.')
+            #         continue
+            #
+            #     else:
+            #         list_links.append(link_company)
+            #
+            #     status = await time_out_play(check_ya,
+            #                                service=service,
+            #                                link=link_company,
+            #                                df_mini_pattern=df_mini_pattern,
+            #                                df_mini_criteria=df_mini_criteria,
+            #                                ss_id=ss_id,
+            #                                project=project)
+            #     # if status:
+            #     #     black_list.append('yandex.ru/maps')
 
             # ---------------------------------------------------------------------------------------------------------
             elif 'otvet.mail' in link:

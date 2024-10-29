@@ -11,7 +11,9 @@ from ai.ai_dzen import main_article_eco #Генерация экономичес
 from load_distribution import main_distribution #Распределение сервером на масштабировании
 
 from scaling_service import main_zoom #Запуск парсинга масштабирования
+
 from portals.irecommend import main_irecommend #Парсинг только irecommend
+from portals.portal_otzovik import main_otzovik #otzovik
 
 async def main_total():
     now = datetime.now()
