@@ -131,7 +131,7 @@ async def check_irecommend_old(service, link, pattern, criteria, ss_id, project)
                                  criteria=criteria)
 
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
-    print(f'Link: {link}')
+    print(f'\nLink: {link}')
     driver.get(link)
     links = await pars_url(service, ss_id, project)
     await wait_for_portal() #Время ожидания
@@ -142,18 +142,30 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
         while n < 10:
             print('- Поиск TOP страницы, если мы еще не на ней.')
             try:
-                top_block_content = driver.find_element(By.CSS_SELECTOR, 'a[class=" active"]')
-                top_url = top_block_content.get_attribute('href')
-                print(top_url)
-                break
+                try:
+                    top_block_content = driver.find_element(By.CSS_SELECTOR, 'a[class=" active"]')
+                    top_block = top_block_content.get_attribute('href')
+                    top_url = top_block + "?new=1"
+                    print('- 1.1 Top url', top_url)
+                    break
+
+                except:
+                    top_block_content = driver.find_element(By.CSS_SELECTOR, 'a[class="active"]')
+                    top_block = top_block_content.get_attribute('href')
+                    top_url = top_block + "?new=1"
+                    print('- 1.2 Top url', top_url)
+                    break
+
 
             except Exception as Ex:
-                traceback.print_exc()
-                top_block_content = driver.find_element(By.CSS_SELECTOR, 'h1[class="largeHeader"]')
+                #traceback.print_exc()
+                top_block_content = driver.find_element(By.CSS_SELECTOR, 'div.description')
+                print(top_block_content.get_attribute("outerHTML"))
+
                 top_block_get = top_block_content.find_element(By.CSS_SELECTOR, 'a[href]')
                 top_block = top_block_get.get_attribute('href')
                 top_url = top_block + "?new=1"
-                print(top_url)
+                print('- 2 Top url', top_url)
                 break
                 #----------------------------------------------------------------
 
@@ -292,16 +304,17 @@ async def main_irecommend():
             continue
 
         #Если дата не совпадает с сегодняшней
-        # host_logs = ''
-        # filtered_logs = df_logs[df_logs['service_name'] == project]
-        # if not filtered_logs.empty:
-        #     idx_logs = filtered_logs.index[0]
-        #
-        #     #Пропуск по дате
-        #     date_logs = df_logs.loc[idx_logs, 'date']
-        #     if date_logs == current_date:
-        #         #print()
-        #         continue
+        host_logs = ''
+        project_irecommend = f'{project}_irecommend'
+        filtered_logs = df_logs[df_logs['service_name'] == project_irecommend]
+        if not filtered_logs.empty:
+            idx_logs = filtered_logs.index[0]
+
+            #Пропуск по дате
+            date_logs = df_logs.loc[idx_logs, 'date']
+            if date_logs == record_date:
+                #print()
+                continue
         #
         #     #Пропуск по IP
         #     host_logs = df_logs.loc[idx_logs, 'reserve']
@@ -311,6 +324,7 @@ async def main_irecommend():
         #
         # else:
         #     print(f"No logs found for service: {project}")
+
 
         df_mini = df[project]
         #print(len(df_mini))
@@ -373,7 +387,7 @@ async def main_irecommend():
 
         if record:
             finish_sec = time.time() - start_time
-            datas = {'service_name': f'{project}_irecommend',
+            datas = {'service_name': project_irecommend,
                     'count': len_irec,
                     'date': record_date,
                     'time': finish_sec}
@@ -386,7 +400,8 @@ async def main_irecommend():
 async def tst_main():
     url = 'https://irecommend.ru/content/lechenie-v-turtsii-v-odnoi-iz-luchshikh-klinik-v-kotorykh-ya-kogda-libo-byla-tak-zhe-strakho'
     url = 'https://irecommend.ru/content/strakhovka-rabotaet'
-    driver = await get_selenium_proxy()
+    url = 'https://irecommend.ru/content/idealnyi-sostav-imenno-takuyu-i-iskala'
+    driver = await get_selenium_proxy(url, headless=False)
     await check_irecommend(1, url, 1, 1, 1, 1, driver)
 
 

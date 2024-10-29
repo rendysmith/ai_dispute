@@ -16,14 +16,34 @@ tab_name = 'logs'
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
+token_proxy = 'cG0uc2lkb3JpbmxhYkBnbWFpbC5jb218cHVzaGtpbi4x'
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
+
+async def get_token():
+    url = 'https://api.proxy5.net/api/service/vel'
+    headers = {
+        'Authorization': f'Basic {token_proxy}',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    }
+
+    response = requests.get(url, headers=headers)
+    print(response)
+    r_json = response.json()
+    print(r_json)
+    return r_json
+
 
 async def change_ip(ip):
     url = f'https://proxy5.net/api/getproxy/?action=setip&login={login_proxy}&{pass_proxy}=LbLYF35E&ip={ip}'
     r = requests.get(url)
-    print(r)
+    status_code = r.status_code
+    if status_code != 200:
+        print(status_code, r.text)
 
+    else:
+        print(status_code, r.text)
 
 async def load_distribution(service):
     status, results = await read_data_from_db(HostsZoom, 100, 1)
@@ -56,5 +76,8 @@ async def main_distribution():
     await load_distribution(service)
 
 if "__main__" in __name__:
-    asyncio.run(main_distribution())
+    asyncio.run(get_token())
+    # ip = '176.124.192.164'
+    # asyncio.run(change_ip(ip))
+    # #asyncio.run(main_distribution())
 

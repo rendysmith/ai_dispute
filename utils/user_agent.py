@@ -212,6 +212,7 @@ async def get_selenium(url, headless=True):
     return driver
 
 async def get_selenium_proxy(url=None, headless=True):
+    print('Selenium proxy...')
     proxy_host, proxy_port = await get_one_proxy()
     proxy = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
 
