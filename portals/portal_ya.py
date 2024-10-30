@@ -115,18 +115,18 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
         script_tag = soup.find('script', {'class': 'state-view'})
         dictionary = json.loads(script_tag.string)
 
+        if dictionary['stack'][0].get("results"):
+            reviews = dictionary['stack'][0]['results']['items'][0]['reviewResults']['reviews']
+
+        elif dictionary['stack'][0].get("response"):
+            reviews = dictionary['stack'][0]['response']['items'][0]['reviewResults']['reviews']
+
+        else:
+            reviews = []
+
     except selenium.common.NoSuchElementException as NSEE:
         print(f"Error NSEE: {NSEE}")
         return None
-
-    if dictionary['stack'][0].get("results"):
-        reviews = dictionary['stack'][0]['results']['items'][0]['reviewResults']['reviews']
-
-    elif dictionary['stack'][0].get("response"):
-        reviews = dictionary['stack'][0]['response']['items'][0]['reviewResults']['reviews']
-
-    else:
-        reviews = []
 
     len_r = len(reviews)
 
@@ -250,7 +250,7 @@ async def main_ya_maps():
         df_link_list = df_mini[project].to_list()
         irec_link = [i for i in df_link_list if 'maps' in i]
         len_irec = len(irec_link)
-        print(f'{project} Ya_maps link = {len_irec}')
+        print(f'\n\n{project} Ya_maps link = {len_irec}')
 
         random.shuffle(df_link_list)
 

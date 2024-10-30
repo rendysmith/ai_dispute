@@ -145,7 +145,7 @@ async def get_answer_ai(auth: HTTPBasicAuth, prompt: str):
             await asyncio.sleep(1)
 
         except Exception as Ex:
-            print(f'ERROR AI Ex: {Ex}')
+            print(f'ERROR AI Ex: {Ex}\n{farm_hosts}')
             traceback.print_exc()
 
             if try_n == 10:
@@ -314,6 +314,8 @@ async def generate_and_white(**kwargs):
     """
 
     result = await get_answer_ai(auth, prompt)
+    if result == False:
+        return
 
     print(f'TIMER {round(time.time() - start_time, 2)}')
 
