@@ -9,10 +9,11 @@ from selenium.common.exceptions import NoSuchWindowException
 
 from dotenv import load_dotenv
 
+from utils.central_module import wait_for_portal
 from utils.constants import months
 from utils.ai_module import generate_and_white
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
-from utils.user_agent import get_playwright
+from utils.user_agent import get_selenium_proxy
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -74,6 +75,10 @@ async def get_requestId(dictionary):
 
 
 async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
+    print(f'\nLink: {link}')
+    driver.get(link)
+    links = await pars_url(service, ss_id, project)
+    await wait_for_portal() #Время ожидания
 
     url = driver.current_url
     print(url)
@@ -465,8 +470,8 @@ async def main():
     #url = 'https://yandex.kz/maps/org/schastye/187776871438/reviews/?ll=66.272509%2C56.632288&utm_source=review&z=16'
     #url = 'https://yandex.kz/maps/org/krylya/115857625887/reviews/?ll=65.263154%2C57.147658&utm_source=review&z=16'
 
-    playwright, browser, page = await get_playwright(url, headless=False)
-    await check_ya_2(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, playwright, browser, page)
+    driver = await get_selenium_proxy()
+    await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver)
 
 if __name__ == '__main__':
     asyncio.run(main())

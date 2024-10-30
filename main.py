@@ -15,6 +15,8 @@ from scaling_service import main_zoom #Запуск парсинга масшт�
 from portals.irecommend import main_irecommend #Парсинг только irecommend
 from portals.portal_otzovik import main_otzovik #otzovik
 
+from scaling_antibot import main_scaling
+
 async def main_total():
     now = datetime.now()
     now_hour = now.hour

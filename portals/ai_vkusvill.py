@@ -13,6 +13,7 @@ from requests.auth import HTTPBasicAuth
 
 from models.mdl_tables import ForumRules
 from utils.ai_module import get_answer_ai
+from utils.central_module import wait_for_portal
 
 from utils.constants import TABLES_LIST
 from utils.db_loader import read_data_from_db_filter
@@ -87,11 +88,6 @@ async def extract_link_from_line(url):
     if match:
         return match.group(0)
     return None
-
-async def wait_for_portal():
-    ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
-    await asyncio.sleep(ts)
 
 async def cheak_vkusvill(service):
     df = await get_table_scope(service, worktable_id, worksheet_name)
