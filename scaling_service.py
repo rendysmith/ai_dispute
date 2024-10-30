@@ -138,6 +138,7 @@ async def start_zoom(service):
                 if company in list_links:
                     print('Ссылка уже проверена.')
                     continue
+
                 else:
                     list_links.append(company)
 
