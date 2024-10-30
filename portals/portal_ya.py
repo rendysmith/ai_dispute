@@ -1,30 +1,36 @@
 import asyncio
 import json
 import os
+import time
 
 from datetime import datetime, timedelta
+import random
 
+import pandas as pd
+import selenium.common
+from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchWindowException
 
 from dotenv import load_dotenv
 
-from utils.central_module import wait_for_portal
-from utils.constants import months
+from utils.central_module import wait_for_portal, get_local_ip
+from utils.constants import months, TABLES_LIST
 from utils.ai_module import generate_and_white
-from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
+from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope, get_table_scope, write_log_sheet
 from utils.user_agent import get_selenium_proxy
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
 current_date = datetime.now()
+record_date = current_date.strftime("%d.%m.%Y")
 now_month = current_date.month
 
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 timeout = 10000
-
+ss_id = TABLES_LIST['zoom']
 
 def find_key_path(dct, target_key, path = None):
     if path is None:
@@ -73,7 +79,6 @@ async def get_requestId(dictionary):
     print(reqId)
     return reqId
 
-
 async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
     driver.get(link)
@@ -92,8 +97,9 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
 
     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
 
-    print(f"New link = {url}")
-    driver.get(top_url + '/reviews')
+    new_url = top_url + '/reviews'
+    print(f"New link = {new_url}")
+    driver.get(new_url)
     driver.execute_script("document.body.style.zoom='0.5'")
     await asyncio.sleep(3)
 
@@ -101,9 +107,17 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     #data_site_content = await page.query_selector('script[class="state-view"]')
     #data_site = await data_site_content.inner_text()
 
-    data_site = driver.find_element(By.CSS_SELECTOR, 'script.state-view').text
-    dictionary = json.loads(data_site)
-    #pprint(dictionary)
+    try:
+        data_site = driver.find_element(By.CSS_SELECTOR, 'script.state-view')
+        html_content = data_site.get_attribute("outerHTML")
+
+        soup = BeautifulSoup(html_content, 'html.parser')
+        script_tag = soup.find('script', {'class': 'state-view'})
+        dictionary = json.loads(script_tag.string)
+
+    except selenium.common.NoSuchElementException as NSEE:
+        print(f"Error NSEE: {NSEE}")
+        return None
 
     if dictionary['stack'][0].get("results"):
         reviews = dictionary['stack'][0]['results']['items'][0]['reviewResults']['reviews']
@@ -117,7 +131,7 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     len_r = len(reviews)
 
     if len_r == 0:
-        return
+        return None
 
     links = await pars_url(service, ss_id, project)
 
@@ -126,6 +140,7 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
         if rew.get('text'):
             date_content = rew['updatedTime']
             date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
+
             if (current_date - date) > timedelta(days=days_ago):
                 print(f'--- Отзыв старше {days_ago} дней. = {date}')
                 continue
@@ -155,123 +170,8 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
                                      pattern=pattern,
                                      criteria=criteria)
 
+    return 'OK!'
 
-async def check_ya_old2(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
-    links = await pars_url(service, ss_id, project)
-
-    if not page:
-        return 'Сайт не отдал данные.'
-
-    url = page.url
-
-    id_org = await get_id_org(url)
-
-    top_url = f'https://yandex.ru/maps/org/{id_org}'
-
-    datas = {'project': project,
-             'url': url,
-             'top_url': top_url}
-
-    await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
-
-    print(f"New link = {url}")
-    await page.goto(top_url + '/reviews')
-    await page.evaluate("document.body.style.zoom=0.5")
-
-    #await page.wait_for_selector('script[class="state-view"]', timeout=timeout)
-    data_site_content = await page.query_selector('script[class="state-view"]')
-    data_site = await data_site_content.inner_text()
-
-    dictionary = json.loads(data_site)
-    #pprint(dictionary)
-
-    if dictionary['stack'][0].get("results"):
-        reviews = dictionary['stack'][0]['results']['items'][0]['reviewResults']['reviews']
-
-    elif dictionary['stack'][0].get("response"):
-        reviews = dictionary['stack'][0]['response']['items'][0]['reviewResults']['reviews']
-
-    else:
-        reviews = []
-
-    len_r = len(reviews)
-
-    if len_r == 0:
-        await browser.close()
-        await playwright.stop()
-        return
-
-    for rew in reviews:
-        #pprint(rew)
-        if rew.get('text'):
-            date_content = rew['updatedTime']
-            date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
-            if (current_date - date) > timedelta(days=days_ago):
-                print(f'--- Отзыв старше {days_ago} дней. = {date}')
-                continue
-
-            author = rew['author']['name']
-            #print(author)
-
-            url_answer = rew['reviewId']
-            #print(url_answer)
-            if url_answer in links:
-                print('Такой комментарий уже есть в списке')
-                continue
-
-            feedback = rew['text']
-            print(feedback)
-
-            formatted_date = date.strftime("%d.%m.%Y")
-            # print(formatted_date)
-
-            await generate_and_white(service=service,
-                                     url_answer=url_answer,
-                                     author=author,
-                                     formatted_date=formatted_date,
-                                     ss_id=ss_id,
-                                     project=project,
-                                     feedback=feedback,
-                                     pattern=pattern,
-                                     criteria=criteria)
-    #
-    await browser.close()
-    await playwright.stop()
-    #
-    #
-    #
-    #
-    #
-    # print('**************************************************')
-    # businessId = id_org
-    # csrfToken = dictionary['config']['csrfToken']
-    # print(csrfToken)
-    #
-    # print('----------------------------------')
-    #
-    # reqId = await get_requestId(dictionary)
-    # print(reqId)
-    #
-    # sessionId = dictionary['config']['counters']['analytics']['sessionId']
-    # print(sessionId)
-    #
-    # url = (f'https://yandex.kz/maps/api/business/fetchReviews?ajax=1'
-    #        f'&businessId={businessId}'
-    #        f'&csrfToken={csrfToken}'
-    #        f'&locale=ru_KZ'
-    #        f'&page=1'
-    #        f'&pageSize=50'
-    #        f'&ranking=by_time'
-    #        f'&reqId={reqId}'
-    #        f'&s=2862124894'
-    #        f'&sessionId={sessionId}')
-    #
-    # print(url)
-    # r = requests.get(url)
-    # print(r)
-    #
-    # print(r.json())
-    #
 
 async def get_id_org(url):
     url_split = url.split('/')
@@ -279,187 +179,132 @@ async def get_id_org(url):
         if v.isdigit():
             return v
 
-async def check_ya_old(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
-    links = await pars_url(service, ss_id, project)
+async def main_ya_maps():
+    local_ip = await get_local_ip()
+    print('local_ip', local_ip)
 
-    if not page:
-        # await browser.close()
-        # await playwright.stop()
-        return 'Сайт не отдал данные.'
+    service = await get_service()
+    df = await get_table_scope(service, ss_id, 'zoom')
+    #print(df)
+    idx_num_row = df.index[df['Проект'] == 'Кол-во строк'].tolist()[0]
+    print(idx_num_row)
+    df_counts = pd.Series(df.iloc[idx_num_row].values, index=df.columns).reset_index()
+    df_counts[0] = pd.to_numeric(df_counts[0], errors='coerce')
+    # Удаляем строки с NaN значениями в указанной колонке
+    df_counts = df_counts.dropna(subset=[0])
+    df_counts = df_counts.sort_values(by=0)
+    #print(df_counts)
 
-    url = page.url
+    list_ = df_counts['index'].to_list()
+    print(list_)
+    #random.shuffle(list_)
 
-    id_org = await get_id_org(url)
+    df_uniq = await get_table_scope(service, ss_id, 'unique_url')
 
-    top_url = f'https://yandex.ru/maps/org/{id_org}'
+    df_logs = await get_table_scope(service, ss_id, 'logs')
+    print(df_logs)
 
-    datas = {'project': project,
-             'url': url,
-             'top_url': top_url}
+    driver = await get_selenium_proxy()
 
-    await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+    for project in list_:
+        if 'Проект' in project:
+            continue
 
-    print(f"New link = {url}")
+        #Если дата не совпадает с сегодняшней
+        host_logs = ''
 
-    await page.goto(top_url + '/reviews')
-    await page.evaluate("document.body.style.zoom=0.5")
+        project_ya_maps = f'{project}_ya_maps'
+        filtered_logs = df_logs[df_logs['service_name'] == project_ya_maps]
+        if not filtered_logs.empty:
+            idx_logs = filtered_logs.index[0]
 
-    print('=> Rating By date')
+            #Пропуск по дате
+            date_logs = df_logs.loc[idx_logs, 'date']
+            if date_logs == record_date:
+                #print()
+                continue
+        #
+        #     #Пропуск по IP
+        #     host_logs = df_logs.loc[idx_logs, 'reserve']
+        #     if host_logs != local_ip:
+        #         print('Skip:', host_logs, local_ip)
+        #         continue
+        #
+        # else:
+        #     print(f"No logs found for service: {project}")
 
-    for n in range(12):
-        if n == 10:
-            await browser.close()
-            await playwright.stop()
-            return 'Сайт не отдал данные'
 
-        try:
-            #button_default = await page.query_selector('div[class="rating-ranking-view"]')
-            button_default = await page.wait_for_selector('div[class="rating-ranking-view"]', timeout=timeout)
-            await button_default.click()
-            #await asyncio.sleep(1)
-            print('Click role...')
+        df_mini = df[project]
+        #print(len(df_mini))
 
-            #button_new = await page.query_selector('div[class="rating-ranking-view__popup-line"][aria-label="По новизне"]')
-            button_new = await page.wait_for_selector('div[class="rating-ranking-view__popup-line"][role="button"]', timeout=timeout)
-            print(1)
-            button_new = await page.query_selector_all('div[class="rating-ranking-view__popup-line"][role="button"]')
-            print(len(button_new))
-            print(2)
-            await button_new[1].click()
-            print(3)
-            #await asyncio.sleep(3)
-            break
+        df_mini_pattern = df_mini[df_mini.str.contains('Пример реакции', na=False)]
+        df_mini_criteria = df_mini[df_mini.str.contains('Особые критерии', na=False)]
 
-        except Exception as Ex:
-            print(f"Попытка не удалась: {Ex}")
-            if n == 5:  # Если не последняя попытка
-                await page.reload()  # Перезагрузить страницу
+        # Filter rows that contain 'http://'
+        df_mini = df_mini[df_mini.str.contains('http', na=False)]
 
-            elif n == 10:
-                await browser.close()
-                await playwright.stop()
-                return 'Не удалось нажать на кнопку.'  # Вернуть ошибку
+        # Remove duplicates
+        # Удаляем дубликаты
+        df_mini = df_mini.drop_duplicates().reset_index()
 
-    print('=> Get blocks')
+        df_link_list = df_mini[project].to_list()
+        irec_link = [i for i in df_link_list if 'maps' in i]
+        len_irec = len(irec_link)
+        print(f'{project} Ya_maps link = {len_irec}')
 
-    blocks = await page.query_selector_all('div[class="business-reviews-card-view__review"]')
-    print('Len ', len(blocks))
+        random.shuffle(df_link_list)
 
-    if len(blocks) == 0:
-        await browser.close()
-        await playwright.stop()
-        return
+        len_df = len(df_link_list)
+        print(f'\n========================= Project = {project} = Len ({len_df})==============================')
 
-    for block in blocks:
-        try:
-            date_element = await block.query_selector('meta[itemprop="datePublished"]')  # Corrected selector (should be 'meta')
-            date_content = await date_element.get_attribute('content')
-            date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
+        start_time = time.time()
+        list_links = []
 
-        except AttributeError as AE:
-            print(f'AE: {AE}')
-            date_element = await block.query_selector('span[class="business-review-view__date"]')
-            date = await date_element.inner_text()
-            print('Date =', date)
+        record = False
+        for idx, link in enumerate(df_link_list):
+            left = len_df - df_link_list.index(link)
+            print(
+                f'\n*************************{idx}*({left})*{project}**************************\n----------------- {link} ----------------')
 
-            date_split = date.split(' ')
-            print("date_split", date_split)
+            if 'maps' in link:
+                record = True
+                top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
+                # print(top_df)
 
-            if len(date_split) == 2:
-                month_str = date_split[1]
+                if not top_df.empty:
+                    print('Есть общая ссылка на статью')
+                    link = top_df.loc[0, 'top_url']
 
-            elif len(date_split) == 3:
-                month_str = date_split[1]
-                year_str = date_split[2]
-
-                if int(year_str) != current_date.year:
-                    print('Next year >>>')
+                if link in list_links:
+                    print('Ссылка уже проверена.')
                     continue
 
-            month = await months(month_str)
+                else:
+                    list_links.append(link)
 
-            if now_month != month:
-                print('Next month >>>')
-                continue
+                status = await check_ya(service=service,
+                                       link=link,
+                                       pattern=df_mini_pattern,
+                                       criteria=df_mini_criteria,
+                                       ss_id=ss_id,
+                                       project=project,
+                                       driver=driver)
 
-            else:
-                day = int(date_split[0])
-                year = current_date.year
-                date = datetime(year, month, day)
+                if not status:
+                    driver.quit()
+                    driver = await get_selenium_proxy()
 
-            print("date =", date)
+        if record:
+            finish_sec = time.time() - start_time
+            datas = {'service_name': project_ya_maps,
+                    'count': len_irec,
+                    'date': record_date,
+                    'time': finish_sec}
 
-        if (current_date - date) > timedelta(days=days_ago):
-            print(f'--- Отзыв старше {days_ago} дней. = {date}')
-            break
+            print('datas', datas)
+            await write_log_sheet(service, ss_id, 'logs', datas)
 
-        org_answer = await block.query_selector('div[class="business-review-view__comment-expand"]')
-        if org_answer:
-            print('Есть ответ представителя компании')
-            continue
-        else:
-            print('Ответа нет!')
-
-        for n in range(12):
-            if n == 10:
-                await browser.close()
-                await playwright.stop()
-                return 'Сайт не предоставил данные'
-
-            try:
-                #button_share = await block.query_selector('span[class="inline-image _loaded icon"]')
-                #button_share = await block.query_selector('div[class="business-review-view__share-control"]')
-                button_share = await page.wait_for_selector('div[class="business-review-view__share-control"]', timeout=5000)
-                print('-> Click share')
-                await button_share.click()
-                print('-> Click share - OK!')
-                await asyncio.sleep(3)
-                break
-
-            except:
-                await asyncio.sleep(2)
-
-        button_open = await page.query_selector('input[class="input__control"]')
-        url_answer = await button_open.get_attribute('value')
-        #print(url_answer)
-
-        await page.keyboard.press('Escape')
-
-        if url_answer in links:
-            print('Такой комментарий уже есть в списке')
-            continue
-
-        author_text = await block.query_selector('span[itemprop="name"]')
-        author = await author_text.inner_text()
-        #print(author)
-
-        feedback_text =  await block.query_selector('span[class="business-review-view__body-text"]')
-        feedback = await feedback_text.inner_text()
-        #print(feedback)
-
-        formatted_date = date.strftime("%d.%m.%Y")
-        #print(formatted_date)
-
-        await generate_and_white(service=service,
-                                 url_answer=url_answer,
-                                 author=author,
-                                 formatted_date=formatted_date,
-                                 ss_id=ss_id,
-                                 project=project,
-                                 feedback=feedback,
-                                 pattern=pattern,
-                                 criteria=criteria)
-
-    await browser.close()
-    await playwright.stop()
-
-
-
-
-
-
-
-
+    driver.close()
 
 async def main():
     service = await get_service()
@@ -473,6 +318,298 @@ async def main():
     await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver)
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(main_ya_maps())
+
+
+
+# async def check_ya_old(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
+#     links = await pars_url(service, ss_id, project)
+#
+#     if not page:
+#         # await browser.close()
+#         # await playwright.stop()
+#         return 'Сайт не отдал данные.'
+#
+#     url = page.url
+#
+#     id_org = await get_id_org(url)
+#
+#     top_url = f'https://yandex.ru/maps/org/{id_org}'
+#
+#     datas = {'project': project,
+#              'url': url,
+#              'top_url': top_url}
+#
+#     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+#
+#     print(f"New link = {url}")
+#
+#     await page.goto(top_url + '/reviews')
+#     await page.evaluate("document.body.style.zoom=0.5")
+#
+#     print('=> Rating By date')
+#
+#     for n in range(12):
+#         if n == 10:
+#             await browser.close()
+#             await playwright.stop()
+#             return 'Сайт не отдал данные'
+#
+#         try:
+#             #button_default = await page.query_selector('div[class="rating-ranking-view"]')
+#             button_default = await page.wait_for_selector('div[class="rating-ranking-view"]', timeout=timeout)
+#             await button_default.click()
+#             #await asyncio.sleep(1)
+#             print('Click role...')
+#
+#             #button_new = await page.query_selector('div[class="rating-ranking-view__popup-line"][aria-label="По новизне"]')
+#             button_new = await page.wait_for_selector('div[class="rating-ranking-view__popup-line"][role="button"]', timeout=timeout)
+#             print(1)
+#             button_new = await page.query_selector_all('div[class="rating-ranking-view__popup-line"][role="button"]')
+#             print(len(button_new))
+#             print(2)
+#             await button_new[1].click()
+#             print(3)
+#             #await asyncio.sleep(3)
+#             break
+#
+#         except Exception as Ex:
+#             print(f"Попытка не удалась: {Ex}")
+#             if n == 5:  # Если не последняя попытка
+#                 await page.reload()  # Перезагрузить страницу
+#
+#             elif n == 10:
+#                 await browser.close()
+#                 await playwright.stop()
+#                 return 'Не удалось нажать на кнопку.'  # Вернуть ошибку
+#
+#     print('=> Get blocks')
+#
+#     blocks = await page.query_selector_all('div[class="business-reviews-card-view__review"]')
+#     print('Len ', len(blocks))
+#
+#     if len(blocks) == 0:
+#         await browser.close()
+#         await playwright.stop()
+#         return
+#
+#     for block in blocks:
+#         try:
+#             date_element = await block.query_selector('meta[itemprop="datePublished"]')  # Corrected selector (should be 'meta')
+#             date_content = await date_element.get_attribute('content')
+#             date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
+#
+#         except AttributeError as AE:
+#             print(f'AE: {AE}')
+#             date_element = await block.query_selector('span[class="business-review-view__date"]')
+#             date = await date_element.inner_text()
+#             print('Date =', date)
+#
+#             date_split = date.split(' ')
+#             print("date_split", date_split)
+#
+#             if len(date_split) == 2:
+#                 month_str = date_split[1]
+#
+#             elif len(date_split) == 3:
+#                 month_str = date_split[1]
+#                 year_str = date_split[2]
+#
+#                 if int(year_str) != current_date.year:
+#                     print('Next year >>>')
+#                     continue
+#
+#             month = await months(month_str)
+#
+#             if now_month != month:
+#                 print('Next month >>>')
+#                 continue
+#
+#             else:
+#                 day = int(date_split[0])
+#                 year = current_date.year
+#                 date = datetime(year, month, day)
+#
+#             print("date =", date)
+#
+#         if (current_date - date) > timedelta(days=days_ago):
+#             print(f'--- Отзыв старше {days_ago} дней. = {date}')
+#             break
+#
+#         org_answer = await block.query_selector('div[class="business-review-view__comment-expand"]')
+#         if org_answer:
+#             print('Есть ответ представителя компании')
+#             continue
+#         else:
+#             print('Ответа нет!')
+#
+#         for n in range(12):
+#             if n == 10:
+#                 await browser.close()
+#                 await playwright.stop()
+#                 return 'Сайт не предоставил данные'
+#
+#             try:
+#                 #button_share = await block.query_selector('span[class="inline-image _loaded icon"]')
+#                 #button_share = await block.query_selector('div[class="business-review-view__share-control"]')
+#                 button_share = await page.wait_for_selector('div[class="business-review-view__share-control"]', timeout=5000)
+#                 print('-> Click share')
+#                 await button_share.click()
+#                 print('-> Click share - OK!')
+#                 await asyncio.sleep(3)
+#                 break
+#
+#             except:
+#                 await asyncio.sleep(2)
+#
+#         button_open = await page.query_selector('input[class="input__control"]')
+#         url_answer = await button_open.get_attribute('value')
+#         #print(url_answer)
+#
+#         await page.keyboard.press('Escape')
+#
+#         if url_answer in links:
+#             print('Такой комментарий уже есть в списке')
+#             continue
+#
+#         author_text = await block.query_selector('span[itemprop="name"]')
+#         author = await author_text.inner_text()
+#         #print(author)
+#
+#         feedback_text =  await block.query_selector('span[class="business-review-view__body-text"]')
+#         feedback = await feedback_text.inner_text()
+#         #print(feedback)
+#
+#         formatted_date = date.strftime("%d.%m.%Y")
+#         #print(formatted_date)
+#
+#         await generate_and_white(service=service,
+#                                  url_answer=url_answer,
+#                                  author=author,
+#                                  formatted_date=formatted_date,
+#                                  ss_id=ss_id,
+#                                  project=project,
+#                                  feedback=feedback,
+#                                  pattern=pattern,
+#                                  criteria=criteria)
+#
+#     await browser.close()
+#     await playwright.stop()
+# async def check_ya_old2(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
+#     links = await pars_url(service, ss_id, project)
+#
+#     if not page:
+#         return 'Сайт не отдал данные.'
+#
+#     url = page.url
+#
+#     id_org = await get_id_org(url)
+#
+#     top_url = f'https://yandex.ru/maps/org/{id_org}'
+#
+#     datas = {'project': project,
+#              'url': url,
+#              'top_url': top_url}
+#
+#     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+#
+#     print(f"New link = {url}")
+#     await page.goto(top_url + '/reviews')
+#     await page.evaluate("document.body.style.zoom=0.5")
+#
+#     #await page.wait_for_selector('script[class="state-view"]', timeout=timeout)
+#     data_site_content = await page.query_selector('script[class="state-view"]')
+#     data_site = await data_site_content.inner_text()
+#
+#     dictionary = json.loads(data_site)
+#     #pprint(dictionary)
+#
+#     if dictionary['stack'][0].get("results"):
+#         reviews = dictionary['stack'][0]['results']['items'][0]['reviewResults']['reviews']
+#
+#     elif dictionary['stack'][0].get("response"):
+#         reviews = dictionary['stack'][0]['response']['items'][0]['reviewResults']['reviews']
+#
+#     else:
+#         reviews = []
+#
+#     len_r = len(reviews)
+#
+#     if len_r == 0:
+#         await browser.close()
+#         await playwright.stop()
+#         return
+#
+#     for rew in reviews:
+#         #pprint(rew)
+#         if rew.get('text'):
+#             date_content = rew['updatedTime']
+#             date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
+#             if (current_date - date) > timedelta(days=days_ago):
+#                 print(f'--- Отзыв старше {days_ago} дней. = {date}')
+#                 continue
+#
+#             author = rew['author']['name']
+#             #print(author)
+#
+#             url_answer = rew['reviewId']
+#             #print(url_answer)
+#             if url_answer in links:
+#                 print('Такой комментарий уже есть в списке')
+#                 continue
+#
+#             feedback = rew['text']
+#             print(feedback)
+#
+#             formatted_date = date.strftime("%d.%m.%Y")
+#             # print(formatted_date)
+#
+#             await generate_and_white(service=service,
+#                                      url_answer=url_answer,
+#                                      author=author,
+#                                      formatted_date=formatted_date,
+#                                      ss_id=ss_id,
+#                                      project=project,
+#                                      feedback=feedback,
+#                                      pattern=pattern,
+#                                      criteria=criteria)
+#     #
+#     await browser.close()
+#     await playwright.stop()
+#     #
+#     #
+#     #
+#     #
+#     #
+#     # print('**************************************************')
+#     # businessId = id_org
+#     # csrfToken = dictionary['config']['csrfToken']
+#     # print(csrfToken)
+#     #
+#     # print('----------------------------------')
+#     #
+#     # reqId = await get_requestId(dictionary)
+#     # print(reqId)
+#     #
+#     # sessionId = dictionary['config']['counters']['analytics']['sessionId']
+#     # print(sessionId)
+#     #
+#     # url = (f'https://yandex.kz/maps/api/business/fetchReviews?ajax=1'
+#     #        f'&businessId={businessId}'
+#     #        f'&csrfToken={csrfToken}'
+#     #        f'&locale=ru_KZ'
+#     #        f'&page=1'
+#     #        f'&pageSize=50'
+#     #        f'&ranking=by_time'
+#     #        f'&reqId={reqId}'
+#     #        f'&s=2862124894'
+#     #        f'&sessionId={sessionId}')
+#     #
+#     # print(url)
+#     # r = requests.get(url)
+#     # print(r)
+#     #
+#     # print(r.json())
+#     #
 
 

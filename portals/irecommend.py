@@ -28,108 +28,6 @@ days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 ss_id = TABLES_LIST['zoom']
 
-async def check_irecommend_old(service, link, pattern, criteria, ss_id, project):
-    #print("\n", link)
-    links = await pars_url(service, ss_id, project)
-
-    #soup = await get_soup(link)
-    print('-SStart-')
-    soup = await get_soup_anticloud(link)
-    print('-SStop-')
-
-    if not soup:
-        no_data = 'Сайт не отдал данные!'
-        print('Irecommend', no_data)
-        return no_data
-
-    try:
-        denied = soup.find('h1', {'class': 'largestHeader'}).text
-        if denied:
-            #print(denied)
-            return denied
-    except:
-        print('Страница доступна')
-
-    domen = await extract_main_site(link)
-
-    try:
-        top_block = soup.find("div", {"class": "headerWithMenu margin30"})
-        print(f'Получение главной темы на основании комментов.')
-        top_url = domen + top_block.find("a")['href'] + "?new=1"
-        #print(top_url)
-
-    except AttributeError as AE:
-        print('!!!(irecommend) Возможно сработала защита Cloudflore...')
-        #checkbox = soup.find('input', {'type': 'checkbox'})
-        return AE
-
-    except Exception as Ex:
-        return Ex
-
-    datas = {'project': project,
-             'url': link,
-             'top_url': top_url}
-
-    await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
-
-    #soup = await get_soup(top_url)
-    soup = await get_soup_anticloud(top_url)
-
-    try:
-        blocks = soup.find_all("div", {"data-photos-count": '0', "data-type": "1"})
-        len_b = len(blocks)
-        print(f'Leb blocks = {len_b}')
-        if len_b == 0:
-            return
-
-    except:
-        return 'Возможно сработала защита Cloudflore'
-
-    for block in blocks:
-        url_n = block.find("a", class_='reviewTextSnippet')['href']
-        url_answer = domen + url_n
-        if url_answer in links:
-            print('Отзыв уже есть в таблице')
-            continue
-
-        try:
-            date = block.find("div", {"class": "created"}).text
-            target_date = datetime.strptime(date, "%d.%m.%Y")
-
-        except:
-            date_1 = block.find("div", {"class": "created"})
-            date = date_1.find("span", {"class": "date-created"}).text
-            target_date = datetime.strptime(date, "%d.%m.%Y")
-
-        if (current_date - target_date) > timedelta(days=days_ago):
-            print(f'--- Отзыв старше {days_ago} дней = {date}.')
-            continue
-
-        author = block.find("div", class_="authorName").text
-
-        title = block.find("div", {"class": "reviewTitle"}).text
-        title_txt = block.find("span", {"class": "reviewTeaserText"}).text
-
-        feedback = f"""
-        {title}
-        {title_txt}
-        """
-        feedback = textwrap.dedent(feedback)
-        #print(feedback)
-
-        formatted_date = date
-
-        #await generate_and_white(service, url_answer, author, formatted_date, prompt)
-        await generate_and_white(service=service,
-                                 url_answer=url_answer,
-                                 author=author,
-                                 formatted_date=formatted_date,
-                                 ss_id=ss_id,
-                                 project=project,
-                                 feedback=feedback,
-                                 pattern=pattern,
-                                 criteria=criteria)
-
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
     driver.get(link)
@@ -343,6 +241,7 @@ async def main_irecommend():
         df_link_list = df_mini[project].to_list()
         irec_link = [i for i in df_link_list if 'irecommend' in i]
         len_irec = len(irec_link)
+        print(f'Irec link = {len_irec}')
 
         random.shuffle(df_link_list)
 
@@ -409,6 +308,109 @@ async def tst_main():
 if "__main__" in __name__:
     #asyncio.run(tst_main())
     asyncio.run(main_irecommend())
+
+#
+# async def check_irecommend_old(service, link, pattern, criteria, ss_id, project):
+#     #print("\n", link)
+#     links = await pars_url(service, ss_id, project)
+#
+#     #soup = await get_soup(link)
+#     print('-SStart-')
+#     soup = await get_soup_anticloud(link)
+#     print('-SStop-')
+#
+#     if not soup:
+#         no_data = 'Сайт не отдал данные!'
+#         print('Irecommend', no_data)
+#         return no_data
+#
+#     try:
+#         denied = soup.find('h1', {'class': 'largestHeader'}).text
+#         if denied:
+#             #print(denied)
+#             return denied
+#     except:
+#         print('Страница доступна')
+#
+#     domen = await extract_main_site(link)
+#
+#     try:
+#         top_block = soup.find("div", {"class": "headerWithMenu margin30"})
+#         print(f'Получение главной темы на основании комментов.')
+#         top_url = domen + top_block.find("a")['href'] + "?new=1"
+#         #print(top_url)
+#
+#     except AttributeError as AE:
+#         print('!!!(irecommend) Возможно сработала защита Cloudflore...')
+#         #checkbox = soup.find('input', {'type': 'checkbox'})
+#         return AE
+#
+#     except Exception as Ex:
+#         return Ex
+#
+#     datas = {'project': project,
+#              'url': link,
+#              'top_url': top_url}
+#
+#     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+#
+#     #soup = await get_soup(top_url)
+#     soup = await get_soup_anticloud(top_url)
+#
+#     try:
+#         blocks = soup.find_all("div", {"data-photos-count": '0', "data-type": "1"})
+#         len_b = len(blocks)
+#         print(f'Leb blocks = {len_b}')
+#         if len_b == 0:
+#             return
+#
+#     except:
+#         return 'Возможно сработала защита Cloudflore'
+#
+#     for block in blocks:
+#         url_n = block.find("a", class_='reviewTextSnippet')['href']
+#         url_answer = domen + url_n
+#         if url_answer in links:
+#             print('Отзыв уже есть в таблице')
+#             continue
+#
+#         try:
+#             date = block.find("div", {"class": "created"}).text
+#             target_date = datetime.strptime(date, "%d.%m.%Y")
+#
+#         except:
+#             date_1 = block.find("div", {"class": "created"})
+#             date = date_1.find("span", {"class": "date-created"}).text
+#             target_date = datetime.strptime(date, "%d.%m.%Y")
+#
+#         if (current_date - target_date) > timedelta(days=days_ago):
+#             print(f'--- Отзыв старше {days_ago} дней = {date}.')
+#             continue
+#
+#         author = block.find("div", class_="authorName").text
+#
+#         title = block.find("div", {"class": "reviewTitle"}).text
+#         title_txt = block.find("span", {"class": "reviewTeaserText"}).text
+#
+#         feedback = f"""
+#         {title}
+#         {title_txt}
+#         """
+#         feedback = textwrap.dedent(feedback)
+#         #print(feedback)
+#
+#         formatted_date = date
+#
+#         #await generate_and_white(service, url_answer, author, formatted_date, prompt)
+#         await generate_and_white(service=service,
+#                                  url_answer=url_answer,
+#                                  author=author,
+#                                  formatted_date=formatted_date,
+#                                  ss_id=ss_id,
+#                                  project=project,
+#                                  feedback=feedback,
+#                                  pattern=pattern,
+#                                  criteria=criteria)
 
 
 
