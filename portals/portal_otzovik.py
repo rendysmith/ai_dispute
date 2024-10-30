@@ -204,7 +204,7 @@ async def main_otzovik():
     df_logs = await get_table_scope(service, ss_id, 'logs')
     print(df_logs)
 
-    driver = await get_selenium_proxy(headless=False)
+    driver = await get_selenium_proxy()
 
     for project in list_:
         if 'Проект' in project:
@@ -289,7 +289,7 @@ async def main_otzovik():
 
                 if not status:
                     driver.quit()
-                    driver = await get_selenium_proxy(headless=False)
+                    driver = await get_selenium_proxy()
 
         if record:
             finish_sec = time.time() - start_time

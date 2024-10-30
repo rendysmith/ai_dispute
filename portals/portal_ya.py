@@ -86,10 +86,90 @@ async def get_requestId(dictionary):
     print(reqId)
     return reqId
 
-#asyncio.run(get_requestId(dic))
-#input()
 
-async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
+async def check_ya(service, url, pattern, criteria, ss_id, project, driver):
+    links = await pars_url(service, ss_id, project)
+
+    if not page:
+        return 'Сайт не отдал данные.'
+
+    url = page.url
+
+    id_org = await get_id_org(url)
+
+    top_url = f'https://yandex.ru/maps/org/{id_org}'
+
+    datas = {'project': project,
+             'url': url,
+             'top_url': top_url}
+
+    await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+
+    print(f"New link = {url}")
+    await page.goto(top_url + '/reviews')
+    await page.evaluate("document.body.style.zoom=0.5")
+
+    #await page.wait_for_selector('script[class="state-view"]', timeout=timeout)
+    data_site_content = await page.query_selector('script[class="state-view"]')
+    data_site = await data_site_content.inner_text()
+
+    dictionary = json.loads(data_site)
+    #pprint(dictionary)
+
+    if dictionary['stack'][0].get("results"):
+        reviews = dictionary['stack'][0]['results']['items'][0]['reviewResults']['reviews']
+
+    elif dictionary['stack'][0].get("response"):
+        reviews = dictionary['stack'][0]['response']['items'][0]['reviewResults']['reviews']
+
+    else:
+        reviews = []
+
+    len_r = len(reviews)
+
+    if len_r == 0:
+        await browser.close()
+        await playwright.stop()
+        return
+
+    for rew in reviews:
+        #pprint(rew)
+        if rew.get('text'):
+            date_content = rew['updatedTime']
+            date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
+            if (current_date - date) > timedelta(days=days_ago):
+                print(f'--- Отзыв старше {days_ago} дней. = {date}')
+                continue
+
+            author = rew['author']['name']
+            #print(author)
+
+            url_answer = rew['reviewId']
+            #print(url_answer)
+            if url_answer in links:
+                print('Такой комментарий уже есть в списке')
+                continue
+
+            feedback = rew['text']
+            print(feedback)
+
+            formatted_date = date.strftime("%d.%m.%Y")
+            # print(formatted_date)
+
+            await generate_and_white(service=service,
+                                     url_answer=url_answer,
+                                     author=author,
+                                     formatted_date=formatted_date,
+                                     ss_id=ss_id,
+                                     project=project,
+                                     feedback=feedback,
+                                     pattern=pattern,
+                                     criteria=criteria)
+    #
+    await browser.close()
+    await playwright.stop()
+
+async def check_ya_old2(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     links = await pars_url(service, ss_id, project)
 
     if not page:
@@ -205,12 +285,6 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, playwright, 
     #
     # print(r.json())
     #
-
-
-
-
-
-
 
 async def get_id_org(url):
     url_split = url.split('/')

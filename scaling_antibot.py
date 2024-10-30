@@ -11,7 +11,7 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from utils.central_module import get_local_ip, wait_for_portal
-from utils.constants import TABLES_LIST
+from utils.constants import TABLES_LIST, platforms
 from utils.gs_editor import pars_url, append_data_to_sheet_scope, get_service, get_table_scope, write_log_sheet
 from utils.user_agent import extract_main_site, get_soup_anticloud, get_selenium_proxy
 
@@ -36,7 +36,7 @@ async def main_scaling():
     df = await get_table_scope(service, ss_id, 'zoom')
     #print(df)
     idx_num_row = df.index[df['Проект'] == 'Кол-во строк'].tolist()[0]
-    print(idx_num_row)
+    #print(idx_num_row)
     df_counts = pd.Series(df.iloc[idx_num_row].values, index=df.columns).reset_index()
     df_counts[0] = pd.to_numeric(df_counts[0], errors='coerce')
     # Удаляем строки с NaN значениями в указанной колонке
@@ -59,11 +59,12 @@ async def main_scaling():
         if 'Проект' in project:
             continue
 
-        for platform in ['irecommend', 'otzovik', 'ya_ru_maps']:
+        for platform, web  in platforms.items():
+            print(f'+++++++++++++++++++++++++++++++{project} {platform} {web}+++++++++++++++++++++++++++++++++++++')
             #Если дата не совпадает с сегодняшней
             host_logs = ''
-            project_irecommend = f'{project}_{platform}'
-            filtered_logs = df_logs[df_logs['service_name'] == project_irecommend]
+            project_platform = f'{project}_{platform}'
+            filtered_logs = df_logs[df_logs['service_name'] == project_platform]
             if not filtered_logs.empty:
                 idx_logs = filtered_logs.index[0]
 
@@ -96,8 +97,14 @@ async def main_scaling():
             df_mini = df_mini.drop_duplicates().reset_index()
 
             df_link_list = df_mini[project].to_list()
-            irec_link = [i for i in df_link_list if 'irecommend' in i]
+
+            irec_link = [i for i in df_link_list if any(w in i for w in web)]
+            print(irec_link)
             len_irec = len(irec_link)
+            print(len_irec)
+
+            if len_irec == 0:
+                continue
 
             random.shuffle(df_link_list)
 
@@ -112,6 +119,7 @@ async def main_scaling():
                 left = len_df - df_link_list.index(link)
                 print(
                     f'\n*************************{idx}*({left})*{project}**************************\n----------------- {link} ----------------')
+                status = True
 
                 if 'irecommend' in link:
                     record = True
@@ -162,7 +170,6 @@ async def main_scaling():
                                                  driver=driver)
 
                 elif 'yandex.ru/maps' in link or 'yandex.ru/web-maps' in link:
-
                     top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
                     #print(top_df)
 
@@ -203,7 +210,7 @@ async def main_scaling():
 
             if record:
                 finish_sec = time.time() - start_time
-                datas = {'service_name': project_irecommend,
+                datas = {'service_name': project_platform,
                         'count': len_irec,
                         'date': record_date,
                         'time': finish_sec}
