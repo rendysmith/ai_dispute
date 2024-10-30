@@ -1,13 +1,15 @@
 import asyncio
 import json
 import os
-import random
-from datetime import datetime, timedelta
-from pprint import pprint
 
-import requests
+from datetime import datetime, timedelta
+
+from selenium.webdriver.common.by import By
+from selenium.common.exceptions import NoSuchWindowException
+
 from dotenv import load_dotenv
 
+from utils.constants import months
 from utils.ai_module import generate_and_white
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
 from utils.user_agent import get_playwright
@@ -22,22 +24,6 @@ days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 timeout = 10000
 
-async def convert_date(month):
-    months = {
-        'января': 1,
-        'февраля': 2,
-        "марта": 3,
-        "апреля": 4,
-        "мая": 5,
-        "июня": 6,
-        "июля": 7,
-        "августа": 8,
-        "сентября": 9,
-        "октября": 10,
-        "ноября": 11,
-        "декабря": 12
-    }
-    return months[month]
 
 def find_key_path(dct, target_key, path = None):
     if path is None:
@@ -87,13 +73,10 @@ async def get_requestId(dictionary):
     return reqId
 
 
-async def check_ya(service, url, pattern, criteria, ss_id, project, driver):
-    links = await pars_url(service, ss_id, project)
+async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
 
-    if not page:
-        return 'Сайт не отдал данные.'
-
-    url = page.url
+    url = driver.current_url
+    print(url)
 
     id_org = await get_id_org(url)
 
@@ -106,13 +89,15 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, driver):
     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
 
     print(f"New link = {url}")
-    await page.goto(top_url + '/reviews')
-    await page.evaluate("document.body.style.zoom=0.5")
+    driver.get(top_url + '/reviews')
+    driver.execute_script("document.body.style.zoom='0.5'")
+    await asyncio.sleep(3)
 
     #await page.wait_for_selector('script[class="state-view"]', timeout=timeout)
-    data_site_content = await page.query_selector('script[class="state-view"]')
-    data_site = await data_site_content.inner_text()
+    #data_site_content = await page.query_selector('script[class="state-view"]')
+    #data_site = await data_site_content.inner_text()
 
+    data_site = driver.find_element(By.CSS_SELECTOR, 'script.state-view').text
     dictionary = json.loads(data_site)
     #pprint(dictionary)
 
@@ -128,9 +113,9 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, driver):
     len_r = len(reviews)
 
     if len_r == 0:
-        await browser.close()
-        await playwright.stop()
         return
+
+    links = await pars_url(service, ss_id, project)
 
     for rew in reviews:
         #pprint(rew)
@@ -165,9 +150,7 @@ async def check_ya(service, url, pattern, criteria, ss_id, project, driver):
                                      feedback=feedback,
                                      pattern=pattern,
                                      criteria=criteria)
-    #
-    await browser.close()
-    await playwright.stop()
+
 
 async def check_ya_old2(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     links = await pars_url(service, ss_id, project)
@@ -389,7 +372,7 @@ async def check_ya_old(service, url, pattern, criteria, ss_id, project, playwrig
                     print('Next year >>>')
                     continue
 
-            month = await convert_date(month_str)
+            month = await months(month_str)
 
             if now_month != month:
                 print('Next month >>>')

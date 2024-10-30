@@ -68,5 +68,5 @@ status_codes = {
 platforms = {
     'irecommend': ['irecommend'],
     'otzovik': ['otzovik'],
-    'ya_ru_maps': ['maps']
+    'ya_maps': ['maps']
 }

@@ -1,9 +1,9 @@
 import asyncio
 import os
 import random
-import textwrap
+
 import time
-import traceback
+
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -12,8 +12,8 @@ from dotenv import load_dotenv
 
 from utils.central_module import get_local_ip, wait_for_portal
 from utils.constants import TABLES_LIST, platforms
-from utils.gs_editor import pars_url, append_data_to_sheet_scope, get_service, get_table_scope, write_log_sheet
-from utils.user_agent import extract_main_site, get_soup_anticloud, get_selenium_proxy
+from utils.gs_editor import get_service, get_table_scope, write_log_sheet
+from utils.user_agent import get_selenium_proxy
 
 from portals.portal_otzovik import check_otzovik
 from portals.irecommend import check_irecommend
@@ -181,9 +181,6 @@ async def main_scaling():
                     for lnk in link_split:
                         if lnk.isdigit():
                             try:
-                                #idx = link_split.index(lnk)
-                                #print(link_split)
-                                #print(idx, lnk)
                                 link_company = os.path.join('https://yandex.ru/maps/org', lnk, 'reviews')
                                 print('-- cut link:', link_company)
 
@@ -198,11 +195,12 @@ async def main_scaling():
                         list_links.append(link_company)
 
                     status = await check_ya(service=service,
-                                               link=link_company,
-                                               df_mini_pattern=df_mini_pattern,
-                                               df_mini_criteria=df_mini_criteria,
-                                               ss_id=ss_id,
-                                               project=project)
+                                            link=link_company,
+                                            pattern=df_mini_pattern,
+                                            criteria=df_mini_criteria,
+                                            ss_id=ss_id,
+                                            project=project,
+                                            driver=driver)
 
                 if not status:
                     driver.quit()
