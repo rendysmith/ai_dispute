@@ -77,15 +77,14 @@ async def get_requestId(dictionary):
 async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
     driver.get(link)
-    links = await pars_url(service, ss_id, project)
     await wait_for_portal() #Время ожидания
 
     url = driver.current_url
-    print(url)
+    print("current url", url)
 
     id_org = await get_id_org(url)
-
     top_url = f'https://yandex.ru/maps/org/{id_org}'
+    print('top_url', top_url)
 
     datas = {'project': project,
              'url': url,
@@ -141,7 +140,7 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
                 continue
 
             feedback = rew['text']
-            print(feedback)
+            #print(feedback)
 
             formatted_date = date.strftime("%d.%m.%Y")
             # print(formatted_date)

@@ -45,13 +45,13 @@ async def main_scaling():
     #print(df_counts)
 
     list_ = df_counts['index'].to_list()
-    print(list_)
+    #print(list_)
     #random.shuffle(list_)
 
     df_uniq = await get_table_scope(service, ss_id, 'unique_url')
 
     df_logs = await get_table_scope(service, ss_id, 'logs')
-    print(df_logs)
+    #print(df_logs)
 
     driver = await get_selenium_proxy()
 
@@ -99,9 +99,9 @@ async def main_scaling():
             df_link_list = df_mini[project].to_list()
 
             irec_link = [i for i in df_link_list if any(w in i for w in web)]
-            print(irec_link)
+            #print(irec_link)
             len_irec = len(irec_link)
-            print(len_irec)
+            print('Len links', len_irec)
 
             if len_irec == 0:
                 continue
