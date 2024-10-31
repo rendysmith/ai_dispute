@@ -56,16 +56,19 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
 
 
             except Exception as Ex:
-                #traceback.print_exc()
-                top_block_content = driver.find_element(By.CSS_SELECTOR, 'div.description')
-                print(top_block_content.get_attribute("outerHTML"))
+                try:
+                    #traceback.print_exc()
+                    top_block_content = driver.find_element(By.CSS_SELECTOR, 'div.description')
+                    #print(top_block_content.get_attribute("outerHTML"))
 
-                top_block_get = top_block_content.find_element(By.CSS_SELECTOR, 'a[href]')
-                top_block = top_block_get.get_attribute('href')
-                top_url = top_block + "?new=1"
-                print('- 2 Top url', top_url)
-                break
-                #----------------------------------------------------------------
+                    top_block_get = top_block_content.find_element(By.CSS_SELECTOR, 'a[href]')
+                    top_block = top_block_get.get_attribute('href')
+                    top_url = top_block + "?new=1"
+                    print('- 2 Top url', top_url)
+                    break
+                    #----------------------------------------------------------------
+                except:
+                    return None
 
             except NoSuchWindowException as NSEE:
                 print(f'Error NSEE: {NSEE}')

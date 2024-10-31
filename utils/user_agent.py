@@ -19,6 +19,8 @@ from fake_useragent import UserAgent
 from selenium import webdriver
 #from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from utils.proxy_bridge import get_iplist, get_one_proxy
@@ -227,7 +229,9 @@ async def get_selenium_proxy(url=None, headless=True):
                     headless1=headless,
                     headless2=headless,
                     proxy=proxy,
-                    agent=ua.chrome)
+                    agent=ua.chrome,
+                    log_cdp_events=True
+                    )
     #driver.get(url)
     return driver
 

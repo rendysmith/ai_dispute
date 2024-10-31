@@ -16,6 +16,7 @@ import httpx
 
 from utils.db_loader import get_api_tokens, get_hosts
 from utils.gs_editor import append_data_to_sheet_scope
+from utils.constants import farm_hosts
 
 async def get_answer_gemini_old(prompt: str, engine: str):
     """
@@ -95,7 +96,7 @@ async def get_answer_gemini_local(prompt: str, engine: str, token = 'AIzaSyAFHcC
 
 
 async def get_answer_ai(auth: HTTPBasicAuth, prompt: str):
-    farm_hosts = await get_hosts()
+    #farm_hosts = await get_hosts()
     #gemini_tokens = await get_api_tokens()
 
     try_n = 0

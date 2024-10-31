@@ -5,20 +5,25 @@ import time
 
 from datetime import datetime, timedelta
 import random
+from pprint import pprint
 
 import pandas as pd
 import selenium.common
 from bs4 import BeautifulSoup
+
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchWindowException
+from selenium.webdriver.support.wait import WebDriverWait
 
 from dotenv import load_dotenv
+import re
 
 from utils.central_module import wait_for_portal, get_local_ip
 from utils.constants import months, TABLES_LIST
 from utils.ai_module import generate_and_white
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope, get_table_scope, write_log_sheet
-from utils.user_agent import get_selenium_proxy
+from utils.user_agent import get_selenium_proxy, extract_main_site
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -32,6 +37,13 @@ max_sec = int(os.environ.get("MAX_SEC"))
 timeout = 10000
 ss_id = TABLES_LIST['zoom']
 headless=False
+
+async def cut_token(text, pattern):
+    match = re.search(pattern, text)
+    if match:
+        result = match.group(1)
+        print(result)
+        return result
 
 
 def find_key_path(dct, target_key, path = None):
@@ -81,76 +93,149 @@ async def get_requestId(dictionary):
     print(reqId)
     return reqId
 
+async def check_ya_new(driver, url):
+    print("url:", url)
 
-async def get_network_response(driver, target_url):
-    async def setup_driver():
-        # Правильная настройка опций Chrome для логирования
-        chrome_options = Options()
-        chrome_options.add_argument('--headless')  # Опционально: запуск в фоновом режиме
+    domen = await extract_main_site(url)
+    businessId = await get_id_org(url)
+    top_url = f'{domen}/maps/org/{businessId}/reviews'
+    print('top_url', top_url)
 
-        # Важно: правильная настройка логирования производительности
-        chrome_options.set_capability(
-            "goog:loggingPrefs",
-            {
-                "browser": "ALL",
-                "performance": "ALL"
-            }
-        )
+    driver.get(top_url)
+    print(1)
 
-        # Добавляем аргументы для включения CDP
-        chrome_options.add_argument('--remote-debugging-port=9222')
+    # Ждем некоторое время, чтобы AJAX-запросы успели выполниться
+    driver.implicitly_wait(15)  # или другое подходящее время
+    print(2)
 
-        service = Service('path_to_chromedriver')  # Укажите путь к вашему chromedriver
-        driver = webdriver.Chrome(service=service, options=chrome_options)
+    data_site = driver.find_element(By.CSS_SELECTOR, 'script.state-view')
+    html_content = data_site.get_attribute("outerHTML")
+    print(21)
+    soup = BeautifulSoup(html_content, 'html.parser')
+    script_tag = soup.find('script', {'class': 'state-view'})
+    dictionary = json.loads(script_tag.string)
+    print(22)
+    reqId = await get_requestId(dictionary)
+    sessionId = dictionary['config']['counters']['analytics']['sessionId']
 
-        # Включаем CDP Network
-        driver.execute_cdp_cmd('Network.enable', {})
+    # Получаем логи производительности
+    logs = driver.get_log('performance')
+    #print(logs)
+    print(3)
+    url_s = None
+    for idx, log in enumerate(logs):
+        if '&s=' in str(log):
+            print('**************')
+            print(log)
+            print('**************')
 
-        return driver
+        if 'ajax' in str(log):
+            print('-----------------------------------------')
+            #pprint(log)
+            print('-------------')
+            msg = json.loads(log['message'])
+            #pprint(msg)
 
-    async def get_network_response(driver, target_url):
-        request_id = None
+            url_s = None
+            if msg.get('message'):
+                msg_m = msg['message']
+                if msg_m.get('params'):
+                    msg_p = msg_m['params']
+                    if msg_p.get('headers'):
+                        msg_h = msg_p['headers']
+                        url_s = msg_h.get(":path", None)
+                        break
 
-        def process_browser_log(log_entry):
-            try:
-                log_data = json.loads(log_entry["message"])["message"]
+                    elif msg_p.get('request'):
+                        msg_h = msg_p['request']
+                        url_s = msg_h.get("url", None)
+                        break
 
-                if "Network.responseReceived" == log_data["method"]:
-                    if target_url in log_data["params"]["response"]["url"]:
-                        return log_data["params"]["requestId"]
-                return None
-            except:
-                return None
+                    elif msg_p.get('response'):
+                        msg_h = msg_p['response']
+                        url_s = msg_h.get("url", None)
+                        break
 
-        # Загружаем страницу
-        driver.get(target_url)
+    print('Url_s', url_s)
+    if not url_s:
+        return
 
-        # Даем время для загрузки
-        await asyncio.sleep(5)
+    pattern = r"csrfToken=(.*?)&"
+    csrfToken = await cut_token(str(url_s), pattern)
 
-        # Получаем логи
-        browser_logs = driver.get_log("performance")
+    pattern = r"&s=(.*?)&"
+    s = await cut_token(str(url_s), pattern)
 
-        # Ищем нужный запрос
-        for log_entry in browser_logs:
-            request_id = process_browser_log(log_entry)
-            if request_id:
-                try:
-                    # Получаем тело ответа
-                    response_body = driver.execute_cdp_cmd(
-                        'Network.getResponseBody',
-                        {'requestId': request_id}
-                    )
-                    return json.loads(response_body['body'])
-                except Exception as e:
-                    print(f"Ошибка при получении тела ответа: {e}")
-                    return None
+    # pattern = r"&sessionId=(.*?)"
+    # sessionId = await cut_token(str(url_s), pattern)
 
-        return None
+
+    await asyncio.sleep(5)
+
+    url = (f'{domen}/maps/api/business/fetchReviews?ajax=1&'
+           f'businessId={businessId}&'
+           f'csrfToken={csrfToken}&'
+           f'locale=ru_US&'
+           f'page=1&'
+           f'pageSize=50&'
+           f'ranking=by_time&'
+           f'reqId={reqId}&'
+           f's={s}&'
+           f'sessionId={sessionId}')
+
+    print(url)
+    input('Wait...')
+
+    driver.get(url)
+    json_data = driver.page_source
+    print(json_data)
+
+
+
+
+
+
+
+
+
+            #
+            #
+            # s1 = msg['message']['params']['headers'][':path']
+            # s2 = msg['message']['params']['request']['url']
+            # s2 = msg['message']['params']['response']['url']
+
+
+
+
+
+
+        # if 'csrfToken' in str(log):
+        #     print('-----------------------------------------')
+        #     print(log)
+        #     pattern = r"csrfToken=(.*?)&"
+        #     token = await cut_token(str(log), pattern)
+        #     print(token)
+        #     #return token
+        #
+        # if '&s=' in str(log):
+        #     print('-----------------------------------------')
+        #     print(log)
+        #     pattern = r"&s=(.*?),"
+        #     s = await cut_token(str(log), pattern)
+        #     print(s)
+
+
+
+
+    return None
+
+
+
 
 
 async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
+
     driver.get(link)
     await wait_for_portal() #Время ожидания
 
@@ -158,7 +243,7 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     print("current url", url)
 
     id_org = await get_id_org(url)
-    top_url = f'https://yandex.ru/maps/org/{id_org}'
+    top_url = f'https://yandex.ru/maps/org/{id_org}/reviews'
     print('top_url', top_url)
 
     datas = {'project': project,
@@ -167,15 +252,9 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
 
     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
 
-    new_url = top_url + '/reviews'
-    print(f"New link = {new_url}")
-    driver.get(new_url)
+    driver.get(top_url)
     driver.execute_script("document.body.style.zoom='0.5'")
     await asyncio.sleep(3)
-
-
-
-
 
     #await page.wait_for_selector('script[class="state-view"]', timeout=timeout)
     #data_site_content = await page.query_selector('script[class="state-view"]')
@@ -245,7 +324,6 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
                                      criteria=criteria)
 
     return 'OK!'
-
 
 async def get_id_org(url):
     url_split = url.split('/')
@@ -388,11 +466,13 @@ async def main():
     #url = 'https://yandex.kz/maps/org/schastye/187776871438/reviews/?ll=66.272509%2C56.632288&utm_source=review&z=16'
     #url = 'https://yandex.kz/maps/org/krylya/115857625887/reviews/?ll=65.263154%2C57.147658&utm_source=review&z=16'
 
-    driver = await get_selenium_proxy()
-    await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver)
+    driver = await get_selenium_proxy(headless=headless)
+    #await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver)
+
+    await check_ya_new(driver, url)
 
 if __name__ == '__main__':
-    asyncio.run(main_ya_maps())
+    asyncio.run(main())
 
 
 
