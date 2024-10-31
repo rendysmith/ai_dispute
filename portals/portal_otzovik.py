@@ -34,9 +34,12 @@ captcha_key = os.environ.get("CAPTCHA_KEY")
 ss_id = TABLES_LIST['zoom']
 
 async def get_top_link(driver):
-    top_link_content = driver.find_element(By.CSS_SELECTOR, 'h1.product-name')
-    top_link = top_link_content.find_element(By.CSS_SELECTOR, 'a')
-    return top_link.get_attribute('href')
+    try:
+        top_link_content = driver.find_element(By.CSS_SELECTOR, 'h1.product-name')
+        top_link = top_link_content.find_element(By.CSS_SELECTOR, 'a')
+        return top_link.get_attribute('href')
+    except:
+        return
 
     #         await page.wait_for_selector('h1[class="product-name"]', timeout=timeout)
     #         top_link_content_0 = await page.query_selector('h1[class="product-name"]')
@@ -123,6 +126,10 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
                      'top_url': top_link}
 
             await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+            driver.get(top_link)
+
+        else:
+            return
 
     else:
         print('- Это уже топовая ссылка.')
