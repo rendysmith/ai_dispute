@@ -244,7 +244,7 @@ async def main_irecommend():
         df_link_list = df_mini[project].to_list()
         irec_link = [i for i in df_link_list if 'irecommend' in i]
         len_irec = len(irec_link)
-        print(f'Irec link = {len_irec}')
+        print(f'{project} Irec link = {len_irec}')
 
         random.shuffle(df_link_list)
 

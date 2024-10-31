@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from models.mdl_tables import HostsZoom
 from utils.constants import TABLES_LIST
 from utils.db_loader import read_data_from_db
-from utils.gs_editor import get_table_scope, get_service, append_data_to_sheet_cell
+from utils.gs_editor import get_table_scope, get_service, append_data_to_sheet_cell, read_table_id
 
 ss_id = TABLES_LIST['zoom']
 tab_name = 'logs'
@@ -21,7 +21,7 @@ id_proxy = os.environ.get("ID_PROXY")
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
 
-async def get_service():
+async def get_api_service():
     url = f'https://api.proxy5.net/api/service/{id_proxy}'
     headers = {
         'Authorization': f'Basic {token_proxy}',
@@ -57,6 +57,7 @@ async def load_distribution(service):
     print(hosts_number)
 
     df_logs = await get_table_scope(service, ss_id, tab_name)
+    print(df_logs)
     df_sorted = df_logs.sort_values(by='count')
     print(df_sorted)
 
@@ -64,7 +65,7 @@ async def load_distribution(service):
     df['assigned_service'] = np.tile(hosts, len(df) // hosts_number + 1)[:len(df)]
     print(df)
 
-    service_data = await get_service()
+    service_data = await get_api_service()
 
     for idx, row in df.iterrows():
         hst = row['assigned_service']

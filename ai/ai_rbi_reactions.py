@@ -136,7 +136,6 @@ async def main_rbi():
     data = {'service_name': 'RBI', 'date': time.ctime()}
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
-
 if __name__ == '__main__':
     asyncio.run(main_rbi())
 

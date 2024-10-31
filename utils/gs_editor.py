@@ -372,7 +372,6 @@ async def read_table_id(service, spreadsheet_id, worksheet_name):
         print(f'!!!Error Ex: {Ex}')
         return pd.DataFrame()
 
-
 def update_data(worktable_name, worksheet_name, idx, text):
     workfile = gc.open(worktable_name)
     worksheet = workfile.worksheet(worksheet_name) #открываем вкладку
