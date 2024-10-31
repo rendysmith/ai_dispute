@@ -3,6 +3,7 @@ FROM python:3.10-slim
 # Установка системных зависимостей в одном слое для уменьшения размера образа
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
+    ncurses-term\
     python3-pip \
     firefox-esr \
     wget \

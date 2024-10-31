@@ -31,6 +31,8 @@ days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 timeout = 10000
 ss_id = TABLES_LIST['zoom']
+headless=False
+
 
 def find_key_path(dct, target_key, path = None):
     if path is None:
@@ -79,6 +81,74 @@ async def get_requestId(dictionary):
     print(reqId)
     return reqId
 
+
+async def get_network_response(driver, target_url):
+    async def setup_driver():
+        # Правильная настройка опций Chrome для логирования
+        chrome_options = Options()
+        chrome_options.add_argument('--headless')  # Опционально: запуск в фоновом режиме
+
+        # Важно: правильная настройка логирования производительности
+        chrome_options.set_capability(
+            "goog:loggingPrefs",
+            {
+                "browser": "ALL",
+                "performance": "ALL"
+            }
+        )
+
+        # Добавляем аргументы для включения CDP
+        chrome_options.add_argument('--remote-debugging-port=9222')
+
+        service = Service('path_to_chromedriver')  # Укажите путь к вашему chromedriver
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+
+        # Включаем CDP Network
+        driver.execute_cdp_cmd('Network.enable', {})
+
+        return driver
+
+    async def get_network_response(driver, target_url):
+        request_id = None
+
+        def process_browser_log(log_entry):
+            try:
+                log_data = json.loads(log_entry["message"])["message"]
+
+                if "Network.responseReceived" == log_data["method"]:
+                    if target_url in log_data["params"]["response"]["url"]:
+                        return log_data["params"]["requestId"]
+                return None
+            except:
+                return None
+
+        # Загружаем страницу
+        driver.get(target_url)
+
+        # Даем время для загрузки
+        await asyncio.sleep(5)
+
+        # Получаем логи
+        browser_logs = driver.get_log("performance")
+
+        # Ищем нужный запрос
+        for log_entry in browser_logs:
+            request_id = process_browser_log(log_entry)
+            if request_id:
+                try:
+                    # Получаем тело ответа
+                    response_body = driver.execute_cdp_cmd(
+                        'Network.getResponseBody',
+                        {'requestId': request_id}
+                    )
+                    return json.loads(response_body['body'])
+                except Exception as e:
+                    print(f"Ошибка при получении тела ответа: {e}")
+                    return None
+
+        return None
+
+
 async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
     driver.get(link)
@@ -102,6 +172,10 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     driver.get(new_url)
     driver.execute_script("document.body.style.zoom='0.5'")
     await asyncio.sleep(3)
+
+
+
+
 
     #await page.wait_for_selector('script[class="state-view"]', timeout=timeout)
     #data_site_content = await page.query_selector('script[class="state-view"]')
@@ -204,7 +278,7 @@ async def main_ya_maps():
     df_logs = await get_table_scope(service, ss_id, 'logs')
     print(df_logs)
 
-    driver = await get_selenium_proxy()
+    driver = await get_selenium_proxy(headless=headless)
 
     for project in list_:
         if 'Проект' in project:
@@ -292,7 +366,7 @@ async def main_ya_maps():
 
                 if not status:
                     driver.quit()
-                    driver = await get_selenium_proxy()
+                    driver = await get_selenium_proxy(headless=headless)
 
         if record:
             finish_sec = time.time() - start_time

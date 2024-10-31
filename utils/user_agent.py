@@ -15,7 +15,6 @@ import re
 
 from fake_useragent import UserAgent
 
-from seleniumbase import Driver
 
 from selenium import webdriver
 #from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
@@ -27,6 +26,11 @@ import os
 from dotenv import load_dotenv
 
 from utils.constants import status_codes
+
+from seleniumbase import Driver
+from seleniumbase import config
+config.DISABLE_COLORS = True
+
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -214,6 +218,7 @@ async def get_selenium(url, headless=True):
 async def get_selenium_proxy(url=None, headless=True):
     print('Selenium proxy...')
     proxy_host, proxy_port = await get_one_proxy()
+    print(f'Proxy: {proxy_host}:{proxy_port}')
     proxy = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
 
     # create a Driver instance with undetected_chromedriver (uc) and headless mode
