@@ -14,7 +14,7 @@ from twocaptcha import TwoCaptcha
 from utils.ai_module import generate_and_white
 from utils.central_module import get_local_ip, wait_for_portal
 from utils.constants import TABLES_LIST
-from utils.gs_editor import get_service, pars_url, get_table_scope, write_log_sheet
+from utils.gs_editor import get_service, pars_url, get_table_scope, write_log_sheet, append_data_to_sheet_scope
 from utils.user_agent import get_selenium_proxy
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
@@ -32,6 +32,16 @@ max_sec = int(os.environ.get("MAX_SEC"))
 captcha_key = os.environ.get("CAPTCHA_KEY")
 
 ss_id = TABLES_LIST['zoom']
+
+async def get_top_link(driver):
+    top_link_content = driver.find_element(By.CSS_SELECTOR, 'h1.product-name')
+    top_link = top_link_content.find_element(By.CSS_SELECTOR, 'a')
+    return top_link.get_attribute('href')
+
+    #         await page.wait_for_selector('h1[class="product-name"]', timeout=timeout)
+    #         top_link_content_0 = await page.query_selector('h1[class="product-name"]')
+    #         top_link_content = await top_link_content_0.query_selector('a')
+    #         top_link = await top_link_content.get_attribute('href')
 
 async def sent_captcha(file_link):
     print('- Send captcha...')
@@ -92,10 +102,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
     print(f'Link: {link}')
     driver.get(link)
 
-    #input('Wait..')
-
-    #driver = await captcha_check(driver) #обработка капчи
-    links = await pars_url(service, ss_id, project)
+    driver = await captcha_check(driver) #обработка капчи
     await wait_for_portal()  # Время ожидания
 
     try:
@@ -108,7 +115,14 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
         pass
 
     if 'order=date_desc' not in link:
-        input('Get TOP link')
+        top_link = await get_top_link(driver)
+
+        if top_link:
+            datas = {'project': project,
+                     'url': link,
+                     'top_url': top_link}
+
+            await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
 
     else:
         print('- Это уже топовая ссылка.')
@@ -137,6 +151,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
     if len_b == 0:
         return None
 
+    links = await pars_url(service, ss_id, project)
     for block in blocks:
         try:
             url_answer = block.find_element(By.CSS_SELECTOR, 'meta[itemprop="url"]').get_attribute('content')

@@ -33,6 +33,7 @@ async def get_api_service():
     print(response)
     r_json = response.json()
     print(r_json)
+    print(f'Binded IP: {r_json.get("bindedip")}')
     return r_json
 
 
