@@ -38,6 +38,7 @@ async def get_top_link(driver):
         top_link_content = driver.find_element(By.CSS_SELECTOR, 'h1.product-name')
         top_link = top_link_content.find_element(By.CSS_SELECTOR, 'a')
         return top_link.get_attribute('href')
+
     except:
         return
 
