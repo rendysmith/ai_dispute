@@ -249,7 +249,7 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
 
     driver.get(top_url)
-    print(f'Get {top_url}')
+    print(f'Get: {top_url}')
     #driver.execute_script("document.body.style.zoom='0.5'")
     await asyncio.sleep(5)
 
@@ -261,8 +261,8 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
             print('- Click 1')
             await asyncio.sleep(5)
 
-            rating_ranking_view = driver.find_element(By.CSS_SELECTOR, 'div[class="rating-ranking-view__popup-line"][aria-label="По новизне"]')
-            rating_ranking_view.click()
+            rating_ranking_view = driver.find_elements(By.CSS_SELECTOR, 'div[class="rating-ranking-view__popup-line"][role="button"]')
+            rating_ranking_view[1].click()
             print('- Click 2')
             break
 
