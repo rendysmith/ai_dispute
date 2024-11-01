@@ -36,7 +36,7 @@ days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 timeout = 10000
 ss_id = TABLES_LIST['zoom']
-headless=False
+headless = True
 
 async def cut_token(text, pattern):
     match = re.search(pattern, text)
@@ -248,7 +248,7 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
 
     driver.get(top_url)
-    driver.execute_script("document.body.style.zoom='0.5'")
+    #driver.execute_script("document.body.style.zoom='0.5'")
     await asyncio.sleep(3)
 
     n = 0
@@ -256,10 +256,12 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
         try:
             rating_view = driver.find_element(By.CSS_SELECTOR, 'div.rating-ranking-view')
             rating_view.click()
+            print('- Click 1')
             await asyncio.sleep(1)
 
             rating_ranking_view = driver.find_element(By.CSS_SELECTOR, 'div[class="rating-ranking-view__popup-line"][aria-label="По новизне"]')
             rating_ranking_view.click()
+            print('- Click 2')
             break
 
         except Exception as Ex:
@@ -277,7 +279,7 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
             print('**************')
             if log.get('message'):
                 msg = json.loads(log['message'])
-                pprint(msg)
+                #pprint(msg)
 
                 if msg.get('message'):
                     msg_m = msg['message']
@@ -302,29 +304,36 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
             print('**************')
 
     domen = await extract_main_site(url)
-    print(url_s)
+
     if domen not in url_s:
         url_api = domen + url_s
     else:
         url_api = url_s
+
+    print("url_api", url_api)
 
     driver.get(url_api)
     await asyncio.sleep(3)
 
     # Парсим HTML-код страницы
     soup = BeautifulSoup(driver.page_source, 'html.parser')
-    json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+    try:
+        json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+    except Exception as Ex:
+        print(f'Error Ex: {Ex}')
+        #print(soup)
+        return
 
     # Конвертируем в словарь
     dictionary = json.loads(json_text)
 
-    print(dictionary)
-    print(type(dictionary))
+    #print(dictionary)
+    #print(type(dictionary))
     reviews = dictionary['data']['reviews']
 
     len_r = len(reviews)
 
-    b
+    if len_r == 0:
         return None
 
     links = await pars_url(service, ss_id, project)
@@ -337,7 +346,7 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
 
             if (current_date - date) > timedelta(days=days_ago):
                 print(f'--- Отзыв старше {days_ago} дней. = {date}')
-                continue
+                return 'Next...'
 
             author = rew['author']['name']
             #print(author)
@@ -513,7 +522,7 @@ async def main():
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(main_ya_maps())
 
 
 
