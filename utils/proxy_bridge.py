@@ -133,8 +133,9 @@ async def get_one_proxy():
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             one_proxy = await response.text()
+            print(one_proxy)
             data = one_proxy.split(':')
-            #print(type(data))
+            print(type(data))
             print('Get one Proxy:', data)
             return data[0], data[1]
 

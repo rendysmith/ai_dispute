@@ -6,9 +6,10 @@ import requests
 from dotenv import load_dotenv
 
 from models.mdl_tables import HostsZoom
+from utils.central_module import get_api_service
 from utils.constants import TABLES_LIST
 from utils.db_loader import read_data_from_db
-from utils.gs_editor import get_table_scope, get_service, append_data_to_sheet_cell, read_table_id
+from utils.gs_editor import get_table_scope, get_service, append_data_to_sheet_cell
 
 ss_id = TABLES_LIST['zoom']
 tab_name = 'logs'
@@ -20,22 +21,6 @@ token_proxy = os.environ.get("TOKEN_PROXY")
 id_proxy = os.environ.get("ID_PROXY")
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
-
-async def get_api_service():
-    url = f'https://api.proxy5.net/api/service/{id_proxy}'
-    headers = {
-        'Authorization': f'Basic {token_proxy}',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-    }
-
-    response = requests.get(url, headers=headers)
-    print(response)
-    r_json = response.json()
-    print(r_json)
-    print(f'Binded IP: {r_json.get("bindedip")}')
-    return r_json
-
 
 async def change_ip(ip):
     url = f'https://proxy5.net/api/getproxy/?action=setip&login={login_proxy}&{pass_proxy}=LbLYF35E&ip={ip}'

@@ -13,10 +13,12 @@ from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchWindowException
 
+from load_distribution import get_api_service
 from utils.ai_module import generate_and_white
-from utils.central_module import get_local_ip, wait_for_portal
+from utils.central_module import get_local_ip, wait_for_portal, proxy_status
 from utils.constants import TABLES_LIST
-from utils.gs_editor import pars_url, append_data_to_sheet_scope, get_service, get_table_scope, write_log_sheet
+from utils.gs_editor import pars_url, append_data_to_sheet_scope, get_service, get_table_scope, write_log_sheet, \
+    append_data_to_sheet_cell
 from utils.user_agent import extract_main_site, get_soup_anticloud, get_selenium_proxy
 
 current_date = datetime.now()
@@ -174,6 +176,13 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
     return 'OK!'
 
 async def main_irecommend():
+    proxy_active = await proxy_status()
+    print(f'Proxy status: {proxy_active}')
+
+    driver = None
+    if proxy_active == 'Active':
+        driver = await get_selenium_proxy()
+
     local_ip = await get_local_ip()
     print('local_ip', local_ip)
 
@@ -198,25 +207,31 @@ async def main_irecommend():
     df_logs = await get_table_scope(service, ss_id, 'logs')
     print(df_logs)
 
-    driver = await get_selenium_proxy()
-
     for project in list_:
         if 'Проект' in project:
             continue
 
         #Если дата не совпадает с сегодняшней
         host_logs = ''
-
         project_irecommend = f'{project}_irecommend'
         filtered_logs = df_logs[df_logs['service_name'] == project_irecommend]
         if not filtered_logs.empty:
             idx_logs = filtered_logs.index[0]
+
+            if proxy_active != 'Active':
+                await append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2, f'Proxy {proxy_active}')
+                break
+
+            else:
+                await append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2,
+                                                f'Proxy {proxy_active}')
 
             #Пропуск по дате
             date_logs = df_logs.loc[idx_logs, 'date']
             if date_logs == record_date:
                 #print()
                 continue
+
         #
         #     #Пропуск по IP
         #     host_logs = df_logs.loc[idx_logs, 'reserve']
@@ -297,8 +312,8 @@ async def main_irecommend():
 
             print('datas', datas)
             await write_log_sheet(service, ss_id, 'logs', datas)
-
-    driver.close()
+    if driver:
+        driver.close()
 
 async def tst_main():
     url = 'https://irecommend.ru/content/lechenie-v-turtsii-v-odnoi-iz-luchshikh-klinik-v-kotorykh-ya-kogda-libo-byla-tak-zhe-strakho'

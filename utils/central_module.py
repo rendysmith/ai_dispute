@@ -15,8 +15,30 @@ from utils.user_agent import get_playwright
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
+token_proxy = os.environ.get("TOKEN_PROXY")
+id_proxy = os.environ.get("ID_PROXY")
+
 max_sec = int(os.environ.get("MAX_SEC"))
 ss_id = TABLES_LIST['zoom']
+
+async def get_api_service():
+    url = f'https://api.proxy5.net/api/service/{id_proxy}'
+    headers = {
+        'Authorization': f'Basic {token_proxy}',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    }
+
+    response = requests.get(url, headers=headers)
+    print(response)
+    r_json = response.json()
+    print(r_json)
+    print(f'Binded IP: {r_json.get("bindedip")}')
+    return r_json
+
+async def proxy_status():
+    proxy_action = await get_api_service()
+    return proxy_action['status']
 
 async def wait_for_portal():
     ts = random.randint(5, max_sec)
