@@ -19,10 +19,11 @@ from selenium.webdriver.support.wait import WebDriverWait
 from dotenv import load_dotenv
 import re
 
-from utils.central_module import wait_for_portal, get_local_ip
+from utils.central_module import wait_for_portal, get_local_ip, proxy_status
 from utils.constants import months, TABLES_LIST
 from utils.ai_module import generate_and_white
-from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope, get_table_scope, write_log_sheet
+from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope, get_table_scope, write_log_sheet, \
+    append_data_to_sheet_cell
 from utils.user_agent import get_selenium_proxy, extract_main_site
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -383,6 +384,14 @@ async def get_id_org(url):
             return v
 
 async def main_ya_maps():
+    proxy_active = await proxy_status()
+    print(f'Proxy status: {proxy_active}')
+
+    driver = None
+    if proxy_active == 'Active':
+        driver = await get_selenium_proxy()
+
+
     local_ip = await get_local_ip()
     print('local_ip', local_ip)
 
@@ -420,6 +429,14 @@ async def main_ya_maps():
         filtered_logs = df_logs[df_logs['service_name'] == project_ya_maps]
         if not filtered_logs.empty:
             idx_logs = filtered_logs.index[0]
+
+            if proxy_active != 'Active':
+                await append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2, f'Proxy {proxy_active}')
+                break
+
+            else:
+                await append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2,
+                                                f'Proxy {proxy_active}')
 
             #Пропуск по дате
             date_logs = df_logs.loc[idx_logs, 'date']
@@ -507,7 +524,8 @@ async def main_ya_maps():
             print('datas', datas)
             await write_log_sheet(service, ss_id, 'logs', datas)
 
-    driver.close()
+    if driver:
+        driver.close()
 
 async def main():
     service = await get_service()
