@@ -85,7 +85,7 @@ async def get_proxy_list():
 
             try:
                 data = json.loads(formatted_text)
-                print(type(data))
+                #print(type(data))
                 return data
 
             except json.JSONDecodeError as e:
@@ -135,7 +135,7 @@ async def get_one_proxy():
             one_proxy = await response.text()
             print(one_proxy)
             data = one_proxy.split(':')
-            print(type(data))
+            #print(type(data))
             print('Get one Proxy:', data)
             return data[0], data[1]
 

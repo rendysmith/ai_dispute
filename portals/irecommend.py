@@ -57,7 +57,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
                     break
 
 
-            except Exception as Ex:
+            except Exception as Ex1:
                 try:
                     #traceback.print_exc()
                     top_block_content = driver.find_element(By.CSS_SELECTOR, 'div.description')
@@ -69,7 +69,8 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
                     print('- 2 Top url', top_url)
                     break
                     #----------------------------------------------------------------
-                except:
+                except Exception as Ex2:
+                    print(f'Error Ex2: {Ex2}')
                     return None
 
             except NoSuchWindowException as NSEE:
@@ -104,9 +105,9 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
     len_b = 0
     while n < 10:
         try:
-            print('Search blocks')
+            print('- Search blocks')
             #WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-type="1"]')))
-            driver.execute_script("window.scrollBy(0, 1000);")  # Скроллит вниз на 500 пикселей
+            #driver.execute_script("window.scrollBy(0, 500);")  # Скроллит вниз на 500 пикселей
             print('- 1')
             blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-type="1"]')
             print('- 2')
