@@ -313,6 +313,7 @@ async def main_irecommend():
 
             print('datas', datas)
             await write_log_sheet(service, ss_id, 'logs', datas)
+
     if driver:
         driver.close()
 
