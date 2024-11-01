@@ -233,6 +233,7 @@ async def get_selenium_proxy(url=None, headless=True):
                     log_cdp_events=True
                     )
     #driver.get(url)
+    print('- Selenium connect')
     return driver
 
     #

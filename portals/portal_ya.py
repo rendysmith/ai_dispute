@@ -95,7 +95,6 @@ async def get_requestId(dictionary):
 
 async def check_ya_new(driver, url):
     print("url:", url)
-
     domen = await extract_main_site(url)
     businessId = await get_id_org(url)
     top_url = f'{domen}/maps/org/{businessId}/reviews'
@@ -229,10 +228,6 @@ async def check_ya_new(driver, url):
 
     return None
 
-
-
-
-
 async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
 
@@ -256,34 +251,80 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     driver.execute_script("document.body.style.zoom='0.5'")
     await asyncio.sleep(3)
 
-    #await page.wait_for_selector('script[class="state-view"]', timeout=timeout)
-    #data_site_content = await page.query_selector('script[class="state-view"]')
-    #data_site = await data_site_content.inner_text()
+    n = 0
+    while True:
+        try:
+            rating_view = driver.find_element(By.CSS_SELECTOR, 'div.rating-ranking-view')
+            rating_view.click()
+            await asyncio.sleep(1)
 
-    try:
-        data_site = driver.find_element(By.CSS_SELECTOR, 'script.state-view')
-        html_content = data_site.get_attribute("outerHTML")
+            rating_ranking_view = driver.find_element(By.CSS_SELECTOR, 'div[class="rating-ranking-view__popup-line"][aria-label="По новизне"]')
+            rating_ranking_view.click()
+            break
 
-        soup = BeautifulSoup(html_content, 'html.parser')
-        script_tag = soup.find('script', {'class': 'state-view'})
-        dictionary = json.loads(script_tag.string)
+        except Exception as Ex:
+            await asyncio.sleep(1)
+            n += 1
+            if n > 10:
+                print(f'Error Ex, n = {n}: {Ex}')
+                return
 
-        if dictionary['stack'][0].get("results"):
-            reviews = dictionary['stack'][0]['results']['items'][0]['reviewResults']['reviews']
+    logs = driver.get_log('performance')
+    #print(logs)
+    print(3)
+    for idx, log in enumerate(logs):
+        if 'fetchReviews' in str(log):
+            print('**************')
+            if log.get('message'):
+                msg = json.loads(log['message'])
+                pprint(msg)
 
-        elif dictionary['stack'][0].get("response"):
-            reviews = dictionary['stack'][0]['response']['items'][0]['reviewResults']['reviews']
+                if msg.get('message'):
+                    msg_m = msg['message']
+                    if msg_m.get('params'):
+                        msg_p = msg_m['params']
 
-        else:
-            reviews = []
+                        if msg_p.get('headers'):
+                            msg_h = msg_p['headers']
+                            url_s = msg_h.get(":path", None)
+                            break
 
-    except selenium.common.NoSuchElementException as NSEE:
-        print(f"Error NSEE: {NSEE}")
-        return None
+                        elif msg_p.get('request'):
+                            msg_h = msg_p['request']
+                            url_s = msg_h.get("url", None)
+                            break
+
+                        elif msg_p.get('response'):
+                            msg_h = msg_p['response']
+                            url_s = msg_h.get("url", None)
+                            break
+
+            print('**************')
+
+    domen = await extract_main_site(url)
+    print(url_s)
+    if domen not in url_s:
+        url_api = domen + url_s
+    else:
+        url_api = url_s
+
+    driver.get(url_api)
+    await asyncio.sleep(3)
+
+    # Парсим HTML-код страницы
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
+    json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+
+    # Конвертируем в словарь
+    dictionary = json.loads(json_text)
+
+    print(dictionary)
+    print(type(dictionary))
+    reviews = dictionary['data']['reviews']
 
     len_r = len(reviews)
 
-    if len_r == 0:
+    b
         return None
 
     links = await pars_url(service, ss_id, project)
@@ -467,9 +508,9 @@ async def main():
     #url = 'https://yandex.kz/maps/org/krylya/115857625887/reviews/?ll=65.263154%2C57.147658&utm_source=review&z=16'
 
     driver = await get_selenium_proxy(headless=headless)
-    #await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver)
+    await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver)
 
-    await check_ya_new(driver, url)
+
 
 if __name__ == '__main__':
     asyncio.run(main())
@@ -766,4 +807,95 @@ if __name__ == '__main__':
 #     # print(r.json())
 #     #
 
-
+#
+# async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
+#     print(f'\nLink: {link}')
+#
+#     driver.get(link)
+#     await wait_for_portal() #Время ожидания
+#
+#     url = driver.current_url
+#     print("current url", url)
+#
+#     id_org = await get_id_org(url)
+#     top_url = f'https://yandex.ru/maps/org/{id_org}/reviews'
+#     print('top_url', top_url)
+#
+#     datas = {'project': project,
+#              'url': url,
+#              'top_url': top_url}
+#
+#     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+#
+#     driver.get(top_url)
+#     driver.execute_script("document.body.style.zoom='0.5'")
+#     await asyncio.sleep(3)
+#
+#     #await page.wait_for_selector('script[class="state-view"]', timeout=timeout)
+#     #data_site_content = await page.query_selector('script[class="state-view"]')
+#     #data_site = await data_site_content.inner_text()
+#
+#     try:
+#         data_site = driver.find_element(By.CSS_SELECTOR, 'script.state-view')
+#         html_content = data_site.get_attribute("outerHTML")
+#
+#         soup = BeautifulSoup(html_content, 'html.parser')
+#         script_tag = soup.find('script', {'class': 'state-view'})
+#         dictionary = json.loads(script_tag.string)
+#
+#         if dictionary['stack'][0].get("results"):
+#             reviews = dictionary['stack'][0]['results']['items'][0]['reviewResults']['reviews']
+#
+#         elif dictionary['stack'][0].get("response"):
+#             reviews = dictionary['stack'][0]['response']['items'][0]['reviewResults']['reviews']
+#
+#         else:
+#             reviews = []
+#
+#     except selenium.common.NoSuchElementException as NSEE:
+#         print(f"Error NSEE: {NSEE}")
+#         return None
+#
+#     len_r = len(reviews)
+#
+#     if len_r == 0:
+#         return None
+#
+#     links = await pars_url(service, ss_id, project)
+#
+#     for rew in reviews:
+#         #pprint(rew)
+#         if rew.get('text'):
+#             date_content = rew['updatedTime']
+#             date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
+#
+#             if (current_date - date) > timedelta(days=days_ago):
+#                 print(f'--- Отзыв старше {days_ago} дней. = {date}')
+#                 continue
+#
+#             author = rew['author']['name']
+#             #print(author)
+#
+#             url_answer = rew['reviewId']
+#             #print(url_answer)
+#             if url_answer in links:
+#                 print('Такой комментарий уже есть в списке')
+#                 continue
+#
+#             feedback = rew['text']
+#             #print(feedback)
+#
+#             formatted_date = date.strftime("%d.%m.%Y")
+#             # print(formatted_date)
+#
+#             await generate_and_white(service=service,
+#                                      url_answer=url_answer,
+#                                      author=author,
+#                                      formatted_date=formatted_date,
+#                                      ss_id=ss_id,
+#                                      project=project,
+#                                      feedback=feedback,
+#                                      pattern=pattern,
+#                                      criteria=criteria)
+#
+#     return 'OK!'

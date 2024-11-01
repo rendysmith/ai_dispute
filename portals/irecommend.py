@@ -176,6 +176,8 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
     return 'OK!'
 
 async def main_irecommend():
+
+
     proxy_active = await proxy_status()
     print(f'Proxy status: {proxy_active}')
 
