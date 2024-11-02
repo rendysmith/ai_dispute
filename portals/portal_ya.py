@@ -424,9 +424,9 @@ async def main_ya_maps():
 
         #Если дата не совпадает с сегодняшней
         host_logs = ''
-
         project_ya_maps = f'{project}_ya_maps'
         filtered_logs = df_logs[df_logs['service_name'] == project_ya_maps]
+
         if not filtered_logs.empty:
             idx_logs = filtered_logs.index[0]
 
@@ -468,9 +468,12 @@ async def main_ya_maps():
         df_mini = df_mini.drop_duplicates().reset_index()
 
         df_link_list = df_mini[project].to_list()
-        irec_link = [i for i in df_link_list if 'maps' in i]
-        len_irec = len(irec_link)
-        print(f'\n\n{project} Ya_maps link = {len_irec}')
+        ymap_link = [i for i in df_link_list if 'maps' in i]
+        len_ymap = len(ymap_link)
+        print(f'\n\n{project} Ya_maps link = {len_ymap}')
+        if len_ymap == 0:
+            print(f'{project} next...')
+            continue
 
         random.shuffle(df_link_list)
 
