@@ -8,7 +8,6 @@ import random
 from pprint import pprint
 
 import pandas as pd
-import selenium.common
 from bs4 import BeautifulSoup
 
 from selenium.webdriver.common.by import By
@@ -331,7 +330,14 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
 
     #print(dictionary)
     #print(type(dictionary))
-    reviews = dictionary['data']['reviews']
+    if dictionary.get('data'):
+        if dictionary['data'].get('reviews'):
+            reviews = dictionary['data']['reviews']
+        else:
+            return
+
+    else:
+        return
 
     len_r = len(reviews)
 
@@ -389,8 +395,7 @@ async def main_ya_maps():
 
     driver = None
     if proxy_active == 'Active':
-        driver = await get_selenium_proxy()
-
+        driver = await get_selenium_proxy(headless=headless)
 
     local_ip = await get_local_ip()
     print('local_ip', local_ip)
@@ -412,11 +417,7 @@ async def main_ya_maps():
     #random.shuffle(list_)
 
     df_uniq = await get_table_scope(service, ss_id, 'unique_url')
-
     df_logs = await get_table_scope(service, ss_id, 'logs')
-    print(df_logs)
-
-    driver = await get_selenium_proxy(headless=headless)
 
     for project in list_:
         if 'Проект' in project:
