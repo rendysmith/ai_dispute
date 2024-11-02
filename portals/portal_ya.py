@@ -273,8 +273,7 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
                 return
 
     logs = driver.get_log('performance')
-    #print(logs)
-    print(3)
+
     for idx, log in enumerate(logs):
         if 'fetchReviews' in str(log):
             print('**************')
