@@ -322,7 +322,7 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
 
     except Exception as Ex:
         print(f'Error Ex: {Ex}')
-        await fix_error(service, project, link, str(soup))
+        await fix_error(service, project, link, str(Ex))
         return
 
     # Конвертируем в словарь
