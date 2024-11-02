@@ -18,7 +18,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from dotenv import load_dotenv
 import re
 
-from utils.central_module import wait_for_portal, get_local_ip, proxy_status
+from utils.central_module import wait_for_portal, get_local_ip, proxy_status, fix_error
 from utils.constants import months, TABLES_LIST
 from utils.ai_module import generate_and_white
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope, get_table_scope, write_log_sheet, \
@@ -319,9 +319,10 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     soup = BeautifulSoup(driver.page_source, 'html.parser')
     try:
         json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+
     except Exception as Ex:
         print(f'Error Ex: {Ex}')
-        #print(soup)
+        await fix_error(service, project, link, str(soup))
         return
 
     # Конвертируем в словарь
@@ -339,14 +340,13 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
         return
 
     len_r = len(reviews)
-
+    print(f'Len_r: {len_r}')
     if len_r == 0:
         return None
 
     links = await pars_url(service, ss_id, project)
 
     for rew in reviews:
-        #pprint(rew)
         if rew.get('text'):
             date_content = rew['updatedTime']
             date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
