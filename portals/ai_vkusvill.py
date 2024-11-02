@@ -3,6 +3,7 @@ import os
 import random
 import re
 import time
+from datetime import datetime
 from xml.sax.handler import feature_external_ges
 
 import numpy as np
@@ -23,6 +24,10 @@ from utils.gs_editor import get_service, write_log_sheet, get_table_scope, appen
 
 from portals.portal_otzovik import get_top_link
 from utils.user_agent import get_soup
+
+from utils.constants import months
+
+import textwrap
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -129,17 +134,12 @@ async def cheak_vkusvill(service):
         except SyntaxError as SE:
             print(f'ERROR: {SE}')
 
-
-
-
-
 async def main_vkusvill():
     service = await get_service()
     await cheak_vkusvill(service)
 
     data = {'service_name': market, 'date': time.ctime()}
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
-
 
 async def grade_analysis():
     service = await get_service()
@@ -196,9 +196,6 @@ async def grade_analysis():
         elif portal == 'nerab.ru':
             pass
 
-
-
-
 async def total_grade_analysis(service):
     df = await get_table_scope(service, worktable_id, worksheet_name)
 
@@ -237,9 +234,200 @@ async def total_grade_analysis(service):
                 await append_data_to_sheet_cell(service, worktable_id, worksheet_name,'Оценка компании после удаления', idx_mini + 2, finish_rating)
                 data_rows.append(idx_mini)
 
+async def pars_dreamjob():
+    unix_time = str(int(time.time() * 1000))
+
+    link = 'https://dreamjob.ru/employers/56859?employerId=56859&erfrp%5BlastParam%5D=ratings&erfrp%5Bfrom_vacancy%5D=&sort=&erfrp%5Bratings%5D%5B%5D=1&page=1&_=1730532805883'
+    pages = ['1',
+             '2.2',
+             '3.3666666666666667',
+             '4.533333333333333',
+             '5.7',
+             '6.866666666666666']
+
+    for page in pages:
+        url = f'{link}?erfrp%5BlastParam%5D=&erfrp%5Bfrom_vacancy%5D=&sort=-created_at&page={page}&_={unix_time}'
+        url = f'https://dreamjob.ru/employers/56859?employerId=56859&erfrp%5BlastParam%5D=ratings&erfrp%5Bfrom_vacancy%5D=&sort=&erfrp%5Bratings%5D%5B%5D=1&page={page}&_={unix_time}'
+
+        soup = await get_soup(url)
+        if not soup:
+            continue
+
+        blocks = soup.find_all('div', {"class": 'review', 'data-partly': 'short'})
+        print('Len:', len(blocks))
+        if len(blocks) == 0:
+            return None
+
+        for block in blocks:
+            print('\n*******************************************')
+            date = block.find_next('div', {'class': 'review__header-date'}).text
+            print(date)
+            # date_spl = date.split('\xa0')
+            # print(date_spl)
+            # month = months[date_spl[0]]
+            # last_day = 31
+            # while True:
+            #     try:
+            #         target_date = datetime(int(date_spl[1]), month, last_day)
+            #         print(target_date)
+            #         break
+            #     except:
+            #         last_day -= 1
+
+            title = block.find_next('h2', {'class': 'review__header-title'}).text.strip()
+            print(title)
+
+            title_div_plus = block.find('div', class_='review__title review__gap')
+            plus_title = title_div_plus.text
+            # print(plus_title)
+
+            # Находим следующий div
+            next_div = title_div_plus.find_next('div', class_='review__title')
+
+            # Получаем весь текст между двумя div
+            full_text = ''
+            for sibling in title_div_plus.next_siblings:
+                if sibling == next_div:
+                    break
+                if isinstance(sibling, str):
+                    full_text += sibling
+                elif sibling.name == 'br':
+                    full_text += '\n'
+
+            # Очищаем текст от лишних пробелов и переносов строк
+            plus = ' '.join(full_text.split())
+            # print(plus)
+
+            title_div_minus = block.select_one('div.review__title:not(.review__gap)')
+            # print(title_div_minus)
+            minus_title = title_div_minus.text
+            # print(minus_title)
+
+            if title_div_minus:
+                minus = title_div_minus.find_next_sibling(text=True).strip()
+                # print(minus)
+
+            feedback = f"""
+                       {plus_title}:
+                       {plus}
+                       {minus_title}:
+                       {minus}
+                       """
+
+            feedback = textwrap.dedent(feedback)
+            print(feedback)
+
+            brand = 'Вкусвилл'
+            portal = 'dreamjob.ru'
+
+            url_answer = block.find('a', {'class': 'bt bt--32 bt--primary-link icon-copy'}).get('href')
+            if not url_answer:
+                url_answer = block.find('a', role='button', tabindex='0').get('href')
+
+            if not url_answer:
+                url_answer = block.find('a', tabindex='0').get('href')
+            print(url_answer)
 
 
 
+
+
+
+
+
+            input('Wait..')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            url_answer = block.find('a', {'class': 'bt bt--32 bt--primary-link icon-copy'}).get('href')
+            if not url_answer:
+                url_answer = block.find('a', role='button', tabindex='0').get('href')
+
+            if not url_answer:
+                url_answer = block.find('a', tabindex='0').get('href')
+
+            print(url_answer)
+
+            date = block.find_next('div', {'class': 'review__header-date'}).text
+
+            date_spl = date.split('\xa0')
+            #print(date_spl)
+            month = await months(date_spl[0])
+
+            last_day = 31
+            while True:
+                try:
+                    target_date = datetime(int(date_spl[1]), month, last_day)
+                    print(target_date)
+                    break
+
+                except:
+                    last_day -= 1
+
+            if (current_date - target_date) > timedelta(days=days_ago):
+                print(f'--- Отзыв старше {days_ago} дней = {date}.')
+                continue
+                # return  # Выход если очень старые отзывы
+
+            answer_title = block.find('h3', class_='review__answer-title')
+            if answer_title:
+                print("Найден заголовок ответа:", answer_title.text)
+                continue
+
+            author = block.find('h2', {'class': 'review__header-title'}).text.strip()
+            #print(author)
+
+            #title_div_plus = soup.find('div', class_='review__title review__gap')
+            title_div_plus = block.find('div', class_='review__title review__gap')
+            plus_title = title_div_plus.text
+            #print(plus_title)
+
+            # Находим следующий div
+            next_div = title_div_plus.find_next('div', class_='review__title')
+
+            # Получаем весь текст между двумя div
+            full_text = ''
+            for sibling in title_div_plus.next_siblings:
+                if sibling == next_div:
+                    break
+                if isinstance(sibling, str):
+                    full_text += sibling
+                elif sibling.name == 'br':
+                    full_text += '\n'
+
+            # Очищаем текст от лишних пробелов и переносов строк
+            plus = ' '.join(full_text.split())
+            #print(plus)
+
+            title_div_minus = block.select_one('div.review__title:not(.review__gap)')
+            #print(title_div_minus)
+            minus_title = title_div_minus.text
+            #print(minus_title)
+
+            if title_div_minus:
+                minus = title_div_minus.find_next_sibling(text=True).strip()
+                #print(minus)
+
+            feedback = f"""
+            {plus_title}:
+            {plus}
+            {minus_title}:
+            {minus}
+            """
+            #print(feedback)
+
+            feedback = textwrap.dedent(feedback)
 
 async def main_grade():
     service = await get_service()
@@ -248,9 +436,5 @@ async def main_grade():
     #asyncio.run(grade_analysis())
     await total_grade_analysis(service)
 
-
-
-
-
 if __name__ == '__main__':
-    asyncio.run(main_grade())
+    asyncio.run(pars_dreamjob())

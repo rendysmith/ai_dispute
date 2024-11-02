@@ -520,7 +520,7 @@ async def main_ya_maps():
         if record:
             finish_sec = time.time() - start_time
             datas = {'service_name': project_ya_maps,
-                    'count': len_irec,
+                    'count': len_ymap,
                     'date': record_date,
                     'time': finish_sec}
 
