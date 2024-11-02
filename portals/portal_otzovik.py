@@ -6,15 +6,18 @@ import time
 from datetime import datetime, timedelta
 
 import pandas as pd
+import requests
+
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from twocaptcha import TwoCaptcha
 
 from utils.ai_module import generate_and_white
-from utils.central_module import get_local_ip, wait_for_portal
+from utils.central_module import get_local_ip, wait_for_portal, proxy_status
 from utils.constants import TABLES_LIST
-from utils.gs_editor import get_service, pars_url, get_table_scope, write_log_sheet, append_data_to_sheet_scope
+from utils.gs_editor import get_service, pars_url, get_table_scope, write_log_sheet, append_data_to_sheet_scope, \
+    append_data_to_sheet_cell
 from utils.user_agent import get_selenium_proxy
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
@@ -32,6 +35,9 @@ max_sec = int(os.environ.get("MAX_SEC"))
 captcha_key = os.environ.get("CAPTCHA_KEY")
 
 ss_id = TABLES_LIST['zoom']
+
+headless = True
+proxy_on = True
 
 async def get_top_link(driver):
     try:
@@ -66,20 +72,32 @@ async def sent_captcha(file_link):
     return None
 
 async def captcha_check(driver):
+    print('>>> Capcha? <<<')
+    url = 'https://2captcha.com/'
+    r = requests.get(url)
+    status_code = r.status_code
+    if status_code != 200:
+        print(f'Capcha {url} = {status_code}')
+        return None
+
     n = 0
     while n < 10:
         try:
             capcha = driver.find_elements(By.CSS_SELECTOR, 'img[src]')
 
             len_c = len(capcha)
+            print(f'Len_c = {len_c}')
+
             if len_c != 1:
                 return driver
 
             number_file = int(time.time())
+            print('- 1', number_file)
             file_link = os.path.join(corn_folder, 'temp', f'captcha_image_{number_file}.png')
-            # Сохранение скриншота капчи
-            capcha.screenshot(file_link)
-            print("Скриншот капчи сохранен.")
+            print('- 2', file_link)
+
+            capcha[0].screenshot(file_link)
+            print(f"Скриншот капчи сохранен по адерсу {file_link}")
 
             capcha_text = await sent_captcha(file_link)
             print(capcha_text)
@@ -95,10 +113,12 @@ async def captcha_check(driver):
                 print("-- Файл удален")
             else:
                 print("-- Файл не найден")
+            break
 
-        except:
+        except Exception as Ex:
             n += 1
-            await asyncio.sleep(3)
+            print(f'Error captcha: {Ex}')
+            await asyncio.sleep(5)
 
     return driver
 
@@ -107,6 +127,10 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
     driver.get(link)
 
     driver = await captcha_check(driver) #обработка капчи
+    if not driver:
+        print('Error Driver')
+        return
+
     await wait_for_portal()  # Время ожидания
 
     try:
@@ -203,6 +227,14 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
             print('No generate!')
 
 async def main_otzovik():
+    proxy_active = await proxy_status()
+    print(f'Proxy status: {proxy_active}')
+
+    driver = None
+    if proxy_active == 'Active':
+        print('>>> Start Selenium...')
+        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+
     local_ip = await get_local_ip()
     print('local_ip', local_ip)
 
@@ -227,8 +259,6 @@ async def main_otzovik():
     df_logs = await get_table_scope(service, ss_id, 'logs')
     print(df_logs)
 
-    driver = await get_selenium_proxy()
-
     for project in list_:
         if 'Проект' in project:
             continue
@@ -239,6 +269,14 @@ async def main_otzovik():
         filtered_logs = df_logs[df_logs['service_name'] == project_otzovik]
         if not filtered_logs.empty:
             idx_logs = filtered_logs.index[0]
+
+            if proxy_active != 'Active':
+                await append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2, f'Proxy {proxy_active}')
+                break
+
+            else:
+                await append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2,
+                                                f'Proxy {proxy_active}')
 
             #Пропуск по дате
             date_logs = df_logs.loc[idx_logs, 'date']
@@ -271,6 +309,11 @@ async def main_otzovik():
         df_link_list = df_mini[project].to_list()
         irec_link = [i for i in df_link_list if 'otzovik' in i]
         len_irec = len(irec_link)
+        if len_irec == 0:
+            print(f'{project} next...')
+            continue
+
+        print(f'+++++++++++ {project} Irec link = {len_irec} ++++++++++++++')
 
         random.shuffle(df_link_list)
 
@@ -312,7 +355,7 @@ async def main_otzovik():
 
                 if not status:
                     driver.quit()
-                    driver = await get_selenium_proxy()
+                    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
         if record:
             finish_sec = time.time() - start_time
@@ -324,7 +367,8 @@ async def main_otzovik():
             print('datas', datas)
             await write_log_sheet(service, ss_id, 'logs', datas)
 
-    driver.close()
+    if driver:
+        driver.close()
 
 async def tst_otzovik():
     # file_link = '/home/andy/PycharmProjects/sidorin/ai_one_off/temp/captcha_image_1729773670.png'
@@ -341,8 +385,8 @@ async def tst_otzovik():
     await check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver)
 
 if __name__ == '__main__':
-    asyncio.run(tst_otzovik())
-    #asyncio.run(main_otzovik())
+    #asyncio.run(tst_otzovik())
+    asyncio.run(main_otzovik())
     print('The End!')
 
 

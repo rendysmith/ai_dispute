@@ -14,6 +14,7 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchWindowException
 
 from load_distribution import get_api_service
+from portals.portal_ya import headless
 from utils.ai_module import generate_and_white
 from utils.central_module import get_local_ip, wait_for_portal, proxy_status
 from utils.constants import TABLES_LIST
@@ -29,6 +30,8 @@ load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 ss_id = TABLES_LIST['zoom']
+
+headless = False
 
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
@@ -260,6 +263,10 @@ async def main_irecommend():
         df_link_list = df_mini[project].to_list()
         irec_link = [i for i in df_link_list if 'irecommend' in i]
         len_irec = len(irec_link)
+        if len_irec == 0:
+            print(f'{project} next...')
+            continue
+
         print(f'{project} Irec link = {len_irec}')
 
         random.shuffle(df_link_list)

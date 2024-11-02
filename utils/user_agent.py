@@ -200,7 +200,8 @@ async def get_soup_new(url, only_pars=False):
 
     return soup
 
-async def get_selenium(url, headless=True):
+async def get_selenium(url=None, headless=True):
+    print('- >>> Selenium No Proxy...')
     chrome_options = Options()
     if headless == True:
         chrome_options.add_argument("--headless")
@@ -211,88 +212,39 @@ async def get_selenium(url, headless=True):
 
     # Инициализация драйвера
     driver = webdriver.Chrome(options=chrome_options)
-    driver.get(url)
+    #driver.get(url)
 
     # Ожидание загрузки определенного элемента (например, заголовка)
-    wait = WebDriverWait(driver, 10)
+    #wait = WebDriverWait(driver, 10)
+    print('- <<< Selenium No Proxy connect')
     return driver
 
-async def get_selenium_proxy(url=None, headless=True):
-    print('Selenium proxy...')
-    proxy_host, proxy_port = await get_one_proxy()
-    print(f'Proxy: {proxy_host}:{proxy_port}')
-    proxy = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
+async def get_selenium_proxy(url=None, headless=True, proxy=False):
+    if proxy:
+        print('- >>> Selenium proxy...')
+        proxy_host, proxy_port = await get_one_proxy()
+        print(f'Proxy: {proxy_host}:{proxy_port}')
+        proxy = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
 
-    # create a Driver instance with undetected_chromedriver (uc) and headless mode
-    driver = Driver(uc=True,
-                    headless=headless,
-                    headless1=headless,
-                    headless2=headless,
-                    proxy=proxy,
-                    agent=ua.chrome,
-                    log_cdp_events=True
-                    )
-    #driver.get(url)
-    print('- Selenium connect')
-    return driver
+        # create a Driver instance with undetected_chromedriver (uc) and headless mode
+        driver = Driver(uc=True,
+                        headless=headless,
+                        headless1=headless,
+                        headless2=headless,
+                        proxy=proxy,
+                        agent=ua.chrome,
+                        log_cdp_events=True
+                        )
+        #driver.get(url)
+        print('- <<< Selenium connect')
+        return driver
 
-    #
-    #
-    # def enable_secure_dns(driver):
-    #     # Включаем Secure DNS и выбираем Cloudflare (1.1.1.1)
-    #     driver.execute_cdp_cmd("Network.setExtraHTTPHeaders", {
-    #         "headers": {
-    #             "Secure-DNS": "1.1.1.1"
-    #         }
-    #     })
-    #
-    # chrome_options = webdriver.ChromeOptions()
-    # chrome_options.add_argument(f'--user-agent={ua.chrome}')
-    # chrome_options.add_argument("--no-sandbox")
-    # chrome_options.add_argument("--disable-dev-shm-usage")
-    #
-    # # Initialize SeleniumAuthenticatedProxy
-    # proxy_helper = SeleniumAuthenticatedProxy(proxy_url=f"http://{proxy}")
-    #
-    # # Enrich Chrome options with proxy authentication
-    # proxy_helper.enrich_chrome_options(chrome_options)
-    #
-    # # Start WebDriver with enriched options
-    # driver = webdriver.Chrome(options=chrome_options)
-    # enable_secure_dns(driver)
-    # driver.get(url)
-    #
-    # return driver
+    else:
+        driver = await get_selenium('', headless=headless)
+        return driver
 
 
-    # from seleniumwire.undetected_chromedriver import Chrome
-    #
-    # chrome_options = Options()
-    # if headless == True:
-    #     chrome_options.add_argument("--headless")
-    #     chrome_options.add_argument("--no-sandbox")
-    #     chrome_options.add_argument("--disable-dev-shm-usage")
-    #
-    # chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
-    #
-    #
-    #
-    # seleniumwire_options = {
-    #     'proxy': {
-    #         'http': f'http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}',
-    #         'verify_ssl': False,
-    #     },
-    # }
-    #
-    # # driver = webdriver.Chrome(
-    # #     seleniumwire_options=seleniumwire_options
-    # # )
-    # driver = Chrome(options=chrome_options, seleniumwire_options=seleniumwire_options)
-    # driver.get(url)
-    #
-    # # Ожидание загрузки определенного элемента (например, заголовка)
-    # wait = WebDriverWait(driver, 10)
-    # return driver
+
 
 async def get_playwright(url, headless=True):
     print('>>> start PW')
@@ -453,7 +405,7 @@ async def main(url):
 
     driver = await get_selenium_proxy(url, headless=False)
 
-    input('OK!')
+
 
 
 
@@ -471,3 +423,62 @@ if "__main__" in __name__:
     # if page:
     #     print(page.url)
     #     print('OK!')
+
+
+    #
+    #
+    # def enable_secure_dns(driver):
+    #     # Включаем Secure DNS и выбираем Cloudflare (1.1.1.1)
+    #     driver.execute_cdp_cmd("Network.setExtraHTTPHeaders", {
+    #         "headers": {
+    #             "Secure-DNS": "1.1.1.1"
+    #         }
+    #     })
+    #
+    # chrome_options = webdriver.ChromeOptions()
+    # chrome_options.add_argument(f'--user-agent={ua.chrome}')
+    # chrome_options.add_argument("--no-sandbox")
+    # chrome_options.add_argument("--disable-dev-shm-usage")
+    #
+    # # Initialize SeleniumAuthenticatedProxy
+    # proxy_helper = SeleniumAuthenticatedProxy(proxy_url=f"http://{proxy}")
+    #
+    # # Enrich Chrome options with proxy authentication
+    # proxy_helper.enrich_chrome_options(chrome_options)
+    #
+    # # Start WebDriver with enriched options
+    # driver = webdriver.Chrome(options=chrome_options)
+    # enable_secure_dns(driver)
+    # driver.get(url)
+    #
+    # return driver
+
+
+    # from seleniumwire.undetected_chromedriver import Chrome
+    #
+    # chrome_options = Options()
+    # if headless == True:
+    #     chrome_options.add_argument("--headless")
+    #     chrome_options.add_argument("--no-sandbox")
+    #     chrome_options.add_argument("--disable-dev-shm-usage")
+    #
+    # chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
+    #
+    #
+    #
+    # seleniumwire_options = {
+    #     'proxy': {
+    #         'http': f'http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}',
+    #         'verify_ssl': False,
+    #     },
+    # }
+    #
+    # # driver = webdriver.Chrome(
+    # #     seleniumwire_options=seleniumwire_options
+    # # )
+    # driver = Chrome(options=chrome_options, seleniumwire_options=seleniumwire_options)
+    # driver.get(url)
+    #
+    # # Ожидание загрузки определенного элемента (например, заголовка)
+    # wait = WebDriverWait(driver, 10)
+    # return driver
