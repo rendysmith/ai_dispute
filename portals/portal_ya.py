@@ -413,6 +413,7 @@ async def main_ya_maps():
 
     list_ = df_counts['index'].to_list()
     print(list_)
+
     #random.shuffle(list_)
 
     df_uniq = await get_table_scope(service, ss_id, 'unique_url')
@@ -468,6 +469,7 @@ async def main_ya_maps():
         df_mini = df_mini.drop_duplicates().reset_index()
 
         df_link_list = df_mini[project].to_list()
+
         ymap_link = [i for i in df_link_list if 'maps' in i]
         len_ymap = len(ymap_link)
         print(f'\n\n{project} Ya_maps link = {len_ymap}')

@@ -20,7 +20,7 @@ from utils.constants import TABLES_LIST
 from utils.db_loader import read_data_from_db_filter
 
 from utils.gs_editor import get_service, write_log_sheet, get_table_scope, append_data_to_sheet_cell, \
-    append_data_to_sheet_cells
+    append_data_to_sheet_cells, append_data_to_sheet_scopes
 
 from portals.portal_otzovik import get_top_link
 from utils.user_agent import get_soup
@@ -83,6 +83,7 @@ text = """
 market = 'Vkusvill'
 worktable_id = TABLES_LIST[market][0]
 worksheet_name = TABLES_LIST[market][1]
+worksheet_name_dreamjob = 'reviews_dreamjob'
 print(worktable_id, worksheet_name)
 
 async def extract_link_from_line(url):
@@ -196,10 +197,11 @@ async def grade_analysis():
         elif portal == 'nerab.ru':
             pass
 
-async def total_grade_analysis(service):
-    df = await get_table_scope(service, worktable_id, worksheet_name)
+async def total_grade_analysis(service, tn_name):
+    df = await get_table_scope(service, worktable_id, tn_name)
 
     data_rows = []
+
     for idx, row in df.iterrows():
         company_link = row['Общий Url']
         feedback_counts = row['Кол-во отзывов']
@@ -209,7 +211,7 @@ async def total_grade_analysis(service):
             continue
 
         df_mini = df[df['Общий Url'] == company_link]
-        df_mini = df_mini.drop_duplicates(subset=["Ссылка Url"])
+        df_mini = df_mini.drop_duplicates(subset=["Ссылка Url"]) #Удаляем дублика ссылок!!!!!!!!!!!!!!!!!!!!!!
         df_mini["Оценка"] = pd.to_numeric(df_mini["Оценка"], errors='coerce')  # Преобразуем в числа
 
         counts_feedback = float(df_mini['Кол-во отзывов'].iloc[-1])
@@ -227,17 +229,36 @@ async def total_grade_analysis(service):
             rating = row_mini['Оценка компании после удаления']
 
             if pd.notnull(rating):
-                #print('Next...')
                 continue
 
             if idx_mini not in data_rows:
-                await append_data_to_sheet_cell(service, worktable_id, worksheet_name,'Оценка компании после удаления', idx_mini + 2, finish_rating)
+                await append_data_to_sheet_cell(service, worktable_id, tn_name,'Оценка компании после удаления', idx_mini + 2, finish_rating)
+                print(f'{idx_mini} Add info...')
                 data_rows.append(idx_mini)
 
 async def pars_dreamjob():
     unix_time = str(int(time.time() * 1000))
 
-    link = 'https://dreamjob.ru/employers/56859?employerId=56859&erfrp%5BlastParam%5D=ratings&erfrp%5Bfrom_vacancy%5D=&sort=&erfrp%5Bratings%5D%5B%5D=1&page=1&_=1730532805883'
+    service = await get_service()
+
+    #https://dreamjob.ru/employers/56859?employerId=56859&erfrp%5BlastParam%5D=&erfrp%5Bfrom_vacancy%5D=&sort=-total_rating&page=1&_=1730535359347
+    #https://dreamjob.ru/employers/56859?employerId=56859&erfrp%5BlastParam%5D=ratings&erfrp%5Bfrom_vacancy%5D=&sort=-total_rating&erfrp%5Bratings%5D%5B%5D=1&page=1&_=1730535359348
+
+    top_url = 'https://dreamjob.ru/employers/56859'
+    soup = await get_soup(top_url)
+    if not soup:
+        return
+
+    total_rating = soup.find('div', {"class": 'dashboard__grade-total'}).text
+    print(total_rating)
+    total_rating = float(total_rating.replace(',', '.'))
+    print(total_rating)
+
+    total_reviews = soup.find('span', {"class": 'company-header__tab-count'}).text
+    print(total_reviews)
+    total_reviews = int(total_reviews.replace(' ', ''))
+    print(total_reviews)
+
     pages = ['1',
              '2.2',
              '3.3666666666666667',
@@ -246,8 +267,7 @@ async def pars_dreamjob():
              '6.866666666666666']
 
     for page in pages:
-        url = f'{link}?erfrp%5BlastParam%5D=&erfrp%5Bfrom_vacancy%5D=&sort=-created_at&page={page}&_={unix_time}'
-        url = f'https://dreamjob.ru/employers/56859?employerId=56859&erfrp%5BlastParam%5D=ratings&erfrp%5Bfrom_vacancy%5D=&sort=&erfrp%5Bratings%5D%5B%5D=1&page={page}&_={unix_time}'
+        url = f'{top_url}?employerId=56859&erfrp%5BlastParam%5D=ratings&erfrp%5Bfrom_vacancy%5D=&sort=total_rating&erfrp%5Bratings%5D%5B%5D=1&page={page}&_={unix_time}'
 
         soup = await get_soup(url)
         if not soup:
@@ -257,6 +277,20 @@ async def pars_dreamjob():
         print('Len:', len(blocks))
         if len(blocks) == 0:
             return None
+
+        datas = {'Дата': [],
+                 'Заголовок': [],
+                 'Текст': [],
+                 'Бренд': [],
+                 'Источник': [],
+                 'Url': [],
+                 'Автор': [],
+                 'Оценка': [],
+                 'Общий Url': [],
+                 'Ссылка Url': [],
+                 'Кол-во отзывов': [],
+                 'Оценка компании до удаления': []
+                 }
 
         for block in blocks:
             print('\n*******************************************')
@@ -328,113 +362,138 @@ async def pars_dreamjob():
                 url_answer = block.find('a', tabindex='0').get('href')
             print(url_answer)
 
-
-
-
-
-
-
-
-            input('Wait..')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            url_answer = block.find('a', {'class': 'bt bt--32 bt--primary-link icon-copy'}).get('href')
-            if not url_answer:
-                url_answer = block.find('a', role='button', tabindex='0').get('href')
-
-            if not url_answer:
-                url_answer = block.find('a', tabindex='0').get('href')
-
-            print(url_answer)
-
-            date = block.find_next('div', {'class': 'review__header-date'}).text
-
-            date_spl = date.split('\xa0')
-            #print(date_spl)
-            month = await months(date_spl[0])
-
-            last_day = 31
-            while True:
-                try:
-                    target_date = datetime(int(date_spl[1]), month, last_day)
-                    print(target_date)
-                    break
-
-                except:
-                    last_day -= 1
-
-            if (current_date - target_date) > timedelta(days=days_ago):
-                print(f'--- Отзыв старше {days_ago} дней = {date}.')
-                continue
-                # return  # Выход если очень старые отзывы
-
-            answer_title = block.find('h3', class_='review__answer-title')
-            if answer_title:
-                print("Найден заголовок ответа:", answer_title.text)
-                continue
-
             author = block.find('h2', {'class': 'review__header-title'}).text.strip()
-            #print(author)
+            print(author)
 
-            #title_div_plus = soup.find('div', class_='review__title review__gap')
-            title_div_plus = block.find('div', class_='review__title review__gap')
-            plus_title = title_div_plus.text
-            #print(plus_title)
+            #rating = block.find('div', {'class': 'review__header-title'}).text.strip()
+            rating = soup.find(lambda tag: tag.name == "div" and "class" in tag.attrs and "data-partly-switch" in tag.attrs).text.strip()
+            rating = float(rating.replace(',', '.'))
+            print(rating)
 
-            # Находим следующий div
-            next_div = title_div_plus.find_next('div', class_='review__title')
+            if rating >= 2:
+                continue
 
-            # Получаем весь текст между двумя div
-            full_text = ''
-            for sibling in title_div_plus.next_siblings:
-                if sibling == next_div:
-                    break
-                if isinstance(sibling, str):
-                    full_text += sibling
-                elif sibling.name == 'br':
-                    full_text += '\n'
+            top_url = 'https://dreamjob.ru/employers/56859'
 
-            # Очищаем текст от лишних пробелов и переносов строк
-            plus = ' '.join(full_text.split())
-            #print(plus)
+            datas['Дата'].append(date)
+            datas['Заголовок'].append(title)
+            datas['Текст'].append(feedback)
+            datas['Бренд'].append(brand)
+            datas['Источник'].append(portal)
+            datas['Url'].append(url_answer)
+            datas['Автор'].append(author)
+            datas['Оценка'].append(rating)
+            datas['Общий Url'].append(top_url)
+            datas['Ссылка Url'].append(url_answer)
+            datas['Кол-во отзывов'].append(total_reviews)
+            datas['Оценка компании до удаления'].append(total_rating)
 
-            title_div_minus = block.select_one('div.review__title:not(.review__gap)')
-            #print(title_div_minus)
-            minus_title = title_div_minus.text
-            #print(minus_title)
 
-            if title_div_minus:
-                minus = title_div_minus.find_next_sibling(text=True).strip()
-                #print(minus)
+        await append_data_to_sheet_scopes(service, '1HtUgQn3UJKbpjKHqqRqt5WSjDWKCJa0fOYLiM9UwcTw', 'reviews_dreamjob', datas)
 
-            feedback = f"""
-            {plus_title}:
-            {plus}
-            {minus_title}:
-            {minus}
-            """
-            #print(feedback)
 
-            feedback = textwrap.dedent(feedback)
+        await asyncio.sleep(5)
+
+
+
+
+
+
+            #
+            #
+            #
+            #
+            #
+            #
+            #
+            #
+            # url_answer = block.find('a', {'class': 'bt bt--32 bt--primary-link icon-copy'}).get('href')
+            # if not url_answer:
+            #     url_answer = block.find('a', role='button', tabindex='0').get('href')
+            #
+            # if not url_answer:
+            #     url_answer = block.find('a', tabindex='0').get('href')
+            #
+            # print(url_answer)
+            #
+            # date = block.find_next('div', {'class': 'review__header-date'}).text
+            #
+            # date_spl = date.split('\xa0')
+            # #print(date_spl)
+            # month = await months(date_spl[0])
+            #
+            # last_day = 31
+            # while True:
+            #     try:
+            #         target_date = datetime(int(date_spl[1]), month, last_day)
+            #         print(target_date)
+            #         break
+            #
+            #     except:
+            #         last_day -= 1
+            #
+            # if (current_date - target_date) > timedelta(days=days_ago):
+            #     print(f'--- Отзыв старше {days_ago} дней = {date}.')
+            #     continue
+            #     # return  # Выход если очень старые отзывы
+            #
+            # answer_title = block.find('h3', class_='review__answer-title')
+            # if answer_title:
+            #     print("Найден заголовок ответа:", answer_title.text)
+            #     continue
+            #
+            # author = block.find('h2', {'class': 'review__header-title'}).text.strip()
+            # #print(author)
+            #
+            # #title_div_plus = soup.find('div', class_='review__title review__gap')
+            # title_div_plus = block.find('div', class_='review__title review__gap')
+            # plus_title = title_div_plus.text
+            # #print(plus_title)
+            #
+            # # Находим следующий div
+            # next_div = title_div_plus.find_next('div', class_='review__title')
+            #
+            # # Получаем весь текст между двумя div
+            # full_text = ''
+            # for sibling in title_div_plus.next_siblings:
+            #     if sibling == next_div:
+            #         break
+            #     if isinstance(sibling, str):
+            #         full_text += sibling
+            #     elif sibling.name == 'br':
+            #         full_text += '\n'
+            #
+            # # Очищаем текст от лишних пробелов и переносов строк
+            # plus = ' '.join(full_text.split())
+            # #print(plus)
+            #
+            # title_div_minus = block.select_one('div.review__title:not(.review__gap)')
+            # #print(title_div_minus)
+            # minus_title = title_div_minus.text
+            # #print(minus_title)
+            #
+            # if title_div_minus:
+            #     minus = title_div_minus.find_next_sibling(text=True).strip()
+            #     #print(minus)
+            #
+            # feedback = f"""
+            # {plus_title}:
+            # {plus}
+            # {minus_title}:
+            # {minus}
+            # """
+            # #print(feedback)
+            #
+            # feedback = textwrap.dedent(feedback)
 
 async def main_grade():
     service = await get_service()
     #asyncio.run(main_vkusvill())
 
     #asyncio.run(grade_analysis())
-    await total_grade_analysis(service)
+    await total_grade_analysis(service, 'reviews_dreamjob')
 
 if __name__ == '__main__':
-    asyncio.run(pars_dreamjob())
+    #asyncio.run(pars_dreamjob())
+    asyncio.run(main_grade())
+
