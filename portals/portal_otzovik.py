@@ -96,15 +96,15 @@ async def captcha_check(driver):
             temp_path = os.path.join(corn_folder, 'temp')
             if not os.path.exists(temp_path):
                 os.makedirs(temp_path)
-                print("Папка создана.")
+                print(f"+++ Папка <{temp_path}> создана.")
             else:
-                print("Папка уже существует.")
+                print(f"+++ Папка <{temp_path}> уже существует.")
 
             file_link = os.path.join(temp_path, f'captcha_image_{number_file}.png')
             print('- 2', file_link)
 
             capcha[0].screenshot(file_link)
-            print(f"Скриншот капчи сохранен по адерсу {file_link}")
+            print(f"Скриншот капчи сохранен по адресу {file_link}")
 
             capcha_text = await sent_captcha(file_link)
             print(capcha_text)
