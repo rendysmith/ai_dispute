@@ -93,7 +93,14 @@ async def captcha_check(driver):
 
             number_file = int(time.time())
             print('- 1', number_file)
-            file_link = os.path.join(corn_folder, 'temp', f'captcha_image_{number_file}.png')
+            temp_path = os.path.join(corn_folder, 'temp')
+            if not os.path.exists(temp_path):
+                os.makedirs(temp_path)
+                print("Папка создана.")
+            else:
+                print("Папка уже существует.")
+
+            file_link = os.path.join(temp_path, f'captcha_image_{number_file}.png')
             print('- 2', file_link)
 
             capcha[0].screenshot(file_link)
