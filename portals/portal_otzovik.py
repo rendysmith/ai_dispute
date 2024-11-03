@@ -86,9 +86,10 @@ async def captcha_check(driver):
             capcha = driver.find_elements(By.CSS_SELECTOR, 'img[src]')
 
             len_c = len(capcha)
-            print(f'Len_c = {len_c}')
+            print(f'-- Len_c = {len_c}')
 
             if len_c != 1:
+                print('++ No captcha!')
                 return driver
 
             number_file = int(time.time())
