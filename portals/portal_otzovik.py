@@ -273,7 +273,7 @@ async def main_otzovik():
 
         #Если дата не совпадает с сегодняшней
         host_logs = ''
-        project_otzovik = f'{project}_otzovik'
+        project_otzovik = f'otzovik_{project}'
         filtered_logs = df_logs[df_logs['service_name'] == project_otzovik]
         if not filtered_logs.empty:
             idx_logs = filtered_logs.index[0]

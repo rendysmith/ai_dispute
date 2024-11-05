@@ -425,7 +425,7 @@ async def main_ya_maps():
 
         #Если дата не совпадает с сегодняшней
         host_logs = ''
-        project_ya_maps = f'{project}_ya_maps'
+        project_ya_maps = f'ya_maps_{project}'
         filtered_logs = df_logs[df_logs['service_name'] == project_ya_maps]
 
         if not filtered_logs.empty:

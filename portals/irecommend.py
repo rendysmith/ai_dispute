@@ -31,7 +31,8 @@ days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 ss_id = TABLES_LIST['zoom']
 
-headless = False
+headless = True
+proxy_on = False
 
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
@@ -185,7 +186,7 @@ async def main_irecommend():
 
     driver = None
     if proxy_active == 'Active':
-        driver = await get_selenium_proxy()
+        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
     local_ip = await get_local_ip()
     print('local_ip', local_ip)
@@ -217,7 +218,7 @@ async def main_irecommend():
 
         #Если дата не совпадает с сегодняшней
         host_logs = ''
-        project_irecommend = f'{project}_irecommend'
+        project_irecommend = f'irecommend_{project}'
         filtered_logs = df_logs[df_logs['service_name'] == project_irecommend]
         if not filtered_logs.empty:
             idx_logs = filtered_logs.index[0]
@@ -267,7 +268,7 @@ async def main_irecommend():
             print(f'{project} next...')
             continue
 
-        print(f'{project} Irec link = {len_irec}')
+        print(f'\n ---> {project} Irec link = {len_irec} <---')
 
         random.shuffle(df_link_list)
 
@@ -309,7 +310,7 @@ async def main_irecommend():
 
                 if not status:
                     driver.quit()
-                    driver = await get_selenium_proxy()
+                    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
         if record:
             finish_sec = time.time() - start_time

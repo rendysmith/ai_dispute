@@ -219,7 +219,7 @@ async def get_selenium(url=None, headless=True):
     print('- <<< Selenium No Proxy connect')
     return driver
 
-async def get_selenium_proxy(url=None, headless=True, proxy=False):
+async def get_selenium_proxy(url=None, headless=True, proxy=True):
     if proxy:
         print('- >>> Selenium proxy...')
         proxy_host, proxy_port = await get_one_proxy()

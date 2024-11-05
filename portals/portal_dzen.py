@@ -13,7 +13,7 @@ from selenium.webdriver.common.by import By
 
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
-from utils.user_agent import get_playwright
+from utils.user_agent import get_playwright, get_selenium_proxy
 
 current_date = datetime.now()
 
@@ -23,9 +23,9 @@ load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
-async def check_dzen_sel(service, url, pattern, criteria, ss_id, project):
+async def check_dzen(service, url, pattern, criteria, ss_id, project):
     links = await pars_url(service, ss_id, project)
-    driver = await get_selenium(url)
+    driver = await get_selenium_proxy(url)
 
     zen_object_id = driver.find_element(By.CSS_SELECTOR, 'meta[property="zen_object_id"]').get_attribute('content').split(':')
     print(zen_object_id)
@@ -82,7 +82,7 @@ async def check_dzen_sel(service, url, pattern, criteria, ss_id, project):
                                  criteria=criteria)
 
 
-async def check_dzen(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
+async def check_dzen_old(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     #playwright, browser, page = await get_playwright(url)
 
     links = await pars_url(service, ss_id, project)
