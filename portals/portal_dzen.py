@@ -47,6 +47,7 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project):
         len_r = len(r['items'])
 
     if len_r == 0:
+        driver.quit()
         return
 
     UsersByID = {v['uidSafe']: v['displayName'] for k, v in r['usersById'].items()}
@@ -90,6 +91,7 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
+    driver.quit()
 
 async def check_dzen_old(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     #playwright, browser, page = await get_playwright(url)

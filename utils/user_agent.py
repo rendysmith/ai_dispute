@@ -243,9 +243,6 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
         driver = await get_selenium('', headless=headless)
         return driver
 
-
-
-
 async def get_playwright(url, headless=True):
     print('>>> start PW')
     """

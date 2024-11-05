@@ -1,15 +1,17 @@
 import asyncio
-import base64
-import json
-import random
-import zlib
 
+import json
 from datetime import datetime, timedelta, timezone
+
+from cffi.cffi_opcode import PRIM_INT
+from selenium.webdriver.common.by import By
+from webdriver_manager.core.driver import Driver
 
 from utils.compressor import compress_string
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
-from utils.user_agent import get_soup, get_playwright
+from utils.user_agent import get_selenium_proxy
+from utils.constants import months
 
 import os
 from dotenv import load_dotenv
@@ -28,47 +30,8 @@ max_sec = int(os.environ.get("MAX_SEC"))
 
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
-
-async def convert_date(month):
-    months = {
-        'янв': 1,
-        'января': 1,
-        'Jan': 1,
-        'фев': 2,
-        'февраля': 2,
-        'Feb': 2,
-        "мар": 3,
-        "марта": 3,
-        'Mar': 3,
-        "апр": 4,
-        "апреля": 4,
-        'Apr': 4,
-        "мая": 5,
-        'May': 5,
-        "июн": 6,
-        "июня": 6,
-        'Jun': 6,
-        "июл": 7,
-        "июля": 7,
-        'Jul': 7,
-        "авг": 8,
-        "августа": 8,
-        'Aug': 8,
-        "сен": 9,
-        "сентября": 9,
-        'Sep': 9,
-        "окт": 10,
-        "октября": 10,
-        'Oct': 10,
-        "ноя": 11,
-        "ноября": 11,
-        'Nov': 11,
-        "дек": 12,
-        "декабря": 12,
-        'Dec': 12,
-    }
-    return months[month]
-
+headless = True
+proxy_on = True
 
 async def check_otvet_soup(service, link, pattern, criteria, ss_id, project):
     print(link)
@@ -145,7 +108,7 @@ async def check_otvet_soup(service, link, pattern, criteria, ss_id, project):
                                      pattern=pattern,
                                      criteria=criteria)
 
-async def check_otvet(service, link, pattern, criteria, ss_id, project, playwright, browser, page):
+async def check_otvet_pw(service, link, pattern, criteria, ss_id, project, playwright, browser, page):
     print(link)
     #playwright, browser, page = await get_playwright(link)
 
@@ -228,7 +191,7 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project, playwrig
         print(date_split)
 
         day = int(date_split[0])
-        month = convert_date(date_split[1])
+        month = months[date_split[1]]
         year = int(date_split[2])
 
         if month_now != month:
@@ -272,6 +235,134 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project, playwrig
 
     await browser.close()
     await playwright.stop()
+
+async def check_otvet(service, link, pattern, criteria, ss_id, project):
+    print(link)
+    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+    driver.get(link)
+    #playwright, browser, page = await get_playwright(link)
+
+    n = 0
+    while True:
+        print(f'n = {n}')
+        if n == 10:
+            driver.quit()
+            return 'Данные сайтом не отданы'
+
+        try:
+            #top_url_content = await page.query_selector('a[class="kojXG"]')
+            #top_url = await top_url_content.get_attribute('href')
+
+            top_url_content = driver.find_element(By.CSS_SELECTOR, 'a[class="kojXG"]')
+            top_url = top_url_content.get_attribute('href')
+            #top_url = 'https://otvet.mail.ru' + top_url_0
+            break
+
+        except:
+            n += 1
+            await asyncio.sleep(3)
+
+    datas = {'project': project,
+             'url': link,
+             'top_url': top_url}
+    await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+
+    print(f'Top url: {top_url}')
+    driver.get(top_url)
+
+    await asyncio.sleep(5)
+    n = 0
+    while True:
+        blocks_1 = driver.find_elements(By.CSS_SELECTOR, 'div[class="ikwzW"]')
+        len_blocks = len(blocks_1)
+
+        if len_blocks > 0:
+            break
+
+        n += 1
+
+        if n == 10:
+            await driver.quit()
+            return 'Сайт не вернул данные.'
+
+        await asyncio.sleep(3)
+
+    print(len_blocks)
+
+    if len(blocks_1) == 0:
+        driver.quit()
+        return
+
+    blocks3 = driver.find_elements(By.CSS_SELECTOR, 'div[class="de_vs"]')
+    len_blocks = len(blocks3)
+    print("len_blocks3", len_blocks)
+
+    blocks4 = driver.find_elements(By.CSS_SELECTOR, 'div[class="cxc3c"]')
+    len_blocks = len(blocks4)
+    print("len_blocks4", len_blocks)
+
+    # await asyncio.sleep(5)
+    #
+    # blocks_2 = await page.query_selector_all('div[class="ezB5x"]')
+    # len_blocks = len(blocks_2)
+    # print(len_blocks)
+
+    blocks = blocks_1
+    links = await pars_url(service, ss_id, project)
+
+    for block in blocks:
+        date_content = block.find_element(By.CSS_SELECTOR, 'a[class="Heyv4"]')
+        date = date_content.get_attribute('title')
+        date_split = date.split(' ')
+        print(date_split)
+
+        day = int(date_split[0])
+        month = months[date_split[1]]
+        year = int(date_split[2])
+
+
+        if year_now != year:
+            print(f'Year is {year}')
+            continue
+
+        if month_now != month:
+            print(f'Month is {month}')
+            continue
+
+        target_date = datetime(year, month, day)
+        formatted_date = target_date.strftime("%d.%m.%Y")
+        print(formatted_date)
+
+        if (current_date - target_date) > timedelta(days=days_ago):
+            print(f'--- Отзыв старше {days_ago} дней = {date}.')
+            continue
+
+        url_answer_content = block.find_element(By.CSS_SELECTOR, 'a[class="Heyv4"]')
+        url_answer = url_answer_content.get_attribute('data-aid')
+
+        if url_answer in links:
+            print('Такой комментарий уже есть в списке')
+            continue
+
+        author_content = block.find_element(By.CSS_SELECTOR, 'a[class="QBqbi"]')
+        author = author_content.text
+        print(author)
+
+        feedback_content = block.find_element(By.CSS_SELECTOR, 'p[class="Xn2FM"]')
+        feedback = feedback_content.text
+        print(feedback)
+
+        await generate_and_white(service=service,
+                                 url_answer=url_answer,
+                                 author=author,
+                                 formatted_date=formatted_date,
+                                 ss_id=ss_id,
+                                 project=project,
+                                 feedback=feedback,
+                                 pattern=pattern,
+                                 criteria=criteria)
+
+    driver.quit()
 
 if __name__ == '__main__':
 
