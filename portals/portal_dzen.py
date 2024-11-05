@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 from selenium.webdriver.common.by import By
 
+from portals.portal_otzovik import headless, proxy_on
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
 from utils.user_agent import get_playwright, get_selenium_proxy
@@ -23,12 +24,16 @@ load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
+headless = True
+proxy_on = True
+
 async def check_dzen(service, url, pattern, criteria, ss_id, project):
     links = await pars_url(service, ss_id, project)
-    driver = await get_selenium_proxy(url)
+    driver = await get_selenium_proxy(url, headless=headless, proxy=proxy_on)
+    driver.get(url)
 
     zen_object_id = driver.find_element(By.CSS_SELECTOR, 'meta[property="zen_object_id"]').get_attribute('content').split(':')
-    print(zen_object_id)
+    #print(zen_object_id)
     documentId = zen_object_id[1]
     publicationPublisherId = zen_object_id[0]
 
@@ -45,27 +50,31 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project):
         return
 
     UsersByID = {v['uidSafe']: v['displayName'] for k, v in r['usersById'].items()}
-    print(UsersByID)
+    #print(UsersByID)
 
     for block in r['items']:
-        print(block)
+        #print(block)
         url_answer = block['entityData']['id']
-        print(url_answer)
+        #print(url_answer)
 
         if url_answer in links:
             print('Такой комментарий уже есть в списке')
             continue
 
         date = block['entityData']['createdTs']/1000
+        #print(date)
+
+        # Форматирование даты
+        date_content = datetime.fromtimestamp(date)
+        formatted_date = date_content.strftime('%d.%m.%Y')
 
         if (time.time() - date) > 7 * 24 * 3600:
-            print(f'--- Отзыв старше 30 дней = {date}.')
+            print(f'--- Отзыв старше 30 дней = {formatted_date}.')
             continue
 
         #date = datetime.fromtimestamp(timestamp_sec)
-        # Форматирование даты
-        formatted_date = date.strftime('%d.%m.%Y')
-        print(formatted_date)
+
+        #print(formatted_date)
 
         #authorSafeUid = block['authorSafeUid']
         author = UsersByID[block['entityData']['authorSafeUid']]
@@ -169,8 +178,7 @@ async def main_dzen():
     service = await get_service()
 
     url = 'https://dzen.ru/a/Y1o2zJjP7VPVFVdJ'
-    playwright, browser, page = await get_playwright(url)
-    await check_dzen(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет", playwright, browser, page)
+    await check_dzen(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет")
 
 if __name__ == '__main__':
     asyncio.run(main_dzen())

@@ -38,33 +38,29 @@ username = os.environ.get("HOST_USERNAME")
 password = os.environ.get("HOST_PASSWORD")
 auth = HTTPBasicAuth(username, password)
 
-text = """
-Ты модератор сайта {source},
-Твоя задача:
-ты должен внимательно прочитать комментарий
-----------------Начало комментария ---------------
-{comment}
-----------------Конец комментария ----------------
-ты должен на основании ниже приведенных правил дать заключение, нарушает ли данное сообщение какое либо правило, если нарушает указать какой именно пункт
----------------Начало правил-----------------
-ЗАПРЕЩЕНО:
-{rule}
----------------Конец правил------------------
-"""
 
 text = """
 Ты модератор сайта {source},
 Посмотри следующий комментарий: 
+------------НАЧАЛО КОММЕНТАРИЯ--------------
 {comment} 
-Определите, нарушает ли он какое-либо из следующих правил: 
+------------КОНЕЦ КОММЕНТАРИЯ---------------
+Определите, нарушает ли данный комментарий какое-либо из следующих правил площадки: 
+------------НАЧАЛО ПРАВИЛ ПРОЩАДКИ-------------
 {rule} 
+------------КОНЕЦ ПРАВИЛ ПРОЩАДКИ--------------
 Если комментарий нарушает какое-либо правило, укажите, какое именно правило он нарушает в формате: 
 '*новая строка* *Порядковый номер строки, например*: Пункт правила и его текст и обязательно текст отзыва или его часть которое нарушает правило'.  
 В противном случае укажите, что он не нарушает никаких правил.
-Так же тебе нужно оценить вероятность удаление отзыва основываясь на указанных правилах выше, 
-где (можно 80-100% | сомнительно 50-79% | нельзя >49%).
+Так же тебе нужно оценить вероятность удаление отзыва в процентном соотношении основываясь на указанных правилах выше, 
+где 
+80-100% - можно удалить комментарий
+50-79% - вероятность удаления сомнительна
+<49% - нарушений нет либо они не значительные, нельзя удалить комментарий
+
 Ты должен выдать результат в формате списка [], 
-где первый элемент будет процент удаления, 
+где 
+первый - элемент будет процент удаления, 
 второй - резюме о нарушениях правил площадки если таковы будут
 Оба элемента должны быть в формате string, т.е. в кавычках. 
 Перед выполнением прочитай задание еще раз.
@@ -486,14 +482,59 @@ async def pars_dreamjob():
             #
             # feedback = textwrap.dedent(feedback)
 
+async def cheak_dreamjob(service):
+    ws_name = worksheet_name_dreamjob
+    df = await get_table_scope(service, worktable_id, ws_name)
+    print(df)
+    add_column = 'Текст для поддержки'
+    df = df[df[add_column]=='']
+
+    print(df)
+
+
+    for idx, row in df.iterrows():
+        brand = 'ВкусВилл'
+        link = row['Url']
+        comment = row['Текст']
+        source = row['Источник']
+
+        project = source.split('.')[0]
+
+        status, rules_db = await read_data_from_db_filter(ForumRules, forum_name=project)
+        if status:
+            if len(rules_db) > 0:
+                rule = rules_db[0].forum_rule
+
+            else:
+                continue
+
+        else:
+            continue
+
+        prompt = text.format(source=source, comment=comment, rule=rule)
+        result = await get_answer_ai(auth, prompt)
+        print(result)
+
+        try:
+            result = eval(result)
+            result[1] = f"Здравствуйте, Я представляю интересы компании {brand} и хочу обратиться с просьбой удалить отзыв {link}. Отзыв содержит нарушение:\n" + result[1]
+
+            columns = ['Вероятность удаления', 'Текст для поддержки']
+            await append_data_to_sheet_cells(service, worktable_id, ws_name, columns, idx + 2, result)
+
+        except SyntaxError as SE:
+            print(f'ERROR: {SE}')
+
 async def main_grade():
     service = await get_service()
     #asyncio.run(main_vkusvill())
+    await cheak_dreamjob(service)
 
     #asyncio.run(grade_analysis())
-    await total_grade_analysis(service, 'reviews_dreamjob')
+    #await total_grade_analysis(service, 'reviews_dreamjob')
 
 if __name__ == '__main__':
-    #asyncio.run(pars_dreamjob())
+
+    #asyncio.run(cheak_dreamjob(service))
     asyncio.run(main_grade())
 
