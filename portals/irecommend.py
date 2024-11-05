@@ -21,7 +21,7 @@ from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, g
     append_data_to_sheet_cell, write_log_sheet
 from utils.user_agent import extract_main_site, get_selenium_proxy
 
-os.environ['TERM'] = 'xterm'
+#os.environ['TERM'] = 'xterm'
 
 current_date = datetime.now()
 record_date = current_date.strftime("%d.%m.%Y")
