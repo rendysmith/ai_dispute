@@ -26,3 +26,4 @@ cloudscraper==1.2.71
 selenium==4.25.0
 seleniumbase==4.31.6
 beautifulsoup4==4.12.3
+opencv-python==4.10.0.84

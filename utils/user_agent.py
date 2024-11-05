@@ -221,7 +221,7 @@ async def get_selenium(url=None, headless=True):
 
 async def get_selenium_proxy(url=None, headless=True, proxy=True):
     if proxy:
-        print('- >>> Selenium proxy...')
+        print('>>> Selenium proxy...')
         proxy_host, proxy_port = await get_one_proxy()
         print(f'Proxy: {proxy_host}:{proxy_port}')
         proxy = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
@@ -236,11 +236,11 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
                         log_cdp_events=True
                         )
         #driver.get(url)
-        print('- <<< Selenium connect')
-
+        print('<<< Selenium connect')
+        return driver
 
     else:
-        print('- >>> Selenium NO proxy...')
+        print('>>> Selenium NO proxy...')
         # create a Driver instance with undetected_chromedriver (uc) and headless mode
         driver = Driver(uc=True,
                         headless=headless,
@@ -250,9 +250,8 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
                         log_cdp_events=True
                         )
         #driver.get(url)
-        print('- <<< Selenium connect')
-
-    return driver
+        print('<<< Selenium connect')
+        return driver
 
 async def get_playwright(url, headless=True):
     print('>>> start PW')

@@ -3,9 +3,9 @@ import os
 import random
 import textwrap
 import time
-import traceback
 from datetime import datetime, timedelta
 
+import numpy as np
 import pandas as pd
 
 from dotenv import load_dotenv
@@ -13,17 +13,19 @@ from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchWindowException
 
-from load_distribution import get_api_service
-from portals.portal_ya import headless
+import cv2
+
 from utils.ai_module import generate_and_white
 from utils.central_module import get_local_ip, wait_for_portal, proxy_status
 from utils.constants import TABLES_LIST
 from utils.gs_editor import pars_url, append_data_to_sheet_scope, get_service, get_table_scope, write_log_sheet, \
     append_data_to_sheet_cell
-from utils.user_agent import extract_main_site, get_soup_anticloud, get_selenium_proxy
+from utils.user_agent import extract_main_site, get_selenium_proxy
 
 current_date = datetime.now()
 record_date = current_date.strftime("%d.%m.%Y")
+
+corn_folder = os.path.dirname(os.path.dirname(__file__))
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -34,12 +36,38 @@ ss_id = TABLES_LIST['zoom']
 headless = False
 proxy_on = False
 
+async def click_checkbox(driver):
+    # Получение скриншота
+    screenshot = driver.get_screenshot_as_png()
+    screenshot_image = cv2.imdecode(np.frombuffer(screenshot, np.uint8), cv2.IMREAD_COLOR)
+
+    number_file = int(time.time())
+
+    temp_path = os.path.join(corn_folder, 'temp')
+    if not os.path.exists(temp_path):
+        os.makedirs(temp_path)
+        print(f"+++ Папка <{temp_path}> создана.")
+    else:
+        print(f"+++ Папка <{temp_path}> уже существует.")
+
+    file_link = os.path.join(temp_path, "image_to_find.png")
+    template = cv2.imread(file_link)  # Укажите путь к изображению, которое ищем
+
+
+    return driver
+
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
     driver.get(link)
-    links = await pars_url(service, ss_id, project)
+
     await wait_for_portal() #Время ожидания
+    page_source = driver.page_source
+    print(page_source)
     #----------------------------------------------------------------
+
+    # if 'audio.js' in str(page_source):
+    #     print('Старт clicker...')
+    #     driver = await click_checkbox(driver)
 
     if 'new=1' not in link:
         n = 0
@@ -128,6 +156,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
         print('Len_b =', len_b)
         return
 
+    links = await pars_url(service, ss_id, project)
     domen = await extract_main_site(link)
 
     for block in blocks:
