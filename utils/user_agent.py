@@ -1,6 +1,5 @@
 import json
 import traceback
-import zipfile
 
 from playwright.async_api import async_playwright
 
@@ -16,23 +15,18 @@ import re
 from fake_useragent import UserAgent
 
 
-from selenium import webdriver
-#from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
-
-from utils.proxy_bridge import get_iplist, get_one_proxy
 import os
 from dotenv import load_dotenv
 
 from utils.constants import status_codes
+from utils.proxy_bridge import get_one_proxy
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 
 from seleniumbase import Driver
 from seleniumbase import config
 config.DISABLE_COLORS = True
-
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -207,6 +201,7 @@ async def get_selenium(url=None, headless=True):
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
+        #chrome_options.add_argument("--remote-debugging-port=9222")
 
     chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
 
@@ -219,7 +214,8 @@ async def get_selenium(url=None, headless=True):
     print('- <<< Selenium No Proxy connect')
     return driver
 
-async def get_selenium_proxy(url=None, headless=True, proxy=True):
+async def get_selenium_proxy_old(url=None, headless=True, proxy=True):
+
     if proxy:
         print('>>> Selenium proxy...')
         proxy_host, proxy_port = await get_one_proxy()
@@ -249,8 +245,38 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
                         agent=ua.chrome,
                         log_cdp_events=True
                         )
-        #driver.get(url)
+
         print('<<< Selenium connect')
+        return driver
+
+
+async def get_selenium_proxy(url=None, headless=True, proxy=True):
+        driver_options = {
+            'uc': True,
+            'headless': headless,
+            'headless1': headless,
+            'headless2': headless,
+            'agent': ua.chrome,
+            'log_cdp_events': True
+        }
+
+        if proxy:
+            print('>>> Selenium PROXY...')
+            proxy_host, proxy_port = await get_one_proxy()
+            print(f'Proxy: {proxy_host}:{proxy_port}')
+            proxy_string = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
+            driver_options['proxy'] = proxy_string
+
+        else:
+            print('>>> Selenium NO PROXY...')
+
+        driver = Driver(**driver_options)
+        print('<<< Selenium connect...')
+
+        if url:
+            # Если нужно использовать get, убедитесь что используете асинхронный метод
+            driver.get(url)
+
         return driver
 
 async def get_playwright(url, headless=True):
@@ -409,8 +435,9 @@ async def main(url):
     #soup = await get_soup(url, only_text=False)
 
     #playwright, browser, page = await get_playwright(url, headless=False)
-
-    driver = await get_selenium_proxy(url, headless=False)
+    headless = False
+    driver = await get_selenium_proxy(headless=headless, proxy=False)
+    input('Wait..')
 
 
 

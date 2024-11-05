@@ -1,26 +1,27 @@
-import asyncio
 import os
-import random
 import textwrap
 import time
 from datetime import datetime, timedelta
 
-import numpy as np
-import pandas as pd
-
-from dotenv import load_dotenv
-
-from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoSuchWindowException
+import asyncio
+import random
 
 import cv2
+import numpy as np
+import pandas as pd
+from dotenv import load_dotenv
+from selenium.common import NoSuchWindowException
+from selenium.webdriver import ActionChains
+from selenium.webdriver.common.by import By
 
 from utils.ai_module import generate_and_white
-from utils.central_module import get_local_ip, wait_for_portal, proxy_status
+from utils.central_module import wait_for_portal, proxy_status, get_local_ip
 from utils.constants import TABLES_LIST
-from utils.gs_editor import pars_url, append_data_to_sheet_scope, get_service, get_table_scope, write_log_sheet, \
-    append_data_to_sheet_cell
+from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, get_table_scope, \
+    append_data_to_sheet_cell, write_log_sheet
 from utils.user_agent import extract_main_site, get_selenium_proxy
+
+os.environ['TERM'] = 'xterm'
 
 current_date = datetime.now()
 record_date = current_date.strftime("%d.%m.%Y")
@@ -51,8 +52,37 @@ async def click_checkbox(driver):
         print(f"+++ Папка <{temp_path}> уже существует.")
 
     file_link = os.path.join(temp_path, "image_to_find.png")
+    # driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    # driver.save_screenshot(file_link)
+
     template = cv2.imread(file_link)  # Укажите путь к изображению, которое ищем
 
+    # Поиск изображения на скриншоте
+    result = cv2.matchTemplate(screenshot_image, template, cv2.TM_CCOEFF_NORMED)
+    threshold = 0.8
+    yloc, xloc = np.where(result >= threshold)
+    print(yloc, xloc)
+
+    # Если изображение найдено, кликаем по нему
+    if len(yloc) > 0 and len(xloc) > 0:
+        # Берем координаты первого совпадения
+        # Добавляем половину ширины и высоты шаблона, чтобы кликнуть в центр
+        template_height, template_width = template.shape[:2]
+        click_x = xloc[0] + template_width // 2
+        click_y = yloc[0] + template_height // 2
+
+        # Создаем объект ActionChains
+        actions = ActionChains(driver)
+
+        # Перемещаем курсор и кликаем
+        actions.move_by_offset(click_x, click_y).click().perform()
+
+        # Возвращаем курсор в начальное положение
+        actions.move_by_offset(-click_x, -click_y).perform()
+
+        print(f"Выполнен клик по координатам x={click_x}, y={click_y}")
+    else:
+        print("Элемент не найден на странице")
 
     return driver
 
@@ -61,13 +91,12 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
     driver.get(link)
 
     await wait_for_portal() #Время ожидания
-    page_source = driver.page_source
-    print(page_source)
+    #page_source = driver.page_source
+    #print(page_source)
     #----------------------------------------------------------------
 
-    # if 'audio.js' in str(page_source):
-    #     print('Старт clicker...')
-    #     driver = await click_checkbox(driver)
+    print('Старт clicker...')
+    driver = await click_checkbox(driver)
 
     if 'new=1' not in link:
         n = 0
@@ -211,7 +240,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
 
 async def main_irecommend():
     proxy_active = await proxy_status()
-    print(f'Proxy status: {proxy_active}')
+    print(f'+ Proxy status: {proxy_active}')
 
     driver = None
     if proxy_active == 'Active':
@@ -352,122 +381,16 @@ async def main_irecommend():
             await write_log_sheet(service, ss_id, 'logs', datas)
 
     if driver:
-        driver.close()
+        driver.quit()
 
 async def tst_main():
     url = 'https://irecommend.ru/content/lechenie-v-turtsii-v-odnoi-iz-luchshikh-klinik-v-kotorykh-ya-kogda-libo-byla-tak-zhe-strakho'
     url = 'https://irecommend.ru/content/strakhovka-rabotaet'
     url = 'https://irecommend.ru/content/idealnyi-sostav-imenno-takuyu-i-iskala'
-    driver = await get_selenium_proxy(url, headless=False)
+    driver = await get_selenium_proxy(headless=False, proxy=False)
     await check_irecommend(1, url, 1, 1, 1, 1, driver)
 
 
 if "__main__" in __name__:
     #asyncio.run(tst_main())
     asyncio.run(main_irecommend())
-
-#
-# async def check_irecommend_old(service, link, pattern, criteria, ss_id, project):
-#     #print("\n", link)
-#     links = await pars_url(service, ss_id, project)
-#
-#     #soup = await get_soup(link)
-#     print('-SStart-')
-#     soup = await get_soup_anticloud(link)
-#     print('-SStop-')
-#
-#     if not soup:
-#         no_data = 'Сайт не отдал данные!'
-#         print('Irecommend', no_data)
-#         return no_data
-#
-#     try:
-#         denied = soup.find('h1', {'class': 'largestHeader'}).text
-#         if denied:
-#             #print(denied)
-#             return denied
-#     except:
-#         print('Страница доступна')
-#
-#     domen = await extract_main_site(link)
-#
-#     try:
-#         top_block = soup.find("div", {"class": "headerWithMenu margin30"})
-#         print(f'Получение главной темы на основании комментов.')
-#         top_url = domen + top_block.find("a")['href'] + "?new=1"
-#         #print(top_url)
-#
-#     except AttributeError as AE:
-#         print('!!!(irecommend) Возможно сработала защита Cloudflore...')
-#         #checkbox = soup.find('input', {'type': 'checkbox'})
-#         return AE
-#
-#     except Exception as Ex:
-#         return Ex
-#
-#     datas = {'project': project,
-#              'url': link,
-#              'top_url': top_url}
-#
-#     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
-#
-#     #soup = await get_soup(top_url)
-#     soup = await get_soup_anticloud(top_url)
-#
-#     try:
-#         blocks = soup.find_all("div", {"data-photos-count": '0', "data-type": "1"})
-#         len_b = len(blocks)
-#         print(f'Leb blocks = {len_b}')
-#         if len_b == 0:
-#             return
-#
-#     except:
-#         return 'Возможно сработала защита Cloudflore'
-#
-#     for block in blocks:
-#         url_n = block.find("a", class_='reviewTextSnippet')['href']
-#         url_answer = domen + url_n
-#         if url_answer in links:
-#             print('Отзыв уже есть в таблице')
-#             continue
-#
-#         try:
-#             date = block.find("div", {"class": "created"}).text
-#             target_date = datetime.strptime(date, "%d.%m.%Y")
-#
-#         except:
-#             date_1 = block.find("div", {"class": "created"})
-#             date = date_1.find("span", {"class": "date-created"}).text
-#             target_date = datetime.strptime(date, "%d.%m.%Y")
-#
-#         if (current_date - target_date) > timedelta(days=days_ago):
-#             print(f'--- Отзыв старше {days_ago} дней = {date}.')
-#             continue
-#
-#         author = block.find("div", class_="authorName").text
-#
-#         title = block.find("div", {"class": "reviewTitle"}).text
-#         title_txt = block.find("span", {"class": "reviewTeaserText"}).text
-#
-#         feedback = f"""
-#         {title}
-#         {title_txt}
-#         """
-#         feedback = textwrap.dedent(feedback)
-#         #print(feedback)
-#
-#         formatted_date = date
-#
-#         #await generate_and_white(service, url_answer, author, formatted_date, prompt)
-#         await generate_and_white(service=service,
-#                                  url_answer=url_answer,
-#                                  author=author,
-#                                  formatted_date=formatted_date,
-#                                  ss_id=ss_id,
-#                                  project=project,
-#                                  feedback=feedback,
-#                                  pattern=pattern,
-#                                  criteria=criteria)
-
-
-

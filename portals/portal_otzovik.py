@@ -376,7 +376,7 @@ async def main_otzovik():
             await write_log_sheet(service, ss_id, 'logs', datas)
 
     if driver:
-        driver.close()
+        driver.quit()
 
 async def tst_otzovik():
     # file_link = '/home/andy/PycharmProjects/sidorin/ai_one_off/temp/captcha_image_1729773670.png'

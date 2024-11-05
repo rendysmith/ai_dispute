@@ -530,7 +530,7 @@ async def main_ya_maps():
             await write_log_sheet(service, ss_id, 'logs', datas)
 
     if driver:
-        driver.close()
+        driver.quit()
 
 async def main():
     service = await get_service()
