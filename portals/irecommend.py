@@ -31,7 +31,7 @@ days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 ss_id = TABLES_LIST['zoom']
 
-headless = True
+headless = False
 proxy_on = False
 
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
