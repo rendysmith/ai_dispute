@@ -14,7 +14,7 @@ from selenium.webdriver.common.by import By
 from portals.portal_otzovik import headless, proxy_on
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
-from utils.user_agent import get_playwright, get_selenium_proxy
+from utils.user_agent import get_selenium_proxy
 
 current_date = datetime.now()
 
