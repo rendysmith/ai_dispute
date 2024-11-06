@@ -234,10 +234,10 @@ async def check_otvet_pw(service, link, pattern, criteria, ss_id, project, playw
     await browser.close()
     await playwright.stop()
 
-async def check_otvet(service, link, pattern, criteria, ss_id, project):
+async def check_otvet(service, link, pattern, criteria, ss_id, project, driver):
     print(link)
-    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-    driver.get(link)
+    #driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+    #driver.get(link)
     #playwright, browser, page = await get_playwright(link)
 
     n = 0

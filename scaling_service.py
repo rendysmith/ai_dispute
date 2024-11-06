@@ -29,7 +29,7 @@ from portals.youtube import check_youtube
 #from portals.portal_otzovik import check_otzovik
 #from portals.irecommend import check_irecommend
 
-from utils.central_module import get_local_ip, time_out_on, time_out_play
+from utils.central_module import get_local_ip, time_out_on, time_out_play, time_out_sel
 from utils.constants import TABLES_LIST
 from utils.converter import extract_company_name
 from utils.gs_editor import get_service, get_table_scope, write_log_sheet
@@ -300,7 +300,7 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                status = await time_out_play(check_dzen,
+                await time_out_sel(check_dzen,
                                            service=service,
                                            link=link,
                                            df_mini_pattern=df_mini_pattern,
@@ -417,7 +417,7 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                status = await time_out_play(check_otvet,
+                await time_out_sel(check_otvet,
                                            service=service,
                                            link=link,
                                            df_mini_pattern=df_mini_pattern,
@@ -436,7 +436,7 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                status = await time_out_play(check_ya_market,
+                await time_out_play(check_ya_market,
                                            service=service,
                                            link=link,
                                            df_mini_pattern=df_mini_pattern,

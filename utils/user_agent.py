@@ -252,7 +252,6 @@ async def get_selenium_proxy_old(url=None, headless=True, proxy=True):
         print('<<< Selenium connect')
         return driver
 
-
 async def get_selenium_proxy(url=None, headless=True, proxy=True):
         driver_options = {
             'uc': True,

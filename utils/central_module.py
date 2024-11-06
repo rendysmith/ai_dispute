@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope
-from utils.user_agent import get_playwright
+from utils.user_agent import get_playwright, get_selenium_proxy
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -171,5 +171,51 @@ async def time_out_play(async_func, timeout=180, **kwargs):
         if browser:
             await browser.close()
             await playwright.stop()
+        print('-- Close browser and playwright is OK!')
+        return status
+
+async def time_out_sel(async_func, timeout=180, **kwargs):
+    ts = random.randint(5, max_sec)
+    print(f'Wait {ts} sec...')
+    await asyncio.sleep(ts)
+
+    service = kwargs['service']
+    link = kwargs['link']
+    df_mini_pattern = kwargs['df_mini_pattern']
+    df_mini_criteria = kwargs['df_mini_criteria']
+    ss_id = kwargs['ss_id']
+    project = kwargs['project']
+
+    driver = await get_selenium_proxy(link)
+    status = None
+
+    try:
+        status = await asyncio.wait_for(
+            async_func(service, link, df_mini_pattern, df_mini_criteria, ss_id, project, driver), timeout=timeout)
+
+        if status:  # Если статус истинен
+            await fix_error(service, project, link, str(status))
+
+    except asyncio.TimeoutError as TE:
+        await fix_error(service, project, link, f"TimeoutError {TE}")
+        print(f"Error PLAY TE: Задача была отменена из-за таймаута. {TE}")
+        traceback.print_exc()
+        status = None
+
+    except asyncio.CancelledError as CE:
+        await fix_error(service, project, link, f"CancelledError {CE}")
+        print(f"Error PLAY CE: Задача была отменена из-за таймаута. {CE}")
+        traceback.print_exc()
+        status = None
+
+    except Exception as Ex:  # Обработка других исключений
+        await fix_error(service, project, link, f"Error TOP Ex: {Ex}")
+        print(f"Error PLAY Ex: Произошла ошибка: {Ex}")
+        traceback.print_exc()
+        status = None
+
+    finally:
+        if driver:
+            driver.quit()
         print('-- Close browser and playwright is OK!')
         return status

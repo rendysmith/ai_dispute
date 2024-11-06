@@ -27,10 +27,10 @@ max_sec = int(os.environ.get("MAX_SEC"))
 headless = True
 proxy_on = True
 
-async def check_dzen(service, url, pattern, criteria, ss_id, project):
-    links = await pars_url(service, ss_id, project)
-    driver = await get_selenium_proxy(url, headless=headless, proxy=proxy_on)
-    driver.get(url)
+async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
+
+    # driver = await get_selenium_proxy(url, headless=headless, proxy=proxy_on)
+    # driver.get(url)
 
     zen_object_id = driver.find_element(By.CSS_SELECTOR, 'meta[property="zen_object_id"]').get_attribute('content').split(':')
     #print(zen_object_id)
@@ -52,6 +52,7 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project):
 
     UsersByID = {v['uidSafe']: v['displayName'] for k, v in r['usersById'].items()}
     #print(UsersByID)
+    links = await pars_url(service, ss_id, project)
 
     for block in r['items']:
         #print(block)
