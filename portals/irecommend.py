@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import asyncio
 import random
 
-import cv2
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
@@ -19,7 +18,7 @@ from utils.central_module import wait_for_portal, proxy_status, get_local_ip
 from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, get_table_scope, \
     append_data_to_sheet_cell, write_log_sheet
-from utils.user_agent import extract_main_site, get_selenium_proxy
+from utils.user_agent import extract_main_site, get_selenium_proxy, get_selenium
 
 #os.environ['TERM'] = 'xterm'
 
@@ -384,13 +383,47 @@ async def main_irecommend():
         driver.quit()
 
 async def tst_main():
+    # from selenium import webdriver
+    # from selenium.webdriver.chrome.options import Options
+    #
+    # print('- >>> Selenium No Proxy...')
+    # chrome_options = Options()
+    #
+    # #chrome_options.add_argument("--headless")
+    # chrome_options.add_argument("--no-sandbox")
+    # chrome_options.add_argument("--disable-dev-shm-usage")
+    # chrome_options.add_argument('--disable-web-security')
+    # chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+    # chrome_options.add_argument("--remote-debugging-port=9222")
+    #
+    # chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
+    #
+    # # Инициализация драйвера
+    # driver = webdriver.Chrome(options=chrome_options)
+    # url = 'https://irecommend.ru/content/idealnyi-sostav-imenno-takuyu-i-iskala'
+    # driver.get(url)
+    #
+    # print(driver.page_source)
+    # input('Wait...')
+
+
+
+
+
     url = 'https://irecommend.ru/content/lechenie-v-turtsii-v-odnoi-iz-luchshikh-klinik-v-kotorykh-ya-kogda-libo-byla-tak-zhe-strakho'
     url = 'https://irecommend.ru/content/strakhovka-rabotaet'
     url = 'https://irecommend.ru/content/idealnyi-sostav-imenno-takuyu-i-iskala'
-    driver = await get_selenium_proxy(headless=False, proxy=False)
-    await check_irecommend(1, url, 1, 1, 1, 1, driver)
+    driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
+
+    input('Wait...')
+
+
+
+
+
+    #await check_irecommend(1, url, 1, 1, 1, 1, driver)
 
 
 if "__main__" in __name__:
-    #asyncio.run(tst_main())
-    asyncio.run(main_irecommend())
+    asyncio.run(tst_main())
+    #asyncio.run(main_irecommend())

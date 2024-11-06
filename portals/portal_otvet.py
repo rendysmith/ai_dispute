@@ -3,9 +3,7 @@ import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 
-from cffi.cffi_opcode import PRIM_INT
 from selenium.webdriver.common.by import By
-from webdriver_manager.core.driver import Driver
 
 from utils.compressor import compress_string
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
