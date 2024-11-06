@@ -2,6 +2,7 @@ import asyncio
 import os
 import re
 import time
+import traceback
 from datetime import datetime, timedelta
 
 import aiohttp
@@ -9,15 +10,20 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
+from selenium.webdriver.common.by import By
+from sqlalchemy import Executable
+
 from portals.portal_vk import blocks_vk, convert_date
 from utils.ai_module import get_answer_ai
 from utils.gs_editor import get_service, append_data_to_sheet_scope, read_table_id, write_log_sheet
-from utils.user_agent import get_soup, get_playwright
+from utils.user_agent import get_soup, get_playwright, get_selenium_proxy
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
 now = datetime.now()
+now_utc = time.time()
+
 days_ago = 3
 
 username = os.environ.get("LOGIN_DA")
@@ -118,7 +124,7 @@ async def get_cookies() -> dict:
             else:
                 raise Exception(f"Request failed with status code {response.status}")
 
-async def check_ba(service):
+async def check_ba_play(service):
     df_links = await read_table_id(service, sheet_id, worksheet_name)
     links = df_links['portal'].to_list()
 
@@ -321,6 +327,208 @@ async def check_ba(service):
 
                 await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
                 print('Wrote data...')
+
+async def analysis_vk(service, date_create, url_answer, text):
+    print(date_create)
+    print(url_answer)
+    print(text)
+
+    text_pars = text
+
+    topic = await extract_reply(url_answer)
+    print("topic", topic)
+
+    if not topic:
+        topic = ''
+
+    #playwright, browser, page = await get_playwright(url_answer)
+    driver = await get_selenium_proxy(url_answer, proxy=False)
+    await asyncio.sleep(5)
+    driver, blocks = await blocks_vk(driver)
+
+    if not blocks:
+        if driver:
+            driver.quit()
+        print('Next >>>>')
+        return
+
+    len_b = len(blocks)
+    print(f'Len_blocks = {len_b}')
+
+    driver.quit()
+
+    chat_list = []
+
+    trend_alife = False
+    break_mode = False
+
+    for idx, block in enumerate(blocks):
+        print(f'****************Block*{idx}*****************')
+        try:
+            try:
+                date_content = block.find_element(By.CSS_SELECTOR, 'span[class="rel_date"]')
+            except:
+                date_content = block.find_element(By.CSS_SELECTOR, 'span[class="rel_date rel_date_needs_update"]')
+
+            date = int(date_content.get_attribute("time"))
+
+        except Exception as Ex:
+            print(block.get_attribute('outerHTML'))
+            input('Wait...')
+            continue
+
+        except:
+            continue
+
+        input(date)
+        if (now_utc - date) <= timedelta(days=days_ago):
+            trend_alife = True
+
+        id_content = block.get_attribute('id')
+
+        #author_content = await block.query_selector('a[class="author author_highlighted"]')
+        author_content = block.find_element(By.CSS_SELECTOR, 'a[class="author author_highlighted"]')
+
+        try:
+            author = author_content.text
+        except:
+            author = ''
+        # print(author)
+
+        if any(bank in author for bank in ['Альфа-Банк', "Т-Банк"]):  # если есть ответ от оф.представителя.
+            print(f"Bank = {author}")
+            break_mode = True
+            break  # Выход из внутреннего цикла
+
+        #feedback_content = await block.query_selector('div[class="wall_reply_text onclick="]')
+        feedback_content = block.find_element(By.CSS_SELECTOR, 'div[class="wall_reply_text onclick="]')
+        try:
+            feedback = await feedback_content.text
+            # print(feedback)
+        except Exception as Ex:
+            print(f'Error Ex2: {Ex}')
+            feedback = ''
+
+        datas = {'date': date,
+                 'id': id_content,
+                 'author': author,
+                 'feedback': feedback}
+        chat_list.append(datas)
+
+    if break_mode:
+        return  # Переход к следующей итерации внешнего цикла
+
+    if trend_alife == False:
+        print('Тренд мертв!')
+        return
+
+    print("chat_list", chat_list)
+    user_id = [chat['id'] for chat in chat_list if topic in chat['id']]
+    if user_id:
+        user_id = user_id[0]
+
+    else:
+        return
+
+    # print(user_id)
+    # print(chat_list)
+
+    prompt = prompt_vk_trend_gone.format(chat_list=chat_list, user_id=user_id)
+    # print(prompt)
+    result = await get_answer_ai(auth, prompt)
+    # print("result:", result)
+
+    if result == 'True':
+        data = {
+            'date_create': date_create,
+            'portal': url_answer,
+            'author': author,
+            'feedback': text_pars}
+
+        await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
+        print('Wrote data...')
+
+
+async def check_ba(service):
+    df_links = await read_table_id(service, sheet_id, worksheet_name)
+    links = df_links['portal'].to_list()
+
+    url_base = 'https://brandanalytics.ru/theme-data/12551940/'
+
+    tst = int(time.time())
+    print(datetime.utcfromtimestamp(tst).strftime('%Y-%m-%d %H:%M:%S'))
+
+    tsf = int(time.time() - 5 * 24 * 3600)
+    print(datetime.utcfromtimestamp(tsf).strftime('%Y-%m-%d %H:%M:%S'))
+
+    page = 1
+    limit = 100
+
+    query = f'?tst={tst}&tsf={tsf}&requested%5B%5D=feed&sort=time_create&order=desc&page={page}&limit={limit}&filter%5Bft%5D%5Bnot%5D%5B%5D=30008&filter%5Bft%5D%5Bnot%5D%5B%5D=30009&filter%5Bft%5D%5Bnot%5D%5B%5D=15&filter%5Bft%5D%5Bnot%5D%5B%5D=30059&filter%5Bft%5D%5Bnot%5D%5B%5D=30025&filter%5Bfmsgproc%5D%5Bany%5D%5B%5D=1'
+    url = url_base + query
+    print(url)
+
+    async with aiohttp.ClientSession() as session:
+        cookies = await get_cookies()
+        async with session.get(url, cookies=cookies) as response:
+            if response.status == 200:
+                r_json = await response.json()
+            else:
+                raise Exception(f"Request failed with status code {response.status}")
+
+    messages = r_json['feed']['messages']
+    #print(messages)
+    print(len(messages))
+
+    messages_id = [k for k, v in messages.items()]
+    #input(messages_id)
+
+    for idx, msg_id in enumerate(messages_id):
+        print(f'\n******************************************{idx} ({len(messages_id) - idx})*********************************************')
+
+        msg = messages[msg_id]
+
+        author = msg['author']['fullname']
+        date_create = msg['date_create']
+        url_answer = msg['url']
+
+        if url_answer in links:
+            continue
+
+        text_highlighted = msg['text_highlighted']
+        print('text', text_highlighted)
+
+        # Создаем объект BeautifulSoup
+        soup = BeautifulSoup(text_highlighted, 'html.parser')
+        # Извлекаем весь текст из документа
+        text = soup.get_text()
+        text_pars = text
+        print('text', text)
+        #input('---------------')
+
+        print(f'==================== {url_answer} ===================')
+
+        if any(mt in text.lower() for mt in ['похе', 'срать', 'бляд', 'пизд', 'хуй', 'хуев', 'уета', 'хуёв', 'пидар',
+                                             'пидр', 'пидор','заеб', 'заёб', 'говн', 'ебан', 'ебон', "залуп", "долба",
+                                             "отъеб", "коллектор", "пристав", "арест"]):
+            print('>>>>>>>>>>>>>>>>>> МАТ!!! <<<<<<<<<<<<<<<<<<<<')
+            print(text)
+            continue
+
+        soup = await get_soup(url_answer)
+        if not soup:
+            continue
+
+        if "Message in a private group or channel" in soup:
+            print('Телеграм - закрытая группа')
+            continue
+
+        if 'telegram.me' in url_answer:
+            pass
+
+        elif 'vk.com' in url_answer:
+            await analysis_vk(service, date_create, url_answer, text)
+
 
 
 

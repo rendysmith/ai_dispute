@@ -2,6 +2,7 @@ import asyncio
 import random
 from datetime import datetime, timedelta
 
+from markdown_it.rules_block import list_block
 from selenium.webdriver.common.by import By
 
 from portals.portal_ya import now_month
@@ -123,7 +124,7 @@ async def check_vk_sel(service, link, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
-async def blocks_vk(playwright, browser, page):
+async def blocks_vk_play(playwright, browser, page):
     #playwright, browser, page = await get_playwright(link)
 
     if not page:
@@ -151,6 +152,21 @@ async def blocks_vk(playwright, browser, page):
         return None, None, None
 
     return playwright, browser, blocks
+
+async def blocks_vk(driver):
+    blocks = driver.find_elements('div[id][class]')
+    # print(len(blocks))
+    # for block in blocks:
+    #     print('++++++++++++++++++++++++++++++++++')
+    #     print(block.get_attribute('outerHTML'))
+
+    len_blocks = len(blocks)
+    print('len_blocks:', len_blocks)
+    if len_blocks == 0:
+        driver.quit()
+        return None, None
+
+    return driver, blocks
 
 
 async def check_vk(service, link, pattern, criteria, ss_id, project, playwright, browser, page):
