@@ -240,10 +240,10 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project, driver):
     #driver.get(link)
     #playwright, browser, page = await get_playwright(link)
 
-    n = 0
+    n1 = 0
     while True:
-        print(f'n = {n}')
-        if n == 10:
+        print(f'n1 = {n1}')
+        if n1 == 10:
             driver.quit()
             return 'Данные сайтом не отданы'
 
@@ -257,7 +257,7 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project, driver):
             break
 
         except:
-            n += 1
+            n1 += 1
             await asyncio.sleep(3)
 
     datas = {'project': project,
@@ -269,7 +269,7 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project, driver):
     driver.get(top_url)
 
     await asyncio.sleep(5)
-    n = 0
+    n2 = 0
     while True:
         blocks_1 = driver.find_elements(By.CSS_SELECTOR, 'div[class="ikwzW"]')
         len_blocks = len(blocks_1)
@@ -277,9 +277,9 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project, driver):
         if len_blocks > 0:
             break
 
-        n += 1
+        n2 += 1
 
-        if n == 10:
+        if n2 == 10:
             await driver.quit()
             return 'Сайт не вернул данные.'
 
@@ -362,9 +362,25 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project, driver):
 
     driver.quit()
 
+async def main_otvet():
+
+    from utils.gs_editor import get_table_scope
+    service = await get_service()
+    ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
+    df = await get_table_scope(service, ss_id, 'zoom')
+
+    irec_links = df['AlphaPet'].to_list()
+
+    for url in irec_links:
+        if 'otvet' in url:
+            print(url)
+            driver = await get_selenium_proxy(headless=False, proxy=False)
+            driver.get(url)
+            await check_otvet(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet", driver)
+            driver.quit()
+
 if __name__ == '__main__':
 
-    service = asyncio.run(get_service())
-    url = 'https://vk.com/wall-11694885_373082?reply=373184'
-    url = 'https://otvet.mail.ru/answer/2042548676'
-    asyncio.run(check_otvet(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet"))
+
+
+    asyncio.run(main_otvet())
