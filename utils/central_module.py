@@ -198,24 +198,24 @@ async def time_out_sel(async_func, timeout=180, **kwargs):
 
     except asyncio.TimeoutError as TE:
         await fix_error(service, project, link, f"TimeoutError {TE}")
-        print(f"Error PLAY TE: Задача была отменена из-за таймаута. {TE}")
+        print(f"Error SEL TE: Задача была отменена из-за таймаута. {TE}")
         traceback.print_exc()
         status = None
 
     except asyncio.CancelledError as CE:
         await fix_error(service, project, link, f"CancelledError {CE}")
-        print(f"Error PLAY CE: Задача была отменена из-за таймаута. {CE}")
+        print(f"Error SEL CE: Задача была отменена из-за таймаута. {CE}")
         traceback.print_exc()
         status = None
 
     except Exception as Ex:  # Обработка других исключений
         await fix_error(service, project, link, f"Error TOP Ex: {Ex}")
-        print(f"Error PLAY Ex: Произошла ошибка: {Ex}")
+        print(f"Error SEL Ex: Произошла ошибка: {Ex}")
         traceback.print_exc()
         status = None
 
     finally:
         if driver:
             driver.quit()
-        print('-- Close browser and playwright is OK!')
+        print('-- Close SEL is OK!')
         return status
