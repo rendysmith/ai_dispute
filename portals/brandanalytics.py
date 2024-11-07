@@ -347,7 +347,7 @@ async def analysis_vk(service, date_create, url_answer, first_author, text):
         topic = ''
 
     #playwright, browser, page = await get_playwright(url_answer)
-    driver = await get_selenium_proxy(url_answer, proxy=False)
+    driver = await get_selenium_proxy(url_answer)
 
     await asyncio.sleep(5)
 
