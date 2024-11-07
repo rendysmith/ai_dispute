@@ -343,8 +343,15 @@ async def analysis_vk(service, date_create, url_answer, text):
 
     #playwright, browser, page = await get_playwright(url_answer)
     driver = await get_selenium_proxy(url_answer, proxy=False)
+
     await asyncio.sleep(5)
+    page_source = driver.page_source
     driver, blocks = await blocks_vk(driver)
+
+    if not blocks:
+        # Сохранение в файл
+        with open(f"/home/andy/PycharmProjects/sidorin/{int(time.time())}_page_source.html", "w", encoding="utf-8") as file:
+            file.write(page_source)
 
     if not blocks:
         if driver:
@@ -364,16 +371,18 @@ async def analysis_vk(service, date_create, url_answer, text):
         print(f'\n****************Block*{idx}*****************')
         try:
             try:
-                date_content = block.find_element(By.CSS_SELECTOR, 'span[class="rel_date"]')
                 print('1')
+                date_content = block.find_element(By.CSS_SELECTOR, 'span[class="rel_date"]')
+
             except:
-                date_content = block.find_element(By.CSS_SELECTOR, 'span[class="rel_date rel_date_needs_update"]')
                 print('2')
+                date_content = block.find_element(By.CSS_SELECTOR, 'span[class="rel_date rel_date_needs_update"]')
 
             date = int(date_content.get_attribute("time"))
             date = datetime.utcfromtimestamp(date)
 
         except Exception as Ex:
+            print(f'Error Ex1 {Ex}')
             try:
                 date_content = block.find_element(By.CSS_SELECTOR, 'a[class="item_date"]').text
                 print(date_content)
@@ -406,12 +415,14 @@ async def analysis_vk(service, date_create, url_answer, text):
                         print('32')
 
             except:
+                print('Error ?')
                 #print(driver.page_source)
                 #print(block.get_attribute('outerHTML'))
                 #input('Wait...')
                 continue
 
         except:
+            print('Error ??')
             continue
 
         print(now)
@@ -428,10 +439,15 @@ async def analysis_vk(service, date_create, url_answer, text):
         #author_content = await block.query_selector('a[class="author author_highlighted"]')
         try:
             author_content = block.find_element(By.CSS_SELECTOR, 'a[class="author author_highlighted"]')
-        except:
+
+        except Exception as Ex:
             author_content = block.find_element(By.CSS_SELECTOR, 'a.ReplyItem__name ReplyItem__name--primaryColored')
             # print(block.get_attribute('outerHTML'))
             # author_content = ''
+
+        except:
+            print(block.get_attribute('outerHTML'))
+
 
         try:
             author = author_content.text
@@ -590,12 +606,12 @@ async def main_ba():
 
 async def tst_main():
     service = await get_service()
-    url_answer = 'https://vk.com/wall-188283764_48885'
+    url_answer = 'https://vk.com/wall-96877798_261164'
     date_create = ''
     text = ''
     await analysis_vk(service, date_create, url_answer, text)
 
 
 if "__main__" in __name__:
-     asyncio.run(main_ba())
-     #asyncio.run(tst_main())
+     #asyncio.run(main_ba())
+     asyncio.run(tst_main())

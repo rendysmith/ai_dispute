@@ -125,7 +125,7 @@ async def blocks_vk_play(playwright, browser, page):
     return playwright, browser, blocks
 
 async def blocks_vk(driver):
-    blocks = driver.find_elements('div[id][class]')
+    blocks = driver.find_elements('div[id][class*="Repl"]')
     # print(len(blocks))
     # for block in blocks:
     #     print('++++++++++++++++++++++++++++++++++')
