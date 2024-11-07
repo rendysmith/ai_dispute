@@ -6,11 +6,13 @@ import time
 from datetime import datetime, timedelta
 
 import aiohttp
+import pandas as pd
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
 from selenium.webdriver.common.by import By
+from sqlalchemy.dialects.postgresql.operators import CONTAINED_BY
 
 from portals.portal_vk import blocks_vk
 from utils.ai_module import get_answer_ai
@@ -24,6 +26,7 @@ load_dotenv(dotenv_path)
 now = datetime.now()
 year_now = now.year
 month_now = now.month
+day_now = now.day
 
 days_ago = 3
 
@@ -84,7 +87,8 @@ prompt_vk_trend_gone = """
 --------- START CHATTING ----------
 {chat_list}
 --------- END CHATTING -----------
-Получив список переписки и определенный идентификатор сообщения id = {user_id} для начала, 
+Получив список переписки и имя интересующего автора комментария - {first_author} 
+для начала, 
 проанализируйте сообщения, чтобы выявить следующие сценарии: 
 * Сообщения, которые не связаны с исходным сообщением и упоминают продукт/бренд/компанию, отличную от интересующей вас (например, «Тинькофф Банк»). 
 * Сообщения, которые меняют тему разговора и больше не обсуждают продукт/бренд/компанию после первоначального упоминания. 
@@ -236,6 +240,7 @@ async def check_ba_play(service):
                     date_content = await block.query_selector('span[class="rel_date"]')
                     if not date_content:
                         date_content = await block.query_selector('span[class="rel_date rel_date_needs_update"]')
+
                     date = await date_content.inner_text()
                     print("date =", date)
                     date_split = date.split(' ')
@@ -328,7 +333,7 @@ async def check_ba_play(service):
                 await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
                 print('Wrote data...')
 
-async def analysis_vk(service, date_create, url_answer, text):
+async def analysis_vk(service, date_create, url_answer, first_author, text):
     print(date_create)
     print(url_answer)
     print(text)
@@ -345,11 +350,12 @@ async def analysis_vk(service, date_create, url_answer, text):
     driver = await get_selenium_proxy(url_answer, proxy=False)
 
     await asyncio.sleep(5)
-    page_source = driver.page_source
-    driver, blocks = await blocks_vk(driver)
+
+    blocks = driver.find_elements('div[id][class]')
 
     if not blocks:
         # Сохранение в файл
+        page_source = driver.page_source
         with open(f"/home/andy/PycharmProjects/sidorin/{int(time.time())}_page_source.html", "w", encoding="utf-8") as file:
             file.write(page_source)
 
@@ -371,24 +377,32 @@ async def analysis_vk(service, date_create, url_answer, text):
         print(f'\n****************Block*{idx}*****************')
         try:
             try:
-                print('1')
+                print('>1 Date')
                 date_content = block.find_element(By.CSS_SELECTOR, 'span[class="rel_date"]')
+                print('<1 Date')
 
             except:
-                print('2')
+                print('>2 Date')
                 date_content = block.find_element(By.CSS_SELECTOR, 'span[class="rel_date rel_date_needs_update"]')
+                print('<2 Date')
 
+            print('>3 Date')
             date = int(date_content.get_attribute("time"))
             date = datetime.utcfromtimestamp(date)
+            print('<3 Date')
 
         except Exception as Ex:
-            print(f'Error Ex1 {Ex}')
+            #print(f'Error Ex1 {Ex}')
             try:
+                print('>31 поиск даты')
                 date_content = block.find_element(By.CSS_SELECTOR, 'a[class="item_date"]').text
                 print(date_content)
                 date_spl = date_content.split(' ')
                 if any(day_c in date_content for day_c in ['сегодня', 'today']):
-                    date = now
+                    date_spl_2 = date_spl[-1].split(':')
+                    print(year_now, month_now, day_now, int(date_spl_2[0], int(date_spl_2[1])))
+                    date = datetime(year_now, month_now, day_now, int(date_spl_2[0], int(date_spl_2[1])))
+                    print(date)
 
                 elif len(date_spl) == 3:
                     year = int(date_spl[-1])
@@ -402,7 +416,8 @@ async def analysis_vk(service, date_create, url_answer, text):
                         continue
 
                     date = datetime(year, month, int(date_spl[0]))
-                    print('31')
+                    print(date)
+                    print('< 31')
 
                 elif len(date_spl) == 4:
                     if 'в' in date_spl:
@@ -412,21 +427,24 @@ async def analysis_vk(service, date_create, url_answer, text):
                             continue
 
                         date = datetime(year_now, month, int(date_spl[0]))
-                        print('32')
+                        print('< 32')
 
             except:
-                print('Error ?')
-                #print(driver.page_source)
+                print('Error ? ---------------------------------------------------')
                 #print(block.get_attribute('outerHTML'))
-                #input('Wait...')
+                #input('Wait... ---------------------------------------------------')
                 continue
 
         except:
-            print('Error ??')
+            print('Error ??????')
+            # print(block.get_attribute('outerHTML'))
+            # input('Wait...')
             continue
 
+        print('++++++++++++++++')
         print(now)
         print(date)
+        print('++++++++++++++++')
 
         #input('Wait...')
 
@@ -438,22 +456,32 @@ async def analysis_vk(service, date_create, url_answer, text):
 
         #author_content = await block.query_selector('a[class="author author_highlighted"]')
         try:
+            print('>4')
             author_content = block.find_element(By.CSS_SELECTOR, 'a[class="author author_highlighted"]')
-
-        except Exception as Ex:
-            author_content = block.find_element(By.CSS_SELECTOR, 'a.ReplyItem__name ReplyItem__name--primaryColored')
-            # print(block.get_attribute('outerHTML'))
-            # author_content = ''
-
-        except:
-            print(block.get_attribute('outerHTML'))
-
-
-        try:
             author = author_content.text
+            print('<4')
+
         except:
-            author = ''
-        # print(author)
+            try:
+                print('>4')
+                author_content = block.find_element(By.CSS_SELECTOR, 'a.ReplyItem__name ReplyItem__name--primaryColored')
+                author = author_content.text
+                # print(block.get_attribute('outerHTML'))
+                # author_content = ''
+                print('<4')
+
+            except:
+                print('>5')
+                try:
+                    author_content = block.find_element(By.CSS_SELECTOR, 'div[role="img"][alt]')
+                    author = author_content.get_attribute('alt')
+
+                except:
+                    #print(block.get_attribute('outerHTML'))
+                    #input('Next..')
+                    continue
+
+        print(author)
 
         if any(bank in author for bank in ['Альфа-Банк', "Т-Банк"]):  # если есть ответ от оф.представителя.
             print(f"Bank = {author}")
@@ -462,22 +490,35 @@ async def analysis_vk(service, date_create, url_answer, text):
 
         #feedback_content = await block.query_selector('div[class="wall_reply_text onclick="]')
         try:
+            print('>7')
             feedback_content = block.find_element(By.CSS_SELECTOR, 'div[class="wall_reply_text onclick="]')
+            print('<7')
         except:
+            print('>8')
             feedback_content = block.find_element(By.CSS_SELECTOR, 'div[class="ReplyItem__body"]')
+            print('<8')
 
         try:
+            print('>9')
             feedback = feedback_content.text
             # print(feedback)
+            print('<9')
+
         except Exception as Ex:
+            print('>10')
             print(f'Error Ex2: {Ex}')
             feedback = ''
+            print('<10')
 
         datas = {'date': date,
                  'id': id_content,
                  'author': author,
                  'feedback': feedback}
         chat_list.append(datas)
+
+        #print(datas)
+        #print(block.get_attribute('outerHTML'))
+        #input('Wait.1..')
 
     if break_mode:
         return  # Переход к следующей итерации внешнего цикла
@@ -486,27 +527,34 @@ async def analysis_vk(service, date_create, url_answer, text):
         print('Тренд мертв!')
         return
 
-    print("chat_list", chat_list)
+    #print("chat_list", chat_list) #
     user_id = [chat['id'] for chat in chat_list if topic in chat['id']]
+
     if user_id:
         user_id = user_id[0]
 
     else:
         return
 
-    # print(user_id)
+    print("user_id", user_id)
     # print(chat_list)
 
-    prompt = prompt_vk_trend_gone.format(chat_list=chat_list, user_id=user_id)
-    # print(prompt)
+    df = pd.DataFrame(chat_list)
+    # Удаляем дубликаты по 'date' и сортируем
+    df = df.drop_duplicates(subset='date').sort_values(by='date').reset_index(drop=True)
+    # Преобразуем обратно в список, если это необходимо
+    chat_list = df.to_dict(orient='records')
+
+    prompt = prompt_vk_trend_gone.format(chat_list=chat_list, first_author=first_author)
+    #print(prompt)
     result = await get_answer_ai(auth, prompt)
-    # print("result:", result)
+    print("result:", result)
 
     if result == 'True':
         data = {
             'date_create': date_create,
             'portal': url_answer,
-            'author': author,
+            'author': first_author,
             'feedback': text_pars}
 
         await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
@@ -593,7 +641,7 @@ async def check_ba(service):
             pass
 
         elif 'vk.com' in url_answer:
-            await analysis_vk(service, date_create, url_answer, text)
+            await analysis_vk(service, date_create, url_answer, author, text)
 
 async def main_ba():
     project = 'BA'
@@ -607,11 +655,12 @@ async def main_ba():
 async def tst_main():
     service = await get_service()
     url_answer = 'https://vk.com/wall-96877798_261164'
-    date_create = ''
-    text = ''
-    await analysis_vk(service, date_create, url_answer, text)
+    date_create = '123'
+    text = '1234'
+    author = '12345678'
+    await analysis_vk(service, date_create, url_answer, author, text)
 
 
 if "__main__" in __name__:
-     #asyncio.run(main_ba())
-     asyncio.run(tst_main())
+     asyncio.run(main_ba())
+     #asyncio.run(tst_main())

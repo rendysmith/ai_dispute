@@ -139,7 +139,6 @@ async def blocks_vk(driver):
 
     return driver, blocks
 
-
 async def check_vk(service, link, pattern, criteria, ss_id, project, playwright, browser, page):
     print(link)
     links = await pars_url(service, ss_id, project)
@@ -253,7 +252,6 @@ async def check_vk(service, link, pattern, criteria, ss_id, project, playwright,
     if browser:
         await browser.close()
         await playwright.stop()
-
 
 async def main_vk():
     service = await get_service()
