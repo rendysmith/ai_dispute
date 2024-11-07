@@ -27,35 +27,6 @@ max_sec = int(os.environ.get("MAX_SEC"))
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
 
-async def convert_date(month):
-    months = {
-        'янв': 1,
-        'Jan': 1,
-        'фев': 2,
-        'Feb': 2,
-        "мар": 3,
-        'Mar': 3,
-        "апр": 4,
-        'Apr': 4,
-        "мая": 5,
-        'May': 5,
-        "июн": 6,
-        'Jun': 6,
-        "июл": 7,
-        'Jul': 7,
-        "авг": 8,
-        'Aug': 8,
-        "сен": 9,
-        'Sep': 9,
-        "окт": 10,
-        'Oct': 10,
-        "ноя": 11,
-        'Nov': 11,
-        "дек": 12,
-        'Dec': 12,
-    }
-    return months[month]
-
 async def check_vk_sel(service, link, pattern, criteria, ss_id, project):
     print(link)
 

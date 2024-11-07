@@ -194,6 +194,7 @@ async def grade_analysis():
             pass
 
 async def total_grade_analysis(service, tn_name):
+    '''Функция для подсчета рейтинга после удаления отзыва'''
     df = await get_table_scope(service, worktable_id, tn_name)
 
     data_rows = []
@@ -206,7 +207,8 @@ async def total_grade_analysis(service, tn_name):
             # print('Next...')
             continue
 
-        df_mini = df[df['Общий Url'] == company_link]
+        df_mini = df[(df['Общий Url'] == company_link) & (df['Вероятность удаления'].apply(lambda x: bool('49' not in str(x))))]
+
         df_mini = df_mini.drop_duplicates(subset=["Ссылка Url"]) #Удаляем дублика ссылок!!!!!!!!!!!!!!!!!!!!!!
         df_mini["Оценка"] = pd.to_numeric(df_mini["Оценка"], errors='coerce')  # Преобразуем в числа
 
@@ -483,6 +485,8 @@ async def pars_dreamjob():
             # feedback = textwrap.dedent(feedback)
 
 async def cheak_dreamjob(service):
+    '''Функция для анализа отзыва'''
+
     ws_name = worksheet_name_dreamjob
     df = await get_table_scope(service, worktable_id, ws_name)
     print(df)
@@ -490,7 +494,6 @@ async def cheak_dreamjob(service):
     df = df[df[add_column]=='']
 
     print(df)
-
 
     for idx, row in df.iterrows():
         brand = 'ВкусВилл'
@@ -517,7 +520,10 @@ async def cheak_dreamjob(service):
 
         try:
             result = eval(result)
-            result[1] = f"Здравствуйте, Я представляю интересы компании {brand} и хочу обратиться с просьбой удалить отзыв {link}. Отзыв содержит нарушение:\n" + result[1]
+            if '49' in result[0]:
+                result[1] = '-'
+            else:
+                result[1] = f"Здравствуйте, Я представляю интересы компании {brand} и хочу обратиться с просьбой удалить отзыв {link}. Отзыв содержит нарушение:\n" + result[1]
 
             columns = ['Вероятность удаления', 'Текст для поддержки']
             await append_data_to_sheet_cells(service, worktable_id, ws_name, columns, idx + 2, result)
@@ -528,10 +534,10 @@ async def cheak_dreamjob(service):
 async def main_grade():
     service = await get_service()
     #asyncio.run(main_vkusvill())
-    await cheak_dreamjob(service)
+    #await cheak_dreamjob(service)
 
     #asyncio.run(grade_analysis())
-    #await total_grade_analysis(service, 'reviews_dreamjob')
+    await total_grade_analysis(service, 'reviews_dreamjob')
 
 if __name__ == '__main__':
 

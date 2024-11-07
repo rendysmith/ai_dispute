@@ -2,7 +2,7 @@ import asyncio
 import os
 import re
 import time
-import traceback
+
 from datetime import datetime, timedelta
 
 import aiohttp
@@ -11,10 +11,10 @@ from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
 from selenium.webdriver.common.by import By
-from sqlalchemy import Executable
 
-from portals.portal_vk import blocks_vk, convert_date
+from portals.portal_vk import blocks_vk
 from utils.ai_module import get_answer_ai
+from utils.constants import months
 from utils.gs_editor import get_service, append_data_to_sheet_scope, read_table_id, write_log_sheet
 from utils.user_agent import get_soup, get_playwright, get_selenium_proxy
 
@@ -22,7 +22,8 @@ dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
 now = datetime.now()
-now_utc = time.time()
+year_now = now.year
+month_now = now.month
 
 days_ago = 3
 
@@ -92,7 +93,6 @@ prompt_vk_trend_gone = """
 Верни только 'True' или 'False' в зависимости от результата.
 Перед выполнением, прочитай задание еще раз.
 """
-
 
 async def extract_reply(url):
     # Регулярное выражение для извлечения значения reply
@@ -355,33 +355,73 @@ async def analysis_vk(service, date_create, url_answer, text):
     len_b = len(blocks)
     print(f'Len_blocks = {len_b}')
 
-    driver.quit()
-
     chat_list = []
 
     trend_alife = False
     break_mode = False
 
     for idx, block in enumerate(blocks):
-        print(f'****************Block*{idx}*****************')
+        print(f'\n****************Block*{idx}*****************')
         try:
             try:
                 date_content = block.find_element(By.CSS_SELECTOR, 'span[class="rel_date"]')
+                print('1')
             except:
                 date_content = block.find_element(By.CSS_SELECTOR, 'span[class="rel_date rel_date_needs_update"]')
+                print('2')
 
             date = int(date_content.get_attribute("time"))
+            date = datetime.utcfromtimestamp(date)
 
         except Exception as Ex:
-            print(block.get_attribute('outerHTML'))
-            input('Wait...')
-            continue
+            try:
+                date_content = block.find_element(By.CSS_SELECTOR, 'a[class="item_date"]').text
+                print(date_content)
+                date_spl = date_content.split(' ')
+
+                if len(date_spl) == 3:
+                    year = int(date_spl[-1])
+                    if year != year_now:
+                        print(f"{year} != {year_now}")
+                        continue
+
+                    month = months[date_spl[1]]
+                    if month != month_now:
+                        print(f"{month} != {month_now}")
+                        continue
+
+                    date = datetime(year, month, int(date_spl[0]))
+                    print('31')
+
+                elif len(date_spl) == 4:
+                    if 'в' in date_spl:
+                        month = months[date_spl[1]]
+                        if month != month_now:
+                            print(f"{month} != {month_now}")
+                            continue
+
+                        date = datetime(year_now, month, int(date_spl[0]))
+                        print('32')
+
+            except:
+                #print(driver.page_source)
+                print(block.get_attribute('outerHTML'))
+                input('Wait...')
+                continue
 
         except:
             continue
 
-        input(date)
-        if (now_utc - date) <= timedelta(days=days_ago):
+        print(now)
+        print(date)
+
+        print(type(now))
+        print(type(date))
+
+        #input('Wait...')
+
+        if (now - date) <= timedelta(days=days_ago):
+            print('Тренд устарел.')
             trend_alife = True
 
         id_content = block.get_attribute('id')
@@ -447,6 +487,8 @@ async def analysis_vk(service, date_create, url_answer, text):
 
         await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
         print('Wrote data...')
+
+    driver.quit()
 
 
 async def check_ba(service):
@@ -541,5 +583,14 @@ async def main_ba():
     data = {'service_name': project, 'date': time.ctime()}
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
+async def tst_main():
+    service = await get_service()
+    url_answer = 'https://vk.com/wall-188283764_48885'
+    date_create = ''
+    text = ''
+    await analysis_vk(service, date_create, url_answer, text)
+
+
 if "__main__" in __name__:
-     asyncio.run(main_ba())
+     #asyncio.run(main_ba())
+     asyncio.run(tst_main())
