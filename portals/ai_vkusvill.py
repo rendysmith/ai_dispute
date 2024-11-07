@@ -521,9 +521,9 @@ async def cheak_dreamjob(service):
         try:
             result = eval(result)
             if '49' in result[0]:
-                result[1] = '-'
+                pass
             else:
-                result[1] = f"Здравствуйте, Я представляю интересы компании {brand} и хочу обратиться с просьбой удалить отзыв {link}. Отзыв содержит нарушение:\n" + result[1]
+                result[1] = f"Здравствуйте, Я представляю интересы компании '{brand}' и хочу обратиться с просьбой удалить отзыв по ссылке {link}. Отзыв содержит нарушение:\n" + result[1]
 
             columns = ['Вероятность удаления', 'Текст для поддержки']
             await append_data_to_sheet_cells(service, worktable_id, ws_name, columns, idx + 2, result)
