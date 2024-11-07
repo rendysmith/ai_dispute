@@ -207,7 +207,9 @@ async def total_grade_analysis(service, tn_name):
             # print('Next...')
             continue
 
-        df_mini = df[(df['Общий Url'] == company_link) & (df['Вероятность удаления'].apply(lambda x: bool('49' not in str(x))))]
+        #df = df[(df[add_column] == '') & (df[add_column_2].str.contains(r'([5-9][0-9]|[1-9][0-9]{2,})'))]
+        df_mini = df[(df['Общий Url'] == company_link) & (df['Вероятность удаления'].str.contains(r'([5-9][0-9]|[1-9][0-9]{2,})'))]
+
 
         df_mini = df_mini.drop_duplicates(subset=["Ссылка Url"]) #Удаляем дублика ссылок!!!!!!!!!!!!!!!!!!!!!!
         df_mini["Оценка"] = pd.to_numeric(df_mini["Оценка"], errors='coerce')  # Преобразуем в числа
@@ -537,7 +539,7 @@ async def main_grade():
     #await cheak_dreamjob(service)
 
     #asyncio.run(grade_analysis())
-    await total_grade_analysis(service, 'reviews_dreamjob')
+    await total_grade_analysis(service, 'reviews')
 
 if __name__ == '__main__':
 

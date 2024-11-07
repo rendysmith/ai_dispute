@@ -378,8 +378,10 @@ async def analysis_vk(service, date_create, url_answer, text):
                 date_content = block.find_element(By.CSS_SELECTOR, 'a[class="item_date"]').text
                 print(date_content)
                 date_spl = date_content.split(' ')
+                if any(day_c in date_content for day_c in ['сегодня', 'today']):
+                    date = now
 
-                if len(date_spl) == 3:
+                elif len(date_spl) == 3:
                     year = int(date_spl[-1])
                     if year != year_now:
                         print(f"{year} != {year_now}")
@@ -405,8 +407,8 @@ async def analysis_vk(service, date_create, url_answer, text):
 
             except:
                 #print(driver.page_source)
-                print(block.get_attribute('outerHTML'))
-                input('Wait...')
+                #print(block.get_attribute('outerHTML'))
+                #input('Wait...')
                 continue
 
         except:
@@ -415,19 +417,21 @@ async def analysis_vk(service, date_create, url_answer, text):
         print(now)
         print(date)
 
-        print(type(now))
-        print(type(date))
-
         #input('Wait...')
 
         if (now - date) <= timedelta(days=days_ago):
-            print('Тренд устарел.')
+            print('Тренд жив.')
             trend_alife = True
 
         id_content = block.get_attribute('id')
 
         #author_content = await block.query_selector('a[class="author author_highlighted"]')
-        author_content = block.find_element(By.CSS_SELECTOR, 'a[class="author author_highlighted"]')
+        try:
+            author_content = block.find_element(By.CSS_SELECTOR, 'a[class="author author_highlighted"]')
+        except:
+            author_content = block.find_element(By.CSS_SELECTOR, 'a.ReplyItem__name ReplyItem__name--primaryColored')
+            # print(block.get_attribute('outerHTML'))
+            # author_content = ''
 
         try:
             author = author_content.text
@@ -441,9 +445,13 @@ async def analysis_vk(service, date_create, url_answer, text):
             break  # Выход из внутреннего цикла
 
         #feedback_content = await block.query_selector('div[class="wall_reply_text onclick="]')
-        feedback_content = block.find_element(By.CSS_SELECTOR, 'div[class="wall_reply_text onclick="]')
         try:
-            feedback = await feedback_content.text
+            feedback_content = block.find_element(By.CSS_SELECTOR, 'div[class="wall_reply_text onclick="]')
+        except:
+            feedback_content = block.find_element(By.CSS_SELECTOR, 'div[class="ReplyItem__body"]')
+
+        try:
+            feedback = feedback_content.text
             # print(feedback)
         except Exception as Ex:
             print(f'Error Ex2: {Ex}')
@@ -571,9 +579,6 @@ async def check_ba(service):
         elif 'vk.com' in url_answer:
             await analysis_vk(service, date_create, url_answer, text)
 
-
-
-
 async def main_ba():
     project = 'BA'
     service = await get_service()
@@ -592,5 +597,5 @@ async def tst_main():
 
 
 if "__main__" in __name__:
-     #asyncio.run(main_ba())
-     asyncio.run(tst_main())
+     asyncio.run(main_ba())
+     #asyncio.run(tst_main())
