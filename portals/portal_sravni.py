@@ -36,7 +36,7 @@ async def get_top_url(link):
 
     return f"https://www.sravni.ru/{link_company}/otzyvy/", companies.get(link_company)
 
-async def check_sravni(service, link, pattern, criteria, ss_id, project, skip=False):
+async def check_sravni(service, link, pattern, criteria, ss_id, project):
     top_url, reviewObjectId = await get_top_url(link)
 
     if top_url:
@@ -100,10 +100,6 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project, skip=Fa
         dt = datetime.fromisoformat(date_str_cleaned)
         dt = dt.replace(tzinfo=None)
 
-        print(current_date, dt)
-        print(current_date - dt)
-        print(timedelta(days=days_ago))
-
         if (current_date - dt) > timedelta(days=days_ago):
             print(f'--- Отзыв старше {days_ago} дней. = {dt}')
             continue
@@ -112,16 +108,15 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project, skip=Fa
         formatted_date = dt.strftime('%d.%m.%Y')
         feedback = i['text']
 
-        if skip == False:
-            await generate_and_white(service=service,
-                                     url_answer=url_answer,
-                                     author=author,
-                                     formatted_date=formatted_date,
-                                     ss_id=ss_id,
-                                     project=project,
-                                     feedback=feedback,
-                                     pattern=pattern,
-                                     criteria=criteria)
+        await generate_and_white(service=service,
+                                 url_answer=url_answer,
+                                 author=author,
+                                 formatted_date=formatted_date,
+                                 ss_id=ss_id,
+                                 project=project,
+                                 feedback=feedback,
+                                 pattern=pattern,
+                                 criteria=criteria)
 
 
 async def main():
