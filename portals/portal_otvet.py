@@ -398,7 +398,12 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project):
             print(top_url)
             break
 
-    json_data = await get_soup(top_url, only_text=False)
+    try:
+        json_data = await get_soup(top_url, only_text=False)
+    except Exception as Ex:
+        print(f'Otvet Error Ex: {Ex}')
+        return
+
     #pprint(json_data)
 
     links = await pars_url(service, ss_id, project)
