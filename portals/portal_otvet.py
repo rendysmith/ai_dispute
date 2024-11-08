@@ -383,7 +383,7 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project):
     #url = f'https://otvet.mail.ru/api/v1/questions/{questions}/answers/{answers}/page?limit=20'
     #url = 'https://otvet.mail.ru/api/v1/questions/229443400?limit=10'
 
-    soup = await get_soup(link, proxy=False)
+    soup = await get_soup(link)
     #print(soup)
 
     hrefs = soup.find_all('a', {"href": True, "name": True})
@@ -398,7 +398,7 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project):
             print(top_url)
             break
 
-    json_data = await get_soup(top_url, only_text=False, proxy=False)
+    json_data = await get_soup(top_url, only_text=False)
     #pprint(json_data)
 
     links = await pars_url(service, ss_id, project)
