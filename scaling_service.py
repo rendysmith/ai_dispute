@@ -10,24 +10,24 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from portals.dreamjob import check_dreamjob
-
 from portals.ocompanii import check_ocompanii
 from portals.portal_2gis import check_2gis
 from portals.portal_aplaut import check_aplout
 from portals.portal_drive2 import check_drive2
 from portals.portal_dzen import check_dzen
+from portals.portal_ingate import check_ingate
 from portals.portal_otvet import check_otvet
 from portals.portal_rustore import check_rustore
 from portals.portal_sravni import check_sravni
-from portals.portal_ya import check_ya
 from portals.portal_ya_market import check_ya_market
 from portals.pravda_sotrudnikov import check_pravda
 from portals.rocketdata import check_rocketdata
 from portals.youtube import check_youtube
 
-# from portals.portal_vk import check_vk
+#from portals.portal_vk import check_vk
 #from portals.portal_otzovik import check_otzovik
 #from portals.irecommend import check_irecommend
+#from portals.portal_ya import check_ya
 
 from utils.central_module import get_local_ip, time_out_on, time_out_play, time_out_sel
 from utils.constants import TABLES_LIST
@@ -320,6 +320,18 @@ async def start_zoom(service):
                     list_links.append(link)
 
                 await check_youtube(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+            #----------------------------------------------------------------------------------------------------------
+            elif 'ingate' in link:
+                link = 'https://pntr.ingate.ru'
+                if link in list_links:
+                    print('Ссылка уже проверена.')
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                await check_ingate(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
 
             #---------------------------------------------------------------------------------------------------------
