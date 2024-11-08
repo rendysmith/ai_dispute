@@ -42,7 +42,7 @@ async def auth_ingate():
                 print("- Успешная авторизация")
                 # Получение JWT токена из cookies
                 jwt_token = response.cookies.get('_jwt1').value
-                print("JWT токен:", jwt_token)
+                #print("JWT токен:", jwt_token)
                 return jwt_token
 
             else:
@@ -102,8 +102,9 @@ async def check_ingate(service, url, pattern, criteria, ss_id, project):
 
         date = block['commentedAt']
         date_obj = datetime.strptime(date, "%Y-%m-%dT%H:%M:%S.%fZ")
+        date_timestamp = date_obj.timestamp()
 
-        if time.time() - date_obj >=  days_ago * 24 * 3600:
+        if time.time() - date_timestamp >=  days_ago * 24 * 3600:
             print(f'--- Комментарий больше {days_ago} дней.')
             return
 
