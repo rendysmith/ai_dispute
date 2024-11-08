@@ -416,7 +416,7 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                await time_out_sel(check_otvet,
+                await time_out_on(check_otvet,
                                            service=service,
                                            link=link,
                                            df_mini_pattern=df_mini_pattern,

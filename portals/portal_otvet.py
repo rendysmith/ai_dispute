@@ -1,6 +1,7 @@
 import asyncio
 
 import json
+import time
 from datetime import datetime, timedelta, timezone
 from pprint import pprint
 
@@ -376,21 +377,60 @@ async def check_otvet_sel(service, link, pattern, criteria, ss_id, project, driv
 
     driver.quit()
 
-async def check_otvet(url):
-    questions = await get_id_obj(url)
-
-    soup = await get_soup(url, proxy=False)
-
-    json_script = json.loads(soup.find('script', {"type": "application/ld+json"}).text)
-    pprint(json_script)
-
+async def check_otvet(service, link, pattern, criteria, ss_id, project):
+    #questions = await get_id_obj(url)
     #answers = '1'
     #url = f'https://otvet.mail.ru/api/v1/questions/{questions}/answers/{answers}/page?limit=20'
+    #url = 'https://otvet.mail.ru/api/v1/questions/229443400?limit=10'
 
+    soup = await get_soup(link, proxy=False)
+    #print(soup)
 
+    hrefs = soup.find_all('a', {"href": True, "name": True})
+    print(len(hrefs))
+    top_url = link
+    for href in hrefs:
+        if 'question' in str(href):
+            print(f'-------------{href}-----------------')
+            question = href.get('href').replace('question', 'questions')
+            print(question)
+            top_url = f'https://otvet.mail.ru/api/v1{question}?limit=20'
+            print(top_url)
+            break
 
+    json_data = await get_soup(top_url, only_text=False, proxy=False)
+    #pprint(json_data)
 
+    links = await pars_url(service, ss_id, project)
 
+    for block in json_data['result']['answers']:
+        date_str = block['created_at']
+        date_obj = datetime.fromisoformat(date_str)
+        formatted_date = date_obj.strftime('%d.%m.%Y')
+        date_timestamp = date_obj.timestamp()
+
+        # Проверка, прошло ли нужное количество дней
+        if time.time() - date_timestamp >= days_ago * 24 * 3600:
+            print(f'--- Комментарий больше {days_ago} дней.')
+            continue
+
+        url_answer = 'https://otvet.mail.ru/answer/' + block['id']
+        print(url_answer)
+        if url_answer in links:
+            continue
+
+        author = block['author']['data']['nick']
+        feedback = block['data']['content'][0]['text']
+
+        await generate_and_white(service=service,
+                                 url_answer=url_answer,
+                                 author=author,
+                                 formatted_date=formatted_date,
+                                 ss_id=ss_id,
+                                 project=project,
+                                 feedback=feedback,
+                                 pattern=pattern,
+                                 criteria=criteria)
 
 
 async def main_otvet():
@@ -404,12 +444,13 @@ async def main_otvet():
 
     for url in irec_links:
         if 'otvet' in url:
-            print(url)
-            driver = await get_selenium_proxy(headless=False, proxy=False)
-            driver.get(url)
-            await check_otvet(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet", driver)
-            driver.quit()
+            print(f"\n============================ {url} ===========================")
+            # driver = await get_selenium_proxy(headless=False, proxy=False)
+            # driver.get(url)
+            await check_otvet(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet")
+            #driver.quit()
+            await asyncio.sleep(3)
 
 if __name__ == '__main__':
     url = 'https://otvet.mail.ru/question/235827550'
-    asyncio.run(check_otvet(url))
+    asyncio.run(main_otvet())

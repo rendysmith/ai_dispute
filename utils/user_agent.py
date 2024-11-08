@@ -109,12 +109,21 @@ async def get_soup_bs4(url, only_pars=False):
     return soup
 
 async def get_soup(url, only_text=True, proxy=True):
+    '''
+    only_text = True - получить данные в soup формате
+    иначе в json
+    '''
+
     if only_text: #Получить только текст
-        r_text = await get_data_without_proxy(url)
-        if not r_text:
+        if proxy:
             r_text = await get_data_with_proxy(url)
             print('Soup Proxy!')
 
+            if not r_text:
+                return None
+
+        else:
+            r_text = await get_data_without_proxy(url)
             if not r_text:
                 return None
 
