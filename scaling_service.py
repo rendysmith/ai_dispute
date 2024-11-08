@@ -319,19 +319,8 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                # status = await check_youtube(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
-                # if status:
-                #     await fix_error(service, link, str(status))
+                await check_youtube(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
 
-                status = await time_out_play(check_youtube,
-                                           service=service,
-                                           link=link,
-                                           df_mini_pattern=df_mini_pattern,
-                                           df_mini_criteria=df_mini_criteria,
-                                           ss_id=ss_id,
-                                           project=project)
-                # if status:
-                #     black_list.append('youtube')
 
             #---------------------------------------------------------------------------------------------------------
             elif 'aplaut.io' in link:

@@ -40,6 +40,8 @@ auth = HTTPBasicAuth(auth_username, auth_password)
 sheet_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
 worksheet_name = 'BA'
 
+proxy_on = False
+
 """
 Данное упоминание нам не подходит:
 1) Упоминание находится в закрытом сообществе
@@ -333,10 +335,12 @@ async def check_ba_play(service):
                 await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
                 print('Wrote data...')
 
-async def analysis_vk(service, date_create, url_answer, first_author, text):
+async def analysis_vk(service, driver, date_create, url_answer, first_author, text):
     print(date_create)
     print(url_answer)
     print(text)
+    driver.get(url_answer)
+    await asyncio.sleep(5)
 
     text_pars = text
 
@@ -347,9 +351,6 @@ async def analysis_vk(service, date_create, url_answer, first_author, text):
         topic = ''
 
     #playwright, browser, page = await get_playwright(url_answer)
-    driver = await get_selenium_proxy(url_answer)
-
-    await asyncio.sleep(5)
 
     blocks = driver.find_elements('div[id][class]')
 
@@ -388,8 +389,9 @@ async def analysis_vk(service, date_create, url_answer, first_author, text):
 
             print('>3 Date')
             date = int(date_content.get_attribute("time"))
+            print(f'<3 Date {date}')
             date = datetime.utcfromtimestamp(date)
-            print('<3 Date')
+            print(f'<3 Date {date}')
 
         except Exception as Ex:
             #print(f'Error Ex1 {Ex}')
@@ -477,6 +479,8 @@ async def analysis_vk(service, date_create, url_answer, first_author, text):
                     author = author_content.get_attribute('alt')
 
                 except:
+                    print('Error Name')
+                    author = ''
                     #print(block.get_attribute('outerHTML'))
                     #input('Next..')
                     continue
@@ -516,6 +520,8 @@ async def analysis_vk(service, date_create, url_answer, first_author, text):
                  'feedback': feedback}
         chat_list.append(datas)
 
+        print('+++ Datas append!')
+
         #print(datas)
         #print(block.get_attribute('outerHTML'))
         #input('Wait.1..')
@@ -527,17 +533,19 @@ async def analysis_vk(service, date_create, url_answer, first_author, text):
         print('Тренд мертв!')
         return
 
-    #print("chat_list", chat_list) #
-    user_id = [chat['id'] for chat in chat_list if topic in chat['id']]
-
-    if user_id:
-        user_id = user_id[0]
-
-    else:
+    # #print("chat_list", chat_list) #
+    # user_id = [chat['id'] for chat in chat_list if topic in chat['id']]
+    #
+    # if user_id:
+    #     user_id = user_id[0]
+    #
+    # else:
+    #     return
+    #
+    # print("user_id", user_id)
+    # # print(chat_list)
+    if len(chat_list) == 0:
         return
-
-    print("user_id", user_id)
-    # print(chat_list)
 
     df = pd.DataFrame(chat_list)
     # Удаляем дубликаты по 'date' и сортируем
@@ -560,8 +568,7 @@ async def analysis_vk(service, date_create, url_answer, first_author, text):
         await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
         print('Wrote data...')
 
-    driver.quit()
-
+    return driver
 
 async def check_ba(service):
     df_links = await read_table_id(service, sheet_id, worksheet_name)
@@ -596,6 +603,8 @@ async def check_ba(service):
 
     messages_id = [k for k, v in messages.items()]
     #input(messages_id)
+
+    driver = await get_selenium_proxy(proxy=proxy_on)
 
     for idx, msg_id in enumerate(messages_id):
         print(f'\n******************************************{idx} ({len(messages_id) - idx})*********************************************')
@@ -641,7 +650,13 @@ async def check_ba(service):
             pass
 
         elif 'vk.com' in url_answer:
-            await analysis_vk(service, date_create, url_answer, author, text)
+            driver = await analysis_vk(service, driver, date_create, url_answer, author, text)
+
+        if not driver:
+            driver = await get_selenium_proxy(proxy=proxy_on)
+
+    if driver:
+        driver.quit()
 
 async def main_ba():
     project = 'BA'
@@ -654,12 +669,28 @@ async def main_ba():
 
 async def tst_main():
     service = await get_service()
-    url_answer = 'https://vk.com/wall-96877798_261164'
-    date_create = '123'
-    text = '1234'
-    author = '12345678'
-    await analysis_vk(service, date_create, url_answer, author, text)
+    url_answers = ['http://vk.com/wall-153375194_102124?reply=102142',
+                   'http://vk.com/wall-118862939_185642?reply=185644',
+                   'http://vk.com/wall-201880129_556306?reply=556383&thread=556312',
+                   'http://vk.com/wall-62873868_926596?reply=926769',
+                   'http://vk.com/wall-145977253_1902376?reply=1902413&thread=1902380',
+                   'http://vk.com/wall-59739069_113460?reply=113582',
+                   'http://vk.com/wall-20225241_983742?reply=983772&thread=983745',
+                   'http://vk.com/wall2860283_36316']
 
+    driver = await get_selenium_proxy(proxy=False)
+    for url_answer in url_answers:
+        date_create = '123'
+        text = '1234'
+        author = '12345678'
+
+        driver = await analysis_vk(service, driver, date_create, url_answer, author, text)
+        if not driver:
+            driver = await get_selenium_proxy(proxy=False)
+
+        input(url_answer)
+
+    driver.quit()
 
 if "__main__" in __name__:
      asyncio.run(main_ba())

@@ -11,7 +11,9 @@ from selenium.webdriver.common.by import By
 from utils.ai_module import generate_and_white
 from utils.compressor import compress_string
 from utils.gs_editor import get_service, pars_url
-from utils.user_agent import get_playwright
+
+from itertools import islice
+from youtube_comment_downloader import *
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -22,6 +24,44 @@ now_year = current_date.year
 
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
+
+async def check_youtube(service, url, pattern, criteria, ss_id, project):
+    downloader = YoutubeCommentDownloader()
+    comments = downloader.get_comments_from_url(youtube_url=url, sort_by=SORT_BY_RECENT)
+
+    links = await pars_url(service, ss_id, project)
+    for comment in islice(comments, 100):
+        date = comment['time_parsed']
+        if time.time() - date >=  days_ago * 24 * 3600:
+            print(f'--- Комментарий больше {days_ago} дней.')
+            return
+
+        formatted_date = datetime.fromtimestamp(date).strftime('%d.%m.%Y')
+
+        url_answer = comment['cid']
+
+        if url_answer in links:
+            print('Такой комментарий уже есть в списке')
+            continue
+
+        author = comment['author']
+        feedback = comment['text']
+
+        await generate_and_white(service=service,
+                                 url_answer=url_answer,
+                                 author=author,
+                                 formatted_date=formatted_date,
+                                 ss_id=ss_id,
+                                 project=project,
+                                 feedback=feedback,
+                                 pattern=pattern,
+                                 criteria=criteria)
+
+
+
+
+
+
 
 async def check_youtube_play(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     #playwright, browser, page = await get_playwright(url)
@@ -128,7 +168,7 @@ async def check_youtube_play(service, url, pattern, criteria, ss_id, project, pl
     await browser.close()
     await playwright.stop()
 
-async def check_youtube(service, url, pattern, criteria, ss_id, project, driver):
+async def check_youtube_old(service, url, pattern, criteria, ss_id, project, driver):
     # Устанавливаем масштаб страницы
     driver.execute_script("document.body.style.zoom='0.5'")
     await asyncio.sleep(5)  # Ожидание 5 секунд
@@ -239,14 +279,7 @@ async def check_youtube(service, url, pattern, criteria, ss_id, project, driver)
                                  pattern=pattern,
                                  criteria=criteria)
 
-
     driver.quit()
-
-
-
-
-
-
 
 async def main_youtube():
     from utils.gs_editor import get_table_scope
@@ -267,6 +300,8 @@ async def main_youtube():
             driver.quit()
 
 if __name__ == '__main__':
-    asyncio.run(main_youtube())
+    #asyncio.run(main_youtube())
+    url = 'https://www.youtube.com/watch?v=jn7JP2iKbEs'
+    asyncio.run(check_youtube(url))
 
 
