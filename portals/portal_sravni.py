@@ -53,7 +53,16 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project, skip=Fa
     #https://www.sravni.ru/proxy-reviews/reviews/?filterBy=all&fingerPrint=90afd98450203b85cd796220e7680745&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true
 
     pageSize = "100"
-    url = f'https://www.sravni.ru/proxy-reviews/reviews/?filterBy=all&fingerPrint=-1&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize={pageSize}&rated=any&reviewObjectId={reviewObjectId}&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true'
+    url = (f'https://www.sravni.ru/proxy-reviews/reviews/?filterBy=all&'
+           f'fingerPrint=-1&'
+           f'locationRoute=&'
+           f'newIds=true&'
+           f'orderBy=byDate&'
+           f'pageIndex=0&'
+           f'pageSize={pageSize}&'
+           f'rated=any&reviewObjectId={reviewObjectId}&'
+           f'reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true')
+
     print(url)
     #r = await get_data_with_proxy(url, text_format=False)
     #print(r)
@@ -91,9 +100,13 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project, skip=Fa
         dt = datetime.fromisoformat(date_str_cleaned)
         dt = dt.replace(tzinfo=None)
 
+        print(current_date, dt)
+        print(current_date - dt)
+        print(timedelta(days=days_ago))
+
         if (current_date - dt) > timedelta(days=days_ago):
             print(f'--- Отзыв старше {days_ago} дней. = {dt}')
-            return
+            continue
 
         # Форматирование в нужный строковый формат
         formatted_date = dt.strftime('%d.%m.%Y')
@@ -116,7 +129,7 @@ async def main():
     service = await get_service()
     url = 'https://www.sravni.ru/strakhovaja-kompanija/sberbank-strah/otzyvy/'
     url = 'https://www.sravni.ru/strakhovaja-kompanija/sberbank-strah/otzyvy/575086/'
-    await check_sravni(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, skip=True)
+    await check_sravni(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
 
 if __name__ == '__main__':
     asyncio.run(main())

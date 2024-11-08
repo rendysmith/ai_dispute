@@ -2,13 +2,15 @@ import asyncio
 
 import json
 from datetime import datetime, timedelta, timezone
+from pprint import pprint
 
+import aiohttp
 from selenium.webdriver.common.by import By
 
 from utils.compressor import compress_string
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
-from utils.user_agent import get_selenium_proxy
+from utils.user_agent import get_selenium_proxy, get_soup
 from utils.constants import months
 
 import os
@@ -30,6 +32,18 @@ login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
 headless = True
 proxy_on = True
+
+async def get_id_obj(url):
+    url_split = url.split('/')
+    print("url_split", url_split)
+    #city_company = url_split[3]
+
+    v = None
+    for idx, v in enumerate(url_split):
+        if v.isdigit():
+            return v
+
+    return v
 
 async def check_otvet_soup(service, link, pattern, criteria, ss_id, project):
     print(link)
@@ -234,7 +248,7 @@ async def check_otvet_pw(service, link, pattern, criteria, ss_id, project, playw
     await browser.close()
     await playwright.stop()
 
-async def check_otvet(service, link, pattern, criteria, ss_id, project, driver):
+async def check_otvet_sel(service, link, pattern, criteria, ss_id, project, driver):
     print(link)
     #driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
     #driver.get(link)
@@ -362,6 +376,23 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project, driver):
 
     driver.quit()
 
+async def check_otvet(url):
+    questions = await get_id_obj(url)
+
+    soup = await get_soup(url, proxy=False)
+
+    json_script = json.loads(soup.find('script', {"type": "application/ld+json"}).text)
+    pprint(json_script)
+
+    #answers = '1'
+    #url = f'https://otvet.mail.ru/api/v1/questions/{questions}/answers/{answers}/page?limit=20'
+
+
+
+
+
+
+
 async def main_otvet():
 
     from utils.gs_editor import get_table_scope
@@ -380,7 +411,5 @@ async def main_otvet():
             driver.quit()
 
 if __name__ == '__main__':
-
-
-
-    asyncio.run(main_otvet())
+    url = 'https://otvet.mail.ru/question/235827550'
+    asyncio.run(check_otvet(url))
