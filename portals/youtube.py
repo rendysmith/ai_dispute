@@ -44,7 +44,7 @@ async def check_youtube(service, url, pattern, criteria, ss_id, project):
             print('Такой комментарий уже есть в списке')
             continue
 
-        author = comment['author']
+        author = comment['author'] + f'\n{url}'
         feedback = comment['text']
 
         await generate_and_white(service=service,
@@ -56,12 +56,6 @@ async def check_youtube(service, url, pattern, criteria, ss_id, project):
                                  feedback=feedback,
                                  pattern=pattern,
                                  criteria=criteria)
-
-
-
-
-
-
 
 async def check_youtube_play(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     #playwright, browser, page = await get_playwright(url)
@@ -294,14 +288,12 @@ async def main_youtube():
     for url in irec_links:
         if 'youtube' in url:
             print(url)
-            driver = await get_selenium_proxy(headless=False, proxy=False)
-            driver.get(url)
-            await check_youtube(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet", driver)
-            driver.quit()
+            await check_youtube(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet")
+
 
 if __name__ == '__main__':
-    #asyncio.run(main_youtube())
-    url = 'https://www.youtube.com/watch?v=jn7JP2iKbEs'
-    asyncio.run(check_youtube(url))
+    asyncio.run(main_youtube())
+    # url = 'https://www.youtube.com/watch?v=jn7JP2iKbEs'
+    # asyncio.run(check_youtube(url))
 
 
