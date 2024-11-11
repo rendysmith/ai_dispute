@@ -337,7 +337,7 @@ async def check_ba_play(service):
 async def analysis_vk_old(service, driver, date_create, url_answer, first_author, text):
     print(date_create)
     print(url_answer)
-    print(text)
+    #print(text)
     driver.get(url_answer)
     await asyncio.sleep(5)
 
@@ -659,13 +659,13 @@ async def check_ba(service):
             continue
 
         text_highlighted = msg['text_highlighted']
-        print('text', text_highlighted)
+        #print('text', text_highlighted)
 
         # Создаем объект BeautifulSoup
         soup = BeautifulSoup(text_highlighted, 'html.parser')
         # Извлекаем весь текст из документа
         text = soup.get_text()
-        print('text', text)
+        #print('text', text)
         #input('---------------')
 
         print(f'==================== {url_answer} ===================')

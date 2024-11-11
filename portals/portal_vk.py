@@ -1,8 +1,10 @@
 import asyncio
+import json
 from datetime import datetime, timedelta
 
 import aiohttp
 import requests
+from bs4 import BeautifulSoup
 
 from utils.gs_editor import get_service
 
@@ -33,10 +35,12 @@ login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
 
 access_token = os.environ.get("VK_ACCESS_TOKEN")
+#access_token = 'vk1.a.eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzaWQiOiJNV0ZoTkRobU5EWmhaamRsWVRZek5UTXhOVFpoT0dFdyIsImhhc2giOiI0MmJlNzA4ZDUxOWM4NGRjIiwiZXhwIjoxNzMxMzQ3OTgzfQ.nG4avYppaXPUYN-OOnlYvYraUbRR82RiPbUkkcqjm0Q'
 client_id = os.environ.get("VK_CLIENT_ID")
 client_secret = os.environ.get("VK_SECRET")
 redirect_uri = 'https://sidorinlab.ru'
 scope = 'wall'
+state = '123456'
 
 async def extract_wall_ids(url):
     match = re.search(r'wall-?(\d+)_(\d+)', url)  # '?' делает дефис опциональным
@@ -137,25 +141,49 @@ async def get_code():
             print(f'Error Ex {Ex}')
 
 async def get_access_token():
-    url = 'https://id.vk.com/oauth2/auth'
+    url = 'https://id.vk.com/authorize'
 
-    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-    params = {'grant_type': 'refresh_token',
-              'refresh_token': '',
+    params = {'response_type': 'code',
               'client_id': client_id,
-              'device_id': '',
-              'state': '123456'}
+              'scope': scope,
+              'redirect_uri': redirect_uri,
+              'state': state,
+              'code_challenge': '47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU',
+              'code_challenge_method': 's256'
+              }
 
     timeout = aiohttp.ClientTimeout(total=10)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         try:
-            async with session.post(url, headers=headers, params=params) as response:
-                print('--2--')
+            async with session.get(url, params=params) as response:
                 status_code = response.status
                 print(status_code)
 
-        except:
-            pass
+                response_text = await response.text()
+                #print(response_text)
+
+        except Exception as Ex:
+            print(f"Error Ex {Ex}")
+            return
+
+    soup = BeautifulSoup(response_text, 'html.parser')
+    access_tokens = soup.find_all('script')
+
+    for access_token in access_tokens:
+        print('\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+        print(access_token)
+
+        if 'access_token' not in str(access_token):
+            continue
+
+        start_index = access_token.find("{")
+        print(start_index)
+        end_index = access_token.rfind("}") + 1
+        print(end_index)
+        json_string = access_token[start_index:end_index]
+
+        print(json_string)
+        input()
 
 async def check_vk(url):
     """
@@ -203,7 +231,6 @@ async def check_vk(url):
     # Делаем запрос к API
     #response = requests.get('https://api.vk.com/method/wall.getComments', params=params)
     #data = response.json()
-
 
     timeout = aiohttp.ClientTimeout(total=10)
     async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -260,8 +287,9 @@ async def main_vk():
 
 if __name__ == '__main__':
     #asyncio.run(check_vk(''))
-    asyncio.run(get_token())
+    #asyncio.run(get_token())
     #asyncio.run(main_vk())
+    asyncio.run(get_access_token())
 
 # async def check_vk_sel(service, link, pattern, criteria, ss_id, project):
 #     print(link)
