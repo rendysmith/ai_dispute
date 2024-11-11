@@ -14,7 +14,7 @@ from requests.auth import HTTPBasicAuth
 from selenium.webdriver.common.by import By
 from sqlalchemy.dialects.postgresql.operators import CONTAINED_BY
 
-from portals.portal_vk import blocks_vk
+from portals.portal_vk import check_vk, extract_wall_ids
 from utils.ai_module import get_answer_ai
 from utils.constants import months
 from utils.gs_editor import get_service, append_data_to_sheet_scope, read_table_id, write_log_sheet
@@ -89,7 +89,7 @@ prompt_vk_trend_gone = """
 --------- START CHATTING ----------
 {chat_list}
 --------- END CHATTING -----------
-Получив список переписки и имя интересующего автора комментария - {first_author} 
+Получив список переписки и текст интересующего автора комментария - {text} 
 для начала, 
 проанализируйте сообщения, чтобы выявить следующие сценарии: 
 * Сообщения, которые не связаны с исходным сообщением и упоминают продукт/бренд/компанию, отличную от интересующей вас (например, «Тинькофф Банк»). 
@@ -335,7 +335,7 @@ async def check_ba_play(service):
                 await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
                 print('Wrote data...')
 
-async def analysis_vk(service, driver, date_create, url_answer, first_author, text):
+async def analysis_vk_old(service, driver, date_create, url_answer, first_author, text):
     print(date_create)
     print(url_answer)
     print(text)
@@ -570,6 +570,44 @@ async def analysis_vk(service, driver, date_create, url_answer, first_author, te
 
     return driver
 
+async def analysis_vk(service, date_create, url_answer, first_author, text):
+    comments = await check_vk(url_answer)
+    print(comments)
+
+    if not comments:
+        return
+
+    trend_alife == False
+    for comment in comments:
+        date = comment['date']
+        author = comment['author_name']
+
+        if (now - date) <= timedelta(days=days_ago):
+            print('Тренд жив.')
+            trend_alife = True
+
+        if any(bank in author for bank in ['Альфа-Банк', "Т-Банк"]):  # если есть ответ от оф.представителя.
+            print(f"Bank = {author}")
+            return
+
+    if trend_alife == False:
+        return 'Тренд мертв'
+
+    prompt = prompt_vk_trend_gone.format(chat_list=comments, text=text)
+    #print(prompt)
+    result = await get_answer_ai(auth, prompt)
+    print("result:", result)
+
+    if result == 'True':
+        data = {
+            'date_create': date_create,
+            'portal': url_answer,
+            'author': first_author,
+            'feedback': text}
+
+        await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
+        print('Wrote data...')
+
 async def check_ba(service):
     df_links = await read_table_id(service, sheet_id, worksheet_name)
     links = df_links['portal'].to_list()
@@ -604,7 +642,7 @@ async def check_ba(service):
     messages_id = [k for k, v in messages.items()]
     #input(messages_id)
 
-    driver = await get_selenium_proxy(proxy=proxy_on)
+    #driver = await get_selenium_proxy(proxy=proxy_on)
 
     for idx, msg_id in enumerate(messages_id):
         print(f'\n******************************************{idx} ({len(messages_id) - idx})*********************************************')
@@ -625,7 +663,6 @@ async def check_ba(service):
         soup = BeautifulSoup(text_highlighted, 'html.parser')
         # Извлекаем весь текст из документа
         text = soup.get_text()
-        text_pars = text
         print('text', text)
         #input('---------------')
 
@@ -646,17 +683,14 @@ async def check_ba(service):
             print('Телеграм - закрытая группа')
             continue
 
-        if 'telegram.me' in url_answer:
-            pass
+        if 'vk.com' in url_answer:
+            await analysis_vk(service, date_create, url_answer, author, text)
 
-        elif 'vk.com' in url_answer:
-            driver = await analysis_vk(service, driver, date_create, url_answer, author, text)
-
-        if not driver:
-            driver = await get_selenium_proxy(proxy=proxy_on)
-
-    if driver:
-        driver.quit()
+    #     if not driver:
+    #         driver = await get_selenium_proxy(proxy=proxy_on)
+    #
+    # if driver:
+    #     driver.quit()
 
 async def main_ba():
     project = 'BA'
@@ -668,29 +702,14 @@ async def main_ba():
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
 async def tst_main():
-    service = await get_service()
-    url_answers = ['http://vk.com/wall-153375194_102124?reply=102142',
-                   'http://vk.com/wall-118862939_185642?reply=185644',
-                   'http://vk.com/wall-201880129_556306?reply=556383&thread=556312',
-                   'http://vk.com/wall-62873868_926596?reply=926769',
-                   'http://vk.com/wall-145977253_1902376?reply=1902413&thread=1902380',
-                   'http://vk.com/wall-59739069_113460?reply=113582',
-                   'http://vk.com/wall-20225241_983742?reply=983772&thread=983745',
-                   'http://vk.com/wall2860283_36316']
+    url_answer = 'http://vk.com/wall-58514278_86157?reply=86577'
 
-    driver = await get_selenium_proxy(proxy=False)
-    for url_answer in url_answers:
-        date_create = '123'
-        text = '1234'
-        author = '12345678'
+    text = '''Игорь, "их доходы" — наши тоже, включая скорые дивиденды! :)
+Лично я на услугах и всяких кешбеках банка совсем неплохую получаю "добавку к пенсии".'''
 
-        driver = await analysis_vk(service, driver, date_create, url_answer, author, text)
-        if not driver:
-            driver = await get_selenium_proxy(proxy=False)
+    await analysis_vk('service', 'date_create', url_answer, 'author', text)
 
-        input(url_answer)
 
-    driver.quit()
 
 if "__main__" in __name__:
      asyncio.run(main_ba())

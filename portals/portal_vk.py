@@ -1,16 +1,20 @@
 import asyncio
 import random
+import time
 from datetime import datetime, timedelta
+from pprint import pprint
 
-from markdown_it.rules_block import list_block
-from selenium.webdriver.common.by import By
+import aiohttp
+import requests
 
-from portals.portal_ya import now_month
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
 from utils.user_agent import get_playwright
 
-import os
+import base64
+import hashlib
+import os, re
+
 from dotenv import load_dotenv
 
 now = datetime.now()
@@ -27,238 +31,278 @@ max_sec = int(os.environ.get("MAX_SEC"))
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
 
-async def check_vk_sel(service, link, pattern, criteria, ss_id, project):
-    print(link)
+vk_token = os.environ.get("VK_ACCESS_TOKEN")
+client_id = os.environ.get("VK_CLIENT_ID")
 
-    links = await pars_url(service, ss_id, project)
-    driver = await get_selenium(link)
+async def extract_wall_ids(url):
+    match = re.search(r'wall-?(\d+)_(\d+)', url)  # '?' делает дефис опциональным
+    if match:
+        group_id = '-' + match.group(1)
+        post_id = match.group(2)
+        print(group_id, post_id)
+        return group_id, post_id
 
-    blocks = driver.find_elements(By.CSS_SELECTOR, 'div[id*="-"][class*="repl"][data-post-id*="-"]')
-    len_b = len(blocks)
-    print(len_b)
+    return None, None
 
-    if len_b == 0:
-        blocks = driver.find_elements(By.CSS_SELECTOR, 'div[id*="post-"][class*="bp_post clear_fix "]')
-        len_b = len(blocks)
+async def get_code():
+    # Генерация случайной строки длиной от 43 до 128 символов (code_verifier)
+    code_verifier = base64.urlsafe_b64encode(os.urandom(32)).decode('utf-8').rstrip('=')
+    print(code_verifier)
 
-    print(len_b)
-    if len_b == 0:
+    # Вычисляем SHA-256 от code_verifier
+    code_challenge = hashlib.sha256(code_verifier.encode('utf-8')).digest()
+    print(code_challenge)
+
+    # Кодируем в base64-url и убираем символы "="
+    code_challenge = base64.urlsafe_b64encode(code_challenge).decode('utf-8').rstrip('=')
+    print(code_challenge)
+
+    url = 'https://id.vk.com/authorize'
+
+    params = {'response_type': 'code',
+              'client_id': client_id,
+              'scope': 'wall',
+              'state': '123456',
+              'code_challenge': code_challenge,
+              'code_challenge_method': 's256'}
+
+    timeout = aiohttp.ClientTimeout(total=10)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        try:
+            async with session.get(url, params=params) as response:
+                print('--2--')
+                status_code = response.status
+                print(status_code)
+
+                result = await response.text()
+                print(result)
+
+                result = await response.json()
+                print(result)
+
+        except Exception as Ex:
+            print(f'Error Ex {Ex}')
+
+async def get_access_token():
+    url = 'https://id.vk.com/oauth2/auth'
+
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    params = {'grant_type': 'refresh_token',
+              'refresh_token': '',
+              'client_id': client_id,
+              'device_id': '',
+              'state': '123456'}
+
+    timeout = aiohttp.ClientTimeout(total=10)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        try:
+            async with session.post(url, headers=headers, params=params) as response:
+                print('--2--')
+                status_code = response.status
+                print(status_code)
+
+        except:
+            pass
+
+async def check_vk(url):
+    """
+        Получает все комментарии к посту на стене ВКонтакте
+        url = https://dvmn.org/encyclopedia/qna/63/kak-poluchit-token-polzovatelja-dlja-vkontakte/
+        Args:
+            owner_id (int): ID владельца стены (отрицательное число для групп)
+            post_id (int): ID поста
+            access_token (str): Токен доступа VK API
+
+        Returns:
+            list: Список комментариев
+
+        https://dev.vk.com/ru/method/wall.getComments
+        """
+
+    url_access_token = ('https://oauth.vk.com/authorize?'
+           f'client_id={client_id}&'
+           'display=page&'
+           'scope=wall&'
+           'response_type=token&'
+           'v=5.92&'
+           'state=123456')
+    print(url_access_token)
+
+    comments = []
+    offset = 0
+
+    owner_id, post_id = await extract_wall_ids(url)
+
+    access_token = 'vk1.a.gxm0PnyZFGwckK_LMXuxwpJ3Hfg5Mz33le1gjyzuV-SDhYuVCTsb1DWlLiguvzpnKxfNXGxn1AAdWEiFwjqRHCAWXM_oaoIKBrsdo8amS1p0My0y93vy-95lm2I-RYgYD4AsNJdXfMgfwzeOTa8RgGgllLJCYY9dFRPviHb-7rslVaqGlyYT0gaK858aopV0'
+
+    url = 'https://api.vk.com/method/wall.getComments'
+    # Формируем параметры запроса
+    params = {
+        'owner_id': owner_id,
+        'post_id': post_id,
+        'count': 100,
+        'offset': offset,
+        'access_token': access_token,
+        'v': '5.131',  # Версия API
+        'extended': 1,  # Получаем расширенную информацию
+        'fields': 'first_name,last_name'  # Запрашиваем имена пользователей
+    }
+
+    # Делаем запрос к API
+    #response = requests.get('https://api.vk.com/method/wall.getComments', params=params)
+    #data = response.json()
+
+
+    timeout = aiohttp.ClientTimeout(total=10)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        try:
+            async with session.get(url, params=params) as response:
+                status_code = response.status
+                print(status_code)
+                data = await response.json()
+
+        except Exception as Ex:
+            print(f'Error Ex1 {Ex}')
+            return
+
+    print('Data', data)
+
+    # Проверяем наличие ошибок
+    if 'error' in data:
+        print(f"Ошибка: {data['error']['error_msg']}")
         return
 
-    for block in blocks:
-        try:
-            date = block.find_element(By.CSS_SELECTOR, 'span[class="rel_date"]').text.split(' ')
-            print(date)
+    # Получаем информацию о комментариях
+    items = data['response']['items']
 
-        except:
-            continue
-
-        if len(date) < 3:
-            continue
-
-        day = int(date[0])
-        month = await convert_date(date[1])
-
-        if len(date) == 4:
-            year = int(datetime.now().strftime('%Y'))
-        else:
-            year = int(date[2])
-
-        target_date = datetime(year, month, day)
-        formatted_date = target_date.strftime("%d.%m.%Y")
-        print(formatted_date)
-
-        if (current_date - target_date) > timedelta(days=days_ago):
-            print(f'--- Отзыв старше {days_ago} дней = {formatted_date}.')
-            continue
-
-        url_answer = block.find_element(By.CSS_SELECTOR, 'a[class="wd_lnk"]').get_attribute('href')
-        if url_answer in links:
-            print('Такой комментарий уже есть в списке')
-            continue
-
-        print("url_answer", url_answer)
-
-        author = block.find_element(By.CSS_SELECTOR, 'a[class="author author_highlighted"]').text
-        print("author", author)
-
-        feedback = block.find_element(By.CSS_SELECTOR, 'div[class="wall_reply_text"]').text
-        print("feedback", feedback)
-
-        await generate_and_white(service=service,
-                                 url_answer=url_answer,
-                                 author=author,
-                                 formatted_date=formatted_date,
-                                 ss_id=ss_id,
-                                 project=project,
-                                 feedback=feedback,
-                                 pattern=pattern,
-                                 criteria=criteria)
-
-async def blocks_vk_play(playwright, browser, page):
-    #playwright, browser, page = await get_playwright(link)
-
-    if not page:
-        # await browser.close()
-        # await playwright.stop()
-        return None, None, None
-
-    blocks = await page.query_selector_all('div[id*="post"][class*="reply"][data-post-id*="-"]')
-    len_b = len(blocks)
-    print(len_b)
-
-    if len_b == 0:
-        blocks = await page.query_selector_all('div[id*="-"][class*="repl"][data-post-id*="-"]')
-        len_b = len(blocks)
-        print(len_b)
-
-    if len_b == 0:
-        blocks = await page.query_selector_all('div[id*="post-"][class="bp_post clear_fix "]')
-        len_b = len(blocks)
-        print(len_b)
-
-    if len_b == 0:
-        await browser.close()
-        await playwright.stop()
-        return None, None, None
-
-    return playwright, browser, blocks
-
-async def blocks_vk(driver):
-    blocks = driver.find_elements('div[id][class*="Repl"]')
-    # print(len(blocks))
-    # for block in blocks:
-    #     print('++++++++++++++++++++++++++++++++++')
-    #     print(block.get_attribute('outerHTML'))
-
-    len_blocks = len(blocks)
-    print('len_blocks:', len_blocks)
-    if len_blocks == 0:
-        driver.quit()
-        return None, None
-
-    return driver, blocks
-
-async def check_vk(service, link, pattern, criteria, ss_id, project, playwright, browser, page):
-    print(link)
-    links = await pars_url(service, ss_id, project)
-
-    playwright, browser, blocks = await blocks_vk(playwright, browser, page)
-
-    print('------------------')
-    if blocks is None:
-        if browser:
-            await browser.close()
-            await playwright.stop()
-        return 'Сайт не отдал данные'
-    print('------------------')
-
-    len_blocks = len(blocks)
-    if len_blocks == 0:
-        if browser:
-            await browser.close()
-            await playwright.stop()
+    # Если комментариев больше нет, прерываем цикл
+    if not items:
         return
 
-    for block in blocks:
-        try:
-            date_content = await block.query_selector('span[class="rel_date"]')
-            date = await date_content.inner_text()
-            print("date =", date)
-        except:
-            continue
+    # Обрабатываем каждый комментарий
+    for item in items:
+        comment = {
+            'from_id': item['from_id'],
+            'date': item['date'],
+            'text': item['text']
+        }
 
-        if 'вчера' in date:
-            day = now.date() - 1
-            month = now.month
-            year = now.year
+        # Добавляем информацию о пользователе
+        for profile in data['response']['profiles']:
+            if profile['id'] == item['from_id']:
+                comment['author_name'] = f"{profile['first_name']} {profile['last_name']}"
+                break
 
-        elif 'назад' in date:
-            day = now.date()
-            month = now.month
-            year = now.year
+        comments.append(comment)
 
-        elif 'today' in date:
-            day = now.day
-            month = now.month
-            year = now.year
-
-        else:
-            date = date.replace('\xa0', ' ')
-            date_splite = date.split(' ')
-            print("date_splite =", date_splite)
-
-            day = int(date_splite[0])
-            month = await convert_date(date_splite[1])
-
-            if now_month != month:
-                continue
-
-            if len(date_splite) == 3:
-                year = int(date_splite[-1])
-
-            elif len(date_splite) == 4:
-                year = int(datetime.now().strftime('%Y'))
-
-            elif len(date_splite) == 5:
-                year = now.year
-
-            else:
-                year = now.year
-
-        target_date = datetime(year, month, day)
-        formatted_date = target_date.strftime("%d.%m.%Y")
-        print(formatted_date)
-
-        if (current_date - target_date) > timedelta(days=days_ago):
-            print(f'--- Отзыв старше {days_ago} дней = {formatted_date}.')
-            continue
-
-        url_answer_content = await block.query_selector('a[class="wd_lnk"]')
-        url_answer = await url_answer_content.get_attribute('href')
-
-        if url_answer in links:
-            print('Такой комментарий уже есть в списке')
-            continue
-
-        print("url_answer", url_answer)
-
-        author_content = await block.query_selector('a[class="author author_highlighted"]')
-        author = await author_content.inner_text()
-        print("author", author)
-
-        feedback_content = await block.query_selector('div[class="wall_reply_text"]')
-        if not feedback_content:
-            feedback_content = await block.query_selector('div[class="wall_reply_text onclick="]')
-
-        try:
-            feedback = await feedback_content.inner_text()
-            print("feedback", feedback)
-
-        except:
-            print('Нет отзыва.')
-            continue
-
-        await generate_and_white(service=service,
-                                 url_answer=url_answer,
-                                 author=author,
-                                 formatted_date=formatted_date,
-                                 ss_id=ss_id,
-                                 project=project,
-                                 feedback=feedback,
-                                 pattern=pattern,
-                                 criteria=criteria)
-
-    if browser:
-        await browser.close()
-        await playwright.stop()
+    print(len(comments))
+    return comments
 
 async def main_vk():
     service = await get_service()
     url = 'https://vk.com/wall-11694885_373082?reply=373184'
     url = 'https://vk.com/amurr24?w=wall-72072592_6066'
-    playwright, browser, page = await get_playwright(url)
-    await check_vk(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, playwright, browser, page)
+
+    await check_vk(url)
 
 if __name__ == '__main__':
     asyncio.run(main_vk())
+
+# async def check_vk_sel(service, link, pattern, criteria, ss_id, project):
+#     print(link)
+#
+#     links = await pars_url(service, ss_id, project)
+#     driver = await get_selenium(link)
+#
+#     blocks = driver.find_elements(By.CSS_SELECTOR, 'div[id*="-"][class*="repl"][data-post-id*="-"]')
+#     len_b = len(blocks)
+#     print(len_b)
+#
+#     if len_b == 0:
+#         blocks = driver.find_elements(By.CSS_SELECTOR, 'div[id*="post-"][class*="bp_post clear_fix "]')
+#         len_b = len(blocks)
+#
+#     print(len_b)
+#     if len_b == 0:
+#         return
+#
+#     for block in blocks:
+#         try:
+#             date = block.find_element(By.CSS_SELECTOR, 'span[class="rel_date"]').text.split(' ')
+#             print(date)
+#
+#         except:
+#             continue
+#
+#         if len(date) < 3:
+#             continue
+#
+#         day = int(date[0])
+#         month = await convert_date(date[1])
+#
+#         if len(date) == 4:
+#             year = int(datetime.now().strftime('%Y'))
+#         else:
+#             year = int(date[2])
+#
+#         target_date = datetime(year, month, day)
+#         formatted_date = target_date.strftime("%d.%m.%Y")
+#         print(formatted_date)
+#
+#         if (current_date - target_date) > timedelta(days=days_ago):
+#             print(f'--- Отзыв старше {days_ago} дней = {formatted_date}.')
+#             continue
+#
+#         url_answer = block.find_element(By.CSS_SELECTOR, 'a[class="wd_lnk"]').get_attribute('href')
+#         if url_answer in links:
+#             print('Такой комментарий уже есть в списке')
+#             continue
+#
+#         print("url_answer", url_answer)
+#
+#         author = block.find_element(By.CSS_SELECTOR, 'a[class="author author_highlighted"]').text
+#         print("author", author)
+#
+#         feedback = block.find_element(By.CSS_SELECTOR, 'div[class="wall_reply_text"]').text
+#         print("feedback", feedback)
+#
+#         await generate_and_white(service=service,
+#                                  url_answer=url_answer,
+#                                  author=author,
+#                                  formatted_date=formatted_date,
+#                                  ss_id=ss_id,
+#                                  project=project,
+#                                  feedback=feedback,
+#                                  pattern=pattern,
+#                                  criteria=criteria)
+
+
+
+# async def blocks_vk_play(playwright, browser, page):
+#     #playwright, browser, page = await get_playwright(link)
+#
+#     if not page:
+#         # await browser.close()
+#         # await playwright.stop()
+#         return None, None, None
+#
+#     blocks = await page.query_selector_all('div[id*="post"][class*="reply"][data-post-id*="-"]')
+#     len_b = len(blocks)
+#     print(len_b)
+#
+#     if len_b == 0:
+#         blocks = await page.query_selector_all('div[id*="-"][class*="repl"][data-post-id*="-"]')
+#         len_b = len(blocks)
+#         print(len_b)
+#
+#     if len_b == 0:
+#         blocks = await page.query_selector_all('div[id*="post-"][class="bp_post clear_fix "]')
+#         len_b = len(blocks)
+#         print(len_b)
+#
+#     if len_b == 0:
+#         await browser.close()
+#         await playwright.stop()
+#         return None, None, None
+#
+#     return playwright, browser, blocks
