@@ -1,15 +1,9 @@
 import asyncio
-import random
-import time
 from datetime import datetime, timedelta
-from pprint import pprint
 
 import aiohttp
-import requests
 
-from utils.gs_editor import get_service, get_table_scope, pars_url
-from utils.ai_module import generate_and_white
-from utils.user_agent import get_playwright
+from utils.gs_editor import get_service
 
 import base64
 import hashlib

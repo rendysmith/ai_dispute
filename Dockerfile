@@ -31,7 +31,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Установка Playwright
-RUN playwright install --with-deps chromium
+#RUN playwright install --with-deps chromium
 
 # Копирование остальных файлов проекта
 COPY . .

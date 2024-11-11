@@ -12,7 +12,6 @@ from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
 from selenium.webdriver.common.by import By
-from sqlalchemy.dialects.postgresql.operators import CONTAINED_BY
 
 from portals.portal_vk import check_vk, extract_wall_ids
 from utils.ai_module import get_answer_ai
