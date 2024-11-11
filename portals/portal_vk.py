@@ -2,12 +2,19 @@ import asyncio
 from datetime import datetime, timedelta
 
 import aiohttp
+import requests
 
 from utils.gs_editor import get_service
 
 import base64
 import hashlib
 import os, re
+
+import os
+import requests
+from urllib.parse import urlencode, parse_qs
+from time import sleep
+
 
 from dotenv import load_dotenv
 
@@ -25,8 +32,11 @@ max_sec = int(os.environ.get("MAX_SEC"))
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
 
-vk_token = os.environ.get("VK_ACCESS_TOKEN")
+access_token = os.environ.get("VK_ACCESS_TOKEN")
 client_id = os.environ.get("VK_CLIENT_ID")
+client_secret = os.environ.get("VK_SECRET")
+redirect_uri = 'https://sidorinlab.ru'
+scope = 'wall'
 
 async def extract_wall_ids(url):
     match = re.search(r'wall-?(\d+)_(\d+)', url)  # '?' делает дефис опциональным
@@ -37,6 +47,55 @@ async def extract_wall_ids(url):
         return group_id, post_id
 
     return None, None
+
+async def get_token():
+    """
+     Получает токен доступа ВКонтакте через authorization code flow.
+
+     Args:
+         client_id (str): ID приложения ВКонтакте
+         client_secret (str): Секретный ключ приложения ВКонтакте
+         redirect_uri (str): Redirect URI, указанный в настройках приложения
+         scope (str): Запрашиваемые права доступа (через запятую)
+
+     Returns:
+         str: Токен доступа
+     """
+
+    # Шаг 1: Получаем authorization code
+    auth_url = (
+        f"https://oauth.vk.com/authorize?client_id={client_id}&"
+        f"redirect_uri={redirect_uri}&response_type=code&scope={scope}"
+    )
+
+    print(auth_url)
+
+    # Делаем GET-запрос на auth_url
+    response = requests.get(auth_url)
+
+    # Ищем URL кнопки "Разрешить" и нажимаем ее
+    allow_button_url = response.text.split('href="')[1].split('"')[0]
+    response = requests.get(allow_button_url)
+
+    # Извлекаем код авторизации из URL-параметров
+    auth_code = parse_qs(response.url.split("?")[1])['code'][0]
+
+    # Шаг 2: Обменять auth code на access token
+    token_url = "https://oauth.vk.com/access_token"
+    params = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "redirect_uri": redirect_uri,
+        "code": auth_code
+    }
+
+    response = requests.post(token_url, params=params)
+    data = response.json()
+
+    if "access_token" in data:
+        return data["access_token"]
+    else:
+        raise Exception(f"Ошибка получения токена: {data['error_description']}")
 
 async def get_code():
     # Генерация случайной строки длиной от 43 до 128 символов (code_verifier)
@@ -111,6 +170,7 @@ async def check_vk(url):
             list: Список комментариев
 
         https://dev.vk.com/ru/method/wall.getComments
+        https://vkhost.github.io/
         """
 
     url_access_token = ('https://oauth.vk.com/authorize?'
@@ -126,8 +186,6 @@ async def check_vk(url):
     offset = 0
 
     owner_id, post_id = await extract_wall_ids(url)
-
-    access_token = 'vk1.a.gxm0PnyZFGwckK_LMXuxwpJ3Hfg5Mz33le1gjyzuV-SDhYuVCTsb1DWlLiguvzpnKxfNXGxn1AAdWEiFwjqRHCAWXM_oaoIKBrsdo8amS1p0My0y93vy-95lm2I-RYgYD4AsNJdXfMgfwzeOTa8RgGgllLJCYY9dFRPviHb-7rslVaqGlyYT0gaK858aopV0'
 
     url = 'https://api.vk.com/method/wall.getComments'
     # Формируем параметры запроса
@@ -201,7 +259,9 @@ async def main_vk():
     await check_vk(url)
 
 if __name__ == '__main__':
-    asyncio.run(main_vk())
+    #asyncio.run(check_vk(''))
+    asyncio.run(get_token())
+    #asyncio.run(main_vk())
 
 # async def check_vk_sel(service, link, pattern, criteria, ss_id, project):
 #     print(link)
