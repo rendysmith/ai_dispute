@@ -187,7 +187,8 @@ async def check_vk(url):
                 comment['author_name'] = f"{profile['first_name']} {profile['last_name']}"
                 break
 
-        comments.append(comment)
+        if comment.get('author_name'):
+            comments.append(comment)
 
     print(len(comments))
     return comments

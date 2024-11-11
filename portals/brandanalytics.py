@@ -571,17 +571,20 @@ async def analysis_vk_old(service, driver, date_create, url_answer, first_author
 
 async def analysis_vk(service, date_create, url_answer, first_author, text):
     comments = await check_vk(url_answer)
-    print(comments)
+    #print(comments)
+    await asyncio.sleep(5)
 
     if not comments:
         return
 
-    trend_alife == False
+    trend_alife = False
     for comment in comments:
         date = comment['date']
         author = comment['author_name']
 
-        if (now - date) <= timedelta(days=days_ago):
+        date_ts = datetime.fromtimestamp(date)
+
+        if (now - date_ts) <= timedelta(days=days_ago):
             print('Тренд жив.')
             trend_alife = True
 
@@ -674,13 +677,13 @@ async def check_ba(service):
             print(text)
             continue
 
-        soup = await get_soup(url_answer)
-        if not soup:
-            continue
-
-        if "Message in a private group or channel" in soup:
-            print('Телеграм - закрытая группа')
-            continue
+        # soup = await get_soup(url_answer)
+        # if not soup:
+        #     continue
+        #
+        # if "Message in a private group or channel" in soup:
+        #     print('Телеграм - закрытая группа')
+        #     continue
 
         if 'vk.com' in url_answer:
             await analysis_vk(service, date_create, url_answer, author, text)
@@ -707,8 +710,6 @@ async def tst_main():
 Лично я на услугах и всяких кешбеках банка совсем неплохую получаю "добавку к пенсии".'''
 
     await analysis_vk('service', 'date_create', url_answer, 'author', text)
-
-
 
 if "__main__" in __name__:
      asyncio.run(main_ba())
