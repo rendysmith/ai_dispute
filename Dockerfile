@@ -9,15 +9,16 @@ RUN apt-get update -y && \
         wget \
         gnupg2 \
         apt-transport-https \
-        ca-certificates && \
-    # Добавление репозитория Mozilla
-    echo "deb http://deb.debian.org/debian/ bullseye main" >> /etc/apt/sources.list && \
-    echo "deb http://deb.debian.org/debian/ bullseye-updates main" >> /etc/apt/sources.list && \
-    echo "deb http://security.debian.org/debian-security bullseye-security main" >> /etc/apt/sources.list && \
+        ca-certificates \
+        xvfb \
+        xauth && \
     # Добавление репозитория Chrome
-    mkdir -p /etc/apt/sources.list.d && \
-    wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list && \
+    mkdir -p /etc/apt/keyrings && \
+    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list && \
+    # Добавление репозитория Mozilla
+    wget -q -O - https://packages.mozilla.org/apt/repo-signing-key.gpg | gpg --dearmor -o /etc/apt/keyrings/mozilla.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/mozilla.gpg] https://packages.mozilla.org/apt firefox-stable main" | tee /etc/apt/sources.list.d/mozilla.list && \
     # Обновление списков пакетов и установка браузеров
     apt-get update && \
     apt-get install -y --no-install-recommends \
