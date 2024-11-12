@@ -93,9 +93,9 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
     #page_source = driver.page_source
     #print(page_source)
     #----------------------------------------------------------------
-
-    print('Старт clicker...')
-    driver = await click_checkbox(driver)
+    #print('Старт clicker...')
+    #driver = await click_checkbox(driver)
+    #----------------------------------------------------------------
 
     if 'new=1' not in link:
         n = 0
@@ -415,7 +415,7 @@ async def tst_main():
     url = 'https://irecommend.ru/content/idealnyi-sostav-imenno-takuyu-i-iskala'
     driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
 
-    input('Wait...')
+    #input('Wait...')
 
 
 
@@ -425,5 +425,5 @@ async def tst_main():
 
 
 if "__main__" in __name__:
-    asyncio.run(tst_main())
-    #asyncio.run(main_irecommend())
+    #asyncio.run(tst_main())
+    asyncio.run(main_irecommend())
