@@ -593,7 +593,8 @@ async def analysis_vk(service, date_create, url_answer, first_author, text):
             return
 
     if trend_alife == False:
-        return 'Тренд мертв'
+        print('Тренд мертв')
+        return
 
     prompt = prompt_vk_trend_gone.format(chat_list=comments, text=text)
     #print(prompt)

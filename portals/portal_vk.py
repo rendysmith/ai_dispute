@@ -141,6 +141,9 @@ async def get_code():
             print(f'Error Ex {Ex}')
 
 async def get_access_token():
+    url_token = f'https://oauth.vk.com/authorize?client_id={client_id}&display=page&redirect_uri=https://sidorinlab.ru&scope=wall&response_type=token&v=5.131'
+
+
     url = 'https://id.vk.com/authorize'
 
     params = {'response_type': 'code',
@@ -244,7 +247,7 @@ async def check_vk(url):
             print(f'Error Ex1 {Ex}')
             return
 
-    print('Data', data)
+    #print('Data', data)
 
     # Проверяем наличие ошибок
     if 'error' in data:
