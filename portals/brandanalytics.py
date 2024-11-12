@@ -6,16 +6,14 @@ import time
 from datetime import datetime, timedelta
 
 import aiohttp
-import pandas as pd
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
 from portals.portal_vk import check_vk, extract_wall_ids
 from utils.ai_module import get_answer_ai
-from utils.constants import months
+
 from utils.gs_editor import get_service, append_data_to_sheet_scope, read_table_id, write_log_sheet
-from utils.user_agent import get_soup
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
