@@ -12,7 +12,6 @@ from requests.auth import HTTPBasicAuth
 
 from portals.portal_vk import check_vk, extract_wall_ids
 from utils.ai_module import get_answer_ai
-
 from utils.gs_editor import get_service, append_data_to_sheet_scope, read_table_id, write_log_sheet
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
