@@ -4,17 +4,14 @@ import re
 import time
 
 from datetime import datetime, timedelta
-import pandas as pd
-from bs4 import BeautifulSoup
-import requests
+
 from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
 from utils.ai_module import get_answer_ai
 from utils.constants import TABLES_LIST
 from utils.gs_editor import get_table_scope, get_service, write_log_sheet, append_data_to_sheet_cell
-
-
+from utils.central_module import get_articles
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -60,61 +57,6 @@ prompt_economy = """
 ** Соблюдайте правила Дзена, создавайте качественный и интересный контент!**
 """
 
-async def parse_read_count(text):
-    # Извлечение числа прочтений с учетом формата с запятыми и суффиксом "K"
-    match = re.search(r'(\d+(?:,\d+)?K?) прочтений?', text)
-    if match:
-        count = match.group(1).replace(',', '.')
-        if 'K' in count:
-            count = float(count.replace('K', '')) * 1000
-        return int(count)
-    return 0
-
-async def get_articles():
-    url = 'https://dzen.ru/thematics/economy?bookmark_desktop=true'
-
-    response = requests.get(url)
-    html_content = response.text
-
-    # Создаем объект BeautifulSoup
-    soup = BeautifulSoup(html_content, 'html.parser')
-
-    # Пример: получение заголовка страницы
-    title = soup.title
-    print('Заголовок страницы:', title.text.strip())
-
-    cards = soup.find_all('article', class_='desktop2--card-part-wrapper__cardPartWrapper-3S card-article')
-    print('Len cards =', len(cards))
-
-    if len(cards) == 0:
-        cards = soup.find_all('article', {"aria-label":'Карточка этажа', "data-testid":"floor-image-card"})
-        print('Len cards =', len(cards))
-
-    if len(cards) == 0:
-        cards = soup.find_all('article', {"data-testid":"floor-image-card"})
-        print('Len cards =', len(cards))
-
-    datas = []
-
-    for card in cards:
-        card_title = card.find('div', class_='desktop2--card-part-title__title-dF desktop2--card-part-title__l-1t').text
-        print(card_title)
-
-        numbers = card.find('div', class_='desktop2--meta__meta-3m').text.split('.')
-        print(numbers)
-
-        views = numbers[0]
-        int_views = await parse_read_count(views)
-        print(int_views)
-
-        datas.append([card_title, int_views])
-
-    df = pd.DataFrame(datas)
-    df = df.sort_values(by=1, ascending=False).head(3).reset_index(drop=True)
-    print(df)
-    return df
-
-
 async def ai_generate_article_economy(service, auth, project):
     now_time = datetime.now()
     current_date = now_time.strftime("%d.%m.%Y")
@@ -127,7 +69,7 @@ async def ai_generate_article_economy(service, auth, project):
     worksheet_name_2 = now_time.strftime("%b_%Y") + '_economy'
     print(worksheet_name_2)
 
-    df_aricles = await get_articles()
+    df_aricles = await get_articles('https://dzen.ru/thematics/economy')
 
     worktable_id = TABLES_LIST[project][0]
 

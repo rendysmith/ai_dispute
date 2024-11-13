@@ -1,11 +1,14 @@
 import os
 import random
+import re
 import time
 
 import asyncio
 import traceback
 
+import pandas as pd
 import requests
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 from utils.constants import TABLES_LIST
@@ -219,3 +222,58 @@ async def time_out_sel(async_func, timeout=180, **kwargs):
             driver.quit()
         print('-- Close SEL is OK!')
         return status
+
+
+async def get_articles(top_url):
+    async def parse_read_count(text):
+        # Извлечение числа прочтений с учетом формата с запятыми и суффиксом "K"
+        match = re.search(r'(\d+(?:,\d+)?K?) прочтений?', text)
+        if match:
+            count = match.group(1).replace(',', '.')
+            if 'K' in count:
+                count = float(count.replace('K', '')) * 1000
+            return int(count)
+        return 0
+
+    url = f'{top_url}?bookmark_desktop=true&tab=articles'
+
+    response = requests.get(url)
+    html_content = response.text
+
+    # Создаем объект BeautifulSoup
+    soup = BeautifulSoup(html_content, 'html.parser')
+
+    # Пример: получение заголовка страницы
+    title = soup.title
+    print('Заголовок страницы:', title.text.strip())
+
+    cards = soup.find_all('article', class_='desktop2--card-part-wrapper__cardPartWrapper-3S card-article')
+    print('Len cards =', len(cards))
+
+    if len(cards) == 0:
+        cards = soup.find_all('article', {"aria-label":'Карточка этажа', "data-testid":"floor-image-card"})
+        print('Len cards =', len(cards))
+
+    if len(cards) == 0:
+        cards = soup.find_all('article', {"data-testid":"floor-image-card"})
+        print('Len cards =', len(cards))
+
+    datas = []
+
+    for card in cards:
+        card_title = card.find('div', class_='desktop2--card-part-title__title-dF desktop2--card-part-title__l-1t').text
+        print(card_title)
+
+        numbers = card.find('div', class_='desktop2--meta__meta-3m').text.split('.')
+        print(numbers)
+
+        views = numbers[0]
+        int_views = await parse_read_count(views)
+        print(int_views)
+
+        datas.append([card_title, int_views])
+
+    df = pd.DataFrame(datas)
+    df = df.sort_values(by=1, ascending=False).head(20).reset_index(drop=True)
+    print(df)
+    return df
