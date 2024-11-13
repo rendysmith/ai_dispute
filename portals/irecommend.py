@@ -36,6 +36,63 @@ ss_id = TABLES_LIST['zoom']
 headless = False
 proxy_on = False
 
+async def clicker():
+    async def view_size(driver):
+        size = driver.get_window_size()
+        width = size['width']
+        height = size['height']
+        print(f'Size: {width}, {height}')
+
+    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+    width = 1080
+    height = 720
+    driver.set_window_size(width, height)
+    await view_size(driver)
+
+    driver.get('https://irecommend.ru/')
+    await asyncio.sleep(5)
+
+    print('--------------------------------------')
+    print(driver.page_source)
+    print('--------------------------------------')
+
+    for x in range(0, width, 10):
+        x += 1
+
+        if x == 10:
+            break
+
+        for y0 in range(0, height, 10):
+            y = height - y0 - 1
+            try:
+                scrp_contents = driver.find_elements(By.CSS_SELECTOR, 'script[src]')
+                print(len(scrp_contents))
+                for scrp_content in scrp_contents:
+                    scrp = scrp_content.get_attribute('src')
+                    print(scrp)
+
+                    if 'captcha-checker' in scrp or 'audio.js' in scrp:
+                        # JavaScript для клика по координатам
+
+                        x = 100
+                        y = 100
+                        # Выполнение клика по координатам
+                        actions = ActionChains(driver)
+                        actions.move_by_offset(x, y).click().perform()
+
+                        # Сброс позиции курсора, если потребуется дальнейшее взаимодействие
+                        actions.move_by_offset(-x, -y)
+                        print('Click OK!', x, y)
+
+            except Exception as Ex:
+                print(f'Error Ex: {Ex}')
+                print('No click', x, y)
+                input('next...')
+                continue
+
+
+    return driver
+
 async def click_checkbox(driver):
     # Получение скриншота
     screenshot = driver.get_screenshot_as_png()
@@ -243,7 +300,8 @@ async def main_irecommend():
 
     driver = None
     if proxy_active == 'Active':
-        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+        driver = await clicker()
+        input('wait...')
 
     local_ip = await get_local_ip()
     print('local_ip', local_ip)
