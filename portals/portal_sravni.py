@@ -66,6 +66,10 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
     #https://www.sravni.ru/proxy-reviews/reviews/?filterBy=all&fingerPrint=90afd98450203b85cd796220e7680745&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true
     #https://www.sravni.ru/proxy-reviews/reviews?filterBy=all&fingerPrint=90afd98450203b85cd796220e7680745&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId=5bb4f769245bc22a520a62b1&reviewObjectType=banks&specificProductId=&withVotes=true
 
+
+    #https://www.sravni.ru/proxy-reviews/reviews/?filterBy=all&fingerPrint=90afd98450203b85cd796220e7680745&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&withVotes=true
+    #https://www.sravni.ru/proxy-reviews/reviews/?filterBy=all&fingerPrint=-1&                              locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=100&rated=any&reviewObjectId=147351&reviewObjectType=&               specificProductId=&tag=&          withVotes=true
+
     pageSize = "100"
     url = (f'https://www.sravni.ru/proxy-reviews/reviews/?'
            f'filterBy=all&'
