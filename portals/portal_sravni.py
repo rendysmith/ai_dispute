@@ -71,10 +71,14 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
 
     if r.status_code == 200:
         r = r.json()
-        #print(r)
+        print('-- Json OK!')
+
     else:
         #print(r.json())
-        return f'Сайт не отдал данные {r.status_code}'
+        txt = f'-- Сайт не отдал данные {r.status_code}'
+        print(txt)
+        print(r.text)
+        return txt
 
     links = await pars_url(service, ss_id, project)
     len_b = len(r['items'])
@@ -124,7 +128,7 @@ async def main():
     service = await get_service()
     url = 'https://www.sravni.ru/strakhovaja-kompanija/sberbank-strah/otzyvy/'
     url = 'https://www.sravni.ru/strakhovaja-kompanija/sberbank-strah/otzyvy/575086/'
-    await check_sravni(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
+    await check_sravni(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 'СберСтрахование_3')
 
 if __name__ == '__main__':
     asyncio.run(main())

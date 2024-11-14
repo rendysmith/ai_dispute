@@ -6,19 +6,21 @@ from datetime import datetime, timedelta
 import asyncio
 import random
 
-import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 from selenium.common import NoSuchWindowException
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 
+
+from threading import Thread
+
 from utils.ai_module import generate_and_white
 from utils.central_module import wait_for_portal, proxy_status, get_local_ip
 from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, get_table_scope, \
     append_data_to_sheet_cell, write_log_sheet
-from utils.user_agent import extract_main_site, get_selenium_proxy, get_selenium
+from utils.user_agent import extract_main_site, get_selenium_proxy
 
 #os.environ['TERM'] = 'xterm'
 
@@ -36,111 +38,64 @@ ss_id = TABLES_LIST['zoom']
 headless = False
 proxy_on = False
 
-async def clicker():
-    async def view_size(driver):
-        size = driver.get_window_size()
-        width = size['width']
-        height = size['height']
-        print(f'Size: {width}, {height}')
+image_path = os.path.join(corn_folder, 'temp/image_to_find.png')
 
-    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-    width = 1080
-    height = 720
-    driver.set_window_size(width, height)
-    await view_size(driver)
+def clicker_pyautogui():
+    # Загрузка изображения искомого элемента
 
-    driver.get('https://irecommend.ru/')
-    await asyncio.sleep(5)
+    while True:
+        try:
+            # Поиск на экране и нажатие
+            element_location = pyautogui.locateCenterOnScreen(image_path, confidence=0.8)  # Уверенность можно менять
 
-    print('--------------------------------------')
-    print(driver.page_source)
-    print('--------------------------------------')
+            if element_location is not None:
+                pyautogui.click(element_location)
+                print("Элемент найден и нажато!")
+            else:
+                print("Элемент не найден. 1")
 
-    for x in range(0, width, 10):
-        x += 1
+        except:
+            print("Элемент не найден. 2")
 
-        if x == 10:
-            break
+        time.sleep(5)
 
-        for y0 in range(0, height, 10):
-            y = height - y0 - 1
-            try:
-                scrp_contents = driver.find_elements(By.CSS_SELECTOR, 'script[src]')
-                print(len(scrp_contents))
-                for scrp_content in scrp_contents:
-                    scrp = scrp_content.get_attribute('src')
-                    print(scrp)
+def clicker_pyscreeze():
+    import pyscreeze
+    #import pyautogui
 
-                    if 'captcha-checker' in scrp or 'audio.js' in scrp:
-                        # JavaScript для клика по координатам
+    while True:
+        try:
+            # Ищем изображение на экране
+            location = pyscreeze.locateOnScreen(image_path, confidence=0.8)
 
-                        x = 100
-                        y = 100
-                        # Выполнение клика по координатам
-                        actions = ActionChains(driver)
-                        actions.move_by_offset(x, y).click().perform()
+            if location is not None:
+                print(f"Найдено изображение в позиции: {location}")
 
-                        # Сброс позиции курсора, если потребуется дальнейшее взаимодействие
-                        actions.move_by_offset(-x, -y)
-                        print('Click OK!', x, y)
+                # Получаем центр найденного изображения
+                center_x = location.left + (location.width / 2)
+                center_y = location.top + (location.height / 2)
 
-            except Exception as Ex:
-                print(f'Error Ex: {Ex}')
-                print('No click', x, y)
-                input('next...')
-                continue
+                # Кликаем по центру
+                pyautogui.click(center_x, center_y)
+                print(f"Клик выполнен по координатам: {center_x}, {center_y}")
+                return True
+            else:
+                print("Изображение не найдено")
+                return False
+
+        except Exception as e:
+            print(f"Произошла ошибка: {e}")
+            return False
+
+        time.sleep(5)
 
 
-    return driver
 
-async def click_checkbox(driver):
-    # Получение скриншота
-    screenshot = driver.get_screenshot_as_png()
-    screenshot_image = cv2.imdecode(np.frombuffer(screenshot, np.uint8), cv2.IMREAD_COLOR)
 
-    number_file = int(time.time())
 
-    temp_path = os.path.join(corn_folder, 'temp')
-    if not os.path.exists(temp_path):
-        os.makedirs(temp_path)
-        print(f"+++ Папка <{temp_path}> создана.")
-    else:
-        print(f"+++ Папка <{temp_path}> уже существует.")
 
-    file_link = os.path.join(temp_path, "image_to_find.png")
-    # driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    # driver.save_screenshot(file_link)
 
-    template = cv2.imread(file_link)  # Укажите путь к изображению, которое ищем
 
-    # Поиск изображения на скриншоте
-    result = cv2.matchTemplate(screenshot_image, template, cv2.TM_CCOEFF_NORMED)
-    threshold = 0.8
-    yloc, xloc = np.where(result >= threshold)
-    print(yloc, xloc)
-
-    # Если изображение найдено, кликаем по нему
-    if len(yloc) > 0 and len(xloc) > 0:
-        # Берем координаты первого совпадения
-        # Добавляем половину ширины и высоты шаблона, чтобы кликнуть в центр
-        template_height, template_width = template.shape[:2]
-        click_x = xloc[0] + template_width // 2
-        click_y = yloc[0] + template_height // 2
-
-        # Создаем объект ActionChains
-        actions = ActionChains(driver)
-
-        # Перемещаем курсор и кликаем
-        actions.move_by_offset(click_x, click_y).click().perform()
-
-        # Возвращаем курсор в начальное положение
-        actions.move_by_offset(-click_x, -click_y).perform()
-
-        print(f"Выполнен клик по координатам x={click_x}, y={click_y}")
-    else:
-        print("Элемент не найден на странице")
-
-    return driver
 
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
@@ -295,13 +250,15 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
     return 'OK!'
 
 async def main_irecommend():
+    th = Thread(target=clicker_pyscreeze, args=())
+    th.start()
+
     proxy_active = await proxy_status()
     print(f'+ Proxy status: {proxy_active}')
 
     driver = None
     if proxy_active == 'Active':
-        driver = await clicker()
-        input('wait...')
+        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
     local_ip = await get_local_ip()
     print('local_ip', local_ip)
@@ -485,3 +442,64 @@ async def tst_main():
 if "__main__" in __name__:
     #asyncio.run(tst_main())
     asyncio.run(main_irecommend())
+
+
+
+
+
+
+
+
+
+
+
+
+
+# async def click_checkbox(driver):
+#     # Получение скриншота
+#     screenshot = driver.get_screenshot_as_png()
+#     screenshot_image = cv2.imdecode(np.frombuffer(screenshot, np.uint8), cv2.IMREAD_COLOR)
+#
+#     number_file = int(time.time())
+#
+#     temp_path = os.path.join(corn_folder, 'temp')
+#     if not os.path.exists(temp_path):
+#         os.makedirs(temp_path)
+#         print(f"+++ Папка <{temp_path}> создана.")
+#     else:
+#         print(f"+++ Папка <{temp_path}> уже существует.")
+#
+#     file_link = os.path.join(temp_path, "image_to_find.png")
+#     # driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+#     # driver.save_screenshot(file_link)
+#
+#     template = cv2.imread(file_link)  # Укажите путь к изображению, которое ищем
+#
+#     # Поиск изображения на скриншоте
+#     result = cv2.matchTemplate(screenshot_image, template, cv2.TM_CCOEFF_NORMED)
+#     threshold = 0.8
+#     yloc, xloc = np.where(result >= threshold)
+#     print(yloc, xloc)
+#
+#     # Если изображение найдено, кликаем по нему
+#     if len(yloc) > 0 and len(xloc) > 0:
+#         # Берем координаты первого совпадения
+#         # Добавляем половину ширины и высоты шаблона, чтобы кликнуть в центр
+#         template_height, template_width = template.shape[:2]
+#         click_x = xloc[0] + template_width // 2
+#         click_y = yloc[0] + template_height // 2
+#
+#         # Создаем объект ActionChains
+#         actions = ActionChains(driver)
+#
+#         # Перемещаем курсор и кликаем
+#         actions.move_by_offset(click_x, click_y).click().perform()
+#
+#         # Возвращаем курсор в начальное положение
+#         actions.move_by_offset(-click_x, -click_y).perform()
+#
+#         print(f"Выполнен клик по координатам x={click_x}, y={click_y}")
+#     else:
+#         print("Элемент не найден на странице")
+#
+#     return driver
