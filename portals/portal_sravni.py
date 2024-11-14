@@ -127,9 +127,6 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
-
-
-
 async def main():
     from utils.gs_editor import get_service
     service = await get_service()
