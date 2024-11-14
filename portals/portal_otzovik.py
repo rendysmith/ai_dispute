@@ -286,11 +286,11 @@ async def main_otzovik():
                 await append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2,
                                                 f'Proxy {proxy_active}')
 
-            # #Пропуск по дате
-            # date_logs = df_logs.loc[idx_logs, 'date']
-            # if date_logs == current_date:
-            #     #print()
-            #     continue
+            #Пропуск по дате
+            date_logs = df_logs.loc[idx_logs, 'date']
+            if date_logs == current_date:
+                #print()
+                continue
         #
         #     #Пропуск по IP
         #     host_logs = df_logs.loc[idx_logs, 'reserve']
