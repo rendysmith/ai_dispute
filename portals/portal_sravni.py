@@ -64,21 +64,23 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
            f'reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true')
 
     print(url)
-    #r = await get_data_with_proxy(url, text_format=False)
-    #print(r)
+    r = await get_data_with_proxy(url)
+    if not r:
+        print('Error Sravni')
+        return
 
-    r = requests.get(url)
 
-    if r.status_code == 200:
-        r = r.json()
-        print('-- Json OK!')
-
-    else:
-        #print(r.json())
-        txt = f'-- Сайт не отдал данные {r.status_code}'
-        print(txt)
-        print(r.text)
-        return txt
+    #r = requests.get(url)
+    # if r.status_code == 200:
+    #     r = r.json()
+    #     print('-- Json OK!')
+    #
+    # else:
+    #     #print(r.json())
+    #     txt = f'-- Сайт не отдал данные {r.status_code}'
+    #     print(txt)
+    #     await asyncio.sleep(10)
+    #     return txt
 
     links = await pars_url(service, ss_id, project)
     len_b = len(r['items'])
@@ -121,6 +123,8 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
                                  feedback=feedback,
                                  pattern=pattern,
                                  criteria=criteria)
+
+
 
 
 async def main():
