@@ -382,7 +382,7 @@ async def main_irecommend():
         for idx, link in enumerate(df_link_list):
             left = len_df - df_link_list.index(link)
             print(
-                f'\n*************************{idx}*({left})*{project}**************************\n----------------- {link} ----------------')
+                f'\n*************************{idx}*({left})*{project}*************************\n----------------- {link} ----------------')
 
             if 'irecommend' in link:
                 record = True
