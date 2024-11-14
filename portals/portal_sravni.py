@@ -3,6 +3,7 @@ import base64
 import os
 import zlib
 from datetime import datetime, timedelta
+from pprint import pprint
 
 import requests
 from dotenv import load_dotenv
@@ -13,7 +14,7 @@ from utils.ai_module import generate_and_white
 from utils.compressor import compress_string
 from utils.converter import extract_company_name
 from utils.gs_editor import get_table_scope, append_data_to_sheet_scope, pars_url
-from utils.user_agent import get_data_with_proxy
+from utils.user_agent import get_data_with_proxy, get_data_without_proxy
 
 current_date = datetime.now()
 
@@ -64,23 +65,17 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
            f'reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true')
 
     print(url)
-    r = await get_data_with_proxy(url)
+    # r = await get_data_with_proxy(url)
+    # if not r:
+    #     print('Error Sravni')
+    #     return
+
+    r = await get_data_without_proxy(url, text_format=False)
     if not r:
         print('Error Sravni')
         return
 
-
-    #r = requests.get(url)
-    # if r.status_code == 200:
-    #     r = r.json()
-    #     print('-- Json OK!')
-    #
-    # else:
-    #     #print(r.json())
-    #     txt = f'-- Сайт не отдал данные {r.status_code}'
-    #     print(txt)
-    #     await asyncio.sleep(10)
-    #     return txt
+    #pprint(r)
 
     links = await pars_url(service, ss_id, project)
     len_b = len(r['items'])
