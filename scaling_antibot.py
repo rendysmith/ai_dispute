@@ -16,7 +16,7 @@ from utils.gs_editor import get_service, get_table_scope, write_log_sheet
 from utils.user_agent import get_selenium_proxy
 
 from portals.portal_otzovik import check_otzovik
-from portals.irecommend import check_irecommend
+from portals.irecommend_sync import check_irecommend
 from portals.portal_ya import check_ya
 
 current_date = datetime.now()
