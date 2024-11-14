@@ -121,8 +121,6 @@ async def async_find_and_click():
         # Выполняем синхронную функцию в отдельном потоке
     return await asyncio.to_thread(sync_find_and_click)
 
-
-
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
     driver.get(link)
@@ -279,14 +277,14 @@ async def main_irecommend():
     # th = Thread(target=async_find_and_click, args=())
     # th.start()
 
-    asyncio.create_task(async_find_and_click())
-
     proxy_active = await proxy_status()
     print(f'+ Proxy status: {proxy_active}')
 
     driver = None
     if proxy_active == 'Active':
         driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+        #asyncio.create_task(async_find_and_click())
+        find_and_click_task = asyncio.create_task(async_find_and_click())
 
     local_ip = await get_local_ip()
     print('local_ip', local_ip)
@@ -409,8 +407,16 @@ async def main_irecommend():
                                        driver=driver)
 
                 if not status:
+                    find_and_click_task.cancel()
+
+                    try:
+                        await find_and_click_task
+                    except asyncio.CancelledError:
+                        print("Background task cancelled")
+
                     driver.quit()
                     driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+                    find_and_click_task = asyncio.create_task(async_find_and_click())
 
         if record:
             finish_sec = time.time() - start_time
