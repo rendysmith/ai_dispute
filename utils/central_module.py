@@ -223,7 +223,6 @@ async def time_out_sel(async_func, timeout=180, **kwargs):
         print('-- Close SEL is OK!')
         return status
 
-
 async def get_articles(top_url):
     async def parse_read_count(text):
         # Извлечение числа прочтений с учетом формата с запятыми и суффиксом "K"

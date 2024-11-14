@@ -11,6 +11,7 @@ from pandas import pivot
 from pandas.io.stata import excessive_string_length_error
 
 from utils.ai_module import generate_and_white
+from utils.central_module import get_local_ip
 from utils.compressor import compress_string
 from utils.converter import extract_company_name
 from utils.gs_editor import get_table_scope, append_data_to_sheet_scope, pars_url
@@ -61,21 +62,28 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
            f'orderBy=byDate&'
            f'pageIndex=0&'
            f'pageSize={pageSize}&'
-           f'rated=any&reviewObjectId={reviewObjectId}&'
-           f'reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true')
+           f'rated=any&'
+           f'reviewObjectId={reviewObjectId}&'
+           f'reviewObjectType=insuranceCompany&'
+           f'specificProductId=&'
+           f'tag=&'
+           f'withVotes=true')
 
-    print(url)
-    r = await get_data_with_proxy(url, text_format=False)
-    if not r:
-        print('Error Sravni')
-        return
+    print('Url:', url)
 
-    # r = await get_data_without_proxy(url, text_format=False)
-    # if not r:
-    #     print('Error Sravni')
-    #     return
+    local_ip = await get_local_ip()
 
-    #pprint(r)
+    if '176.124.192' in local_ip:
+        r = await get_data_with_proxy(url, text_format=False)
+        if not r:
+            print('Error Sravni')
+            return
+
+    else:
+        r = await get_data_without_proxy(url, text_format=False)
+        if not r:
+            print('Error Sravni')
+            return
 
     links = await pars_url(service, ss_id, project)
     len_b = len(r['items'])
