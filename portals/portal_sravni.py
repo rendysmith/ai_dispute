@@ -65,15 +65,15 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
            f'reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true')
 
     print(url)
-    # r = await get_data_with_proxy(url)
-    # if not r:
-    #     print('Error Sravni')
-    #     return
-
-    r = await get_data_without_proxy(url, text_format=False)
+    r = await get_data_with_proxy(url, text_format=False)
     if not r:
         print('Error Sravni')
         return
+
+    # r = await get_data_without_proxy(url, text_format=False)
+    # if not r:
+    #     print('Error Sravni')
+    #     return
 
     #pprint(r)
 
