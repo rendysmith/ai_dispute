@@ -1,28 +1,35 @@
 import asyncio
 import base64
 import os
+import random
+import time
 import zlib
 from datetime import datetime, timedelta
 from pprint import pprint
 
+import pandas as pd
 import requests
 from dotenv import load_dotenv
-from pandas import pivot
-from pandas.io.stata import excessive_string_length_error
 
 from utils.ai_module import generate_and_white
-from utils.central_module import get_local_ip
+from utils.central_module import get_local_ip, proxy_status
 from utils.compressor import compress_string
+from utils.constants import TABLES_LIST
 from utils.converter import extract_company_name
-from utils.gs_editor import get_table_scope, append_data_to_sheet_scope, pars_url
+from utils.gs_editor import get_table_scope, append_data_to_sheet_scope, pars_url, get_service, \
+    append_data_to_sheet_cell, write_log_sheet
 from utils.user_agent import get_data_with_proxy, get_data_without_proxy
 
 current_date = datetime.now()
+
+record_date = current_date.strftime("%d.%m.%Y")
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
+
+ss_id = TABLES_LIST['zoom']
 
 seven_days_ago = current_date - timedelta(days=days_ago)
 formatted_7date = seven_days_ago.strftime('%Y-%m-%d')
@@ -127,12 +134,150 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
-async def main():
-    from utils.gs_editor import get_service
+async def main_sravni():
+    proxy_active = await proxy_status()
+    print(f'Proxy status: {proxy_active}')
+
+    local_ip = await get_local_ip()
+    print('local_ip', local_ip)
+
     service = await get_service()
-    url = 'https://www.sravni.ru/strakhovaja-kompanija/sberbank-strah/otzyvy/'
-    url = 'https://www.sravni.ru/strakhovaja-kompanija/sberbank-strah/otzyvy/575086/'
-    await check_sravni(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 'СберСтрахование_3')
+    df = await get_table_scope(service, ss_id, 'zoom')
+    #print(df)
+    idx_num_row = df.index[df['Проект'] == 'Кол-во строк'].tolist()[0]
+    print(idx_num_row)
+    df_counts = pd.Series(df.iloc[idx_num_row].values, index=df.columns).reset_index()
+    df_counts[0] = pd.to_numeric(df_counts[0], errors='coerce')
+    # Удаляем строки с NaN значениями в указанной колонке
+    df_counts = df_counts.dropna(subset=[0])
+    df_counts = df_counts.sort_values(by=0)
+    #print(df_counts)
+
+    list_ = df_counts['index'].to_list()
+    print(list_)
+    #random.shuffle(list_)
+
+    df_uniq = await get_table_scope(service, ss_id, 'unique_url')
+
+    df_logs = await get_table_scope(service, ss_id, 'logs')
+    print(df_logs)
+
+    for project in list_:
+        if 'Проект' in project:
+            continue
+
+        #Если дата не совпадает с сегодняшней
+        host_logs = ''
+        project_sravni = f'sravni_{project}'
+        filtered_logs = df_logs[df_logs['service_name'] == project_sravni]
+        if not filtered_logs.empty:
+            idx_logs = filtered_logs.index[0]
+
+            if proxy_active != 'Active':
+                await append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2, f'Proxy {proxy_active}')
+                break
+
+            else:
+                await append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2,
+                                                f'Proxy {proxy_active}')
+
+            #Пропуск по дате
+            date_logs = df_logs.loc[idx_logs, 'date']
+            if date_logs == current_date:
+                #print()
+                continue
+        #
+        #     #Пропуск по IP
+        #     host_logs = df_logs.loc[idx_logs, 'reserve']
+        #     if host_logs != local_ip:
+        #         print('Skip:', host_logs, local_ip)
+        #         continue
+        #
+        # else:
+        #     print(f"No logs found for service: {project}")
+
+        df_mini = df[project]
+        #print(len(df_mini))
+
+        df_mini_pattern = df_mini[df_mini.str.contains('Пример реакции', na=False)]
+        df_mini_criteria = df_mini[df_mini.str.contains('Особые критерии', na=False)]
+
+        # Filter rows that contain 'http://'
+        df_mini = df_mini[df_mini.str.contains('http', na=False)]
+
+        # Remove duplicates
+        # Удаляем дубликаты
+        df_mini = df_mini.drop_duplicates().reset_index()
+
+        df_link_list = df_mini[project].to_list()
+        irec_link = [i for i in df_link_list if 'sravni' in i]
+        len_irec = len(irec_link)
+        if len_irec == 0:
+            print(f'{project} next...')
+            continue
+
+        print(f'+++++++++++ {project} Irec link = {len_irec} ++++++++++++++')
+
+        random.shuffle(df_link_list)
+
+        len_df = len(df_link_list)
+        print(f'\n========================= Project = {project} = Len ({len_df})==============================')
+
+        start_time = time.time()
+        list_links = []
+
+        record = False
+        for idx, link in enumerate(df_link_list):
+            left = len_df - df_link_list.index(link)
+            print(
+                f'\n*************************{idx}*({left})*{project}**************************\n----------------- {link} ----------------')
+
+            if 'sravni.ru' in link:
+                record = True
+                top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
+
+                if not top_df.empty:
+                    print('Есть общая ссылка на статью')
+                    link = top_df.loc[0, 'top_url']
+
+                if link in list_links:
+                    print('Ссылка уже проверена.')
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                pattern = r'https://www\.sravni\.ru/(.*?)/otzyvy/'
+                link_company = await extract_company_name(pattern, link)
+
+                if not link_company:
+                    continue
+
+                link = f"https://www.sravni.ru/{link_company}/otzyvy/"
+
+                if link in list_links:
+                    print('Ссылка уже проверена.')
+                    continue
+
+                else:
+                    list_links.append(link)
+
+                await check_sravni(service=service,
+                                  link=link,
+                                  pattern=df_mini_pattern,
+                                  criteria=df_mini_criteria,
+                                  ss_id=ss_id,
+                                  project=project)
+
+        if record:
+            finish_sec = time.time() - start_time
+            datas = {'service_name': project_sravni,
+                    'count': len_irec,
+                    'date': record_date,
+                    'time': finish_sec}
+
+            print('datas', datas)
+            await write_log_sheet(service, ss_id, 'logs', datas)
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(main_sravni())

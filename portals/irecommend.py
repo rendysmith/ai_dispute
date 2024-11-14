@@ -3,26 +3,33 @@ import textwrap
 import time
 from datetime import datetime, timedelta
 
-import asyncio
 import random
+import re
 
 import pandas as pd
+
 from dotenv import load_dotenv
 from selenium.common import NoSuchWindowException
-from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 from threading import Thread
 
-from utils.ai_module import generate_and_white
-from utils.central_module import wait_for_portal, proxy_status, get_local_ip
+from utils.ai_module import generate_and_white_sync
+from utils.central_module import proxy_status_sync, get_local_ip_sync
 from utils.constants import TABLES_LIST
-from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, get_table_scope, \
-    append_data_to_sheet_cell, write_log_sheet
-from utils.user_agent import extract_main_site, get_selenium_proxy
+from utils.user_agent import get_selenium_proxy_sync
 
 #os.environ['TERM'] = 'xterm'
+
+value_input_option = 'USER_ENTERED'
+
+abspath = os.path.dirname(os.path.abspath(__file__))
+path_to_credentials = f"{abspath}/service_account.json"
+print(path_to_credentials)
 
 current_date = datetime.now()
 record_date = current_date.strftime("%d.%m.%Y")
@@ -39,6 +46,227 @@ headless = False
 proxy_on = False
 
 image_path = os.path.join(corn_folder, 'temp/image_to_find.png')
+
+def extract_main_site(url):
+    match = re.match(r'(https?://[^/]+)', url)
+    return match.group(0) if match else None
+
+def get_service():
+    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+    SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
+    credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    service = build('sheets', 'v4', credentials=credentials) #.spreadsheets().values()
+    return service
+
+def get_table_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
+    """
+    :param service:
+    :param SAMPLE_SPREADSHEET_ID:
+    :param SAMPLE_RANGE_NAME:
+    :return:
+    """
+
+    # Retrieve values from the spreadsheet
+    service = service.spreadsheets().values()
+    result = service.get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=SAMPLE_RANGE_NAME).execute()
+    values = result.get('values', [])
+    #print(values)
+
+    if not values:
+        raise ValueError("No data found in the specified range.")
+
+    #df = pd.DataFrame(values[1:], columns=values[0])  # Assuming headers in the first row
+    #print(df)
+
+    n = 0
+    VE = None
+
+    while n <= 10:
+        try:
+            # Create a pandas DataFrame from the retrieved values
+            df = pd.DataFrame(values[1:], columns=values[0])  # Assuming headers in the first row
+            #print(df)
+            return df
+
+        except ValueError as VE:
+            print('Get_table_scope ValueError VE:', VE)
+
+            for idx, row in enumerate(values):
+                row_0 = values[0]
+                if len(row_0) < len(row):
+                    rz_0 = abs(len(row) - len(row_0))
+                    for i in range(rz_0):
+                        numb = int(time.time())
+                        values[0].append(f'New_Col_{numb}')
+                    break
+
+                elif len(row_0) > len(row):
+                    rz_1 = abs(len(row) - len(row_0))
+                    for i in range(rz_1):
+                        row.append(None)
+
+            time.sleep(5)
+            n += 1
+
+    return str(VE) if VE else "Unknown Error"
+
+def pars_url(service, SS_ID, R_N):
+    try:
+        df = get_table_scope(service, SS_ID, R_N)
+        links = df['Link'].to_list()
+    except:
+        links = []
+    return links
+
+def create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
+    # Проверяем существование вкладки
+    try:
+        response = service.spreadsheets().get(spreadsheetId=SAMPLE_SPREADSHEET_ID).execute()
+        sheet_exists = any(sheet['properties']['title'] == SAMPLE_RANGE_NAME for sheet in response['sheets'])
+    except HttpError as e:
+        print(f"An error occurred: {e}")
+        return
+
+    # Если вкладка не существует, создаем её
+    if not sheet_exists:
+        batch_update_body = {
+            'requests': [{
+                'addSheet': {
+                    'properties': {
+                        'title': SAMPLE_RANGE_NAME
+                    }
+                }
+            }]
+        }
+        try:
+            service.spreadsheets().batchUpdate(spreadsheetId=SAMPLE_SPREADSHEET_ID, body=batch_update_body).execute()
+        except HttpError as e:
+            print(f"An error occurred while creating the sheet: {e}")
+            return
+
+def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, data):
+    create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME)
+
+    # Получаем текущие заголовки колонок
+    result = service.spreadsheets().values().get(
+        spreadsheetId=SAMPLE_SPREADSHEET_ID,
+        range=SAMPLE_RANGE_NAME
+    ).execute()
+
+    current_columns = result.get('values', [])[0] if result.get('values', []) else []
+    col_now = current_columns.copy()
+
+    # Проверяем наличие всех ожидаемых колонок в текущих заголовках
+    expected_columns = [k for k, v in data.items()]
+    for column_name in expected_columns:
+        if column_name not in current_columns:
+            # Если колонка отсутствует, добавляем её в таблицу
+            #print(column_name)
+            current_columns.append(column_name)
+
+    # Подготовка данных для записи
+    values = []
+    for column_name in current_columns:
+        values.append(data.get(column_name, ''))  # Получаем значение из словаря или пустую строку, если ключ отсутствует
+
+    # Запись данных в таблицу
+    body = {
+        'values': [values]
+    }
+
+    #input()
+    if col_now != expected_columns:
+        values_2 = []
+        for k, v in enumerate(col_now):
+            if v not in expected_columns:
+                values_2.append('')
+
+            else:
+                values_2.append(values[k])
+
+        if all(element == '' for element in values_2):
+            body['values'].insert(0, expected_columns)
+
+    result = service.spreadsheets().values().append(
+        spreadsheetId=SAMPLE_SPREADSHEET_ID,
+        range=SAMPLE_RANGE_NAME,
+        valueInputOption=value_input_option,
+        insertDataOption='INSERT_ROWS',  # Вставляем данные в новые строки
+        body=body
+    ).execute()
+
+    print('GS: {0} cells appended.'.format(result.get('updates').get('updatedCells')))
+    return 'OK!'
+
+def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_name, row_number, data: str):
+    try:
+        # Получение заголовков таблицы
+        header_range = f"{worksheet_name}!1:1"
+        header_result = service.spreadsheets().values().get(spreadsheetId=sheet_id, range=header_range).execute()
+        headers = header_result.get('values', [])[0]
+
+        # Поиск индекса нужного столбца
+        column_index = headers.index(column_name)
+        column_letter = chr(65 + column_index)  # Преобразование индекса в букву (A, B, C и т.д.)
+
+        range_name = f"{worksheet_name}!{column_letter}{row_number}"
+
+        value_range_body = {
+            'values': [[data]]  # Обернем данные в список для корректной передачи
+        }
+
+        # Выполнение запроса на обновление
+        request = service.spreadsheets().values().update(
+            spreadsheetId=sheet_id,
+            range=range_name,
+            valueInputOption=value_input_option,    #Было RAW
+            body=value_range_body
+        )
+        response = request.execute()  # Асинхронный вызов
+        return response
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
+def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_names: list, row_number, datas: list):
+    # Получение заголовков таблицы
+    header_range = f"{worksheet_name}!1:1"
+    header_result = service.spreadsheets().values().get(spreadsheetId=sheet_id, range=header_range).execute()
+    headers = header_result.get('values', [])[0]
+
+    column_index = headers.index(column_names[0])
+    column_letter = chr(65 + column_index)  # Преобразование индекса в букву (A, B, C и т.д.)
+
+    values = [datas]
+
+    body = {
+        'values': values
+    }
+
+    range_name = f"{worksheet_name}!{column_letter}{row_number}"
+
+    service.spreadsheets().values().update(
+        spreadsheetId=sheet_id, range=range_name,
+        valueInputOption=value_input_option, body=body
+    ).execute()
+
+def write_log_sheet(service, sheet_id, worksheet_name, datas):
+    df = get_table_scope(service, sheet_id, worksheet_name)
+    service_name = datas['service_name']
+    index = df.index[df['service_name'] == service_name].tolist()
+    print(index)
+
+    if index == []:
+        print('Logs: Не найден элемент вводим на новую строку')
+        append_data_to_sheet_scope(service, sheet_id, worksheet_name, datas)
+
+    else:
+        print(f'Logs: {service_name} - есть в таблице, изменяем дату')
+        idx = index[0] + 2
+        columns = list(datas.keys())
+        values = list(datas.values())
+        append_data_to_sheet_cells(service, sheet_id, worksheet_name, columns, idx, values)
 
 def clicker_pyautogui():
     # Загрузка изображения искомого элемента
@@ -89,19 +317,13 @@ def clicker_pyscreeze():
 
         time.sleep(5)
 
-
-
-
-
-
-
-
-
-async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
+def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
     driver.get(link)
 
-    await wait_for_portal() #Время ожидания
+    ts = random.randint(5, max_sec)
+    print(f'Wait {ts} sec...')
+    time.sleep(ts) #Время ожидания
     #page_source = driver.page_source
     #print(page_source)
     #----------------------------------------------------------------
@@ -128,7 +350,6 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
                     print('- 1.2 Top url', top_url)
                     break
 
-
             except Exception as Ex1:
                 try:
                     #traceback.print_exc()
@@ -152,7 +373,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
             except:
                 print(f'--- driver refresh')
                 driver.refresh()
-                await asyncio.sleep(5)
+                time.sleep(5)
                 n += 1
 
                 if n == 10:
@@ -163,11 +384,13 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
                  'top_url': top_url}
 
         #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+        append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
         print('-- Record TOP link')
 
         driver.get(top_url)
-        await wait_for_portal()  # Время ожидания
+        ts = random.randint(5, max_sec)
+        print(f'Wait {ts} sec...')
+        time.sleep(ts)  #Время ожидания # Время ожидания
 
     else:
         print('- Это уже TOP страница.')
@@ -189,15 +412,15 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
 
         except:
             #driver.refresh()
-            await asyncio.sleep(5)
+            time.sleep(5)
             n += 1
 
     if len_b == 0:
         print('Len_b =', len_b)
         return
 
-    links = await pars_url(service, ss_id, project)
-    domen = await extract_main_site(link)
+    links = pars_url(service, ss_id, project)
+    domen = extract_main_site(link)
 
     for block in blocks:
         print('****************************')
@@ -237,7 +460,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
 
         formatted_date = date
 
-        await generate_and_white(service=service,
+        generate_and_white_sync(service=service,
                                  url_answer=url_answer,
                                  author=author,
                                  formatted_date=formatted_date,
@@ -249,22 +472,22 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
 
     return 'OK!'
 
-async def main_irecommend():
-    th = Thread(target=clicker_pyscreeze, args=())
-    th.start()
+def main_irecommend():
+    # th = Thread(target=clicker_pyscreeze, args=())
+    # th.start()
 
-    proxy_active = await proxy_status()
+    proxy_active = proxy_status_sync()
     print(f'+ Proxy status: {proxy_active}')
 
     driver = None
     if proxy_active == 'Active':
-        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+        driver = get_selenium_proxy_sync(headless=headless, proxy=proxy_on)
 
-    local_ip = await get_local_ip()
+    local_ip = get_local_ip_sync()
     print('local_ip', local_ip)
 
-    service = await get_service()
-    df = await get_table_scope(service, ss_id, 'zoom')
+    service = get_service()
+    df = get_table_scope(service, ss_id, 'zoom')
     #print(df)
     idx_num_row = df.index[df['Проект'] == 'Кол-во строк'].tolist()[0]
     print(idx_num_row)
@@ -279,9 +502,9 @@ async def main_irecommend():
     print(list_)
     #random.shuffle(list_)
 
-    df_uniq = await get_table_scope(service, ss_id, 'unique_url')
+    df_uniq = get_table_scope(service, ss_id, 'unique_url')
 
-    df_logs = await get_table_scope(service, ss_id, 'logs')
+    df_logs = get_table_scope(service, ss_id, 'logs')
     print(df_logs)
 
     for project in list_:
@@ -296,11 +519,11 @@ async def main_irecommend():
             idx_logs = filtered_logs.index[0]
 
             if proxy_active != 'Active':
-                await append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2, f'Proxy {proxy_active}')
+                append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2, f'Proxy {proxy_active}')
                 break
 
             else:
-                await append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2,
+                append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2,
                                                 f'Proxy {proxy_active}')
 
             #Пропуск по дате
@@ -372,7 +595,7 @@ async def main_irecommend():
                 else:
                     list_links.append(link)
 
-                status = await check_irecommend(service=service,
+                status = check_irecommend(service=service,
                                        link=link,
                                        pattern=df_mini_pattern,
                                        criteria=df_mini_criteria,
@@ -382,7 +605,7 @@ async def main_irecommend():
 
                 if not status:
                     driver.quit()
-                    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+                    driver = get_selenium_proxy_sync(headless=headless, proxy=proxy_on)
 
         if record:
             finish_sec = time.time() - start_time
@@ -392,56 +615,13 @@ async def main_irecommend():
                     'time': finish_sec}
 
             print('datas', datas)
-            await write_log_sheet(service, ss_id, 'logs', datas)
+            write_log_sheet(service, ss_id, 'logs', datas)
 
     if driver:
         driver.quit()
 
-async def tst_main():
-    # from selenium import webdriver
-    # from selenium.webdriver.chrome.options import Options
-    #
-    # print('- >>> Selenium No Proxy...')
-    # chrome_options = Options()
-    #
-    # #chrome_options.add_argument("--headless")
-    # chrome_options.add_argument("--no-sandbox")
-    # chrome_options.add_argument("--disable-dev-shm-usage")
-    # chrome_options.add_argument('--disable-web-security')
-    # chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-    # chrome_options.add_argument("--remote-debugging-port=9222")
-    #
-    # chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
-    #
-    # # Инициализация драйвера
-    # driver = webdriver.Chrome(options=chrome_options)
-    # url = 'https://irecommend.ru/content/idealnyi-sostav-imenno-takuyu-i-iskala'
-    # driver.get(url)
-    #
-    # print(driver.page_source)
-    # input('Wait...')
-
-
-
-
-
-    url = 'https://irecommend.ru/content/lechenie-v-turtsii-v-odnoi-iz-luchshikh-klinik-v-kotorykh-ya-kogda-libo-byla-tak-zhe-strakho'
-    url = 'https://irecommend.ru/content/strakhovka-rabotaet'
-    url = 'https://irecommend.ru/content/idealnyi-sostav-imenno-takuyu-i-iskala'
-    driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
-
-    #input('Wait...')
-
-
-
-
-
-    #await check_irecommend(1, url, 1, 1, 1, 1, driver)
-
-
 if "__main__" in __name__:
-    #asyncio.run(tst_main())
-    asyncio.run(main_irecommend())
+    main_irecommend()
 
 
 

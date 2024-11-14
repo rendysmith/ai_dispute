@@ -14,7 +14,6 @@ import re
 
 from fake_useragent import UserAgent
 
-
 import os
 from dotenv import load_dotenv
 
@@ -261,6 +260,7 @@ async def get_selenium_proxy_old(url=None, headless=True, proxy=True):
         print('<<< Selenium connect')
         return driver
 
+
 async def get_selenium_proxy(url=None, headless=True, proxy=True):
         driver_options = {
             'uc': True,
@@ -451,6 +451,34 @@ async def main(url):
     input('Wait..')
 
 
+def get_selenium_proxy_sync(url=None, headless=True, proxy=True):
+        driver_options = {
+            'uc': True,
+            'headless': headless,
+            'headless1': headless,
+            'headless2': headless,
+            'agent': ua.chrome,
+            'log_cdp_events': True
+        }
+
+        if proxy:
+            print('>>> Selenium PROXY...')
+            proxy_host, proxy_port = asyncio.run(get_one_proxy())
+            print(f'Proxy: {proxy_host}:{proxy_port}')
+            proxy_string = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
+            driver_options['proxy'] = proxy_string
+
+        else:
+            print('>>> Selenium NO PROXY...')
+
+        driver = Driver(**driver_options)
+        print('<<< Selenium connect...')
+
+        if url:
+            # Если нужно использовать get, убедитесь что используете асинхронный метод
+            driver.get(url)
+
+        return driver
 
 
 

@@ -269,6 +269,68 @@ async def get_answer_gpt(prompt: str):
         print(f"Error: {status_code}\n{r_json}")
         return None
 
+def generate_and_white_sync(**kwargs):
+    service = kwargs["service"]
+    url_answer = kwargs["url_answer"]
+    author = kwargs["author"]
+    formatted_date = kwargs["formatted_date"]
+    ss_id = kwargs["ss_id"]
+    project = kwargs["project"]
+    feedback = kwargs["feedback"]
+    pattern = kwargs["pattern"]
+    criteria = kwargs["criteria"]
+
+    start_time = time.time()
+
+    dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+    load_dotenv(dotenv_path)
+
+    username = os.environ.get("HOST_USERNAME")
+    password = os.environ.get("HOST_PASSWORD")
+    auth = HTTPBasicAuth(username, password)
+
+    prompt = f"""
+    Ты официальный представить компании '{project}'
+    Твоя задача: 
+    1 - прочитать комментарий о компании:
+    -----------Начало комментария--------------
+    {feedback}
+    ----------Конец комментария----------------   
+    2 - Напишите ответ на комментарий, который будет личным, сопереживающим и демонстрирующим разговорный тон. 
+    В идеале ответ должен звучать так, будто он исходит от реального человека, 
+    а не от механического сценария. 
+    Пожалуйста, составьте ответ, который признает точку зрения комментатора, 
+    демонстрирует понимание и приглашает к дальнейшему обсуждению. 
+    Стремитесь к тому, чтобы ответ был теплым, доступным и увлекательным, но при этом передавал необходимую информацию и контекст
+    Дополнительно для примера можешь использовать шаблоны:
+    ----------Начало шаблонов -----------------
+    {pattern}
+    ----------Конец шаблонов ------------------
+    Так же необходимо учитывать следующее:
+    {criteria}
+    Дополнительно:
+    - Не пиши слишком развернуто 
+    - Не цитируй слова из комментария.
+    """
+
+    result = asyncio.run(get_answer_ai(auth, prompt))
+    if result == False:
+        return
+
+    print(f'TIMER {round(time.time() - start_time, 2)}')
+
+    data = {
+        'Link': url_answer,
+        'Author': author,
+        'Date': formatted_date,
+        'Feedback': feedback,
+        'Results': result
+    }
+
+    #print(data)
+
+    status = asyncio.run(append_data_to_sheet_scope(service, ss_id, project, data))
+    print(status)
 
 async def generate_and_white(**kwargs):
     service = kwargs["service"]

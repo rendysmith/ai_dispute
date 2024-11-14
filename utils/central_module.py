@@ -24,6 +24,32 @@ id_proxy = os.environ.get("ID_PROXY")
 max_sec = int(os.environ.get("MAX_SEC"))
 ss_id = TABLES_LIST['zoom']
 
+def get_local_ip_sync():
+    url = 'https://api.myip.com/'
+    r = requests.get(url)
+    if r.status_code == 200:
+        if r.json().get('ip'):
+            return r.json()['ip']
+
+    url = 'https://api.ipify.org?format=json'
+    r = requests.get(url)
+    if r.status_code == 200:
+        if r.json().get('ip'):
+            return r.json()['ip']
+
+    url = 'https://ifconfig.me/all.json'
+    r = requests.get(url)
+    if r.status_code == 200:
+        if r.json().get('ip_addr'):
+            return r.json()['ip_addr']
+
+    else:
+        return '127.0.0.1'
+
+def proxy_status_sync():
+    proxy_action = asyncio.run(get_api_service())
+    return proxy_action['status']
+
 async def get_api_service():
     url = f'https://api.proxy5.net/api/service/{id_proxy}'
     headers = {
@@ -38,6 +64,8 @@ async def get_api_service():
     print(r_json)
     print(f'Binded IP: {r_json.get("bindedip")}')
     return r_json
+
+
 
 async def proxy_status():
     proxy_action = await get_api_service()
