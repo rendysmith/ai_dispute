@@ -34,7 +34,8 @@ ss_id = TABLES_LIST['zoom']
 seven_days_ago = current_date - timedelta(days=days_ago)
 formatted_7date = seven_days_ago.strftime('%Y-%m-%d')
 
-companies = {'strakhovaja-kompanija/sberbank-strah': 147351}
+companies = {'strakhovaja-kompanija/sberbank-strah': '147351',
+             'bank/novikombank': '5bb4f769245bc22a520a62b1'}
 
 async def get_top_url(link):
     pattern = r'https://www\.sravni\.ru/(.*?)/otzyvy/'
@@ -43,10 +44,13 @@ async def get_top_url(link):
     if not link_company:
         return None, None
 
-    return f"https://www.sravni.ru/{link_company}/otzyvy/", companies.get(link_company)
+    return f"https://www.sravni.ru/{link_company}/otzyvy/", companies.get(link_company, None)
 
 async def check_sravni(service, link, pattern, criteria, ss_id, project):
     top_url, reviewObjectId = await get_top_url(link)
+
+    if not reviewObjectId:
+        return
 
     if top_url:
         datas = {'project': project,
@@ -60,9 +64,11 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
 
     #https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=-1&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true
     #https://www.sravni.ru/proxy-reviews/reviews/?filterBy=all&fingerPrint=90afd98450203b85cd796220e7680745&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true
+    #https://www.sravni.ru/proxy-reviews/reviews?filterBy=all&fingerPrint=90afd98450203b85cd796220e7680745&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId=5bb4f769245bc22a520a62b1&reviewObjectType=banks&specificProductId=&withVotes=true
 
     pageSize = "100"
-    url = (f'https://www.sravni.ru/proxy-reviews/reviews/?filterBy=all&'
+    url = (f'https://www.sravni.ru/proxy-reviews/reviews/?'
+           f'filterBy=all&'
            f'fingerPrint=-1&'
            f'locationRoute=&'
            f'newIds=true&'
@@ -71,7 +77,7 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
            f'pageSize={pageSize}&'
            f'rated=any&'
            f'reviewObjectId={reviewObjectId}&'
-           f'reviewObjectType=insuranceCompany&'
+           f'reviewObjectType=&'
            f'specificProductId=&'
            f'tag=&'
            f'withVotes=true')
@@ -212,6 +218,7 @@ async def main_sravni():
         df_link_list = df_mini[project].to_list()
         irec_link = [i for i in df_link_list if 'sravni' in i]
         len_irec = len(irec_link)
+
         if len_irec == 0:
             print(f'{project} next...')
             continue
@@ -229,10 +236,10 @@ async def main_sravni():
         record = False
         for idx, link in enumerate(df_link_list):
             left = len_df - df_link_list.index(link)
-            print(
-                f'\n*************************{idx}*({left})*{project}**************************\n----------------- {link} ----------------')
 
             if 'sravni.ru' in link:
+                print(f'\n*******************{idx}*({left})*{project}********************\n----------------- {link} ----------------')
+
                 record = True
                 top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
 
@@ -247,8 +254,9 @@ async def main_sravni():
                 else:
                     list_links.append(link)
 
-                pattern = r'https://www\.sravni\.ru/(.*?)/otzyvy/'
+                pattern = r'https://www\.sravni\.ru/(.*?)/otzyv'
                 link_company = await extract_company_name(pattern, link)
+                print('link_company', link_company)
 
                 if not link_company:
                     continue
