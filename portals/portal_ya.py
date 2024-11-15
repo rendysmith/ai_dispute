@@ -488,10 +488,10 @@ async def main_ya_maps():
         record = False
         for idx, link in enumerate(df_link_list):
             left = len_df - df_link_list.index(link)
-            print(
-                f'\n*************************{idx}*({left})*{project}**************************\n----------------- {link} ----------------')
 
             if 'maps' in link:
+                print(
+                    f'\n*********************{idx}*({left})*{project}**********************\n----------------- {link} ----------------')
                 record = True
                 top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
                 # print(top_df)

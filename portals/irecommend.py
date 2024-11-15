@@ -70,7 +70,7 @@ async def clicker_pyautogui():
 
 async def clicker_pyscreeze():
     import pyscreeze
-    #import pyautogui
+    import pyautogui
 
     while True:
         try:
@@ -274,17 +274,12 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
     return 'OK!'
 
 async def main_irecommend():
-    # th = Thread(target=async_find_and_click, args=())
-    # th.start()
-
     proxy_active = await proxy_status()
     print(f'+ Proxy status: {proxy_active}')
 
     driver = None
     if proxy_active == 'Active':
         driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-        #asyncio.create_task(async_find_and_click())
-        find_and_click_task = asyncio.create_task(async_find_and_click())
 
     local_ip = await get_local_ip()
     print('local_ip', local_ip)
@@ -407,16 +402,8 @@ async def main_irecommend():
                                        driver=driver)
 
                 if not status:
-                    find_and_click_task.cancel()
-
-                    try:
-                        await find_and_click_task
-                    except asyncio.CancelledError:
-                        print("Background task cancelled")
-
                     driver.quit()
                     driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-                    find_and_click_task = asyncio.create_task(async_find_and_click())
 
         if record:
             finish_sec = time.time() - start_time
@@ -431,51 +418,34 @@ async def main_irecommend():
     if driver:
         driver.quit()
 
-async def tst_main():
-    # from selenium import webdriver
-    # from selenium.webdriver.chrome.options import Options
-    #
-    # print('- >>> Selenium No Proxy...')
-    # chrome_options = Options()
-    #
-    # #chrome_options.add_argument("--headless")
-    # chrome_options.add_argument("--no-sandbox")
-    # chrome_options.add_argument("--disable-dev-shm-usage")
-    # chrome_options.add_argument('--disable-web-security')
-    # chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-    # chrome_options.add_argument("--remote-debugging-port=9222")
-    #
-    # chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
-    #
-    # # Инициализация драйвера
-    # driver = webdriver.Chrome(options=chrome_options)
-    # url = 'https://irecommend.ru/content/idealnyi-sostav-imenno-takuyu-i-iskala'
-    # driver.get(url)
-    #
-    # print(driver.page_source)
-    # input('Wait...')
+async def main_starter():
+    main_irecommend_task = asyncio.create_task(main_irecommend())
+    find_and_click_task = asyncio.create_task(async_find_and_click())
 
+    # Ждем завершения main_irecommend_task
+    try:
+        await main_irecommend_task
+        print("main_irecommend_task завершена")
 
+        # Останавливаем find_and_click_task
+        find_and_click_task.cancel()
+        try:
+            await find_and_click_task
+        except asyncio.CancelledError:
+            print("find_and_click_task остановлена")
 
+    except Exception as e:
+        print(f"Ошибка в main_irecommend_task: {e}")
+        find_and_click_task.cancel()
 
-
-    url = 'https://irecommend.ru/content/lechenie-v-turtsii-v-odnoi-iz-luchshikh-klinik-v-kotorykh-ya-kogda-libo-byla-tak-zhe-strakho'
-    url = 'https://irecommend.ru/content/strakhovka-rabotaet'
-    url = 'https://irecommend.ru/content/idealnyi-sostav-imenno-takuyu-i-iskala'
-    driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
-
-    #input('Wait...')
-
-
-
-
-
-    #await check_irecommend(1, url, 1, 1, 1, 1, driver)
 
 
 if "__main__" in __name__:
-    #asyncio.run(tst_main())
-    asyncio.run(main_irecommend())
+    asyncio.run(main_starter())
+    # asyncio.create_task(async_find_and_click())
+    #main_irecommend_task = asyncio.create_task(main_irecommend())
+    #find_and_click_task = asyncio.create_task(async_find_and_click())
+
 
 
 
