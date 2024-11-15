@@ -123,7 +123,14 @@ async def async_find_and_click():
 
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
-    driver.get(link)
+    try:
+        driver.get(link)
+        print('Driver OK')
+
+    except:
+        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+        driver.get(link)
+        print('New Driver OK')
 
     await wait_for_portal() #Время ожидания
     #page_source = driver.page_source
@@ -190,7 +197,15 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
         await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
         print('-- Record TOP link')
 
-        driver.get(top_url)
+        try:
+            driver.get(link)
+            print('Driver OK')
+
+        except:
+            driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+            driver.get(link)
+            print('New Driver OK')
+
         await wait_for_portal()  # Время ожидания
 
     else:
@@ -201,7 +216,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
     len_b = 0
     while n < 10:
         try:
-            print('- Search blocks')
+            print(f'- Search blocks {n}')
             #WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-type="1"]')))
             driver.execute_script("window.scrollBy(0, 500);")  # Скроллит вниз на 500 пикселей
             print('- 1')
@@ -422,26 +437,33 @@ async def main_starter():
     main_irecommend_task = asyncio.create_task(main_irecommend())
     find_and_click_task = asyncio.create_task(async_find_and_click())
 
-    # Ждем завершения main_irecommend_task
     try:
-        await main_irecommend_task
+        # Ждем завершения main_irecommend_task с таймаутом
+        await asyncio.wait_for(main_irecommend_task, timeout=10800)  # таймаут 1 час
         print("main_irecommend_task завершена")
 
-        # Останавливаем find_and_click_task
-        find_and_click_task.cancel()
-        try:
-            await find_and_click_task
-        except asyncio.CancelledError:
-            print("find_and_click_task остановлена")
+    except asyncio.TimeoutError:
+        print("main_irecommend_task превысила время ожидания")
+        main_irecommend_task.cancel()
 
     except Exception as e:
         print(f"Ошибка в main_irecommend_task: {e}")
-        find_and_click_task.cancel()
+
+    finally:
+        # В любом случае останавливаем find_and_click_task
+        if not find_and_click_task.done():
+            find_and_click_task.cancel()
+            try:
+                await find_and_click_task
+            except asyncio.CancelledError:
+                print("find_and_click_task остановлена")
 
 
 
 if "__main__" in __name__:
     asyncio.run(main_starter())
+    #asyncio.run(main_irecommend())
+
     # asyncio.create_task(async_find_and_click())
     #main_irecommend_task = asyncio.create_task(main_irecommend())
     #find_and_click_task = asyncio.create_task(async_find_and_click())

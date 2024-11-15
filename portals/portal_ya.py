@@ -36,7 +36,15 @@ days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 timeout = 10000
 ss_id = TABLES_LIST['zoom']
-headless = True
+
+local_ip = asyncio.run(get_local_ip())
+if '176.124.192' in local_ip:
+    headless = True
+    proxy_on = True
+
+else:
+    headless = False
+    proxy_on = False
 
 async def cut_token(text, pattern):
     match = re.search(pattern, text)
@@ -44,7 +52,6 @@ async def cut_token(text, pattern):
         result = match.group(1)
         print(result)
         return result
-
 
 def find_key_path(dct, target_key, path = None):
     if path is None:
@@ -231,7 +238,15 @@ async def check_ya_new(driver, url):
 async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
 
-    driver.get(link)
+    try:
+        driver.get(link)
+        print('Driver OK')
+
+    except:
+        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+        driver.get(link)
+        print('New Driver OK')
+
     await wait_for_portal() #Время ожидания
 
     url = driver.current_url
@@ -247,7 +262,15 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
 
     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
 
-    driver.get(top_url)
+    try:
+        driver.get(top_url)
+        print('Driver OK')
+
+    except:
+        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+        driver.get(top_url)
+        print('New Driver OK')
+
     print(f'Get: {top_url}')
     #driver.execute_script("document.body.style.zoom='0.5'")
     await asyncio.sleep(5)
@@ -312,7 +335,15 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
 
     print("url_api", url_api)
 
-    driver.get(url_api)
+    try:
+        driver.get(url_api)
+        print('Driver OK')
+
+    except:
+        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+        driver.get(url_api)
+        print('New Driver OK')
+
     await asyncio.sleep(3)
 
     # Парсим HTML-код страницы
