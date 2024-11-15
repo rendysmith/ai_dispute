@@ -48,6 +48,7 @@ else:
 image_path = os.path.join(corn_folder, 'temp/image_to_find.png')
 
 async def clicker_pyautogui():
+    import pyautogui
     # Загрузка изображения искомого элемента
 
     while True:
@@ -64,7 +65,7 @@ async def clicker_pyautogui():
         except:
             print("Элемент не найден. 2")
 
-        time.sleep(5)
+        await asyncio.sleep(5)
 
 async def clicker_pyscreeze():
     import pyscreeze
@@ -119,6 +120,41 @@ async def async_find_and_click():
 
         # Выполняем синхронную функцию в отдельном потоке
     return await asyncio.to_thread(sync_find_and_click)
+
+async def clicker_autoit_w():
+    from autoit import autoit as auto
+
+    while True:
+        # Поиск изображения
+        if auto.pixel_search(image_path):
+            x, y = auto.mouse_get_pos()
+            auto.mouse_click("left", x, y)
+            print('--- Click checkbox')
+
+        else:
+            print('--- NO checkbox')
+
+        await asyncio.sleep(5)
+
+async def clicker_pil():
+    from PIL import Image, ImageGrab
+    import numpy as np
+    from pynput.mouse import Controller
+
+    while True:
+        print('--- Click checkbox')
+        mouse = Controller()
+        template = Image.open(image_path)
+        screenshot = ImageGrab.grab()
+
+        # Реализация поиска
+        # После нахождения:
+        mouse.position = (x, y)
+        mouse.click()
+
+        await asyncio.sleep(5)
+
+
 
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
@@ -434,7 +470,7 @@ async def main_irecommend():
 
 async def main_starter():
     main_irecommend_task = asyncio.create_task(main_irecommend())
-    #find_and_click_task = asyncio.create_task(async_find_and_click())
+    find_and_click_task = asyncio.create_task(clicker_pyautogui())
 
     try:
         # Ждем завершения main_irecommend_task с таймаутом
