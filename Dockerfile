@@ -1,9 +1,15 @@
 FROM python:3.10-slim
 
-# Установка системных зависимостей в одном слое для уменьшения размера образа
+# Установка системных зависимостей, включая Google Chrome
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
-    python3-pip && \
+    python3-pip \
+    wget \
+    gnupg \
+    && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /usr/share/keyrings/google-chrome-keyring.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends google-chrome-stable && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
