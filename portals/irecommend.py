@@ -13,14 +13,12 @@ from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 
 
-
 from utils.ai_module import generate_and_white
 from utils.central_module import wait_for_portal, proxy_status, get_local_ip
 from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, get_table_scope, \
     append_data_to_sheet_cell, write_log_sheet
 from utils.user_agent import extract_main_site, get_selenium_proxy
-
 
 from threading import Thread
 
@@ -101,6 +99,7 @@ async def clicker_pyscreeze():
 async def async_find_and_click():
     import pyautogui
     import pyscreeze
+
     print('- Start Clicker!')
 
     def sync_find_and_click():
@@ -435,7 +434,7 @@ async def main_irecommend():
 
 async def main_starter():
     main_irecommend_task = asyncio.create_task(main_irecommend())
-    find_and_click_task = asyncio.create_task(async_find_and_click())
+    #find_and_click_task = asyncio.create_task(async_find_and_click())
 
     try:
         # Ждем завершения main_irecommend_task с таймаутом
