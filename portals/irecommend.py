@@ -77,36 +77,45 @@ async def clicker_pyautogui():
 async def clicker_pywinauto():
     import pywinauto
     from pywinauto.application import Application
-    from pywinauto.findwindows import find_window
+    from PIL import Image
+    import numpy as np
 
     while True:
         try:
-            # Подключение к открытому окну Chrome
-            chrome_window = find_window(title_re='.*Chrome')
-            app = Application().connect(handle=chrome_window)
+            # Подключаемся к уже открытому Chrome
+            app = Application(backend="uia").connect(title_re=".*Chrome.*", timeout=10)  # timeout added for robustness
+            window = app.window(title_re=".*Chrome.*")
 
-            # Получаем текущее окно Chrome
-            chrome_dialog = app.window(handle=chrome_window)
-            chrome_dialog.set_focus()
+            # Преобразуем PNG-изображение в совместимый с pywinauto формат
+            image = Image.open(image_path)
+            image = np.array(image)  # Convert to NumPy array
 
-            # Создаем объект для поиска элементов
-            desktop = pywinauto.Desktop(backend="uia")
-            chrome_window_obj = desktop.window(handle=chrome_window)
+            # Ищем элемент на экране по изображению
+            wrapper = window.wait_for_element(timeout=10, control_type="Pane",
+                                              found_index=0)  # Added timeout and assumed first Pane
 
-            # Ищем элемент по изображению
-            elements = chrome_window_obj.find_controls(control_type='Image')
+            rect = wrapper.rectangle()
+            x, y = rect.left, rect.top
+            width, height = rect.width(), rect.height()
 
-            # Перебираем найденные элементы
-            for element in elements:
-                # Здесь можно добавить логику сравнения с эталонным изображением
-                # Например, через PIL или другие библиотеки обработки изображений
+            # Search within the specified wrapper
+            coords = pywinauto.controls.win32_controls.HwndWrapper._perform_image_recognition(
+                wrapper.element_info, image
+            )
 
-                # Клик по найденному элементу
-                element.click_input()
-                print('---> Click pywinauto')
+            # Получаем координаты центра элемента
+            click_x = x + coords[0] + image.shape[1] // 2
+            click_y = y + coords[1] + image.shape[0] // 2
 
+            # Выполняем клик по центру элемента
+            window.click_input(coords=(click_x, click_y))
+            print('---> Clock! ')
+
+
+        except pywinauto.findbestmatch.MatchError:
+            raise Exception(f"Изображение '{image_path}' не найдено на экране.")
         except Exception as e:
-            print(f"<--- Ошибка при поиске элемента: {e}")
+            raise Exception(f"Произошла ошибка: {e}")
 
         finally:
             await asyncio.sleep(5)
