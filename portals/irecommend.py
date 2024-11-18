@@ -49,23 +49,67 @@ image_path = os.path.join(corn_folder, 'temp/image_to_find.png')
 
 async def clicker_pyautogui():
     import pyautogui
+    from PIL import Image
     # Загрузка изображения искомого элемента
 
     while True:
         try:
-            # Поиск на экране и нажатие
-            element_location = pyautogui.locateCenterOnScreen(image_path, confidence=0.8)  # Уверенность можно менять
+            # Считываем изображение, которое нужно найти
+            target_image = Image.open(image_path)
 
-            if element_location is not None:
-                pyautogui.click(element_location)
-                print("Элемент найден и нажато!")
-            else:
-                print("Элемент не найден. 1")
+            # Ищем все вхождения изображения на экране
+            locations = pyautogui.locateAllOnScreen(target_image)
+
+            for location in locations:
+                # Получаем координаты центра найденного изображения
+                center = pyautogui.center(location)
+
+                # Кликаем по центру найденного элемента
+                pyautogui.click(center)
+                print(f"---> Clicked on {center}")
+                break
 
         except:
-            print("Элемент не найден. 2")
+            print("-- Элемент не найден. 2")
 
         await asyncio.sleep(5)
+
+async def clicker_pywinauto():
+    import pywinauto
+    from pywinauto.application import Application
+    from pywinauto.findwindows import find_window
+
+    while True:
+        try:
+            # Подключение к открытому окну Chrome
+            chrome_window = find_window(title_re='.*Chrome')
+            app = Application().connect(handle=chrome_window)
+
+            # Получаем текущее окно Chrome
+            chrome_dialog = app.window(handle=chrome_window)
+            chrome_dialog.set_focus()
+
+            # Создаем объект для поиска элементов
+            desktop = pywinauto.Desktop(backend="uia")
+            chrome_window_obj = desktop.window(handle=chrome_window)
+
+            # Ищем элемент по изображению
+            elements = chrome_window_obj.find_controls(control_type='Image')
+
+            # Перебираем найденные элементы
+            for element in elements:
+                # Здесь можно добавить логику сравнения с эталонным изображением
+                # Например, через PIL или другие библиотеки обработки изображений
+
+                # Клик по найденному элементу
+                element.click_input()
+                print('---> Click pywinauto')
+
+        except Exception as e:
+            print(f"<--- Ошибка при поиске элемента: {e}")
+
+        finally:
+            await asyncio.sleep(5)
 
 async def clicker_pyscreeze():
     import pyscreeze
@@ -467,7 +511,8 @@ async def main_irecommend():
 
 async def main_starter():
     main_irecommend_task = asyncio.create_task(main_irecommend())
-    find_and_click_task = asyncio.create_task(clicker_autoit_w())
+    find_and_click_task_1 = asyncio.create_task(clicker_autoit_w())
+    find_and_click_task_2 = asyncio.create_task(clicker_pyautogui())
 
     try:
         # Ждем завершения main_irecommend_task с таймаутом
@@ -483,10 +528,12 @@ async def main_starter():
 
     finally:
         # В любом случае останавливаем find_and_click_task
-        if not find_and_click_task.done():
-            find_and_click_task.cancel()
+        if not find_and_click_task_1.done():
+            find_and_click_task_1.cancel()
+            find_and_click_task_2.cancel()
             try:
-                await find_and_click_task
+                await find_and_click_task_1
+                await find_and_click_task_2
             except asyncio.CancelledError:
                 print("find_and_click_task остановлена")
 
