@@ -39,7 +39,7 @@ value_input_option = 'USER_ENTERED'
 
 abspath = os.path.dirname(os.path.dirname(__file__))
 path_to_credentials = os.path.join(abspath, 'utils', "service_account.json")
-print(path_to_credentials)
+print('path_to_credentials:', path_to_credentials)
 
 with open(path_to_credentials, 'r') as file:
     data = json.load(file)
