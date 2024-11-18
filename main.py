@@ -12,7 +12,7 @@ from load_distribution import main_distribution #Распределение се
 
 from scaling_service import main_zoom #Запуск парсинга масштабирования
 
-from portals.irecommend_sync import main_irecommend #Парсинг только irecommend
+from portals.irecommend import main_irecommend #Парсинг только irecommend
 from portals.portal_otzovik import main_otzovik #otzovik
 from portals.portal_ya import main_ya_maps #main ya_maps
 from portals.portal_sravni import main_sravni
