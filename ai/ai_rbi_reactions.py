@@ -24,9 +24,6 @@ auth = HTTPBasicAuth(username, password)
 
 path_json = join(dirname(abspath(__file__)), 'dataset_rbi.json')
 print(path_json)
-with open(path_json, 'r') as file:
-    # Загружаем данные из файла
-    patterns = json.load(file)
 
 text = """
 Ты официальный представитель компании.
@@ -92,6 +89,10 @@ async def ai_reaction_data_processing(service, auth, market):
     worktable_id = TABLES_LIST[market][0]
     worksheet_name = TABLES_LIST[market][1]
     worksheet_name_rec = TABLES_LIST[market][2]
+
+    with open(path_json, 'r') as file:
+        # Загружаем данные из файла
+        patterns = json.load(file)
 
     df_rec = await get_table_scope(service, worktable_id, worksheet_name_rec)
     df_comments = df_rec['Текст упоминания'].to_list()
