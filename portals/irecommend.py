@@ -151,10 +151,7 @@ async def clicker_pil():
         # После нахождения:
         mouse.position = (x, y)
         mouse.click()
-
         await asyncio.sleep(5)
-
-
 
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
@@ -470,7 +467,7 @@ async def main_irecommend():
 
 async def main_starter():
     main_irecommend_task = asyncio.create_task(main_irecommend())
-    find_and_click_task = asyncio.create_task(clicker_pyautogui())
+    find_and_click_task = asyncio.create_task(clicker_autoit_w())
 
     try:
         # Ждем завершения main_irecommend_task с таймаутом
