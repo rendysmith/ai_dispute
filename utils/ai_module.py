@@ -18,6 +18,10 @@ from utils.db_loader import get_api_tokens, get_hosts
 from utils.gs_editor import append_data_to_sheet_scope
 from utils.constants import farm_hosts
 
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+print('dotenv_path:', dotenv_path)
+
+
 async def get_answer_gemini_old(prompt: str, engine: str):
     """
     gemini-pro - Ограничение
@@ -345,7 +349,6 @@ async def generate_and_white(**kwargs):
 
     start_time = time.time()
 
-    dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
     load_dotenv(dotenv_path)
 
     username = os.environ.get("HOST_USERNAME")
