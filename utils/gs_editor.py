@@ -21,7 +21,6 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-
 import pandas as pd
 from sqlalchemy.util import await_only
 
@@ -35,8 +34,11 @@ warnings.simplefilter("ignore")
 
 value_input_option = 'USER_ENTERED'
 
-abspath = os.path.dirname(os.path.abspath(__file__))
-path_to_credentials = f"{abspath}/service_account.json"
+
+#project_root = os.path.dirname(os.path.dirname(__file__))
+
+abspath = os.path.dirname(os.path.dirname(__file__))
+path_to_credentials = os.path.join(abspath, 'utils', "service_account.json")
 print(path_to_credentials)
 
 with open(path_to_credentials, 'r') as file:
@@ -65,7 +67,8 @@ def column_name_to_letter(column_name):
 
 async def get_service():
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-    SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
+    #SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
+    SERVICE_ACCOUNT_FILE = path_to_credentials
     credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     service = build('sheets', 'v4', credentials=credentials) #.spreadsheets().values()
     return service
