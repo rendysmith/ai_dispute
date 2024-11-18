@@ -512,7 +512,7 @@ async def main_irecommend():
 async def main_starter():
     main_irecommend_task = asyncio.create_task(main_irecommend())
     find_and_click_task_1 = asyncio.create_task(clicker_autoit_w())
-    find_and_click_task_2 = asyncio.create_task(clicker_pyautogui())
+    find_and_click_task_2 = asyncio.create_task(clicker_pywinauto())
 
     try:
         # Ждем завершения main_irecommend_task с таймаутом
