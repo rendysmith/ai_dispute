@@ -124,7 +124,7 @@ async def get_answer_ai(auth: HTTPBasicAuth, prompt: str):
                 return result
 
             else:
-                print(response.status_code, response.text)
+                #print(response.status_code, response.text)
                 if try_n == 10:
                     return f"{random_host} {response.status_code}"
 
@@ -193,7 +193,7 @@ async def get_answer_gemini_old2(auth: HTTPBasicAuth, prompt: str, engine: str):
         try:
             random_host = random.choice(farm_hosts)
             random_token = random.choice(gemini_tokens)
-            print(random_host, random_token)
+            #print(random_host, random_token)
 
             url = f"http://{random_host}:8000/api/v1/start_generation"
             data = {
@@ -334,7 +334,7 @@ def generate_and_white_sync(**kwargs):
     #print(data)
 
     status = asyncio.run(append_data_to_sheet_scope(service, ss_id, project, data))
-    print(status)
+    #print(status)
 
 async def generate_and_white(**kwargs):
     service = kwargs["service"]
@@ -396,7 +396,7 @@ async def generate_and_white(**kwargs):
     #print(data)
 
     status = await append_data_to_sheet_scope(service, ss_id, project, data)
-    print(status)
+    #print(status)
 
 # Пример использования функции
 # user_message = "Какое расстояние от земли до солнца?"

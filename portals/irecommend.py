@@ -251,9 +251,9 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
             print(f'- Search blocks {n}')
             #WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-type="1"]')))
             driver.execute_script("window.scrollBy(0, 500);")  # Скроллит вниз на 500 пикселей
-            print('- 1')
+            #print('- 1')
             blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-type="1"]')
-            print('- 2')
+            #print('- 2')
             len_b = len(blocks)
             print('Len_b =', len_b)
             break
@@ -335,7 +335,7 @@ async def main_irecommend():
     df = await get_table_scope(service, ss_id, 'zoom')
     #print(df)
     idx_num_row = df.index[df['Проект'] == 'Кол-во строк'].tolist()[0]
-    print(idx_num_row)
+    #print(idx_num_row)
     df_counts = pd.Series(df.iloc[idx_num_row].values, index=df.columns).reset_index()
     df_counts[0] = pd.to_numeric(df_counts[0], errors='coerce')
     # Удаляем строки с NaN значениями в указанной колонке
@@ -344,13 +344,13 @@ async def main_irecommend():
     #print(df_counts)
 
     list_ = df_counts['index'].to_list()
-    print(list_)
+    #print(list_)
     #random.shuffle(list_)
 
     df_uniq = await get_table_scope(service, ss_id, 'unique_url')
 
     df_logs = await get_table_scope(service, ss_id, 'logs')
-    print(df_logs)
+    #print(df_logs)
 
     for project in list_:
         if 'Проект' in project:

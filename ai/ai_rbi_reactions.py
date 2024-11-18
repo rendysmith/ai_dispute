@@ -23,7 +23,7 @@ password = os.environ.get("HOST_PASSWORD")
 auth = HTTPBasicAuth(username, password)
 
 path_json = join(dirname(abspath(__file__)), 'dataset_rbi.json')
-print(path_json)
+print('path_json', path_json)
 
 text = """
 Ты официальный представитель компании.

@@ -44,7 +44,7 @@ print('path_to_credentials:', path_to_credentials)
 with open(path_to_credentials, 'r') as file:
     data = json.load(file)
 
-print(data['client_email'])
+print('client_email', data['client_email'])
 
 def column_name_to_letter(column_name):
     """
@@ -342,7 +342,7 @@ async def write_log_sheet(service, sheet_id, worksheet_name, datas):
     df = await read_table_id(service, sheet_id, worksheet_name)
     service_name = datas['service_name']
     index = df.index[df['service_name'] == service_name].tolist()
-    print(index)
+    #print(index)
 
     if index == []:
         print('Logs: Не найден элемент вводим на новую строку')
