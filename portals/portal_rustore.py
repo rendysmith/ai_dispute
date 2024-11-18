@@ -5,10 +5,13 @@ from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
 
+from selenium.webdriver.common.by import By
+
+from utils.central_module import wait_for_portal
 from utils.gs_editor import pars_url
 from utils.ai_module import generate_and_white
 from utils.compressor import compress_string
-from utils.user_agent import get_soup, get_playwright
+from utils.user_agent import get_soup, get_playwright, get_selenium_proxy
 from utils.constants import months
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -20,33 +23,42 @@ max_sec = int(os.environ.get("MAX_SEC"))
 current_date = datetime.now()
 
 timeout = 10000
-async def check_rustore(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
+async def check_rustore(service, url, pattern, criteria, ss_id, project, driver):
     # print(link)
-    links = await pars_url(service, ss_id, project)
+    await wait_for_portal()
 
     if 'reviews' not in url:
         url = url + '/reviews'
-        await page.goto(url)
+        try:
+            driver.get(url)
+        except:
+            driver = await get_selenium_proxy()
+            driver.get(url)
 
     print(url)
 
-    await page.wait_for_selector('li[itemprop="review"]', timeout=timeout)
-    blocks = await page.query_selector_all('li[itemprop="review"]')
-    len_b = len(blocks)
-    print(len_b)
+    try:
+        #blocks = await page.query_selector_all('li[itemprop="review"]')
+        blocks = driver.find_elements(By.CSS_SELECTOR, 'li[itemprop="review"]')
+        len_b = len(blocks)
+        print(len_b)
+
+    except:
+        len_b = 0
 
     if len_b == 0:
-        await browser.close()
-        await playwright.stop()
         return
 
+    links = await pars_url(service, ss_id, project)
     for block in blocks:
-        answer_develop = await block.query_selector_all('h3')
+        #answer_develop = await block.query_selector_all('h3')
+        answer_develop = block.find_elements(By.CSS_SELECTOR, 'h3')
         print(len(answer_develop))
 
         found_developer_answer = False
         for answer in answer_develop:
-            answer_d = await answer.inner_text()
+            #answer_d = await answer.inner_text()
+            answer_d = answer.text
             if 'Ответ разработчика' in answer_d:
                 found_developer_answer = True
                 break
@@ -54,8 +66,9 @@ async def check_rustore(service, url, pattern, criteria, ss_id, project, playwri
         if found_developer_answer:
             continue
 
-        date_content = await block.query_selector('p[itemprop="datePublished"]')
-        date = await date_content.inner_text()
+        #date_content = await block.query_selector('p[itemprop="datePublished"]')
+        #date = await date_content.inner_text()
+        date = block.find_element(By.CSS_SELECTOR, 'p[itemprop="datePublished"]').text
         date_split = date.split(' ')
         print(date_split)
 

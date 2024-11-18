@@ -437,7 +437,6 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
-
 async def main_otvet():
 
     from utils.gs_editor import get_table_scope

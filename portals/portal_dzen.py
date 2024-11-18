@@ -176,7 +176,6 @@ async def check_dzen_old(service, url, pattern, criteria, ss_id, project, playwr
     await browser.close()
     await playwright.stop()
 
-
 async def main_dzen():
     service = await get_service()
 
