@@ -38,7 +38,7 @@ ss_id = TABLES_LIST['zoom']
 local_ip = asyncio.run(get_local_ip())
 
 if '176.124.192' in local_ip:
-    headless = True
+    headless = False
     proxy_on = True
 
 else:
