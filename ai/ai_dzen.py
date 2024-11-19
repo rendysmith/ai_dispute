@@ -73,37 +73,37 @@ async def ai_generate_article_economy(service, auth, project):
 
     worktable_id = TABLES_LIST[project][0]
 
-    try:
-        df = await get_table_scope(service, worktable_id, worksheet_name)
+    worksheet_names = [worksheet_name, worksheet_name_2]
 
-    except:
-        df = await get_table_scope(service, worktable_id, worksheet_name_2)
-        worksheet_name = worksheet_name_2
+    for worksheet_name in worksheet_names:
+        try:
+            df = await get_table_scope(service, worktable_id, worksheet_name)
 
-    print(worktable_id, worksheet_name)
-
-    print(df)
-
-    for idx, row in df.iterrows():
-        date = row['Date']
-
-        if current_date != date:
-            print('Next day...')
+        except:
+            print('Next tab...')
             continue
 
-        top_number = int(row['Top_number'])
-        print(top_number)
+        print(worktable_id, worksheet_name)
+        print(df)
 
-        subject = df_aricles.loc[top_number - 1, 0]
-        print("Subject:", subject)
+        for idx, row in df.iterrows():
+            date = row['Date']
 
-        prompt = prompt_economy.format(subject=subject)
-        result = await get_answer_ai(auth, prompt)
+            if current_date != date:
+                print('Next day...')
+                continue
 
-        await append_data_to_sheet_cell(service, worktable_id, worksheet_name, 'Result', idx + 2, result)
-        print(f'{worksheet_name} - OK!')
+            top_number = int(row['Top_number'])
+            print(top_number)
 
+            subject = df_aricles.loc[top_number - 1, 0]
+            print("Subject:", subject)
 
+            prompt = prompt_economy.format(subject=subject)
+            result = await get_answer_ai(auth, prompt)
+
+            await append_data_to_sheet_cell(service, worktable_id, worksheet_name, 'Result', idx + 2, result)
+            print(f'{worksheet_name} - OK!')
 
 
 async def main_article_eco():
