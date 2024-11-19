@@ -6,9 +6,11 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 from selenium.webdriver.common.by import By
+from sqlalchemy.sql.base import elements
 
+from portals.portal_dzen import headless
 from utils.central_module import wait_for_portal
-from utils.gs_editor import pars_url
+from utils.gs_editor import pars_url, get_service
 from utils.ai_module import generate_and_white
 from utils.compressor import compress_string
 from utils.user_agent import get_soup, get_playwright, get_selenium_proxy
@@ -31,11 +33,23 @@ async def check_rustore(service, url, pattern, criteria, ss_id, project, driver)
         url = url + '/reviews'
         try:
             driver.get(url)
+            print('OK!')
         except:
             driver = await get_selenium_proxy()
             driver.get(url)
+            print('Error! But OK!')
 
-    print(url)
+    else:
+        try:
+            driver.get(url)
+            print('OK!')
+
+        except:
+            driver = await get_selenium_proxy()
+            driver.get(url)
+            print('Error! But OK!')
+
+    print('Url:', url)
 
     try:
         #blocks = await page.query_selector_all('li[itemprop="review"]')
@@ -83,11 +97,13 @@ async def check_rustore(service, url, pattern, criteria, ss_id, project, driver)
             print(f'--- Отзыв старше {days_ago} дней = {date}.')
             continue
 
-        author_content = await block.query_selector('h3[itemprop="name"]')
-        author = await author_content.inner_text()
+        #author_content = await block.query_selector('h3[itemprop="name"]')
+        #author = await author_content.inner_text()
+        author = block.find_element(By.CSS_SELECTOR, 'h3[itemprop="name"]').text
 
-        feedback_content = await block.query_selector('p[itemprop="reviewBody"]')
-        feedback = await feedback_content.inner_text()
+        # feedback_content = await block.query_selector('p[itemprop="reviewBody"]')
+        # feedback = await feedback_content.inner_text()
+        feedback = block.find_element(By.CSS_SELECTOR, 'p[itemprop="reviewBody"]').text
 
         url_answer = await compress_string(feedback)
         if url_answer in links:
@@ -104,27 +120,11 @@ async def check_rustore(service, url, pattern, criteria, ss_id, project, driver)
                                  pattern=pattern,
                                  criteria=criteria)
 
-    await browser.close()
-    await playwright.stop()
-
-
-
-
-
-
-
-
-
-    # soup = await get_soup(url)
-    # print(soup)
-    # print(soup.title)
-    #
-    # #blocks = soup
-
 
 async def main_rustore(url):
-    playwright, browser, page = await get_playwright(url)
-    await check_rustore(1, url, 1, 1, 1, 1, playwright, browser, page)
+    service = await get_service()
+    driver = await get_selenium_proxy(headless=False, proxy=False)
+    await check_rustore(service, url, 1, 1, 1, 1, driver)
 
 
 if __name__ == '__main__':
