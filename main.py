@@ -6,7 +6,7 @@ from ai.ai_rbi_reactions import main_rbi #Обработка данных RBI
 from ai.ai_article import main_article #Генерация развлекательных статей
 from ai.ai_desport import main_desport #Ответы на комменты Desport
 
-from portals.portal_otzovik import main_otzovik
+from portals.portal_otzovik import main_otzovik #Отдельная функция для отзовика
 from portals.irecommend import main_irecommend
 from portals.portal_sravni import main_sravni
 from portals.portal_ya import main_ya_maps
