@@ -99,7 +99,7 @@ async def cheak_desport(service):
 
             await append_data_to_sheet_scope(service, rec_worktable_id, rec_worksheet_name, data)
 
-async def main_vkusvill():
+async def main_desport():
     service = await get_service()
     await cheak_desport(service)
 
