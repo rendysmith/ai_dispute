@@ -42,7 +42,7 @@ auth = HTTPBasicAuth(username, password)
 market = 'Desport'
 worktable_id = '1v20Aroe8hnsKQctG-PzGPR56JfmQCntGavN9upB4cFs'
 worksheet_names = ['Реагирование ОП (оф сайn/товары)', 'Реагирование ОП (гео/магазины)']
-print(worktable_id, worksheet_names)
+#print(worktable_id, worksheet_names)
 
 rec_worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
 rec_worksheet_name = 'Desport'
