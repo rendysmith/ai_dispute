@@ -32,7 +32,7 @@ max_sec = int(os.environ.get("MAX_SEC"))
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
 headless = True
-proxy_on = True
+proxy_on = False
 
 async def get_id_obj(url):
     url_split = url.split('/')
@@ -383,8 +383,7 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project):
     #url = f'https://otvet.mail.ru/api/v1/questions/{questions}/answers/{answers}/page?limit=20'
     #url = 'https://otvet.mail.ru/api/v1/questions/229443400?limit=10'
 
-    soup = await get_soup(link)
-    #print(soup)
+    soup = await get_soup(link, proxy=proxy_on)    #print(soup)
 
     hrefs = soup.find_all('a', {"href": True, "name": True})
     print(len(hrefs))
@@ -399,12 +398,18 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project):
             break
 
     try:
-        json_data = await get_soup(top_url, only_text=False)
+        json_data = await get_soup(top_url, only_text=False, proxy=proxy_on)
     except Exception as Ex:
         print(f'Otvet Error Ex: {Ex}')
         return
 
-    #pprint(json_data)
+    if json_data == None:
+        print('Json == None')
+        return
+
+    if not json_data.get('result'):
+        print("Json haven't result")
+        return
 
     links = await pars_url(service, ss_id, project)
 
@@ -456,5 +461,4 @@ async def main_otvet():
             await asyncio.sleep(3)
 
 if __name__ == '__main__':
-    url = 'https://otvet.mail.ru/question/235827550'
     asyncio.run(main_otvet())
