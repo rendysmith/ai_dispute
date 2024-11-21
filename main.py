@@ -5,8 +5,11 @@ from datetime import datetime
 from scaling_service import main_zoom #Функция опроса всех порталов
 
 from ai.ai_rbi_reactions import main_rbi #Обработка данных RBI
-from ai.ai_article import main_article #Генерация развлекательных статей
 from ai.ai_desport import main_desport #Ответы на комменты Desport
+from ai.ai_brandanalytics import main_ba #Генерация данных из BA
+
+from ai.ai_article import main_article #Генерация развлекательных статей
+from ai.ai_dzen import main_article_eco #Генерация экономических статей
 
 from portals.portal_otzovik import main_otzovik #Отдельная функция для отзовика
 from portals.irecommend import main_irecommend #Отдельная функция для irec
