@@ -14,8 +14,6 @@ from utils.ai_module import get_answer_ai
 from utils.gs_editor import get_service, write_log_sheet, get_table_scope, append_data_to_sheet_cell
 from utils.user_agent import get_soup
 
-
-
 # Получаем текущую дату
 current_date = datetime.now()
 # Преобразуем дату в формат 20.11.2024
@@ -46,11 +44,10 @@ prompt ="""
 --------------------НАЧАЛО ОПИСАНИЕ ПРОДУКТА-------------------
 {title}
 --------------------КОНЕЦ ОПИСАНИЯ ПРОДУКТА--------------------
-Для примера ты можешь использовать следующие отзывы
+Для примера ты можешь использовать следующие отзывы:
 --------------------НАЧАЛО ПРИМЕРОВ ОТЗЫВОВ--------------------
 {reviews}
 --------------------КОНЕЦ ПРИМЕРОВ ОТЗЫВОВ--------------------
-
 """
 
 async def cheak_desport_cards(service):
