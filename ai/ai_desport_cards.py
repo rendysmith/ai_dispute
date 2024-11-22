@@ -31,8 +31,7 @@ auth = HTTPBasicAuth(username, password)
 rec_worktable_id = '1nc3dI0Tk1LfFdCiYx3nTCwy3tFrT-POES2iRXrRIl2I'
 rec_worksheet_name = 'Генерация отзывов'
 
-worktable_id = '1trdm2TPSBUXQ0e8btnR6TGRtxjO_nyqe'
-worksheet_name = 'Согласование отзывов'
+worksheet_name = 'example'
 
 market = 'Desport_cards'
 
@@ -82,10 +81,6 @@ async def cheak_desport_cards(service):
             result = await get_answer_ai(auth, text)
 
             await append_data_to_sheet_cell(service, rec_worktable_id, rec_worksheet_name, column_name, n + 2, result)
-
-
-
-
 
 async def main_desport_cards():
     service = await get_service()

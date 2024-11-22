@@ -75,7 +75,10 @@ async def cheak_desport(service):
 
     for worksheet_name in worksheet_names:
         df = await get_table_scope(service, worktable_id, worksheet_name)
-        df = df[(df['Дата'] == formatted_date) & (df['Текст упоминания'] != '')]
+        df = df[(df['Дата'] == formatted_date) & (df['Текст упоминания'].notnull()) & (df['Текст упоминания'] != '')]
+
+        print(df)
+        print(df['Текст упоминания'])
 
         for idx, row in df.iterrows():
             date = row['Дата']
@@ -107,4 +110,4 @@ async def main_desport():
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
 if __name__ == '__main__':
-    asyncio.run(main_vkusvill())
+    asyncio.run(main_desport())
