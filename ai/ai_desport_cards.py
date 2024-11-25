@@ -4,6 +4,7 @@ import os
 
 import time
 
+import pandas as pd
 from dotenv import load_dotenv
 from numpy.core.defchararray import title
 
@@ -36,14 +37,16 @@ worksheet_name = 'example'
 market = 'Desport_cards'
 
 prompt ="""
-Твоя задача написать отзыв о следующем продукте:
+Напишите отзыв для:
 --------------------НАЧАЛО НАЗВАНИЕ ПРОДУКТА------------------
 {subject}
 --------------------КОНЕЦ НАЗВАНИЕ ПРОДУКТА------------------
+Продукт описывается как:
 --------------------НАЧАЛО ОПИСАНИЕ ПРОДУКТА-------------------
 {title}
 --------------------КОНЕЦ ОПИСАНИЯ ПРОДУКТА--------------------
-Для примера ты можешь использовать следующие отзывы:
+Используйте приведенные ниже примеры в качестве руководства, 
+но не стесняйтесь добавлять свои собственные мысли и мнения:
 --------------------НАЧАЛО ПРИМЕРОВ ОТЗЫВОВ--------------------
 {reviews}
 --------------------КОНЕЦ ПРИМЕРОВ ОТЗЫВОВ--------------------
@@ -51,16 +54,20 @@ prompt ="""
 
 async def cheak_desport_cards(service):
     df_rec = await get_table_scope(service, rec_worktable_id, rec_worksheet_name)
-    df_rec = df_rec[df_rec['отзыв_1'] != '']
+    #df_rec = df_rec[df_rec['отзыв_1'].notnull()]
     print(df_rec)
 
-    df_reviews = await get_table_scope(service, worktable_id, worksheet_name)
+    df_reviews = await get_table_scope(service, rec_worktable_id, worksheet_name)
     df_reviews = df_reviews[df_reviews['Отзыв'] != ''].tail(10)
     reviews = df_reviews['Отзыв'].to_list()
 
     for idx, row in df_rec.iterrows():
         card_url = row['Ссылка']
         count_reviews = int(row['Кол-во отзывов'])
+        review_1 = row['отзыв_1']
+        if pd.notna(review_1):
+            print(f'>>> {idx} skip ...')
+            continue
 
         soup = await get_soup(card_url, proxy=False)
 
@@ -80,7 +87,7 @@ async def cheak_desport_cards(service):
             text = prompt.format(subject=subject, title=title, reviews=reviews)
             result = await get_answer_ai(auth, text)
 
-            await append_data_to_sheet_cell(service, rec_worktable_id, rec_worksheet_name, column_name, n + 2, result)
+            await append_data_to_sheet_cell(service, rec_worktable_id, rec_worksheet_name, column_name, idx + 2, result)
 
 async def main_desport_cards():
     service = await get_service()

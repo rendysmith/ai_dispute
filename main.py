@@ -4,9 +4,11 @@ from datetime import datetime
 
 from scaling_service import main_zoom #Функция опроса всех порталов
 
+from ai.ai_brandanalytics import main_ba #Генерация данных из BA
 from ai.ai_rbi_reactions import main_rbi #Обработка данных RBI
 from ai.ai_desport import main_desport #Ответы на комменты Desport
-from ai.ai_brandanalytics import main_ba #Генерация данных из BA
+from ai.ai_desport_cards import main_desport_cards #Генерация отзывов
+
 
 from ai.ai_article import main_article #Генерация развлекательных статей
 from ai.ai_dzen import main_article_eco #Генерация экономических статей
