@@ -12,8 +12,11 @@ from requests.auth import HTTPBasicAuth
 from datetime import datetime
 
 from utils.ai_module import get_answer_ai
+from utils.db_loader import read_data_from_db_filter
 from utils.gs_editor import get_service, write_log_sheet, get_table_scope, append_data_to_sheet_cell
 from utils.user_agent import get_soup
+
+from models.mdl_tables import Prompt
 
 # Получаем текущую дату
 current_date = datetime.now()
@@ -52,6 +55,15 @@ prompt ="""
 --------------------КОНЕЦ ПРИМЕРОВ ОТЗЫВОВ--------------------
 """
 
+async def get_prompt():
+    status, text = await read_data_from_db_filter(Prompt, project_name='desport_cards')
+    if status:
+        prompt = text[0].prompt
+        return prompt
+
+    else:
+        return status
+
 async def cheak_desport_cards(service):
     df_rec = await get_table_scope(service, rec_worktable_id, rec_worksheet_name)
     #df_rec = df_rec[df_rec['отзыв_1'].notnull()]
@@ -84,10 +96,11 @@ async def cheak_desport_cards(service):
             num = n + 1
             column_name = f'отзыв_{num}'
 
-            text = prompt.format(subject=subject, title=title, reviews=reviews)
-            result = await get_answer_ai(auth, text)
-
-            await append_data_to_sheet_cell(service, rec_worktable_id, rec_worksheet_name, column_name, idx + 2, result)
+            prompt = await get_prompt()
+            if prompt:
+                text = prompt.format(subject=subject, title=title, reviews=reviews)
+                result = await get_answer_ai(auth, text)
+                await append_data_to_sheet_cell(service, rec_worktable_id, rec_worksheet_name, column_name, idx + 2, result)
 
 async def main_desport_cards():
     service = await get_service()
