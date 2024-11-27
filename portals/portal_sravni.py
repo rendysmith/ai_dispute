@@ -193,7 +193,8 @@ async def main_sravni():
 
             #Пропуск по дате
             date_logs = df_logs.loc[idx_logs, 'date']
-            if date_logs == current_date:
+
+            if date_logs == record_date:
                 #print()
                 continue
         #
