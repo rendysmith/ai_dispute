@@ -91,16 +91,20 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
     local_ip = await get_local_ip()
 
     if '176.124.192' in local_ip:
+        print('>>> With proxy...')
         r = await get_data_with_proxy(url, text_format=False)
         if not r:
+            print('>>> WithOut proxy...')
             r = await get_data_without_proxy(url, text_format=False)
             if not r:
                 print('Error Sravni')
                 return
 
     else:
+        print('>>> WithOut proxy...')
         r = await get_data_without_proxy(url, text_format=False)
         if not r:
+            print('>>> With proxy...')
             r = await get_data_with_proxy(url, text_format=False)
             if not r:
                 print('Error Sravni')

@@ -364,7 +364,6 @@ async def get_data_with_proxy(url, text_format=True):
                                    password=pass_proxy)
 
         timeout = aiohttp.ClientTimeout(total=10)
-
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             print('--1--')
             try:
