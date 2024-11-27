@@ -93,14 +93,18 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
     if '176.124.192' in local_ip:
         r = await get_data_with_proxy(url, text_format=False)
         if not r:
-            print('Error Sravni')
-            return
+            r = await get_data_without_proxy(url, text_format=False)
+            if not r:
+                print('Error Sravni')
+                return
 
     else:
         r = await get_data_without_proxy(url, text_format=False)
         if not r:
-            print('Error Sravni')
-            return
+            r = await get_data_with_proxy(url, text_format=False)
+            if not r:
+                print('Error Sravni')
+                return
 
     links = await pars_url(service, ss_id, project)
     len_b = len(r['items'])
