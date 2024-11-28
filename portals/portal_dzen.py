@@ -27,7 +27,7 @@ max_sec = int(os.environ.get("MAX_SEC"))
 headless = True
 proxy_on = True
 
-async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
+async def blocks_dzen(driver):
 
     # driver = await get_selenium_proxy(url, headless=headless, proxy=proxy_on)
     # driver.get(url)
@@ -51,10 +51,17 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
         return
 
     UsersByID = {v['uidSafe']: v['displayName'] for k, v in r['usersById'].items()}
+
+    return r['items'], UsersByID
+
+
+async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
     #print(UsersByID)
     links = await pars_url(service, ss_id, project)
 
-    for block in r['items']:
+    blocks, UsersByID = await blocks_dzen(driver)
+
+    for block in blocks:
         #print(block)
         url_answer = block['entityData']['id']
         #print(url_answer)

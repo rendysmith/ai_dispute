@@ -10,14 +10,18 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
-from portals.portal_vk import check_vk, extract_wall_ids
+from portals.portal_vk import check_vk
 from utils.ai_module import get_answer_ai
 from utils.gs_editor import get_service, append_data_to_sheet_scope, read_table_id, write_log_sheet
+
+
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
 now = datetime.now()
+record_date = now.strftime("%d.%m.%Y")
+
 year_now = now.year
 month_now = now.month
 day_now = now.day
@@ -158,6 +162,7 @@ async def analysis_vk(service, date_create, url_answer, first_author, text):
 
     if result == 'True':
         data = {
+            'record_date': record_date,
             'date_create': date_create,
             'portal': url_answer,
             'author': first_author,
