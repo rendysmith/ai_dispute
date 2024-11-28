@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import json
 import os
 import random
 import time
@@ -9,6 +10,7 @@ from pprint import pprint
 
 import pandas as pd
 import requests
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 from utils.ai_module import generate_and_white
@@ -18,7 +20,7 @@ from utils.constants import TABLES_LIST
 from utils.converter import extract_company_name
 from utils.gs_editor import get_table_scope, append_data_to_sheet_scope, pars_url, get_service, \
     append_data_to_sheet_cell, write_log_sheet
-from utils.user_agent import get_data_with_proxy, get_data_without_proxy
+from utils.user_agent import get_data_with_proxy, get_data_without_proxy, get_selenium_proxy
 
 current_date = datetime.now()
 
@@ -65,8 +67,6 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
     #https://www.sravni.ru/proxy-reviews/reviews/?filterBy=withRates&fingerPrint=-1&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true
     #https://www.sravni.ru/proxy-reviews/reviews/?filterBy=all&fingerPrint=90afd98450203b85cd796220e7680745&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&tag=&withVotes=true
     #https://www.sravni.ru/proxy-reviews/reviews?filterBy=all&fingerPrint=90afd98450203b85cd796220e7680745&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId=5bb4f769245bc22a520a62b1&reviewObjectType=banks&specificProductId=&withVotes=true
-
-
     #https://www.sravni.ru/proxy-reviews/reviews/?filterBy=all&fingerPrint=90afd98450203b85cd796220e7680745&locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=10&rated=any&reviewObjectId=147351&reviewObjectType=insuranceCompany&specificProductId=&withVotes=true
     #https://www.sravni.ru/proxy-reviews/reviews/?filterBy=all&fingerPrint=-1&                              locationRoute=&newIds=true&orderBy=byDate&pageIndex=0&pageSize=100&rated=any&reviewObjectId=147351&reviewObjectType=&               specificProductId=&tag=&          withVotes=true
 
@@ -92,29 +92,49 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
 
     if '176.124.192' in local_ip:
         print('\n>>> With proxy...')
-        r = await get_data_with_proxy(url, text_format=False)
-        if not r:
-            print('>>> WithOut proxy...')
-            r = await get_data_without_proxy(url, text_format=False)
-            if not r:
-                print('Error Sravni')
-                return
+        driver = await get_selenium_proxy(url)
+        # soup = BeautifulSoup(driver.page_source, 'html.parser')
+        #
+        # json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+        # r = json.loads(json_text)
+        # blocks = r['items']
+        #
+        # r = await get_data_with_proxy(url, text_format=False)
+        # if not r:
+        #     print('>>> WithOut proxy...')
+        #     r = await get_data_without_proxy(url, text_format=False)
+        #     if not r:
+        #         print('Error Sravni')
+        #         return
 
     else:
         print('\n>>> WithOut proxy...')
-        r = await get_data_without_proxy(url, text_format=False)
-        if not r:
-            print('>>> With proxy...')
-            r = await get_data_with_proxy(url, text_format=False)
-            if not r:
-                print('Error Sravni')
-                return
+        driver = await get_selenium_proxy(url, proxy=False)
+
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
+    json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+    r = json.loads(json_text)
+    blocks = r['items']
+    #pprint(blocks)
+    #input()
+        #
+        #
+        #
+        # r = await get_data_without_proxy(url, text_format=False)
+        # if not r:
+        #     print('>>> With proxy...')
+        #     r = await get_data_with_proxy(url, text_format=False)
+        #     if not r:
+        #         print('Error Sravni')
+        #         return
 
     links = await pars_url(service, ss_id, project)
-    len_b = len(r['items'])
+
+    #blocks = r['items']
+    len_b = len(blocks)
     print('Len_B:', len_b)
 
-    for i in r['items']:
+    for i in blocks:
         url_answer = f"{link}{i['id']}"
         if url_answer in links:
             continue
@@ -151,6 +171,8 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
                                  feedback=feedback,
                                  pattern=pattern,
                                  criteria=criteria)
+
+    driver.quit()
 
 async def main_sravni():
     proxy_active = await proxy_status()
