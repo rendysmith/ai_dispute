@@ -91,7 +91,7 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
     local_ip = await get_local_ip()
 
     if '176.124.192' in local_ip:
-        print('>>> With proxy...')
+        print('\n>>> With proxy...')
         r = await get_data_with_proxy(url, text_format=False)
         if not r:
             print('>>> WithOut proxy...')
@@ -101,7 +101,7 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
                 return
 
     else:
-        print('>>> WithOut proxy...')
+        print('\n>>> WithOut proxy...')
         r = await get_data_without_proxy(url, text_format=False)
         if not r:
             print('>>> With proxy...')
@@ -112,7 +112,7 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
 
     links = await pars_url(service, ss_id, project)
     len_b = len(r['items'])
-    print(len_b)
+    print('Len_B:', len_b)
 
     for i in r['items']:
         url_answer = f"{link}{i['id']}"
@@ -154,16 +154,15 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
 
 async def main_sravni():
     proxy_active = await proxy_status()
-    print(f'Proxy status: {proxy_active}')
+    print(f'- Proxy status: {proxy_active}')
 
     local_ip = await get_local_ip()
-    print('local_ip', local_ip)
+    print('- local_ip', local_ip)
 
     service = await get_service()
     df = await get_table_scope(service, ss_id, 'zoom')
     #print(df)
     idx_num_row = df.index[df['Проект'] == 'Кол-во строк'].tolist()[0]
-    print(idx_num_row)
     df_counts = pd.Series(df.iloc[idx_num_row].values, index=df.columns).reset_index()
     df_counts[0] = pd.to_numeric(df_counts[0], errors='coerce')
     # Удаляем строки с NaN значениями в указанной колонке
@@ -172,7 +171,7 @@ async def main_sravni():
     #print(df_counts)
 
     list_ = df_counts['index'].to_list()
-    print(list_)
+    print('Список проектов', list_)
     #random.shuffle(list_)
 
     df_uniq = await get_table_scope(service, ss_id, 'unique_url')

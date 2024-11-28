@@ -354,8 +354,9 @@ async def get_playwright(url, headless=True):
         return None, None, None
 
 async def get_data_with_proxy(url, text_format=True):
-    for i in range(2):
-        print(f'Proxy {i}')
+    trying = 3
+    for i in range(trying):
+        print(f'--- Proxy try {i}')
         proxy_host, proxy_port = await get_one_proxy()
         connector = ProxyConnector(proxy_type=ProxyType.HTTP,
                                    host=proxy_host,
@@ -370,19 +371,23 @@ async def get_data_with_proxy(url, text_format=True):
                 async with session.get(url) as response:
                     print('--2--')
                     status_code = response.status
-                    print("Status:", status_code)
+                    print("--- Status:", status_code)
 
                     if status_code == 403:
-                        return None
+                        if i == trying - 1:
+                            return None
 
                     elif status_code == 507:
-                        return None
+                        if i == trying - 1:
+                            return None
 
                     response.raise_for_status()
                     if text_format:
                         return await response.text()
                     else:
                         return await response.json()
+
+                await asyncio.sleep(5)
 
             except asyncio.TimeoutError as TE:
                 print(f"Error Proxy TE: {TE}")
@@ -394,8 +399,9 @@ async def get_data_with_proxy(url, text_format=True):
     return None
 
 async def get_data_without_proxy(url, text_format=True):
-    for i in range(2):
-        print(f'Proxy {i}')
+    trying = 3
+    for i in range(trying):
+        print(f'Proxy try {i}')
         timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             print('--1--')
@@ -406,16 +412,19 @@ async def get_data_without_proxy(url, text_format=True):
                     print("Status:", status_code)
 
                     if status_code == 403:
-                        return None
+                        if i == trying - 1:
+                            return None
 
                     elif status_code == 507:
-                        return None
+                        if i == trying - 1:
+                            return None
 
                     response.raise_for_status()
                     if text_format:
                         return await response.text()
                     else:
                         return await response.json()
+                await asyncio.sleep(5)
 
             except asyncio.TimeoutError as TE:
                 print(f"Error Proxy TE: {TE}")
