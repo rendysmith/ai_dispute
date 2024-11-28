@@ -115,9 +115,8 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
     try:
         json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
 
-    except AttributeError:
-        print('Error AE')
-        print(soup)
+    except AttributeError as AE:
+        print(f'Error AE: {AE}')
         return
 
     r = json.loads(json_text)

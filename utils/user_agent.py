@@ -25,6 +25,7 @@ from selenium.webdriver.chrome.options import Options
 
 from seleniumbase import Driver
 from seleniumbase import config
+
 config.DISABLE_COLORS = True
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
