@@ -118,8 +118,6 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
     #pprint(blocks)
     #input()
         #
-        #
-        #
         # r = await get_data_without_proxy(url, text_format=False)
         # if not r:
         #     print('>>> With proxy...')
