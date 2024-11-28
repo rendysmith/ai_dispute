@@ -112,7 +112,14 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
         driver = await get_selenium_proxy(url, proxy=False)
 
     soup = BeautifulSoup(driver.page_source, 'html.parser')
-    json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+    try:
+        json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+
+    except AttributeError:
+        print('Error AE')
+        print(soup)
+        return
+
     r = json.loads(json_text)
     blocks = r['items']
     #pprint(blocks)
