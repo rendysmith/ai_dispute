@@ -111,7 +111,7 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
     #     return
     #
     #print(json_data)
-    print(type(json_data))
+    #print(type(json_data))
     #r = json.loads(soup)
     blocks = json_data['items']
     #pprint(blocks)

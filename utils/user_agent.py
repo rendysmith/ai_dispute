@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 import cloudscraper
 import re
 
+from evdev.genecodes import headers
 from fake_useragent import UserAgent
 
 import os
@@ -138,11 +139,15 @@ async def get_soup(url, only_text=True, proxy=True):
         return r_json
 
 async def get_soup_anticloud(url, only_json=True, proxy=True):
+    headers = {'User-Agent': ua.chrome}
+
     scraper = cloudscraper.create_scraper(
         browser={
-            "browser": "chrome",
-            "platform": "windows",
-        },
+            'browser': 'chrome',
+            'platform': 'windows',
+            'desktop': True,
+            'mobile': False,
+        }
     )
 
     if proxy:
@@ -153,7 +158,7 @@ async def get_soup_anticloud(url, only_json=True, proxy=True):
         }
 
     # Установка прокси с авторизацией
-    response = scraper.get(url, timeout=15000)
+    response = scraper.get(url, headers=headers, timeout=15000)
     status_code_1 = response.status_code
     print(f"Anti CF Proxy {status_code_1}:", status_code_1)
 
