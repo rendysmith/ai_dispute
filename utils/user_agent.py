@@ -12,7 +12,6 @@ from bs4 import BeautifulSoup
 import cloudscraper
 import re
 
-from evdev.genecodes import headers
 from fake_useragent import UserAgent
 
 import os
