@@ -161,14 +161,6 @@ async def get_soup_anticloud(url, only_json=True, proxy=True):
     status_code_1 = response.status_code
     print(f"Anti CF Proxy {status_code_1}:", status_code_1)
 
-    if status_code_1 == 507:
-        print(f'{status_code_1}: {status_codes.get(status_code_1)}')
-        return None
-
-    if status_code_1 == 521:
-        print(f'{status_code_1}: {status_codes.get(status_code_1)}')
-        return None
-
     if status_code_1 != 200:
         print(f'{status_code_1}: {status_codes.get(status_code_1, None)}')
         return None
