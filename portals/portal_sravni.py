@@ -20,7 +20,7 @@ from utils.constants import TABLES_LIST
 from utils.converter import extract_company_name
 from utils.gs_editor import get_table_scope, append_data_to_sheet_scope, pars_url, get_service, \
     append_data_to_sheet_cell, write_log_sheet
-from utils.user_agent import get_data_with_proxy, get_data_without_proxy, get_selenium_proxy
+from utils.user_agent import get_data_with_proxy, get_data_without_proxy, get_selenium_proxy, get_soup_anticloud
 
 current_date = datetime.now()
 
@@ -92,35 +92,28 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
 
     if '176.124.192' in local_ip:
         print('\n>>> With proxy...')
-        driver = await get_selenium_proxy(url)
-        # soup = BeautifulSoup(driver.page_source, 'html.parser')
-        #
-        # json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
-        # r = json.loads(json_text)
-        # blocks = r['items']
-        #
-        # r = await get_data_with_proxy(url, text_format=False)
-        # if not r:
-        #     print('>>> WithOut proxy...')
-        #     r = await get_data_without_proxy(url, text_format=False)
-        #     if not r:
-        #         print('Error Sravni')
-        #         return
+        #driver = await get_selenium_proxy(url)
+        json_data = await get_soup_anticloud(url)
 
     else:
         print('\n>>> WithOut proxy...')
-        driver = await get_selenium_proxy(url, proxy=False)
+        #driver = await get_selenium_proxy(url, proxy=False)
+        json_data = await get_soup_anticloud(url, proxy=False)
 
-    soup = BeautifulSoup(driver.page_source, 'html.parser')
-    try:
-        json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
-
-    except AttributeError as AE:
-        print(f'Error AE: {AE}')
-        return
-
-    r = json.loads(json_text)
-    blocks = r['items']
+    # print(soup)
+    #
+    # #soup = BeautifulSoup(driver.page_source, 'html.parser')
+    # try:
+    #     json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+    #
+    # except AttributeError as AE:
+    #     print(f'Error AE: {AE}')
+    #     return
+    #
+    #print(json_data)
+    print(type(json_data))
+    #r = json.loads(soup)
+    blocks = json_data['items']
     #pprint(blocks)
     #input()
         #
@@ -176,7 +169,7 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
-    driver.quit()
+    #driver.quit()
 
 async def main_sravni():
     proxy_active = await proxy_status()

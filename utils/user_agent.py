@@ -137,13 +137,20 @@ async def get_soup(url, only_text=True, proxy=True):
             r_json = await get_data_without_proxy(url, text_format=False)
         return r_json
 
-async def get_soup_anticloud(url):
+async def get_soup_anticloud(url, only_json=True, proxy=True):
     scraper = cloudscraper.create_scraper(
         browser={
             "browser": "chrome",
             "platform": "windows",
         },
     )
+
+    if proxy:
+        proxy_host, proxy_port = await get_one_proxy()
+        scraper.proxies = {
+            "http": f"http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}",
+            "https": f"http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}",
+        }
 
     # Установка прокси с авторизацией
     response = scraper.get(url, timeout=15000)
@@ -152,30 +159,18 @@ async def get_soup_anticloud(url):
 
     if status_code_1 == 507:
         print(f'{status_code_1}: {status_codes.get(status_code_1)}')
+        return None
 
     if status_code_1 == 521:
         print(f'{status_code_1}: {status_codes.get(status_code_1)}')
+        return None
 
     if status_code_1 != 200:
-        proxy_host, proxy_port = await get_one_proxy()
-        scraper.proxies = {
-            "http": f"http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}",
-            "https": f"http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}",
-        }
+        print(f'{status_code_1}: {status_codes.get(status_code_1, None)}')
+        return None
 
-        #print(scraper.proxies)
-        response = scraper.get(url, timeout=15000)
-        status_code_2 = response.status_code
-        print(f"Anti CF No proxy {status_code_2}:", status_code_2)
-
-        if status_code_2 == 507:
-            print(f'{status_code_2}: {status_codes.get(status_code_2)}')
-
-        if status_code_2 == 521:
-            print(f'{status_code_2}: {status_codes.get(status_code_2)}')
-
-        if status_code_2 != 200:
-            return None
+    if only_json:
+        return response.json()
 
     soup = BeautifulSoup(response.text, "html.parser")
     return soup
@@ -499,7 +494,7 @@ if "__main__" in __name__:
     url = 'https://irecommend.ru/content/2-nedeli-polet-normalnyi'
     url = 'https://otzovik.com/reviews/molochnaya_smes_nutrilon_gipoallergenniy/?order=date_desc'
 
-    asyncio.run(main(url))
+    a = asyncio.run(get_soup_anticloud(url))
     # url = 'https://yandex.ru/maps/2/saint-petersburg/geo/zhiloy_kompleks_biografiya/4184971603/?ll=30.281608%2C59.960850&z=15.46'
     # playwright, browser, page = asyncio.run(get_playwright(url))
     # if page:
