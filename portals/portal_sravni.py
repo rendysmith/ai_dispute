@@ -92,13 +92,38 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
 
     if '176.124.192' in local_ip:
         print('\n>>> With proxy...')
-        #driver = await get_selenium_proxy(url)
         json_data = await get_soup_anticloud(url)
+
+        if not json_data:
+            driver = await get_selenium_proxy(url)
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            try:
+                json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+                json_data = json.loads(json_text)
+
+            except:
+                return None
+
+            if driver:
+                driver.quit()
 
     else:
         print('\n>>> WithOut proxy...')
-        #driver = await get_selenium_proxy(url, proxy=False)
         json_data = await get_soup_anticloud(url, proxy=False)
+
+        if not json_data:
+            driver = await get_selenium_proxy(url, proxy=False)
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            try:
+                json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+                json_data = json.loads(json_text)
+            except:
+                return None
+
+            if driver:
+                driver.quit()
+
+        #driver = await get_selenium_proxy(url, proxy=False)
 
     # print(soup)
     #
@@ -169,7 +194,6 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
                                  pattern=pattern,
                                  criteria=criteria)
 
-    #driver.quit()
 
 async def main_sravni():
     proxy_active = await proxy_status()
