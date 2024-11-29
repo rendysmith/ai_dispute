@@ -101,7 +101,8 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
                 json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
                 json_data = json.loads(json_text)
 
-            except:
+            except Exception as Ex:
+                print(f'Error EX: {Ex}')
                 return None
 
             if driver:
@@ -117,7 +118,9 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
             try:
                 json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
                 json_data = json.loads(json_text)
-            except:
+
+            except Exception as Ex:
+                print(f'Error EX: {Ex}')
                 return None
 
             if driver:
