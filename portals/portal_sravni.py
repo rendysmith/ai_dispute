@@ -39,7 +39,7 @@ formatted_7date = seven_days_ago.strftime('%Y-%m-%d')
 companies = {'strakhovaja-kompanija/sberbank-strah': '147351',
              'bank/novikombank': '5bb4f769245bc22a520a62b1'}
 
-def fetch_sravni_data(api_url, flare_bypasser_url="http://localhost:8080/v1"):
+async def fetch_sravni_data(api_url, flare_bypasser_url="http://localhost:8080/v1"):
     """
     Fetches JSON data from a sravni.ru API endpoint using FlareBypasser.
 
@@ -136,70 +136,49 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
 
     print('Url:', url)
 
-    local_ip = await get_local_ip()
-
-    if '176.124.192' in local_ip:
-        print('\n>>> With proxy...')
-        json_data = await get_soup_anticloud(url)
-
-        if not json_data:
-            driver = await get_selenium_proxy(url)
-            soup = BeautifulSoup(driver.page_source, 'html.parser')
-            try:
-                json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
-                json_data = json.loads(json_text)
-
-            except Exception as Ex:
-                print(f'Error EX: {Ex}')
-                return None
-
-            if driver:
-                driver.quit()
-
-    else:
-        print('\n>>> WithOut proxy...')
-        json_data = await get_soup_anticloud(url, proxy=False)
-
-        if not json_data:
-            driver = await get_selenium_proxy(url, proxy=False)
-            soup = BeautifulSoup(driver.page_source, 'html.parser')
-            try:
-                json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
-                json_data = json.loads(json_text)
-
-            except Exception as Ex:
-                print(f'Error EX: {Ex}')
-                return None
-
-            if driver:
-                driver.quit()
-
-        #driver = await get_selenium_proxy(url, proxy=False)
-
-    # print(soup)
+    #local_ip = await get_local_ip()
+    # if '176.124.192' in local_ip:
+    #     print('\n>>> With proxy...')
+    #     json_data = await get_soup_anticloud(url)
     #
-    # #soup = BeautifulSoup(driver.page_source, 'html.parser')
-    # try:
-    #     json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+    #     if not json_data:
+    #         driver = await get_selenium_proxy(url)
+    #         soup = BeautifulSoup(driver.page_source, 'html.parser')
+    #         try:
+    #             json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+    #             json_data = json.loads(json_text)
     #
-    # except AttributeError as AE:
-    #     print(f'Error AE: {AE}')
-    #     return
+    #         except Exception as Ex:
+    #             print(f'Error EX: {Ex}')
+    #             return None
     #
-    #print(json_data)
-    #print(type(json_data))
-    #r = json.loads(soup)
+    #         if driver:
+    #             driver.quit()
+    #
+    # else:
+    #     print('\n>>> WithOut proxy...')
+    #     json_data = await get_soup_anticloud(url, proxy=False)
+    #
+    #     if not json_data:
+    #         driver = await get_selenium_proxy(url, proxy=False)
+    #         soup = BeautifulSoup(driver.page_source, 'html.parser')
+    #         try:
+    #             json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+    #             json_data = json.loads(json_text)
+    #
+    #         except Exception as Ex:
+    #             print(f'Error EX: {Ex}')
+    #             return None
+    #
+    #         if driver:
+    #             driver.quit()
+    #
+    #     #driver = await get_selenium_proxy(url, proxy=False)
+
+    json_data = await fetch_sravni_data(url)
+    print('Data type', type(json_data))
+
     blocks = json_data['items']
-    #pprint(blocks)
-    #input()
-        #
-        # r = await get_data_without_proxy(url, text_format=False)
-        # if not r:
-        #     print('>>> With proxy...')
-        #     r = await get_data_with_proxy(url, text_format=False)
-        #     if not r:
-        #         print('Error Sravni')
-        #         return
 
     links = await pars_url(service, ss_id, project)
 
