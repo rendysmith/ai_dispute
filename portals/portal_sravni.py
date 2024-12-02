@@ -140,8 +140,11 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
     local_ip = await get_local_ip()
     if '176.124.192' in local_ip:
         print('\n>>> With proxy...')
-        json_data = await fetch_sravni_data(url)
-        print('Data type', type(json_data))
+        print('-- curl_cffi >>>')
+        json_data = await get_soup_curl_cffi(url)
+        if not json_data:
+            json_data = await fetch_sravni_data(url)
+            print('Data type', type(json_data))
 
     else:
         print('\n>>> WithOut proxy...')
