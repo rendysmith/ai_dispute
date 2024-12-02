@@ -140,8 +140,10 @@ async def captcha_check(driver):
 async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver):
     print(f'Link: {link}')
     try:
+        print('--- Get 1.0')
         driver.get(link)
     except:
+        print('--- Get 1.1')
         driver = await get_selenium_proxy(link, headless=headless, proxy=proxy_on)
 
     if '176.124.192' in local_ip:
@@ -171,9 +173,15 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
 
             await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
             try:
+                print('--- Get 2.0')
                 driver.get(top_link)
             except:
+                print('--- Get 2.1')
                 driver = await get_selenium_proxy(top_link, headless=headless, proxy=proxy_on)
+                driver = await captcha_check(driver)  # обработка капчи
+                if not driver:
+                    print('Error Driver')
+                    return
 
         else:
             return
