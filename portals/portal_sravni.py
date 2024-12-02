@@ -20,7 +20,8 @@ from utils.constants import TABLES_LIST
 from utils.converter import extract_company_name
 from utils.gs_editor import get_table_scope, append_data_to_sheet_scope, pars_url, get_service, \
     append_data_to_sheet_cell, write_log_sheet
-from utils.user_agent import get_data_with_proxy, get_data_without_proxy, get_selenium_proxy, get_soup_anticloud
+from utils.user_agent import get_data_with_proxy, get_data_without_proxy, get_selenium_proxy, get_soup_anticloud, \
+    get_soup_curl_cffi
 
 current_date = datetime.now()
 
@@ -136,8 +137,40 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
 
     print('Url:', url)
 
-    #local_ip = await get_local_ip()
-    # if '176.124.192' in local_ip:
+    local_ip = await get_local_ip()
+    if '176.124.192' in local_ip:
+        print('\n>>> With proxy...')
+        json_data = await fetch_sravni_data(url)
+        print('Data type', type(json_data))
+
+    else:
+        print('\n>>> WithOut proxy...')
+
+        print('-- curl_cffi >>>')
+        json_data = await get_soup_curl_cffi(url, proxy=False)
+        # #json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+        # json_data = json.loads(soup)
+
+        if not json_data:
+            print('-- anticloud >>>')
+            json_data = await get_soup_anticloud(url, proxy=False)
+
+            if not json_data:
+                print('-- selenium >>>')
+                driver = await get_selenium_proxy(url, proxy=False)
+                soup = BeautifulSoup(driver.page_source, 'html.parser')
+                try:
+                    json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+                    json_data = json.loads(json_text)
+
+                except Exception as Ex:
+                    print(f'Error EX: {Ex}')
+                    return None
+
+                if driver:
+                    driver.quit()
+
+        #driver = await get_selenium_proxy(url, proxy=False)
     #     print('\n>>> With proxy...')
     #     json_data = await get_soup_anticloud(url)
     #
@@ -155,28 +188,6 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
     #         if driver:
     #             driver.quit()
     #
-    # else:
-    #     print('\n>>> WithOut proxy...')
-    #     json_data = await get_soup_anticloud(url, proxy=False)
-    #
-    #     if not json_data:
-    #         driver = await get_selenium_proxy(url, proxy=False)
-    #         soup = BeautifulSoup(driver.page_source, 'html.parser')
-    #         try:
-    #             json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
-    #             json_data = json.loads(json_text)
-    #
-    #         except Exception as Ex:
-    #             print(f'Error EX: {Ex}')
-    #             return None
-    #
-    #         if driver:
-    #             driver.quit()
-    #
-    #     #driver = await get_selenium_proxy(url, proxy=False)
-
-    json_data = await fetch_sravni_data(url)
-    print('Data type', type(json_data))
 
     blocks = json_data['items']
 
@@ -223,6 +234,11 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
                                  feedback=feedback,
                                  pattern=pattern,
                                  criteria=criteria)
+
+    try:
+        driver.quit()
+    except:
+        pass
 
 async def main_sravni():
     proxy_active = await proxy_status()

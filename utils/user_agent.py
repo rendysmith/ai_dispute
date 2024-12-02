@@ -36,6 +36,58 @@ pass_proxy = os.environ.get("PASS_PROXY")
 
 ua = UserAgent()
 
+
+async def get_soup_curl_cffi(url, dict_type=True, proxy=True):
+    from curl_cffi import requests
+
+    # Настройки для имитации браузера
+    headers = {
+        'User-Agent': ua.chrome,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+    }
+
+    # Конфигурация прокси
+    proxy_config = None
+    if proxy:
+        host, port = await get_one_proxy()
+        proxy = f'http://{login_proxy}:{pass_proxy}@{host}:{port}'
+
+        proxy_config = {
+            'url': proxy,  # формат: 'http://user:pass@host:port' или 'http://host:port'
+            'verify': False  # отключение проверки сертификата для прокси
+        }
+
+    try:
+        # Выполнение запроса с обходом Cloudflare и прокси
+        response = requests.get(
+            url,
+            headers=headers,
+            impersonate="chrome",  # Обновленная версия Chrome 119
+            proxies=proxy_config,  # Использование прокси
+            verify=True,  # Проверка SSL-сертификата
+            timeout=10  # Таймаут подключения
+        )
+
+        # Проверка успешности запроса
+        if response.status_code == 200:
+            # Парсинг содержимого (пример с BeautifulSoup)
+
+            if dict_type:
+                return response.json()
+
+            else:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                return soup
+
+        else:
+            print(f"Ошибка: {response.status_code}")
+            return None
+
+    except Exception as e:
+        print(f"Произошла ошибка при парсинге: {e}")
+        return None
+
 async def extract_main_site(url):
     match = re.match(r'(https?://[^/]+)', url)
     return match.group(0) if match else None
