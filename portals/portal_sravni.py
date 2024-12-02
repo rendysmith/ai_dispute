@@ -102,8 +102,26 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
             print('Data type', type(json_data))
 
             if not json_data:
-                print('-- No data(((')
-                return
+                print('-- selenium proxy >>>')
+                driver = await get_selenium_proxy(url)
+                soup = BeautifulSoup(driver.page_source, 'html.parser')
+                try:
+                    json_text = soup.find('pre').text  # Извлекаем содержимое тега <pre>
+                    json_data = json.loads(json_text)
+
+                except Exception as Ex:
+                    if driver:
+                        driver.quit()
+
+                    print(f'Error EX: {Ex}')
+                    return None
+
+                if driver:
+                    driver.quit()
+
+                    if not json_data:
+                        print('-- No data(((')
+                        return
 
     else:
         print('\n>>> WithOut proxy...')
@@ -126,6 +144,9 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
                     json_data = json.loads(json_text)
 
                 except Exception as Ex:
+                    if driver:
+                        driver.quit()
+
                     print(f'Error EX: {Ex}')
                     return None
 
