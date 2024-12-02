@@ -36,6 +36,54 @@ pass_proxy = os.environ.get("PASS_PROXY")
 
 ua = UserAgent()
 
+async def get_fetcher_local(api_url, flare_bypasser_url="http://localhost:8080/v1"):
+    """
+    Fetches JSON data from a sravni.ru API endpoint using FlareBypasser.
+
+    Args:
+        api_url: The URL of the sravni.ru API endpoint.
+        flare_bypasser_url: The URL of your running FlareBypasser instance.
+
+    Returns:
+        A Python dictionary containing the JSON data, or None if there's an error.
+    """
+
+    headers = {"Content-Type": "application/json"}
+    data = {
+        "cmd": "request.get",  # or "request.get_cookies" depending on API needs
+        "url": api_url,
+        "maxTimeout": 60000  # Adjust timeout as needed
+    }
+
+    try:
+        response = requests.post(flare_bypasser_url, headers=headers, json=data)
+        response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+        json_response = response.json()
+
+        if json_response["status"] == "ok":
+            #  Handle different response structures based on FlareBypasser's output.
+            # This example assumes a "response" field containing the JSON data.  Adjust as needed!
+
+            if "response" in json_response["solution"]:
+              return json.loads(json_response["solution"]["response"])
+            elif "cookies" in json_response["solution"]:
+              #If cookies are returned, you need to make a second request using those cookies.
+              cookies = {cookie['name']: cookie['value'] for cookie in json_response['solution']['cookies']}
+              second_request = requests.get(api_url, cookies=cookies)
+              second_request.raise_for_status()
+              return second_request.json()
+            else:
+              print("Unexpected response format from FlareBypasser.")
+              return None
+
+        else:
+            print(f"Error from FlareBypasser: {json_response.get('message', 'Unknown error')}")
+            return None
+
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}")
+        return None
+
 
 async def get_soup_curl_cffi(url, dict_type=True, proxy=True):
     from curl_cffi import requests
@@ -81,11 +129,11 @@ async def get_soup_curl_cffi(url, dict_type=True, proxy=True):
                 return soup
 
         else:
-            print(f"Ошибка: {response.status_code}")
+            print(f"Ошибка curl_cffi: {response.status_code}")
             return None
 
     except Exception as e:
-        print(f"Произошла ошибка при парсинге: {e}")
+        print(f"Произошла ошибка при парсинге curl_cffi: {e}")
         return None
 
 async def extract_main_site(url):
