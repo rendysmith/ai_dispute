@@ -139,7 +139,10 @@ async def captcha_check(driver):
 
 async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver):
     print(f'Link: {link}')
-    driver.get(link)
+    try:
+        driver.get(link)
+    except:
+        driver = await get_selenium_proxy(link, headless=headless, proxy=proxy_on)
 
     if '176.124.192' in local_ip:
         driver = await captcha_check(driver) #обработка капчи

@@ -114,7 +114,7 @@ async def get_soup_curl_cffi(url, dict_type=True, proxy=True):
             impersonate="chrome124",  # Обновленная версия Chrome 119
             proxies=proxy_config,  # Использование прокси
             verify=True,  # Проверка SSL-сертификата
-            timeout=10  # Таймаут подключения
+            timeout=30  # Таймаут подключения
         )
 
         # Проверка успешности запроса
