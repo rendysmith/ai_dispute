@@ -36,8 +36,15 @@ captcha_key = os.environ.get("CAPTCHA_KEY")
 
 ss_id = TABLES_LIST['zoom']
 
-headless = True
-proxy_on = True
+local_ip = asyncio.run(get_local_ip())
+if '176.124.192' in local_ip:
+    headless = True
+    proxy_on = True
+
+else:
+    print(f'local_ip: {local_ip}')
+    headless = False
+    proxy_on = False
 
 async def get_top_link(driver):
     try:
@@ -134,10 +141,11 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
     print(f'Link: {link}')
     driver.get(link)
 
-    driver = await captcha_check(driver) #обработка капчи
-    if not driver:
-        print('Error Driver')
-        return
+    if '176.124.192' in local_ip:
+        driver = await captcha_check(driver) #обработка капчи
+        if not driver:
+            print('Error Driver')
+            return
 
     await wait_for_portal()  # Время ожидания
 
@@ -243,7 +251,6 @@ async def main_otzovik():
         print('>>> Start Selenium...')
         driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
-    local_ip = await get_local_ip()
     print('local_ip', local_ip)
 
     service = await get_service()
