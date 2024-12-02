@@ -170,7 +170,10 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
                      'top_url': top_link}
 
             await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
-            driver.get(top_link)
+            try:
+                driver.get(top_link)
+            except:
+                driver = await get_selenium_proxy(top_link, headless=headless, proxy=proxy_on)
 
         else:
             return
@@ -244,6 +247,8 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
                                      criteria=criteria)
         except:
             print('No generate!')
+
+
 
 async def main_otzovik():
     proxy_active = await proxy_status()
