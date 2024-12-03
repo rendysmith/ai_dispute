@@ -188,7 +188,7 @@ async def get_access_token():
         print(json_string)
         input()
 
-async def check_vk(url):
+async def blocks_vk(url):
     """
         Получает все комментарии к посту на стене ВКонтакте
         url = https://dvmn.org/encyclopedia/qna/63/kak-poluchit-token-polzovatelja-dlja-vkontakte/

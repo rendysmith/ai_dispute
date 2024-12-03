@@ -25,9 +25,13 @@ now_year = current_date.year
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
-async def check_youtube(service, url, pattern, criteria, ss_id, project):
+async def blocks_youtube(url):
     downloader = YoutubeCommentDownloader()
     comments = downloader.get_comments_from_url(youtube_url=url, sort_by=SORT_BY_RECENT)
+    return comments
+
+async def check_youtube(service, url, pattern, criteria, ss_id, project):
+    comments = await blocks_youtube(url)
 
     links = await pars_url(service, ss_id, project)
     for comment in islice(comments, 100):
@@ -37,7 +41,6 @@ async def check_youtube(service, url, pattern, criteria, ss_id, project):
             return
 
         formatted_date = datetime.fromtimestamp(date).strftime('%d.%m.%Y')
-
         url_answer = comment['cid']
 
         if url_answer in links:

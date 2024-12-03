@@ -9,12 +9,15 @@ import aiohttp
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
+from itertools import islice
 
-from portals.portal_vk import check_vk
+from models.mdl_tables import Prompt
 from utils.ai_module import get_answer_ai
+from utils.db_loader import read_data_from_db_filter
 from utils.gs_editor import get_service, append_data_to_sheet_scope, read_table_id, write_log_sheet
 
-
+from portals.portal_vk import blocks_vk
+from portals.youtube import blocks_youtube
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -60,50 +63,54 @@ v+ - если упоминанию в чате уже более 2-3 дней
 9) Упоминание размещено в аккаунте технического аккаунта (бота) (это могут быть какие-то посты в сообществах, которые, к примеру, каждый день закидывает бот. 
 """
 
-prompt_vk_trend_gone_old = """
-Ты аналитик 
-Твоя задача:
-прочитать переписку в виде списка
---------- START CHATTING ----------
-{chat_list}
---------- END CHATTING -----------
-за стартовую точку мы берем сообщение id = {user_id}
-
-Тебе нужно определить следующее:
-- наше сообщение затерялось, например если от нужного нам упоминания есть ещё 10+ комментариев не относящиеся к нашему сообщению
-- если после нашего упоминания органика перевела тему разговора и перестали говорить о нужном нам продукте/бренде/компании
-- в сообщения пошли упоминание не о продукт (то есть данное упоминание тинькофф банк обходит стороной, либо же он упоминается там просто вскользь)
-- обобщенное упоминание (автор говорит в целом о банках, а не конкретно о тинькофф. Может просто перечислять их)
-и определить следующие показатели
-
-результат ты должен выдать в виде: 
-True - если тренд еще жив и 
-False - если тренд 'умер'.
 """
+Задача:
+необходимо прочитать переписку чата 
+----------------НАЧАЛО ЧАТА-----------------
+{chat_list} 
+----------------КОНЕЦ ЧАТА------------------
+и определить следующее взяв за отчетную точку следующий комментарий 
+---------------НАЧАЛО КОММЕНТАРИЯ-------------
+{text}
+---------------КОНЕЦ КОММЕНТАРИЯ--------------
+1) Упоминание находится в закрытом сообществе
+2) Упоминание находится на личной странице того или иного пользователя
+3) Тред мертв (то есть за обсуждаемую тему давно забыли и смысла отвечать на упоминание, которое было написано в этом обсуждени, смысла нет)
+4)Тред ушел (упоминание ушло далеко вверх и в группе давно обсуждается другая тема уже)
+5) Упоминание не о продукт (то есть данное упоминание тинькофф банк обходит стороной, либо же он упоминается там просто вскользь, так скажем)
+6) Обобщенное упоминание (автор говорит в целом о банках, а не конкретно о тинькофф. Может просто перечислять их)
+7) Упоминание размещено в аккаунте технического аккаунта (бота) (это могут быть какие-то посты в сообщетсвах, которые, к примеру, каждый день закидывает бот. Там нам так же смысла реагировать нет, поскольку мало вероятно что наше вовлечение как-то заметят)
 
-prompt_vk_trend_gone = """
-Ты аналитик 
-Определите, активна или 'мертва' тенденция общения на основе списка сообщений чата.
---------- START CHATTING ----------
-{chat_list}
---------- END CHATTING -----------
-Получив список переписки и текст интересующего автора комментария - {text} 
-для начала, 
-проанализируйте сообщения, чтобы выявить следующие сценарии: 
-* Сообщения, которые не связаны с исходным сообщением и упоминают продукт/бренд/компанию, отличную от интересующей вас (например, «Тинькофф Банк»). 
-* Сообщения, которые меняют тему разговора и больше не обсуждают продукт/бренд/компанию после первоначального упоминания. 
-* Обобщенные упоминания продуктов/брендов/компаний, в которых автор не упоминает конкретно интересующий его продукт/бренд/компанию. 
+если переписка попадает хотя бы под один пункт - выдать 'False'
+иначе выдай - 'True'
 
-* Укажите, является ли тенденция все еще активной (True) или мертвой (False), исходя из этих сценариев. 
-* Если ты указываешь False, напиши поясление твоего решения.
-Верни 'True' или 'False' + пояснение, в зависимости от результата.
 Перед выполнением, прочитай задание еще раз.
 """
 
-official = ['Альфа-Банк', "Т-Банк"]
+official = ['Альфа-Банк', "Т-Банк", "Т—Ж", "Т-Инвестиции", "Работа в Т-Банке",
+            "Т-Образование", "МТС Банк", "ОТП Банк", "Банк РНКБ", "Райффайзен Банк", "Банк Уралсиб", "Точка", "МКБ",
+            "Хоум Банк", "Yota", "t2", "МегаФон", "билайн Россия"]
+
 censor = ['похе', 'срать', 'бляд', 'пизд', 'хуй', 'хуев', 'уета', 'хуёв', 'пидар',
           'пидр', 'пидор','заеб', 'заёб', 'говн', 'ебан', 'ебон', "залуп", "долба",
           "отъеб", "коллектор", "пристав", "арест"]
+
+async def rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text):
+    prompt = prompt_trend_gone.format(chat_list=comments, text=text)
+    result = await get_answer_ai(auth, prompt)
+    print("result:", result)
+
+    if result == 'True':
+        data = {
+            'record_date': record_date,
+            'date_create': date_create,
+            'portal': url_answer,
+            'author': first_author,
+            'feedback': text}
+
+        await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
+        print('Rec data...')
+
 
 async def extract_reply(url):
     # Регулярное выражение для извлечения значения reply
@@ -135,8 +142,52 @@ async def get_cookies() -> dict:
             else:
                 raise Exception(f"Request failed with status code {response.status}")
 
-async def analysis_vk(service, date_create, url_answer, first_author, text):
-    comments = await check_vk(url_answer)
+async def analysis_youtube(service, date_create, url_answer, first_author, prompt_trend_gone, text):
+    comments = await blocks_youtube(url_answer)
+
+    trend_alife = False
+    for comment in islice(comments, 100):
+        print(comment)
+        input()
+
+
+
+        date = comment['time_parsed']
+
+        if (now - date_ts) <= timedelta(days=days_ago):
+            print('Тренд жив.')
+            trend_alife = True
+
+        if any(bank in author for bank in official):  # если есть ответ от оф.представителя.
+            print(f"Bank = {author}")
+            return
+
+    if trend_alife == False:
+        print('Тренд мертв')
+        return None
+
+    await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text)
+
+
+
+
+        # if time.time() - date >=  days_ago * 24 * 3600:
+        #     print(f'--- Комментарий больше {days_ago} дней.')
+        #     return
+        #
+        # formatted_date = datetime.fromtimestamp(date).strftime('%d.%m.%Y')
+        # url_answer = comment['cid']
+        #
+        # if url_answer in links:
+        #     print('Такой комментарий уже есть в списке')
+        #     continue
+        #
+        # author = comment['author'] + f'\n{url}'
+        # feedback = comment['text']
+
+
+async def analysis_vk(service, date_create, url_answer, first_author, prompt_trend_gone, text):
+    comments = await blocks_vk(url_answer)
     #print(comments)
     await asyncio.sleep(5)
 
@@ -160,23 +211,13 @@ async def analysis_vk(service, date_create, url_answer, first_author, text):
 
     if trend_alife == False:
         print('Тренд мертв')
-        return
+        return None
 
-    prompt = prompt_vk_trend_gone.format(chat_list=comments, text=text)
-    #print(prompt)
-    result = await get_answer_ai(auth, prompt)
-    print("result:", result)
+    await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text)
 
-    if result == 'True':
-        data = {
-            'record_date': record_date,
-            'date_create': date_create,
-            'portal': url_answer,
-            'author': first_author,
-            'feedback': text}
 
-        await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
-        print('Wrote data...')
+
+
 
 async def check_ba(service):
     df_links = await read_table_id(service, sheet_id, worksheet_name)
@@ -213,6 +254,13 @@ async def check_ba(service):
     #input(messages_id)
 
     #driver = await get_selenium_proxy(proxy=proxy_on)
+
+    status, text_prompt = await read_data_from_db_filter(Prompt, project_name='ba')
+
+    if status:
+        prompt_trend_gone = text_prompt[0].prompt
+    else:
+        return
 
     for idx, msg_id in enumerate(messages_id):
         print(f'\n******************************************{idx} ({len(messages_id) - idx})*********************************************')
@@ -252,7 +300,10 @@ async def check_ba(service):
         #     continue
 
         if 'vk.com' in url_answer:
-            await analysis_vk(service, date_create, url_answer, author, text)
+            await analysis_vk(service, date_create, url_answer, author, prompt_trend_gone, text)
+
+        elif 'youtube' in url_answer:
+            await analysis_youtube(service, date_create, url_answer, author, prompt_trend_gone, text)
 
     #     if not driver:
     #         driver = await get_selenium_proxy(proxy=proxy_on)
@@ -277,8 +328,8 @@ async def tst_main():
     await analysis_vk('service', 'date_create', url_answer, 'author', text)
 
 if "__main__" in __name__:
-     #asyncio.run(main_ba())
-     asyncio.run(tst_main())
+     asyncio.run(main_ba())
+     #asyncio.run(tst_main())
 
 
 
@@ -730,3 +781,44 @@ if "__main__" in __name__:
 #         print('Wrote data...')
 #
 #     return driver
+
+#
+# prompt_vk_trend_gone_old = """
+# # Ты аналитик
+# # Твоя задача:
+# # прочитать переписку в виде списка
+# # --------- START CHATTING ----------
+# # {chat_list}
+# # --------- END CHATTING -----------
+# # за стартовую точку мы берем сообщение id = {user_id}
+# #
+# # Тебе нужно определить следующее:
+# # - наше сообщение затерялось, например если от нужного нам упоминания есть ещё 10+ комментариев не относящиеся к нашему сообщению
+# # - если после нашего упоминания органика перевела тему разговора и перестали говорить о нужном нам продукте/бренде/компании
+# # - в сообщения пошли упоминание не о продукт (то есть данное упоминание тинькофф банк обходит стороной, либо же он упоминается там просто вскользь)
+# # - обобщенное упоминание (автор говорит в целом о банках, а не конкретно о тинькофф. Может просто перечислять их)
+# # и определить следующие показатели
+# #
+# # результат ты должен выдать в виде:
+# # True - если тренд еще жив и
+# # False - если тренд 'умер'.
+# # """
+#
+# prompt_vk_trend_gone = """
+# Ты аналитик
+# Определите, активна или 'мертва' тенденция общения на основе списка сообщений чата.
+# --------- START CHATTING ----------
+# {chat_list}
+# --------- END CHATTING -----------
+# Получив список переписки и текст интересующего автора комментария - {text}
+# для начала,
+# проанализируйте сообщения, чтобы выявить следующие сценарии:
+# * Сообщения, которые не связаны с исходным сообщением и упоминают продукт/бренд/компанию, отличную от интересующей вас (например, «Тинькофф Банк»).
+# * Сообщения, которые меняют тему разговора и больше не обсуждают продукт/бренд/компанию после первоначального упоминания.
+# * Обобщенные упоминания продуктов/брендов/компаний, в которых автор не упоминает конкретно интересующий его продукт/бренд/компанию.
+#
+# * Укажите, является ли тенденция все еще активной (True) или мертвой (False), исходя из этих сценариев.
+# * Если ты указываешь False, напиши поясление твоего решения.
+# Верни 'True' или 'False' + пояснение, в зависимости от результата.
+# Перед выполнением, прочитай задание еще раз.
+# """

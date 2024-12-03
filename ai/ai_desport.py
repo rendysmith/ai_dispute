@@ -75,10 +75,13 @@ async def cheak_desport(service):
 
     for worksheet_name in worksheet_names:
         df = await get_table_scope(service, worktable_id, worksheet_name)
-        df = df[(df['Дата'] == formatted_date) & (df['Текст упоминания'].notnull()) & (df['Текст упоминания'] != '')]
+        try:
+            df = df[(df['Дата'] == formatted_date) & (df['Текст упоминания'].notnull()) & (df['Текст упоминания'] != '')]
+        except Exception as Ex:
+            return str(Ex)
 
-        print(df)
-        print(df['Текст упоминания'])
+        #print(df)
+        #print(df['Текст упоминания'])
 
         for idx, row in df.iterrows():
             date = row['Дата']
@@ -102,11 +105,15 @@ async def cheak_desport(service):
 
             await append_data_to_sheet_scope(service, rec_worktable_id, rec_worksheet_name, data)
 
+    return 'OK!'
+
 async def main_desport():
     service = await get_service()
-    await cheak_desport(service)
+    status = await cheak_desport(service)
 
-    data = {'service_name': market, 'date': time.ctime()}
+    data = {'service_name': market,
+            'date': time.ctime(),
+            'error': status}
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
 if __name__ == '__main__':
