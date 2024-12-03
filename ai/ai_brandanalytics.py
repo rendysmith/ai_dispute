@@ -15,9 +15,12 @@ from models.mdl_tables import Prompt
 from utils.ai_module import get_answer_ai
 from utils.db_loader import read_data_from_db_filter
 from utils.gs_editor import get_service, append_data_to_sheet_scope, read_table_id, write_log_sheet
+from utils.user_agent import get_selenium_proxy
 
 from portals.portal_vk import blocks_vk
 from portals.youtube import blocks_youtube
+from portals.portal_dzen import blocks_dzen
+
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -95,6 +98,16 @@ censor = ['похе', 'срать', 'бляд', 'пизд', 'хуй', 'хуев'
           'пидр', 'пидор','заеб', 'заёб', 'говн', 'ебан', 'ебон', "залуп", "долба",
           "отъеб", "коллектор", "пристав", "арест"]
 
+local_ip = asyncio.run(get_local_ip())
+if '176.124.192' in local_ip:
+    headless = True
+    proxy_on = True
+
+else:
+    print(f'local_ip: {local_ip}')
+    headless = False
+    proxy_on = False
+
 async def rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text):
     prompt = prompt_trend_gone.format(chat_list=comments, text=text)
     result = await get_answer_ai(auth, prompt)
@@ -110,7 +123,6 @@ async def rec_data(service, date_create, url_answer, first_author, prompt_trend_
 
         await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
         print('Rec data...')
-
 
 async def extract_reply(url):
     # Регулярное выражение для извлечения значения reply
@@ -142,21 +154,39 @@ async def get_cookies() -> dict:
             else:
                 raise Exception(f"Request failed with status code {response.status}")
 
+async def analysis_dzen(service, date_create, url_answer, first_author, prompt_trend_gone, text, driver):
+    blocks, UsersByID = await blocks_dzen(driver)
+
+    if trend_alife == False:
+        print('Тренд мертв')
+        return None
+
+    await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text)
+
+    return driver
+
 async def analysis_youtube(service, date_create, url_answer, first_author, prompt_trend_gone, text):
-    comments = await blocks_youtube(url_answer)
+    comments_content = await blocks_youtube(url_answer)
+
+    comments = []
+    for comment in islice(comments_content, 100):
+        date = comment['time_parsed']
+        author = comment['author']
+        feedback = comment['text']
+        comments.append([date, author, feedback])
+
+    comments.reverse()
 
     trend_alife = False
-    for comment in islice(comments, 100):
-        print(comment)
-        input()
-
-
-
+    for comment in islice(comments_content, 100):
         date = comment['time_parsed']
 
-        if (now - date_ts) <= timedelta(days=days_ago):
-            print('Тренд жив.')
+        if time.time() - date <=  days_ago * 24 * 3600:
+            print(f'--- Комментарий больше {days_ago} дней.')
             trend_alife = True
+
+        url_answer = comment['cid']
+        author = comment['author']
 
         if any(bank in author for bank in official):  # если есть ответ от оф.представителя.
             print(f"Bank = {author}")
@@ -167,24 +197,6 @@ async def analysis_youtube(service, date_create, url_answer, first_author, promp
         return None
 
     await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text)
-
-
-
-
-        # if time.time() - date >=  days_ago * 24 * 3600:
-        #     print(f'--- Комментарий больше {days_ago} дней.')
-        #     return
-        #
-        # formatted_date = datetime.fromtimestamp(date).strftime('%d.%m.%Y')
-        # url_answer = comment['cid']
-        #
-        # if url_answer in links:
-        #     print('Такой комментарий уже есть в списке')
-        #     continue
-        #
-        # author = comment['author'] + f'\n{url}'
-        # feedback = comment['text']
-
 
 async def analysis_vk(service, date_create, url_answer, first_author, prompt_trend_gone, text):
     comments = await blocks_vk(url_answer)
@@ -214,10 +226,6 @@ async def analysis_vk(service, date_create, url_answer, first_author, prompt_tre
         return None
 
     await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text)
-
-
-
-
 
 async def check_ba(service):
     df_links = await read_table_id(service, sheet_id, worksheet_name)
@@ -262,6 +270,8 @@ async def check_ba(service):
     else:
         return
 
+    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+
     for idx, msg_id in enumerate(messages_id):
         print(f'\n******************************************{idx} ({len(messages_id) - idx})*********************************************')
 
@@ -305,11 +315,17 @@ async def check_ba(service):
         elif 'youtube' in url_answer:
             await analysis_youtube(service, date_create, url_answer, author, prompt_trend_gone, text)
 
-    #     if not driver:
-    #         driver = await get_selenium_proxy(proxy=proxy_on)
-    #
-    # if driver:
-    #     driver.quit()
+        elif 'dzen' in url_answer:
+            driver.get(url_answer)
+            driver = await analysis_dzen(service, date_create, url_answer, author, prompt_trend_gone, text, driver)
+
+            if not driver:
+                driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+
+    try:
+        driver.quit()
+    except:
+        pass
 
 async def main_ba():
     project = 'BA'
