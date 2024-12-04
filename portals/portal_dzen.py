@@ -88,6 +88,7 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
         #authorSafeUid = block['authorSafeUid']
         author = UsersByID[block['entityData']['authorSafeUid']]
         #print(author)
+        feedback = block['entityData']['text']
 
         await generate_and_white(service=service,
                                  url_answer=url_answer,

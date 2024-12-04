@@ -13,6 +13,7 @@ from itertools import islice
 
 from models.mdl_tables import Prompt
 from utils.ai_module import get_answer_ai
+from utils.central_module import get_local_ip
 from utils.db_loader import read_data_from_db_filter
 from utils.gs_editor import get_service, append_data_to_sheet_scope, read_table_id, write_log_sheet
 from utils.user_agent import get_selenium_proxy
@@ -157,6 +158,33 @@ async def get_cookies() -> dict:
 async def analysis_dzen(service, date_create, url_answer, first_author, prompt_trend_gone, text, driver):
     blocks, UsersByID = await blocks_dzen(driver)
 
+    comments = []
+
+    trend_alife = False
+    for block in blocks:
+        url_answer = block['entityData']['id']
+
+        date = block['entityData']['createdTs']/1000
+
+        # Форматирование даты
+        date_content = datetime.fromtimestamp(date)
+        formatted_date = date_content.strftime('%d.%m.%Y')
+
+        trend_alife = False
+        if (time.time() - date) <= 3 * 24 * 3600:
+            print(f'--- Отзыв младше 3 дней = {formatted_date}.')
+            trend_alife = True
+
+        author = UsersByID[block['entityData']['authorSafeUid']]
+
+        if any(bank in author for bank in official):  # если есть ответ от оф.представителя.
+            print(f"Bank = {author}")
+            return
+
+        feedback = block['entityData']['text']
+
+        comments.append([date, author, feedback])
+
     if trend_alife == False:
         print('Тренд мертв')
         return None
@@ -169,20 +197,14 @@ async def analysis_youtube(service, date_create, url_answer, first_author, promp
     comments_content = await blocks_youtube(url_answer)
 
     comments = []
-    for comment in islice(comments_content, 100):
-        date = comment['time_parsed']
-        author = comment['author']
-        feedback = comment['text']
-        comments.append([date, author, feedback])
-
-    comments.reverse()
 
     trend_alife = False
     for comment in islice(comments_content, 100):
         date = comment['time_parsed']
+        feedback = comment['text']
 
         if time.time() - date <=  days_ago * 24 * 3600:
-            print(f'--- Комментарий больше {days_ago} дней.')
+            print(f'--- Комментарий младше {days_ago} дней.')
             trend_alife = True
 
         url_answer = comment['cid']
@@ -191,6 +213,10 @@ async def analysis_youtube(service, date_create, url_answer, first_author, promp
         if any(bank in author for bank in official):  # если есть ответ от оф.представителя.
             print(f"Bank = {author}")
             return
+
+        comments.append([date, author, feedback])
+
+    comments.reverse()
 
     if trend_alife == False:
         print('Тренд мертв')

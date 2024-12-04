@@ -249,6 +249,9 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
 
     await wait_for_portal() #Время ожидания
 
+    check_box = driver.find_element(By.CSS_SELECTOR, 'div[class="CheckboxCaptcha-Checkbox"]')
+
+
     url = driver.current_url
     print("current url", url)
 
@@ -425,7 +428,7 @@ async def main_ya_maps():
 
     driver = None
     if proxy_active == 'Active':
-        driver = await get_selenium_proxy(headless=headless)
+        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
     local_ip = await get_local_ip()
     print('local_ip', local_ip)
@@ -548,7 +551,7 @@ async def main_ya_maps():
 
                 if not status:
                     driver.quit()
-                    driver = await get_selenium_proxy(headless=headless)
+                    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
         if record:
             finish_sec = time.time() - start_time
