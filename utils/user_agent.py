@@ -501,6 +501,7 @@ async def get_data_without_proxy(url, text_format=True):
                 async with session.get(url) as response:
                     print('--2--')
                     status_code = response.status
+                    print(await response.text())
                     print("Status:", status_code)
 
                     if status_code == 403:
@@ -516,6 +517,7 @@ async def get_data_without_proxy(url, text_format=True):
                         return await response.text()
                     else:
                         return await response.json()
+
                 await asyncio.sleep(5)
 
             except asyncio.TimeoutError as TE:

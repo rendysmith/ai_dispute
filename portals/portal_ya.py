@@ -67,6 +67,13 @@ def find_key_path(dct, target_key, path = None):
             if result:
                 return result
 
+async def yrp(id_company):
+    from yandex_reviews_parser.utils import YandexParser
+    parser = YandexParser(id_company)
+    all_data = parser.parse()  # Получаем все данные
+
+
+
 async def get_requestId(dictionary):
     if dictionary.get("stack"):
         reqId_1 = dictionary['stack'][0]
@@ -249,7 +256,18 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
 
     await wait_for_portal() #Время ожидания
 
-    check_box = driver.find_element(By.CSS_SELECTOR, 'div[class="CheckboxCaptcha-Checkbox"]')
+
+    n = 0
+    while n <= 3:
+        try:
+            check_box = driver.find_element(By.CSS_SELECTOR, 'div.CheckboxCaptcha-Anchor')
+            check_box.click()
+            print(f'--- {n} Click...')
+
+        except:
+            n += 1
+
+        await asyncio.sleep(3)
 
 
     url = driver.current_url
@@ -343,9 +361,11 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
         print('Driver OK')
 
     except:
-        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-        driver.get(url_api)
-        print('New Driver OK')
+        # driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+        # await asyncio.sleep(5)
+        # driver.get(url_api)
+        # print('New Driver OK')
+        return None
 
     await asyncio.sleep(3)
 

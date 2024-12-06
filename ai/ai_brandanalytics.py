@@ -257,101 +257,105 @@ async def check_ba(service):
     df_links = await read_table_id(service, sheet_id, worksheet_name)
     links = df_links['portal'].to_list()
 
-    url_base = 'https://brandanalytics.ru/theme-data/12551940/'
+    reports = ['12551940', '13602890', '13746174', '13742266', '13771544', '13750792', '13239512', '13288928', '13289396', '13231322', '13601564']
 
-    tst = int(time.time())
-    print(datetime.utcfromtimestamp(tst).strftime('%Y-%m-%d %H:%M:%S'))
+    for report in reports:
 
-    tsf = int(time.time() - 5 * 24 * 3600)
-    print(datetime.utcfromtimestamp(tsf).strftime('%Y-%m-%d %H:%M:%S'))
+        url_base = f'https://brandanalytics.ru/theme-data/{report}/'
 
-    page = 1
-    limit = 100
+        tst = int(time.time())
+        print(datetime.utcfromtimestamp(tst).strftime('%Y-%m-%d %H:%M:%S'))
 
-    query = f'?tst={tst}&tsf={tsf}&requested%5B%5D=feed&sort=time_create&order=desc&page={page}&limit={limit}&filter%5Bft%5D%5Bnot%5D%5B%5D=30008&filter%5Bft%5D%5Bnot%5D%5B%5D=30009&filter%5Bft%5D%5Bnot%5D%5B%5D=15&filter%5Bft%5D%5Bnot%5D%5B%5D=30059&filter%5Bft%5D%5Bnot%5D%5B%5D=30025&filter%5Bfmsgproc%5D%5Bany%5D%5B%5D=1'
-    url = url_base + query
-    print(url)
+        tsf = int(time.time() - 5 * 24 * 3600)
+        print(datetime.utcfromtimestamp(tsf).strftime('%Y-%m-%d %H:%M:%S'))
 
-    async with aiohttp.ClientSession() as session:
-        cookies = await get_cookies()
-        async with session.get(url, cookies=cookies) as response:
-            if response.status == 200:
-                r_json = await response.json()
-            else:
-                raise Exception(f"Request failed with status code {response.status}")
+        page = 1
+        limit = 100
 
-    messages = r_json['feed']['messages']
-    #print(messages)
-    print(len(messages))
+        query = f'?tst={tst}&tsf={tsf}&requested%5B%5D=feed&sort=time_create&order=desc&page={page}&limit={limit}&filter%5Bft%5D%5Bnot%5D%5B%5D=30008&filter%5Bft%5D%5Bnot%5D%5B%5D=30009&filter%5Bft%5D%5Bnot%5D%5B%5D=15&filter%5Bft%5D%5Bnot%5D%5B%5D=30059&filter%5Bft%5D%5Bnot%5D%5B%5D=30025&filter%5Bfmsgproc%5D%5Bany%5D%5B%5D=1'
+        url = url_base + query
+        print(url)
 
-    messages_id = [k for k, v in messages.items()]
-    #input(messages_id)
+        async with aiohttp.ClientSession() as session:
+            cookies = await get_cookies()
+            async with session.get(url, cookies=cookies) as response:
+                if response.status == 200:
+                    r_json = await response.json()
+                else:
+                    raise Exception(f"Request failed with status code {response.status}")
 
-    #driver = await get_selenium_proxy(proxy=proxy_on)
+        messages = r_json['feed']['messages']
+        #print(messages)
+        print(len(messages))
 
-    status, text_prompt = await read_data_from_db_filter(Prompt, project_name='ba')
+        messages_id = [k for k, v in messages.items()]
+        #input(messages_id)
 
-    if status:
-        prompt_trend_gone = text_prompt[0].prompt
-    else:
-        return
+        #driver = await get_selenium_proxy(proxy=proxy_on)
 
-    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+        status, text_prompt = await read_data_from_db_filter(Prompt, project_name='ba')
 
-    for idx, msg_id in enumerate(messages_id):
-        print(f'\n******************************************{idx} ({len(messages_id) - idx})*********************************************')
+        if status:
+            prompt_trend_gone = text_prompt[0].prompt
+        else:
+            return
 
-        msg = messages[msg_id]
+        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
-        author = msg['author']['fullname']
-        date_create = msg['date_create']
-        url_answer = msg['url']
+        for idx, msg_id in enumerate(messages_id):
+            print(f'\n******************************************{idx} ({len(messages_id) - idx})*********************************************')
 
-        if url_answer in links:
-            continue
+            msg = messages[msg_id]
 
-        text_highlighted = msg['text_highlighted']
-        #print('text', text_highlighted)
+            author = msg['author']['fullname']
+            date_create = msg['date_create']
+            url_answer = msg['url']
 
-        # Создаем объект BeautifulSoup
-        soup = BeautifulSoup(text_highlighted, 'html.parser')
-        # Извлекаем весь текст из документа
-        text = soup.get_text()
-        #print('text', text)
-        #input('---------------')
+            if url_answer in links:
+                continue
 
-        print(f'==================== {url_answer} ===================')
+            text_highlighted = msg['text_highlighted']
+            #print('text', text_highlighted)
 
-        if any(mt in text.lower() for mt in censor):
-            print('>>>>>>>>>>>>>>>>>> МАТ!!! <<<<<<<<<<<<<<<<<<<<')
-            print(text)
-            continue
+            # Создаем объект BeautifulSoup
+            soup = BeautifulSoup(text_highlighted, 'html.parser')
+            # Извлекаем весь текст из документа
+            text = soup.get_text()
+            #print('text', text)
+            #input('---------------')
 
-        # soup = await get_soup(url_answer)
-        # if not soup:
-        #     continue
-        #
-        # if "Message in a private group or channel" in soup:
-        #     print('Телеграм - закрытая группа')
-        #     continue
+            print(f'==================== {url_answer} ===================')
 
-        if 'vk.com' in url_answer:
-            await analysis_vk(service, date_create, url_answer, author, prompt_trend_gone, text)
+            if any(mt in text.lower() for mt in censor):
+                print('>>>>>>>>>>>>>>>>>> МАТ!!! <<<<<<<<<<<<<<<<<<<<')
+                print(text)
+                continue
 
-        elif 'youtube' in url_answer:
-            await analysis_youtube(service, date_create, url_answer, author, prompt_trend_gone, text)
+            # soup = await get_soup(url_answer)
+            # if not soup:
+            #     continue
+            #
+            # if "Message in a private group or channel" in soup:
+            #     print('Телеграм - закрытая группа')
+            #     continue
 
-        elif 'dzen' in url_answer:
-            driver.get(url_answer)
-            driver = await analysis_dzen(service, date_create, url_answer, author, prompt_trend_gone, text, driver)
+            if 'vk.com' in url_answer:
+                await analysis_vk(service, date_create, url_answer, author, prompt_trend_gone, text)
 
-            if not driver:
-                driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+            elif 'youtube' in url_answer:
+                await analysis_youtube(service, date_create, url_answer, author, prompt_trend_gone, text)
 
-    try:
-        driver.quit()
-    except:
-        pass
+            elif 'dzen' in url_answer:
+                driver.get(url_answer)
+                driver = await analysis_dzen(service, date_create, url_answer, author, prompt_trend_gone, text, driver)
+
+                if not driver:
+                    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+
+        try:
+            driver.quit()
+        except:
+            pass
 
 async def main_ba():
     project = 'BA'
