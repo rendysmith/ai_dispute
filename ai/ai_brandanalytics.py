@@ -172,7 +172,7 @@ async def analysis_dzen(service, date_create, url_answer, first_author, prompt_t
     print(f'Len_B = {len_blocks}')
 
     if len_blocks == 0:
-        return None
+        return driver
 
     comments = []
 
@@ -194,7 +194,7 @@ async def analysis_dzen(service, date_create, url_answer, first_author, prompt_t
 
         if any(bank in author for bank in official):  # если есть ответ от оф.представителя.
             print(f"Bank = {author}")
-            return
+            return driver
 
         feedback = block['entityData']['text']
 
@@ -202,7 +202,7 @@ async def analysis_dzen(service, date_create, url_answer, first_author, prompt_t
 
     if trend_alife == False:
         print('Тренд мертв')
-        return None
+        return driver
 
     await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text)
 
