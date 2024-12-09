@@ -256,8 +256,6 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
         except:
             print('No generate!')
 
-
-
 async def main_otzovik():
     proxy_active = await proxy_status()
     print(f'Proxy status: {proxy_active}')
@@ -311,7 +309,7 @@ async def main_otzovik():
 
             #Пропуск по дате
             date_logs = df_logs.loc[idx_logs, 'date']
-            if date_logs == current_date:
+            if date_logs == record_date:
                 #print()
                 continue
         #

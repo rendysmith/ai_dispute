@@ -156,7 +156,16 @@ async def get_cookies() -> dict:
                 raise Exception(f"Request failed with status code {response.status}")
 
 async def analysis_dzen(service, date_create, url_answer, first_author, prompt_trend_gone, text, driver):
-    blocks, UsersByID = await blocks_dzen(driver)
+    try:
+        blocks, UsersByID = await blocks_dzen(driver)
+
+    except:
+        try:
+            driver = await get_selenium_proxy(url_answer, headless=headless, proxy=proxy_on)
+            blocks, UsersByID = await blocks_dzen(driver)
+
+        except:
+            return None
 
     comments = []
 
