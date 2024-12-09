@@ -95,8 +95,9 @@ official = ['Альфа-Банк', "Т-Банк", "Т—Ж", "Т-Инвести�
             "Т-Образование", "МТС Банк", "ОТП Банк", "Банк РНКБ", "Райффайзен Банк", "Банк Уралсиб", "Точка", "МКБ",
             "Хоум Банк", "Yota", "t2", "МегаФон", "билайн Россия"]
 
-censor = ['похе', 'срать', 'бляд', 'пизд', 'хуй', 'хуев', 'уета', 'хуёв', 'пидар',
-          'пидр', 'пидор','заеб', 'заёб', 'говн', 'ебан', 'ебон', "залуп", "долба",
+censor = ['похе', 'срать', 'бляд', 'пизд', 'хуй', 'хуев', 'уета', 'хуёв',
+          'пидар', 'пидр', 'пидор', 'педер',
+          'заеб', 'заёб', 'говн', 'ебан', 'ебон', "залуп", "долба",
           "отъеб", "коллектор", "пристав", "арест"]
 
 local_ip = asyncio.run(get_local_ip())
@@ -167,6 +168,12 @@ async def analysis_dzen(service, date_create, url_answer, first_author, prompt_t
         except:
             return None
 
+    len_blocks = len(blocks)
+    print(f'Len_B = {len_blocks}')
+
+    if len_blocks == 0:
+        return None
+
     comments = []
 
     trend_alife = False
@@ -179,7 +186,6 @@ async def analysis_dzen(service, date_create, url_answer, first_author, prompt_t
         date_content = datetime.fromtimestamp(date)
         formatted_date = date_content.strftime('%d.%m.%Y')
 
-        trend_alife = False
         if (time.time() - date) <= 3 * 24 * 3600:
             print(f'--- Отзыв младше 3 дней = {formatted_date}.')
             trend_alife = True
@@ -283,7 +289,7 @@ async def check_ba(service):
 
         query = f'?tst={tst}&tsf={tsf}&requested%5B%5D=feed&sort=time_create&order=desc&page={page}&limit={limit}&filter%5Bft%5D%5Bnot%5D%5B%5D=30008&filter%5Bft%5D%5Bnot%5D%5B%5D=30009&filter%5Bft%5D%5Bnot%5D%5B%5D=15&filter%5Bft%5D%5Bnot%5D%5B%5D=30059&filter%5Bft%5D%5Bnot%5D%5B%5D=30025&filter%5Bfmsgproc%5D%5Bany%5D%5B%5D=1'
         url = url_base + query
-        print(url)
+        print('\n\n', url)
 
         async with aiohttp.ClientSession() as session:
             cookies = await get_cookies()
@@ -350,10 +356,14 @@ async def check_ba(service):
             #     print('Телеграм - закрытая группа')
             #     continue
 
-            if 'vk.com' in url_answer:
+
+
+
+            #--------------------------------------------------------------------------------------
+            if 'vk.com_________________' in url_answer:
                 await analysis_vk(service, date_create, url_answer, author, prompt_trend_gone, text)
 
-            elif 'youtube' in url_answer:
+            elif 'youtube______________________' in url_answer:
                 await analysis_youtube(service, date_create, url_answer, author, prompt_trend_gone, text)
 
             elif 'dzen' in url_answer:
