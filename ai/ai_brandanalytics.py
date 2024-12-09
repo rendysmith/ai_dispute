@@ -295,11 +295,13 @@ async def check_ba(service):
 
         messages = r_json['feed']['messages']
         #print(messages)
-        print(len(messages))
+        len_m = len(messages)
+        print(f'Len_m = {len_m}')
+        if len_m == 0:
+            continue
 
         messages_id = [k for k, v in messages.items()]
         #input(messages_id)
-
         #driver = await get_selenium_proxy(proxy=proxy_on)
 
         status, text_prompt = await read_data_from_db_filter(Prompt, project_name='ba')
@@ -360,6 +362,7 @@ async def check_ba(service):
 
                 if not driver:
                     driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+
 
         try:
             driver.quit()
