@@ -360,10 +360,10 @@ async def check_ba(service):
 
 
             #--------------------------------------------------------------------------------------
-            if 'vk.com_________________' in url_answer:
+            if 'vk.com' in url_answer:
                 await analysis_vk(service, date_create, url_answer, author, prompt_trend_gone, text)
 
-            elif 'youtube______________________' in url_answer:
+            elif 'youtube' in url_answer:
                 await analysis_youtube(service, date_create, url_answer, author, prompt_trend_gone, text)
 
             elif 'dzen' in url_answer:
