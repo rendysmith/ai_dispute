@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM registry-1.docker.io/python:3.10-slim
 
 # Установка системных зависимостей, включая Google Chrome
 RUN apt-get update -y && \
