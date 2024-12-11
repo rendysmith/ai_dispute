@@ -110,10 +110,19 @@ async def ai_generator_article_fun(service, auth, project):
 
         topic_url = row['Topic']
         articles = await get_articles(topic_url)
+        len_art = len(articles)
+        print(f'--- Всего статей: {len_art}')
 
         top_number = int(row['Top_number'])
+        print(f'--- Указать статью №{top_number}')
 
-        subject = articles.loc[top_number - 1, 0]
+        if top_number > len_art:
+            subject = articles.loc[len_art - 1, 0]
+
+        else:
+            subject = articles.loc[top_number - 1, 0]
+
+        print(f'--- Статья: {subject}')
 
         prompt = text_fun.format(fio=fio, subject=subject, region=region, gender=gender, age=age, person_description=person_description)
         result = await get_answer_ai(auth, prompt)
