@@ -546,8 +546,6 @@ async def main_starter():
             except asyncio.CancelledError:
                 print("find_and_click_task остановлена")
 
-
-
 if "__main__" in __name__:
     asyncio.run(main_starter())
     #asyncio.run(main_irecommend())

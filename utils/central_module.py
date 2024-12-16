@@ -304,3 +304,19 @@ async def get_articles(top_url):
     df = df.sort_values(by=1, ascending=False).head(20).reset_index(drop=True)
     print(df)
     return df
+
+async def rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text):
+    prompt = prompt_trend_gone.format(chat_list=comments, text=text)
+    result = await get_answer_ai(auth, prompt)
+    print("result:", result)
+
+    if result == 'True':
+        data = {
+            'record_date': record_date,
+            'date_create': date_create,
+            'portal': url_answer,
+            'author': first_author,
+            'feedback': text}
+
+        await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
+        print('Rec data...')

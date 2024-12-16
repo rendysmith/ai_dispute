@@ -12,6 +12,7 @@ from requests.auth import HTTPBasicAuth
 from itertools import islice
 
 from models.mdl_tables import Prompt
+from portals.portal_tg import analyst_tg
 from utils.ai_module import get_answer_ai
 from utils.central_module import get_local_ip
 from utils.db_loader import read_data_from_db_filter
@@ -109,22 +110,6 @@ else:
     print(f'local_ip: {local_ip}')
     headless = False
     proxy_on = False
-
-async def rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text):
-    prompt = prompt_trend_gone.format(chat_list=comments, text=text)
-    result = await get_answer_ai(auth, prompt)
-    print("result:", result)
-
-    if result == 'True':
-        data = {
-            'record_date': record_date,
-            'date_create': date_create,
-            'portal': url_answer,
-            'author': first_author,
-            'feedback': text}
-
-        await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
-        print('Rec data...')
 
 async def extract_reply(url):
     # Регулярное выражение для извлечения значения reply
@@ -274,8 +259,9 @@ async def check_ba(service):
 
     reports = ['12551940', '13602890', '13746174', '13742266', '13771544', '13750792', '13239512', '13288928', '13289396', '13231322', '13601564']
 
-    for report in reports:
+    tg_links = []
 
+    for report in reports:
         url_base = f'https://brandanalytics.ru/theme-data/{report}/'
 
         tst = int(time.time())
@@ -341,7 +327,7 @@ async def check_ba(service):
             #print('text', text)
             #input('---------------')
 
-            print(f'==================== {url_answer} ===================')
+            print(f'================{date_create} = {url_answer} ===================')
 
             if any(mt in text.lower() for mt in censor):
                 print('>>>>>>>>>>>>>>>>>> МАТ!!! <<<<<<<<<<<<<<<<<<<<')
@@ -355,9 +341,6 @@ async def check_ba(service):
             # if "Message in a private group or channel" in soup:
             #     print('Телеграм - закрытая группа')
             #     continue
-
-
-
 
             #--------------------------------------------------------------------------------------
             if 'vk.com' in url_answer:
@@ -373,11 +356,16 @@ async def check_ba(service):
                 if not driver:
                     driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
+            elif 'telegram' in url_answer:
+                if '/c/' not in url_answer:
+                    tg_links.append([date_create, url_answer])
 
         try:
             driver.quit()
         except:
             pass
+
+    await analyst_tg(service, tg_links)
 
 async def main_ba():
     project = 'BA'
