@@ -5,12 +5,16 @@ import time
 
 import asyncio
 import traceback
+from datetime import datetime
 
 import pandas as pd
 import requests
+from requests.auth import HTTPBasicAuth
+
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
+from utils.ai_module import get_answer_ai
 from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope
 from utils.user_agent import get_playwright, get_selenium_proxy
@@ -18,11 +22,18 @@ from utils.user_agent import get_playwright, get_selenium_proxy
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
+now = datetime.now()
+record_date = now.strftime("%d.%m.%Y")
+
 token_proxy = os.environ.get("TOKEN_PROXY")
 id_proxy = os.environ.get("ID_PROXY")
 
 max_sec = int(os.environ.get("MAX_SEC"))
 ss_id = TABLES_LIST['zoom']
+
+auth_username = os.environ.get("HOST_USERNAME")
+auth_password = os.environ.get("HOST_PASSWORD")
+auth = HTTPBasicAuth(auth_username, auth_password)
 
 def get_local_ip_sync():
     url = 'https://api.myip.com/'
@@ -305,7 +316,7 @@ async def get_articles(top_url):
     print(df)
     return df
 
-async def rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text):
+async def rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id, worksheet_name):
     prompt = prompt_trend_gone.format(chat_list=comments, text=text)
     result = await get_answer_ai(auth, prompt)
     print("result:", result)

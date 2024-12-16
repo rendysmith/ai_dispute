@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from pyrogram import Client
 
 from utils.central_module import rec_data
+from utils.gs_editor import get_service
 
 current_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -40,7 +41,7 @@ async def get_session():
         session_string = await client.export_session_string()
         print(session_string)
 
-async def analyst_tg(service, datas):
+async def analyst_tg(service, datas, prompt_trend_gone):
     async with Client(
             name=bot_name,
             api_id=api_id,
@@ -57,7 +58,13 @@ async def analyst_tg(service, datas):
             print(url_split)
 
             channel = '@' + url_split[3]
-            user_message_id = int(url_split[4])
+
+            user_message_id = url_split[4]
+
+            if '?' in user_message_id:
+                user_message_id = user_message_id.split('?')[0]
+
+            user_message_id = int(user_message_id)
 
             print(f"\nConnect {channel}: -------------------> {data[1]}")
             try:
@@ -68,32 +75,36 @@ async def analyst_tg(service, datas):
                 async for message in client.get_chat_history(chat_id=chat.id, limit=200):
                     message_date = message.date
                     message_id = message.id
-                    print(message_id)
+                    print("message_id", message_id)
+                    message_text = message.text
 
                     dialogy.append([message_date, message_text])
 
                     if user_message_id == message_id:
                         first_author = message.from_user.first_name
-                        message_text = message.text
                         break
 
                 comments = dialogy[::-1]
+                #await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, message_text)
 
-                await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, message_text)
+            # except Exception as Ex:
+            #     # Получение всех сообщений из группы комментариев
+            #     async for comment in client.search_messages(message_id, query="46109"):
+            #         print(comment.text)
 
             except Exception as Ex:
                 print(f"Error Ex {Ex}")
 
 
-
 async def main_tg():
     datas = [
-        ["16.12 09:56:36", "https://telegram.me/proton_chatroom/2241007"],
+        ["16.12 09:56:36", "https://telegram.me/proton_chatroom/2241507"],
         ["16.12 07:55:04", "https://telegram.me/VseDengy/1146?comment=46109"]
-
     ]
 
-    await analyst_tg(datas)
+    service = await get_service()
+    prompt_trend_gone = ''
+    await analyst_tg(service, datas, prompt_trend_gone)
 
 
 if "__main__" == __name__:

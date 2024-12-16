@@ -13,8 +13,8 @@ from itertools import islice
 
 from models.mdl_tables import Prompt
 from portals.portal_tg import analyst_tg
-from utils.ai_module import get_answer_ai
-from utils.central_module import get_local_ip
+
+from utils.central_module import get_local_ip, rec_data
 from utils.db_loader import read_data_from_db_filter
 from utils.gs_editor import get_service, append_data_to_sheet_scope, read_table_id, write_log_sheet
 from utils.user_agent import get_selenium_proxy
@@ -22,7 +22,6 @@ from utils.user_agent import get_selenium_proxy
 from portals.portal_vk import blocks_vk
 from portals.youtube import blocks_youtube
 from portals.portal_dzen import blocks_dzen
-
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -189,7 +188,7 @@ async def analysis_dzen(service, date_create, url_answer, first_author, prompt_t
         print('Тренд мертв')
         return driver
 
-    await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text)
+    await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id, worksheet_name)
 
     return driver
 
@@ -222,7 +221,7 @@ async def analysis_youtube(service, date_create, url_answer, first_author, promp
         print('Тренд мертв')
         return None
 
-    await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text)
+    await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id, worksheet_name)
 
 async def analysis_vk(service, date_create, url_answer, first_author, prompt_trend_gone, text):
     comments = await blocks_vk(url_answer)
@@ -251,7 +250,7 @@ async def analysis_vk(service, date_create, url_answer, first_author, prompt_tre
         print('Тренд мертв')
         return None
 
-    await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text)
+    await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id, worksheet_name)
 
 async def check_ba(service):
     df_links = await read_table_id(service, sheet_id, worksheet_name)
@@ -357,7 +356,7 @@ async def check_ba(service):
                     driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
             elif 'telegram' in url_answer:
-                if '/c/' not in url_answer:
+                if all(let not in url_answer for let in ['?', '/c/']):
                     tg_links.append([date_create, url_answer])
 
         try:
@@ -365,7 +364,7 @@ async def check_ba(service):
         except:
             pass
 
-    await analyst_tg(service, tg_links)
+    await analyst_tg(service, tg_links, prompt_trend_gone)
 
 async def main_ba():
     project = 'BA'
