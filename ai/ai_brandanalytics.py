@@ -162,7 +162,7 @@ async def analysis_dzen(service, date_create, url_answer, first_author, prompt_t
 
     trend_alife = False
     for block in blocks:
-        url_answer = block['entityData']['id']
+        #url_answer = block['entityData']['id']
 
         date = block['entityData']['createdTs']/1000
 
@@ -181,7 +181,6 @@ async def analysis_dzen(service, date_create, url_answer, first_author, prompt_t
             return driver
 
         feedback = block['entityData']['text']
-
         comments.append([date, author, feedback])
 
     if trend_alife == False:
@@ -377,10 +376,8 @@ async def main_ba():
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
 async def tst_main():
-
     url_answer = 'https://vk.com/wall-38889866_286572?reply=286575&thread=286573'
     text = 'Наталья, здравствуйте. А не подскажите как оформить карту Тинькофф'
-
     await analysis_vk('service', 'date_create', url_answer, 'author', text)
 
 if "__main__" in __name__:

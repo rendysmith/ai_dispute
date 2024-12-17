@@ -1,8 +1,10 @@
 import os
 import asyncio
 import time
+import re
 from datetime import datetime
 
+import pyrogram.errors
 from dotenv import load_dotenv
 from pyrogram import Client
 
@@ -22,6 +24,16 @@ api_hash = os.environ.get("TG_API_HASH")
 
 bot_name = os.environ.get("TG_BOT_NAME")
 session_string = os.environ.get("TG_SESSION_STRING")
+
+sheet_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
+worksheet_name = 'BA'
+
+async def search_sec(message):
+    match = re.search(r'of (\d+) seconds', message)
+    if match:
+        wait_time = int(match.group(1))
+        print(wait_time)
+        return wait_time
 
 async def convert_time(date_str: str):
     date_format = "%d.%m %H:%M:%S"
@@ -83,7 +95,12 @@ async def analyst_tg(service, datas, prompt_trend_gone):
                         break
 
                     if user_message_id == message_id:
-                        first_author = message.from_user.first_name
+                        try:
+                            first_author = message.from_user.username
+                        except:
+                            #print(message)
+                            first_author = message.sender_chat.username
+
                         comments = dialogy[::-1]
                         await rec_data(service,
                                        date_create,
@@ -91,7 +108,12 @@ async def analyst_tg(service, datas, prompt_trend_gone):
                                        first_author,
                                        prompt_trend_gone,
                                        comments,
-                                       message_text)
+                                       message_text,
+                                       sheet_id,
+                                       worksheet_name)
+
+                        print('OK!')
+                        await asyncio.sleep(1)
                         break
 
 
@@ -101,14 +123,21 @@ async def analyst_tg(service, datas, prompt_trend_gone):
             #     async for comment in client.search_messages(message_id, query="46109"):
             #         print(comment.text)
 
+            except pyrogram.errors.FloodWait as FW:
+                print(f'Error FW: {FW}')
+                sec = await search_sec(FW)
+                await asyncio.sleep(sec + 1)
+
             except Exception as Ex:
                 print(f"Error Ex {Ex}")
 
 
+
+
 async def main_tg():
     datas = [
-        ["16.12 09:56:36", "https://telegram.me/rabota_msk_chat/9869453"],
-        ["16.12 07:55:04", "https://telegram.me/rabota_msk_chat/9869447"]
+        ["16.12 09:56:36", "https://telegram.me/marketplacesamara/202539"],
+        ["16.12 07:55:04", "https://telegram.me/tochkabis/1653"]
     ]
 
     service = await get_service()
