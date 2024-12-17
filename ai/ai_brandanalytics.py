@@ -358,6 +358,7 @@ async def check_ba(service):
             elif 'telegram' in url_answer:
                 if all(let not in url_answer for let in ['?', '/c/']):
                     tg_links.append([date_create, url_answer])
+                    print(f'Add t.com: {len(tg_links)}')
 
         try:
             driver.quit()

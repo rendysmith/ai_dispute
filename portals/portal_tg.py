@@ -58,7 +58,6 @@ async def analyst_tg(service, datas, prompt_trend_gone):
             print(url_split)
 
             channel = '@' + url_split[3]
-
             user_message_id = url_split[4]
 
             if '?' in user_message_id:
@@ -75,17 +74,27 @@ async def analyst_tg(service, datas, prompt_trend_gone):
                 async for message in client.get_chat_history(chat_id=chat.id, limit=200):
                     message_date = message.date
                     message_id = message.id
-                    print("message_id", message_id)
+                    #print("message_id", message_id)
                     message_text = message.text
-
                     dialogy.append([message_date, message_text])
+
+                    if message_id - user_message_id > 200:
+                        print(f'--- До нужного комментария больше {message_id - user_message_id} сообщений')
+                        break
 
                     if user_message_id == message_id:
                         first_author = message.from_user.first_name
+                        comments = dialogy[::-1]
+                        await rec_data(service,
+                                       date_create,
+                                       url_answer,
+                                       first_author,
+                                       prompt_trend_gone,
+                                       comments,
+                                       message_text)
                         break
 
-                comments = dialogy[::-1]
-                #await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, message_text)
+
 
             # except Exception as Ex:
             #     # Получение всех сообщений из группы комментариев
@@ -98,8 +107,8 @@ async def analyst_tg(service, datas, prompt_trend_gone):
 
 async def main_tg():
     datas = [
-        ["16.12 09:56:36", "https://telegram.me/proton_chatroom/2241507"],
-        ["16.12 07:55:04", "https://telegram.me/VseDengy/1146?comment=46109"]
+        ["16.12 09:56:36", "https://telegram.me/rabota_msk_chat/9869453"],
+        ["16.12 07:55:04", "https://telegram.me/rabota_msk_chat/9869447"]
     ]
 
     service = await get_service()
