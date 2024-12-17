@@ -47,6 +47,48 @@ async def get_content(title_div):
         print("Нужный div не найден")
         return None
 
+async def get_full_feedback(block):
+    # title_div_plus = soup.find('div', class_='review__title review__gap')
+    title_div_plus = block.find('div', class_='review__title review__gap')
+    plus_title = title_div_plus.text
+    # print(plus_title)
+
+    # Находим следующий div
+    next_div = title_div_plus.find_next('div', class_='review__title')
+
+    # Получаем весь текст между двумя div
+    full_text = ''
+    for sibling in title_div_plus.next_siblings:
+        if sibling == next_div:
+            break
+        if isinstance(sibling, str):
+            full_text += sibling
+        elif sibling.name == 'br':
+            full_text += '\n'
+
+    # Очищаем текст от лишних пробелов и переносов строк
+    plus = ' '.join(full_text.split())
+    # print(plus)
+
+    title_div_minus = block.select_one('div.review__title:not(.review__gap)')
+    # print(title_div_minus)
+    minus_title = title_div_minus.text
+    # print(minus_title)
+
+    if title_div_minus:
+        minus = title_div_minus.find_next_sibling(text=True).strip()
+        # print(minus)
+
+    feedback = f"""
+          {plus_title}:
+          {plus}
+          {minus_title}:
+          {minus}
+          """
+    # print(feedback)
+    return textwrap.dedent(feedback)
+
+
 async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
     print(link)
 
@@ -116,46 +158,8 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
             author = block.find('h2', {'class': 'review__header-title'}).text.strip()
             #print(author)
 
-            #title_div_plus = soup.find('div', class_='review__title review__gap')
-            title_div_plus = block.find('div', class_='review__title review__gap')
-            plus_title = title_div_plus.text
-            #print(plus_title)
 
-            # Находим следующий div
-            next_div = title_div_plus.find_next('div', class_='review__title')
-
-            # Получаем весь текст между двумя div
-            full_text = ''
-            for sibling in title_div_plus.next_siblings:
-                if sibling == next_div:
-                    break
-                if isinstance(sibling, str):
-                    full_text += sibling
-                elif sibling.name == 'br':
-                    full_text += '\n'
-
-            # Очищаем текст от лишних пробелов и переносов строк
-            plus = ' '.join(full_text.split())
-            #print(plus)
-
-            title_div_minus = block.select_one('div.review__title:not(.review__gap)')
-            #print(title_div_minus)
-            minus_title = title_div_minus.text
-            #print(minus_title)
-
-            if title_div_minus:
-                minus = title_div_minus.find_next_sibling(text=True).strip()
-                #print(minus)
-
-            feedback = f"""
-            {plus_title}:
-            {plus}
-            {minus_title}:
-            {minus}
-            """
-            #print(feedback)
-
-            feedback = textwrap.dedent(feedback)
+            feedback = await get_full_feedback(block)
 
             #print('///////////////')
             #print(url_answer)

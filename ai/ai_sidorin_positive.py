@@ -7,6 +7,8 @@ https://dreamjob.ru/employers/58176
 import asyncio
 import time
 
+from ai.  import
+
 from utils.user_agent import get_soup
 
 proxy_on = False
@@ -39,6 +41,9 @@ async def analyst_dreamjob():
             if raiting:
                 print(raiting)
                 print(raiting.text)
+
+
+                feedback = await
 
 
 
