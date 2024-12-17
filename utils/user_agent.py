@@ -84,7 +84,6 @@ async def get_fetcher_local(api_url, flare_bypasser_url="http://localhost:8080/v
         print(f"An error occurred: {e}")
         return None
 
-
 async def get_soup_curl_cffi(url, dict_type=True, proxy=True):
     from curl_cffi import requests
 
@@ -352,7 +351,6 @@ async def get_selenium_proxy_old(url=None, headless=True, proxy=True):
         print('<<< Selenium connect')
         return driver
 
-
 async def get_selenium_proxy(url=None, headless=True, proxy=True):
         driver_options = {
             'uc': True,
@@ -488,6 +486,7 @@ async def get_data_with_proxy(url, text_format=True):
             except Exception as Ex:
                 print(f"{i} Error Proxy Ex: {Ex}")
                 await asyncio.sleep(5)
+
     return None
 
 async def get_data_without_proxy(url, text_format=True):
@@ -501,7 +500,6 @@ async def get_data_without_proxy(url, text_format=True):
                 async with session.get(url) as response:
                     print('--2--')
                     status_code = response.status
-                    print(await response.text())
                     print("Status:", status_code)
 
                     if status_code == 403:

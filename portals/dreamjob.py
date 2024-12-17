@@ -12,6 +12,7 @@ from utils.ai_module import generate_and_white
 import textwrap
 
 from utils.user_agent import get_soup
+from utils.constants import months
 
 current_date = datetime.now()
 
@@ -22,22 +23,6 @@ load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
-async def convert_date(month):
-    months = {
-        'январь': 1,
-        'февраль': 2,
-        "март": 3,
-        "апрель": 4,
-        "май": 5,
-        "июнь": 6,
-        "июль": 7,
-        "август": 8,
-        "сентябрь": 9,
-        "октябрь": 10,
-        "ноябрь": 11,
-        "декабрь": 12
-    }
-    return months[month]
 
 async def get_content(title_div):
     if title_div:
@@ -106,7 +91,7 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
 
             date_spl = date.split('\xa0')
             #print(date_spl)
-            month = await convert_date(date_spl[0])
+            month = await months(date_spl[0])
 
             last_day = 31
             while True:
