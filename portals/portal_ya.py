@@ -241,7 +241,24 @@ async def check_ya_new(driver, url):
 
     return None
 
-async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
+async def click_cheakbox(driver):
+    print('--- CheakBox ...')
+    n = 0
+    while n <= 3:
+        try:
+            check_box = driver.find_element(By.CSS_SELECTOR, 'div.CheckboxCaptcha-Anchor')
+            check_box.click()
+            print(f'--- {n} Click Checkbox...')
+
+        except:
+            n += 1
+
+        await asyncio.sleep(3)
+
+    return
+
+
+async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
     print(f'\nLink: {link}')
 
     try:
@@ -254,20 +271,7 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
         print('New Driver OK')
 
     await wait_for_portal() #Время ожидания
-
-
-    n = 0
-    while n <= 3:
-        try:
-            check_box = driver.find_element(By.CSS_SELECTOR, 'div.CheckboxCaptcha-Anchor')
-            check_box.click()
-            print(f'--- {n} Click...')
-
-        except:
-            n += 1
-
-        await asyncio.sleep(3)
-
+    await click_cheakbox(driver)
 
     url = driver.current_url
     print("current url", url)
@@ -276,11 +280,12 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     top_url = f'https://yandex.ru/maps/org/{id_org}/reviews'
     print('top_url', top_url)
 
-    datas = {'project': project,
-             'url': url,
-             'top_url': top_url}
+    if ss_id != None:
+        datas = {'project': project,
+                 'url': url,
+                 'top_url': top_url}
 
-    await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+        await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
 
     try:
         driver.get(top_url)
@@ -294,18 +299,19 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     print(f'Get: {top_url}')
     #driver.execute_script("document.body.style.zoom='0.5'")
     await asyncio.sleep(5)
+    await click_cheakbox(driver)
 
     n = 0
     while True:
         try:
             rating_view = driver.find_element(By.CSS_SELECTOR, 'div.rating-ranking-view')
             rating_view.click()
-            print('- Click 1')
+            print('- Click 1 - Raitng')
             await asyncio.sleep(5)
 
             rating_ranking_view = driver.find_elements(By.CSS_SELECTOR, 'div[class="rating-ranking-view__popup-line"][role="button"]')
-            rating_ranking_view[1].click()
-            print('- Click 2')
+            rating_ranking_view[rating_ranking].click()
+            print('- Click 2 - Raiting')
             break
 
         except Exception as Ex:
@@ -375,11 +381,16 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
 
     except Exception as Ex:
         print(f'Error Ex: {Ex}')
-        await fix_error(service, project, link, str(Ex))
+        if ss_id != None:
+            await fix_error(service, project, link, str(Ex))
         return
 
     # Конвертируем в словарь
     dictionary = json.loads(json_text)
+    return dictionary
+
+async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
+    dictionary = await get_json(service, link, ss_id, project, driver)
 
     #print(dictionary)
     #print(type(dictionary))
