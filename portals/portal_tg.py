@@ -124,6 +124,7 @@ async def analyst_tg(service, datas, prompt_trend_gone):
             except pyrogram.errors.FloodWait as FW:
                 print(f'Error FW: {FW}')
                 sec = await search_sec(FW)
+                print(f'Wait {sec} sec...')
                 await asyncio.sleep(sec + 1)
 
             except Exception as Ex:

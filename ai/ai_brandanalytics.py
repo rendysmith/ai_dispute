@@ -22,7 +22,6 @@ from utils.user_agent import get_selenium_proxy
 from portals.portal_vk import blocks_vk
 from portals.youtube import blocks_youtube
 from portals.portal_dzen import blocks_dzen
-#from portals.portal_tg import analyst_tg
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -108,7 +107,7 @@ if '176.124.192' in local_ip:
 
 else:
     print(f'local_ip: {local_ip}')
-    headless = False
+    headless = True
     proxy_on = False
 
 async def extract_reply(url):
@@ -365,7 +364,8 @@ async def check_ba(service):
         except:
             pass
 
-    #await analyst_tg(service, tg_links, prompt_trend_gone)
+    from portals.portal_tg import analyst_tg
+    await analyst_tg(service, tg_links, prompt_trend_gone)
 
 async def main_ba():
     project = 'BA'
