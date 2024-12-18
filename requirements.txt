@@ -27,4 +27,7 @@ seleniumbase==4.31.6
 beautifulsoup4==4.12.3
 youtube-comment-downloader==0.1.76
 curl_cffi==0.7.3
+pyrogram==2.0.106
+
+
 
