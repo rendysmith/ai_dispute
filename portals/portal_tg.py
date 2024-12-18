@@ -128,7 +128,7 @@ async def analyst_tg(service, datas, prompt_trend_gone):
                 await asyncio.sleep(sec + 1)
 
             except Exception as Ex:
-                print(f"Error Ex {Ex}")
+                print(f"Error Ex: {Ex}")
 
 async def main_tg():
     datas = [
