@@ -8,8 +8,9 @@ import asyncio
 import os
 import time
 
-from requests.auth import HTTPBasicAuth
+import textwrap
 
+from requests.auth import HTTPBasicAuth
 
 from portals.dreamjob import get_full_feedback
 from portals.portal_ya import get_json
@@ -74,7 +75,37 @@ async def analyst_zoon(service, links, prompt_text):
 
     company_url = 'https://zoon.ru/msk/business/internet-agentstvo_sidorin_lab_na_taganskoj_ulitse/reviews/?sort=rating_asc'
 
-    soup = await get_soup(company_url, )
+    soup = await get_soup(company_url, proxy=proxy_on)
+
+    blocks = soup.find_all('li', {'class': 'comment-item js-comment'})
+    len_b = len(blocks)
+
+    if len_b == 0:
+        return
+
+    print(len_b)
+
+    for block in blocks:
+        try:
+            raiting = block.find('div', {'data-uitest': 'personal-mark'}).text.replace(',', '.')
+            raiting = float(raiting)
+
+        except:
+            continue
+
+        data_id = block.get('data-id')
+        print(data_id)
+
+        if data_id in links:
+            continue
+
+        if raiting <= 3.5:
+            comment_content = block.find('div', {'class': 'comment-item__body js-comment-text'})
+            #print(comment.text)
+
+            comment = textwrap.fill(comment_content.text)
+            await record_data(service, data_id, prompt_text, project, comment, rule)
+
 
 
 
@@ -205,9 +236,13 @@ async def check_sidorin():
         prompt_text = text_prompt[0].prompt
 
         print('- Analyst Dreamjob')
-        await analyst_dreamjob(service, links, prompt_text)
+        #await analyst_dreamjob(service, links, prompt_text)
+
         print('- Analyst Ya Maps')
-        await analyst_yandex(service, links, prompt_text)
+        #await analyst_yandex(service, links, prompt_text)
+
+        print('- Analyst Zoon')
+        await analyst_zoon(service, links, prompt_text)
 
     else:
         return
