@@ -116,8 +116,6 @@ async def analyst_tg(service, datas, prompt_trend_gone):
                         await asyncio.sleep(1)
                         break
 
-
-
             # except Exception as Ex:
             #     # Получение всех сообщений из группы комментариев
             #     async for comment in client.search_messages(message_id, query="46109"):
@@ -130,9 +128,6 @@ async def analyst_tg(service, datas, prompt_trend_gone):
 
             except Exception as Ex:
                 print(f"Error Ex {Ex}")
-
-
-
 
 async def main_tg():
     datas = [

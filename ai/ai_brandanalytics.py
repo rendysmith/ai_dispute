@@ -12,7 +12,7 @@ from requests.auth import HTTPBasicAuth
 from itertools import islice
 
 from models.mdl_tables import Prompt
-from portals.portal_tg import analyst_tg
+
 
 from utils.central_module import get_local_ip, rec_data
 from utils.db_loader import read_data_from_db_filter
@@ -22,6 +22,7 @@ from utils.user_agent import get_selenium_proxy
 from portals.portal_vk import blocks_vk
 from portals.youtube import blocks_youtube
 from portals.portal_dzen import blocks_dzen
+#from portals.portal_tg import analyst_tg
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -364,7 +365,7 @@ async def check_ba(service):
         except:
             pass
 
-    await analyst_tg(service, tg_links, prompt_trend_gone)
+    #await analyst_tg(service, tg_links, prompt_trend_gone)
 
 async def main_ba():
     project = 'BA'
