@@ -35,7 +35,6 @@ only_text = False
 async def get_rules():
     pass
 
-
 async def record_data(service, url_answer, prompt_text, project, comment, rule):
     prompt = prompt_text.format(source=project, comment=comment, rule=rule)
     result = await get_answer_ai(auth, prompt)
@@ -105,9 +104,6 @@ async def analyst_zoon(service, links, prompt_text):
 
             comment = textwrap.fill(comment_content.text)
             await record_data(service, data_id, prompt_text, project, comment, rule)
-
-
-
 
 async def analyst_yandex(service, links, prompt_text):
     project = 'yandex_maps'
@@ -217,12 +213,6 @@ async def analyst_dreamjob(service, links, prompt_text):
                 if rait <= 3.5: #Тут должна быть 3,5
                     comment = await get_full_feedback(block)
                     await record_data(service, url_answer, prompt_text, project, comment, rule)
-
-
-
-
-
-
 
 async def check_sidorin():
     service = await get_service()
