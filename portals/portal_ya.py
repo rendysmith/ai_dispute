@@ -306,12 +306,12 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
         try:
             rating_view = driver.find_element(By.CSS_SELECTOR, 'div.rating-ranking-view')
             rating_view.click()
-            print('- Click 1 - Raitng')
+            print('- Click 1 - Sort list')
             await asyncio.sleep(5)
 
             rating_ranking_view = driver.find_elements(By.CSS_SELECTOR, 'div[class="rating-ranking-view__popup-line"][role="button"]')
             rating_ranking_view[rating_ranking].click()
-            print('- Click 2 - Raiting')
+            print('- Click 2 - Sort position')
             break
 
         except Exception as Ex:

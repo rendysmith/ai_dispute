@@ -237,16 +237,14 @@ async def main_sidorin():
         print('- Analyst Dreamjob')
         await analyst_dreamjob(service, links, prompt_text)
 
-        print('- Analyst Ya Maps')
-        await analyst_yandex(service, links, prompt_text)
-
         print('- Analyst Zoon')
         await analyst_zoon(service, links, prompt_text)
+
+        print('- Analyst Ya Maps')
+        await analyst_yandex(service, links, prompt_text)
 
     else:
         return
 
-
-
 if "__main__" == __name__:
-    asyncio.run(check_sidorin())
+    asyncio.run(main_sidorin())
