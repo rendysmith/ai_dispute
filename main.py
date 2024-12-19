@@ -12,6 +12,7 @@ from ai.ai_desport_cards import main_desport_cards #Генерация отзы�
 
 from ai.ai_article import main_article #Генерация развлекательных статей
 from ai.ai_dzen import main_article_eco #Генерация экономических статей
+from ai.ai_sidorin_positive import main_sidorin #Проверка отзывов для их оспаривания.
 
 from portals.portal_otzovik import main_otzovik #Отдельная функция для отзовика
 from portals.irecommend import main_irecommend #Отдельная функция для irec

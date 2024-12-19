@@ -223,7 +223,7 @@ async def analyst_dreamjob(service, links, prompt_text):
                     comment = await get_full_feedback(block)
                     await record_data(service, url_answer, prompt_text, project, comment, rule)
 
-async def check_sidorin():
+async def main_sidorin():
     service = await get_service()
 
     #Уже опрошенные ссылки
