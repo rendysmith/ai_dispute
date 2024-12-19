@@ -47,10 +47,9 @@ else:
     proxy_on = False
     only_text = False
 
-
-async def total_grade_analysis(service, tn_name):
+async def total_grade_analysis(service):
     '''Функция для подсчета рейтинга после удаления отзыва'''
-    df = await get_table_scope(service, worktable_id, tn_name)
+    df = await get_table_scope(service, worktable_id, worksheet_name)
 
     data_rows = []
 
@@ -86,7 +85,7 @@ async def total_grade_analysis(service, tn_name):
                 continue
 
             if idx_mini not in data_rows:
-                await append_data_to_sheet_cell(service, worktable_id, tn_name,'Post', idx_mini + 2, finish_rating)
+                await append_data_to_sheet_cell(service, worktable_id, worksheet_name,'Post', idx_mini + 2, finish_rating)
                 print(f'{idx_mini} Add info...')
                 data_rows.append(idx_mini)
 
@@ -150,8 +149,8 @@ async def analyst_zoon(service, links, prompt_text):
 
     soup = await get_soup(company_url, proxy=proxy_on)
 
-    total_content = soup.find_all('span', {'class': 'service-block-nav-item-count z-text--13'})[-1].text
-    total = float(total_content)
+    total_content = soup.find('span', {'data-target': 'marks-total'}).text
+    total = int(total_content)
     print(f'Total: {total}')
 
     pre_content = soup.find('div', {'data-target': 'rating-total'}).text
@@ -320,16 +319,16 @@ async def main_sidorin():
         prompt_text = text_prompt[0].prompt
 
         print('\n- Analyst Zoon')
-        #await analyst_zoon(service, links, prompt_text)
+        await analyst_zoon(service, links, prompt_text)
 
         print('\n- Analyst Dreamjob')
-        await analyst_dreamjob(service, links, prompt_text)
+        #await analyst_dreamjob(service, links, prompt_text)
 
         print('\n- Analyst Ya Maps')
         #await analyst_yandex(service, links, prompt_text)
 
         print('\n- Total grade analysis')
-        await total_grade_analysis(service, worksheet_name)
+        await total_grade_analysis(service)
 
     else:
         return
