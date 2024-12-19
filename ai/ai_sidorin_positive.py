@@ -102,7 +102,6 @@ async def analyst_zoon(service, links, prompt_text):
             continue
 
         data_id = block.get('data-id')
-        print(data_id)
 
         if data_id in links:
             continue
@@ -135,6 +134,9 @@ async def analyst_yandex(service, links, prompt_text):
     ss_id = None
     rating_ranking = 2
     dictionary = await get_json(service, company_url, ss_id, project, driver, rating_ranking)
+
+    if not isinstance(dictionary, dict):
+        return
 
     try:
         driver.quit()
@@ -201,7 +203,6 @@ async def analyst_dreamjob(service, links, prompt_text):
             return None
 
         for block in blocks:
-            print('\n*******************************************')
             raiting = block.find('div', {'class': 'dj-rating dj-rating--35'})
 
             if raiting:
