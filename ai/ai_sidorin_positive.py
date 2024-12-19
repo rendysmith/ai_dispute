@@ -17,6 +17,7 @@ from portals.portal_ya import get_json
 
 from models.mdl_tables import ForumRules, Prompt
 from utils.ai_module import get_answer_ai
+from utils.central_module import get_local_ip
 from utils.db_loader import read_data_from_db_filter
 from utils.gs_editor import get_service, append_data_to_sheet_scope, pars_url
 from utils.user_agent import get_soup, get_selenium_proxy
@@ -28,9 +29,17 @@ auth = HTTPBasicAuth(auth_username, auth_password)
 worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
 worksheet_name = 'Sidorin'
 
-headless = False
-proxy_on = False
-only_text = False
+local_ip = asyncio.run(get_local_ip())
+if '176.124.192' in local_ip:
+    headless = True
+    proxy_on = True
+    only_text = False
+
+else:
+    print(f'local_ip: {local_ip}')
+    headless = True
+    proxy_on = False
+    only_text = False
 
 async def get_rules():
     pass
@@ -226,10 +235,10 @@ async def check_sidorin():
         prompt_text = text_prompt[0].prompt
 
         print('- Analyst Dreamjob')
-        #await analyst_dreamjob(service, links, prompt_text)
+        await analyst_dreamjob(service, links, prompt_text)
 
         print('- Analyst Ya Maps')
-        #await analyst_yandex(service, links, prompt_text)
+        await analyst_yandex(service, links, prompt_text)
 
         print('- Analyst Zoon')
         await analyst_zoon(service, links, prompt_text)
