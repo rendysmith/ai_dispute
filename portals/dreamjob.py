@@ -23,6 +23,22 @@ load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
+async def get_raiting(soup):
+    # soup = await get_soup(top_url)
+    # if not soup:
+    #     return None, None
+
+    total_rating = soup.find('div', {"class": 'dashboard__grade-total'}).text
+    #print(total_rating)
+    total_rating = float(total_rating.replace(',', '.'))
+    #print(total_rating)
+
+    total_reviews = soup.find('span', {"class": 'company-header__tab-count'}).text
+    #print(total_reviews)
+    total_reviews = int(total_reviews.replace(' ', ''))
+    #print(total_reviews)
+
+    return total_reviews, total_rating
 
 async def get_content(title_div):
     if title_div:
@@ -87,7 +103,6 @@ async def get_full_feedback(block):
           """
     # print(feedback)
     return textwrap.dedent(feedback)
-
 
 async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
     print(link)
@@ -157,7 +172,6 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
 
             author = block.find('h2', {'class': 'review__header-title'}).text.strip()
             #print(author)
-
 
             feedback = await get_full_feedback(block)
 

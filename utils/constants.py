@@ -7,6 +7,7 @@ RESULT_SHEETS = '1A73rT27Sa2Au5Bsb8v2u_C-ttDwJAYg_rY27CUfzdbw'
 farm_hosts = ["109.107.170.211"]
 
 TABLES_LIST = {
+    'Sidorin': '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8',
     'zoom': '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w',
     'Vkusvill': ['1HtUgQn3UJKbpjKHqqRqt5WSjDWKCJa0fOYLiM9UwcTw', 'reviews'],
     'OZON': ['1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'OZON', 'OZON_link'],
