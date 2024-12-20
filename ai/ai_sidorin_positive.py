@@ -89,7 +89,7 @@ async def total_grade_analysis(service):
                 print(f'{idx_mini} Add info...')
                 data_rows.append(idx_mini)
 
-async def record_data(service, url_answer, prompt_text, project, comment, rule, reiting, total, pre):
+async def record_data(service, url_answer, prompt_text, project, comment, rule, reiting, total, pre_r):
     prompt = prompt_text.format(source=project, comment=comment, rule=rule)
 
     results = {}
@@ -108,6 +108,8 @@ async def record_data(service, url_answer, prompt_text, project, comment, rule, 
 
         results[f"result_{i}"] = result_eval
 
+    print('pre_r', pre_r)
+
     try:
         datas = {
             'Portal': project,
@@ -119,7 +121,7 @@ async def record_data(service, url_answer, prompt_text, project, comment, rule, 
             'Text_2': results['result_1'][1],
             'Text_3': results['result_2'][1],
             'Total': total,
-            'Pre': pre
+            'Pre': pre_r
         }
 
         await append_data_to_sheet_scope(service,
@@ -153,9 +155,19 @@ async def analyst_zoon(service, links, prompt_text):
     total = int(total_content)
     print(f'Total: {total}')
 
-    pre_content = soup.find('div', {'data-target': 'rating-total'}).text
-    pre = float(pre_content.replace(',', '.'))
-    print(f'Pre: {pre}')
+    pre_content_1 = soup.find('div', {'data-target': 'rating-total'}).text
+    pre_1 = float(pre_content_1.replace(',', '.'))
+    print(f'Pre 1: {pre_1}')
+
+    pre_content_2 = soup.find('div', {'class': 'z-text--16 z-text--default z-text--bold'}).text
+    pre_2 = float(pre_content_2.replace(',', '.'))
+    print(f'Pre 2: {pre_2}')
+
+    if pre_1 != pre_2:
+        pre_r = max(pre_1, pre_2)
+
+    else:
+        pre_r = pre_2
 
     blocks = soup.find_all('li', {'class': 'comment-item js-comment'})
     len_b = len(blocks)
@@ -182,7 +194,8 @@ async def analyst_zoon(service, links, prompt_text):
             comment_content = block.find('div', {'class': 'comment-item__body js-comment-text'})
             comment = textwrap.fill(comment_content.text)
 
-            await record_data(service, data_id, prompt_text, project, comment, rule, raiting, total, pre)
+            print('pre_r', pre_r)
+            await record_data(service, data_id, prompt_text, project, comment, rule, raiting, total, pre_r)
 
 async def analyst_yandex(service, links, prompt_text):
     project = 'yandex_maps'
@@ -204,11 +217,15 @@ async def analyst_yandex(service, links, prompt_text):
     driver = await get_selenium_proxy(company_url, headless=headless, proxy=proxy_on)
     await asyncio.sleep(5)
 
-    pre_contents = driver.find_elements(By.CSS_SELECTOR, 'span.business-summary-rating-badge-view__rating-text')
-    pre = float(f"{pre_contents[0].text}.{pre_contents[2].text}")
+    try:
+        total_content = driver.find_element(By.CSS_SELECTOR, 'span[class=business-rating-amount-view _summary]')
+    except:
+        total_content = driver.find_element(By.CSS_SELECTOR, 'div[class=business-summary-rating-badge-view__rating-count]')
 
-    print(pre)
-    input()
+    total = int(total_content.text.split(' ')[0])
+
+    pre_contents = driver.find_elements(By.CSS_SELECTOR, 'span.business-summary-rating-badge-view__rating-text')
+    pre_r = float(f"{pre_contents[0].text}.{pre_contents[2].text}")
 
     ss_id = None
     rating_ranking = 2
@@ -243,10 +260,10 @@ async def analyst_yandex(service, links, prompt_text):
             continue
 
         raiting = rew['rating']
-        if raiting <= 3.5:
+        if 0 < raiting <= 3.5:
             print(f'Rating = {raiting}')
             comment = rew['text']
-            await record_data(service, reviewId, prompt_text, project, comment, rule, raiting)
+            await record_data(service, reviewId, prompt_text, project, comment, rule, raiting, total, pre_r)
 
 async def analyst_dreamjob(service, links, prompt_text):
     project = 'dreamjob'
@@ -322,10 +339,10 @@ async def main_sidorin():
         await analyst_zoon(service, links, prompt_text)
 
         print('\n- Analyst Dreamjob')
-        #await analyst_dreamjob(service, links, prompt_text)
+        await analyst_dreamjob(service, links, prompt_text)
 
         print('\n- Analyst Ya Maps')
-        #await analyst_yandex(service, links, prompt_text)
+        await analyst_yandex(service, links, prompt_text)
 
         print('\n- Total grade analysis')
         await total_grade_analysis(service)
