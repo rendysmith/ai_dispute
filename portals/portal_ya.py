@@ -72,7 +72,6 @@ async def yrp(id_company):
     parser = YandexParser(id_company)
     all_data = parser.parse()  # Получаем все данные
 
-
 async def get_requestId(dictionary):
     if dictionary.get("stack"):
         reqId_1 = dictionary['stack'][0]
@@ -254,7 +253,6 @@ async def click_cheakbox(driver):
             n += 1
 
         await asyncio.sleep(3)
-
     return
 
 

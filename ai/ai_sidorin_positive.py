@@ -16,7 +16,7 @@ from requests.auth import HTTPBasicAuth
 from selenium.webdriver.common.by import By
 
 from portals.dreamjob import get_full_feedback, get_raiting
-from portals.portal_ya import get_json
+from portals.portal_ya import get_json, click_cheakbox
 
 from models.mdl_tables import ForumRules, Prompt
 from utils.ai_module import get_answer_ai
@@ -43,7 +43,7 @@ if '176.124.192' in local_ip:
 
 else:
     print(f'local_ip: {local_ip}')
-    headless = True
+    headless = False
     proxy_on = False
     only_text = False
 
@@ -107,8 +107,6 @@ async def record_data(service, url_answer, prompt_text, project, comment, rule, 
             print('-- Ast')
 
         results[f"result_{i}"] = result_eval
-
-    print('pre_r', pre_r)
 
     try:
         datas = {
@@ -215,6 +213,9 @@ async def analyst_yandex(service, links, prompt_text):
     company_url = 'https://yandex.kz/maps/org/sidorin_lab/193038195644/reviews'
 
     driver = await get_selenium_proxy(company_url, headless=headless, proxy=proxy_on)
+    await asyncio.sleep(5)
+
+    await click_cheakbox(driver)
     await asyncio.sleep(5)
 
     try:
