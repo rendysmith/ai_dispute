@@ -492,7 +492,7 @@ async def get_data_with_proxy(url, text_format=True):
 async def get_data_without_proxy(url, text_format=True):
     trying = 3
     for i in range(trying):
-        print(f'Proxy try {i}')
+        print(f'- Without Proxy try {i}')
         timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             print('--1--')
@@ -519,11 +519,11 @@ async def get_data_without_proxy(url, text_format=True):
                 await asyncio.sleep(5)
 
             except asyncio.TimeoutError as TE:
-                print(f"Error Proxy TE: {TE}")
+                print(f"- Error without Proxy TE: {TE}")
                 await asyncio.sleep(5)  # Ждем перед повторной попыткой
 
             except Exception as Ex:
-                print(f"{i} Error Proxy Ex: {Ex}")
+                print(f"- {i} Error without Proxy Ex: {Ex}")
                 await asyncio.sleep(5)
     return None
 

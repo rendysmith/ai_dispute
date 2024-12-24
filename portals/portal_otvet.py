@@ -8,6 +8,7 @@ from pprint import pprint
 import aiohttp
 from selenium.webdriver.common.by import By
 
+from utils.central_module import get_local_ip
 from utils.compressor import compress_string
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
@@ -31,8 +32,16 @@ max_sec = int(os.environ.get("MAX_SEC"))
 
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
-headless = True
-proxy_on = False
+
+local_ip = asyncio.run(get_local_ip())
+if '176.124.192' in local_ip:
+    headless = True
+    proxy_on = True
+
+else:
+    print(f'local_ip: {local_ip}')
+    headless = False
+    proxy_on = False
 
 async def get_id_obj(url):
     url_split = url.split('/')
@@ -378,27 +387,17 @@ async def check_otvet_sel(service, link, pattern, criteria, ss_id, project, driv
     driver.quit()
 
 async def check_otvet(service, link, pattern, criteria, ss_id, project):
-    #questions = await get_id_obj(url)
-    #answers = '1'
-    #url = f'https://otvet.mail.ru/api/v1/questions/{questions}/answers/{answers}/page?limit=20'
-    #url = 'https://otvet.mail.ru/api/v1/questions/229443400?limit=10'
-
-    soup = await get_soup(link, proxy=proxy_on)    #print(soup)
-
-    hrefs = soup.find_all('a', {"href": True, "name": True})
-    print(len(hrefs))
-    top_url = link
-    for href in hrefs:
-        if 'question' in str(href):
-            print(f'-------------{href}-----------------')
-            question = href.get('href').replace('question', 'questions')
-            print(question)
-            top_url = f'https://otvet.mail.ru/api/v1{question}?limit=20'
-            print(top_url)
-            break
+    question = await get_id_obj(link)
+    soup = await get_soup(link, proxy=proxy_on)
+    answers = soup.find_all('div', {"data-aid": True})
+    answers = [answer.get('data-aid') for answer in answers]
+    answers = sorted(answers)
+    top_url = os.path.join('https://otvet.mail.ru/api/v1/questions',  question, 'answers', answers[0], 'page?limit=20')
+    print(top_url)
 
     try:
         json_data = await get_soup(top_url, only_text=False, proxy=proxy_on)
+
     except Exception as Ex:
         print(f'Otvet Error Ex: {Ex}')
         return
@@ -446,10 +445,18 @@ async def main_otvet():
 
     from utils.gs_editor import get_table_scope
     service = await get_service()
-    ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
-    df = await get_table_scope(service, ss_id, 'zoom')
 
-    irec_links = df['AlphaPet'].to_list()
+    # ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
+    # df = await get_table_scope(service, ss_id, 'zoom')
+    # irec_links = df['AlphaPet'].to_list()
+
+    irec_links = [
+        'https://otvet.mail.ru/question/233913470',
+        'https://otvet.mail.ru/question/235643654',
+        'https://otvet.mail.ru/question/238257736',
+        'https://otvet.mail.ru/question/237632805',
+        'https://otvet.mail.ru/question/238325522'
+    ]
 
     for url in irec_links:
         if 'otvet' in url:
