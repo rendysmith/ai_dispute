@@ -378,6 +378,7 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
             # Если нужно использовать get, убедитесь что используете асинхронный метод
             driver.get(url)
 
+        driver.execute_cdp_cmd('Network.enable', {})
         return driver
 
 async def get_playwright(url, headless=True):

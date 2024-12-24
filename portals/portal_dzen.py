@@ -1,3 +1,6 @@
+import json
+from pprint import pprint
+
 import asyncio
 import os
 import random
@@ -12,20 +15,32 @@ from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 
 from portals.portal_otzovik import headless, proxy_on
+from utils.central_module import get_local_ip
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
-from utils.user_agent import get_selenium_proxy
+from utils.user_agent import get_selenium_proxy, get_soup
 
 current_date = datetime.now()
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
+time_unix = str(time.time() * 1000)
+
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
-headless = True
-proxy_on = True
+local_ip = asyncio.run(get_local_ip())
+if '176.124.192' in local_ip:
+    headless = True
+    proxy_on = True
+    only_text = False
+
+else:
+    print(f'local_ip: {local_ip}')
+    headless = True
+    proxy_on = False
+    only_text = False
 
 async def blocks_dzen(driver):
 
@@ -54,12 +69,62 @@ async def blocks_dzen(driver):
 
     return r['items'], UsersByID
 
+async def blocks_dzen_media(driver):
+    comment_button = driver.find_elements(By.CSS_SELECTOR, 'button[class*="video-site--base-button"][type="button"][tabindex="0"]')
+    print(len(comment_button))
+    comment_button[2].click()
+    print('--- Click comment...')
+
+    await asyncio.sleep(3)
+
+    logs = driver.get_log('performance')
+    #print(logs)
+    api_url = None
+    for idx, log in enumerate(logs):
+        if 'root-comments' in str(log):
+            #pprint(log)
+
+            if log.get('message'):
+                msg = json.loads(log['message'])
+                #pprint(msg)
+
+                if msg.get('message'):
+                    msg_msg = msg['message']
+
+                    if msg_msg.get('params'):
+                        msg_par = msg_msg['params']
+
+                        if msg_par.get("request"):
+                            msg_req = msg_par['request']
+
+                            if msg_req.get('url'):
+                                api_url = msg_req['url']
+
+                        elif msg_par.get('response'):
+                            msg_req = msg_par['response']
+
+                            if msg_req.get('url'):
+                                api_url = msg_req['url']
+
+    if not api_url:
+        return None
+
+    r_json = await get_soup(api_url, only_text=False, proxy=proxy_on)
+
+    blocks = r_json['items']
+    UsersByID = {v['uidSafe']: v['displayName'] for k, v in r_json['usersById'].items()}
+
+    return blocks, UsersByID
 
 async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
     #print(UsersByID)
     links = await pars_url(service, ss_id, project)
 
-    blocks, UsersByID = await blocks_dzen(driver)
+    if any(lk in url for lk in ['video', 'media']):
+        blocks, UsersByID = await blocks_dzen_media(driver)
+
+    else:
+        blocks, UsersByID = await blocks_dzen(driver)
 
     for block in blocks:
         #print(block)
@@ -102,93 +167,102 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
 
     driver.quit()
 
-async def check_dzen_old(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
-    #playwright, browser, page = await get_playwright(url)
 
-    links = await pars_url(service, ss_id, project)
-
-    if not page:
-        # await browser.close()
-        # await playwright.stop()
-        return 'Сайт не отдал данные.'
-
-    try:
-        zen_object_id_content = await page.query_selector('meta[property="zen_object_id"]')
-        zen_object_id = await zen_object_id_content.get_attribute('content')
-        zen_object_id = zen_object_id.split(':')
-
-    except:
-        await browser.close()
-        await playwright.stop()
-        return 'Сайт не отдал данные.'
-
-    #print(zen_object_id)
-    documentId = zen_object_id[1]
-    publicationPublisherId = zen_object_id[0]
-
-    url_json = f'https://dzen.ru/api/comments/v2/root-comments?documentId=native%3A{documentId}&publicationPublisherId={publicationPublisherId}'
-    r = requests.get(url_json).json()
-    len_r = len(r['items'])
-
-    if len_r == 0:
-        url_json = f'https://dzen.ru/api/comments/v2/root-comments?documentId=brief%3A{documentId}&publicationPublisherId={publicationPublisherId}'
-        r = requests.get(url_json).json()
-        len_r = len(r['items'])
-
-    print(len_r)
-    if len_r == 0:
-        await browser.close()
-        await playwright.stop()
-        return
-
-    UsersByID = {v['uidSafe']: v['displayName'] for k, v in r['usersById'].items()}
-    #print(UsersByID)
-
-    for block in r['items']:
-        #print(block)
-        url_answer = block['entityData']['id']
-        #print(url_answer)
-
-        if url_answer in links:
-            print('Такой комментарий уже есть в списке')
-            continue
-
-        date = block['entityData']['createdTs']/1000
-        print(date)
-
-        if (time.time() - date) > 7 * 24 * 3600:
-            print(f'--- Отзыв старше 30 дней = {date}.')
-            continue
-
-        # Форматирование даты
-        #formatted_date = date.strftime('%d.%m.%Y')
-        formatted_date = datetime.fromtimestamp(date).strftime('%d.%m.%Y')
-
-        #authorSafeUid = block['authorSafeUid']
-        author = UsersByID[block['entityData']['authorSafeUid']]
-        #print(author)
-
-        feedback = block['entityData']['text']
-        #input(feedback)
-
-        await generate_and_white(service=service,
-                                 url_answer=url_answer,
-                                 author=author,
-                                 formatted_date=formatted_date,
-                                 ss_id=ss_id,
-                                 project=project,
-                                 feedback=feedback,
-                                 pattern=pattern,
-                                 criteria=criteria)
-
-    await browser.close()
-    await playwright.stop()
 
 async def main_dzen():
     service = await get_service()
 
     url = 'https://dzen.ru/a/Y1o2zJjP7VPVFVdJ'
-    await check_dzen(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет")
+    url = 'https://dzen.ru/video/watch/64b67afcfff5626738324fb7#comment_1754332642'
+
+    driver = await get_selenium_proxy(url, headless=headless, proxy=proxy_on)
+    await check_dzen(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет", driver)
 
 if __name__ == '__main__':
     asyncio.run(main_dzen())
+
+
+
+
+#
+# async def check_dzen_old(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
+#     #playwright, browser, page = await get_playwright(url)
+#
+#     links = await pars_url(service, ss_id, project)
+#
+#     if not page:
+#         # await browser.close()
+#         # await playwright.stop()
+#         return 'Сайт не отдал данные.'
+#
+#     try:
+#         zen_object_id_content = await page.query_selector('meta[property="zen_object_id"]')
+#         zen_object_id = await zen_object_id_content.get_attribute('content')
+#         zen_object_id = zen_object_id.split(':')
+#
+#     except:
+#         await browser.close()
+#         await playwright.stop()
+#         return 'Сайт не отдал данные.'
+#
+#     #print(zen_object_id)
+#     documentId = zen_object_id[1]
+#     publicationPublisherId = zen_object_id[0]
+#
+#     url_json = f'https://dzen.ru/api/comments/v2/root-comments?documentId=native%3A{documentId}&publicationPublisherId={publicationPublisherId}'
+#     r = requests.get(url_json).json()
+#     len_r = len(r['items'])
+#
+#     if len_r == 0:
+#         url_json = f'https://dzen.ru/api/comments/v2/root-comments?documentId=brief%3A{documentId}&publicationPublisherId={publicationPublisherId}'
+#         r = requests.get(url_json).json()
+#         len_r = len(r['items'])
+#
+#     print(len_r)
+#     if len_r == 0:
+#         await browser.close()
+#         await playwright.stop()
+#         return
+#
+#     UsersByID = {v['uidSafe']: v['displayName'] for k, v in r['usersById'].items()}
+#     #print(UsersByID)
+#
+#     for block in r['items']:
+#         #print(block)
+#         url_answer = block['entityData']['id']
+#         #print(url_answer)
+#
+#         if url_answer in links:
+#             print('Такой комментарий уже есть в списке')
+#             continue
+#
+#         date = block['entityData']['createdTs']/1000
+#         print(date)
+#
+#         if (time.time() - date) > 7 * 24 * 3600:
+#             print(f'--- Отзыв старше 30 дней = {date}.')
+#             continue
+#
+#         # Форматирование даты
+#         #formatted_date = date.strftime('%d.%m.%Y')
+#         formatted_date = datetime.fromtimestamp(date).strftime('%d.%m.%Y')
+#
+#         #authorSafeUid = block['authorSafeUid']
+#         author = UsersByID[block['entityData']['authorSafeUid']]
+#         #print(author)
+#
+#         feedback = block['entityData']['text']
+#         #input(feedback)
+#
+#         await generate_and_white(service=service,
+#                                  url_answer=url_answer,
+#                                  author=author,
+#                                  formatted_date=formatted_date,
+#                                  ss_id=ss_id,
+#                                  project=project,
+#                                  feedback=feedback,
+#                                  pattern=pattern,
+#                                  criteria=criteria)
+#
+#     await browser.close()
+#     await playwright.stop()
