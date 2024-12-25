@@ -16,7 +16,7 @@ from requests.auth import HTTPBasicAuth
 from selenium.webdriver.common.by import By
 
 from portals.dreamjob import get_full_feedback, get_raiting
-from portals.portal_ya import get_json, click_cheakbox
+from portals.portal_ya import get_json, click_checkbox
 
 from models.mdl_tables import ForumRules, Prompt
 from utils.ai_module import get_answer_ai
@@ -215,7 +215,7 @@ async def analyst_yandex(service, links, prompt_text):
     driver = await get_selenium_proxy(company_url, headless=headless, proxy=proxy_on)
     await asyncio.sleep(5)
 
-    await click_cheakbox(driver)
+    await click_checkbox(driver)
     await asyncio.sleep(5)
 
     try:
