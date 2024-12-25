@@ -271,7 +271,7 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
     await click_checkbox(driver)
 
     url = driver.current_url
-    print("Current url", url)
+    print("Current url:", url)
 
     if 'captcha' in url:
         return 'captcha'
