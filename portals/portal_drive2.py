@@ -3,6 +3,7 @@ import random
 
 from datetime import datetime, timedelta
 
+from utils.central_module import get_local_ip
 from utils.gs_editor import get_service, pars_url
 from utils.ai_module import generate_and_white
 from utils.user_agent import get_soup
@@ -16,6 +17,19 @@ load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
+
+local_ip = asyncio.run(get_local_ip())
+if '176.124.192' in local_ip:
+    headless = True
+    proxy_on = True
+    only_text = False
+
+else:
+    print(f'local_ip: {local_ip}')
+    headless = False
+    proxy_on = False
+    only_text = False
+
 async def check_drive2(service, link, pattern, criteria, ss_id, project):
     print(link)
 
@@ -23,8 +37,7 @@ async def check_drive2(service, link, pattern, criteria, ss_id, project):
     if "#comments" not in link:
         link = link + "#comments"
 
-    soup = await get_soup(link)
-    #print(soup)
+    soup = await get_soup(link, proxy=proxy_on)
 
     if not soup:
         return 'Сайт не отдал данные.'

@@ -209,8 +209,8 @@ async def get_soup_bs4(url, only_pars=False):
 
 async def get_soup(url, only_text=True, proxy=True):
     '''
-    only_text = True - получить данные в soup формате
-    иначе в json
+    only_text = True - получить данные в SOUP формате
+    only_text = False - в формате JSON
     '''
 
     if only_text: #Получить только текст
