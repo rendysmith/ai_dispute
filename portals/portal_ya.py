@@ -273,6 +273,9 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
     url = driver.current_url
     print("Current url", url)
 
+    if 'captcha' in url:
+        return 'captcha'
+
     id_org = await get_id_org(url)
     top_url = f'https://yandex.ru/maps/org/{id_org}/reviews'
     print('top_url', top_url)
@@ -390,6 +393,9 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
 
 async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     dictionary = await get_json(service, link, ss_id, project, driver)
+
+    if dictionary == 'captcha':
+        return
 
     if not isinstance(dictionary, dict):
         print('- This is NOT Dict')
