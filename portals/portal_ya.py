@@ -43,7 +43,7 @@ if '176.124.192' in local_ip:
     proxy_on = True
 
 else:
-    headless = False
+    headless = True
     proxy_on = False
 
 async def cut_token(text, pattern):
@@ -240,8 +240,8 @@ async def check_ya_new(driver, url):
 
     return None
 
-async def click_cheakbox(driver):
-    print('--- CheakBox ...')
+async def click_checkbox(driver):
+    print('--- Checkbox ...')
     n = 0
     while n <= 3:
         try:
@@ -254,7 +254,6 @@ async def click_cheakbox(driver):
 
         await asyncio.sleep(3)
     return
-
 
 async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
     print(f'\nLink: {link}')
@@ -269,10 +268,10 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
         print('New Driver OK')
 
     await wait_for_portal() #Время ожидания
-    await click_cheakbox(driver)
+    await click_checkbox(driver)
 
     url = driver.current_url
-    print("current url", url)
+    print("Current url", url)
 
     id_org = await get_id_org(url)
     top_url = f'https://yandex.ru/maps/org/{id_org}/reviews'
@@ -297,7 +296,7 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
     print(f'Get: {top_url}')
     #driver.execute_script("document.body.style.zoom='0.5'")
     await asyncio.sleep(5)
-    await click_cheakbox(driver)
+    await click_checkbox(driver)
 
     n = 0
     while True:
@@ -315,6 +314,7 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
         except Exception as Ex:
             await asyncio.sleep(1)
             n += 1
+            print(f'- {n} No click.')
             if n > 10:
                 print(f'Error Ex, n = {n}: {Ex}')
                 return
@@ -351,9 +351,10 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
             print('**************')
 
     domen = await extract_main_site(url)
+    print(f'Domen: {domen}')
 
-    if domen not in url_s:
-        url_api = domen + url_s
+    if 'yandex.' not in url_s:
+        url_api = 'https://yandex.ru' + url_s
     else:
         url_api = url_s
 
@@ -390,8 +391,10 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
 async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
     dictionary = await get_json(service, link, ss_id, project, driver)
 
-    #print(dictionary)
-    #print(type(dictionary))
+    if not isinstance(dictionary, dict):
+        print('- This is NOT Dict')
+        return
+
     if dictionary.get('data'):
         if dictionary['data'].get('reviews'):
             reviews = dictionary['data']['reviews']
