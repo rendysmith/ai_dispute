@@ -17,7 +17,7 @@ from models.mdl_tables import Prompt
 
 from utils.central_module import get_local_ip, rec_data
 from utils.db_loader import read_data_from_db_filter
-from utils.gs_editor import get_service, append_data_to_sheet_scope, read_table_id, write_log_sheet
+from utils.gs_editor import get_service, read_table_id, write_log_sheet
 from utils.user_agent import get_selenium_proxy
 
 from portals.portal_vk import blocks_vk
@@ -192,8 +192,8 @@ async def analysis_dzen(service, date_create, url_answer, first_author, prompt_t
 
     return driver
 
-async def analysis_youtube(service, date_create, url_answer, first_author, prompt_trend_gone, text):
-    comments_content = await blocks_youtube(url_answer)
+async def analysis_youtube(service, date_create, url, first_author, prompt_trend_gone, text):
+    comments_content = await blocks_youtube(url)
 
     comments = []
 
@@ -206,7 +206,7 @@ async def analysis_youtube(service, date_create, url_answer, first_author, promp
             print(f'--- Комментарий младше {days_ago} дней.')
             trend_alife = True
 
-        url_answer = comment['cid']
+        url_answer = url + ' ' + comment['cid']
         author = comment['author']
 
         if any(bank in author for bank in official):  # если есть ответ от оф.представителя.
@@ -253,9 +253,6 @@ async def analysis_vk(service, date_create, url_answer, first_author, prompt_tre
     await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id, worksheet_name)
 
 async def check_ba(service):
-    df_links = await read_table_id(service, sheet_id, worksheet_name)
-    links = df_links['portal'].to_list()
-
     async with aiohttp.ClientSession() as session:
         cookies = await get_cookies()
 
@@ -301,6 +298,10 @@ async def check_ba(service):
         tg_links = []
 
         for report in reports:
+            df_links = await read_table_id(service, sheet_id, worksheet_name)
+            links = df_links['portal'].to_list()
+            await asyncio.sleep(3)
+
             url_base = f'https://brandanalytics.ru/theme-data/{report}/'
 
             tst = int(time.time())
