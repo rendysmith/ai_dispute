@@ -176,7 +176,7 @@ async def main_dzen():
     url = 'https://dzen.ru/video/watch/64b67afcfff5626738324fb7#comment_1754332642'
 
     driver = await get_selenium_proxy(url, headless=headless, proxy=proxy_on)
-    await check_dzen(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет", driver)
+    await check_dzen(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet", driver)
 
 if __name__ == '__main__':
     asyncio.run(main_dzen())
