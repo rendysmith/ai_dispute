@@ -229,8 +229,6 @@ async def selen_pars(service, links, top_url, pattern, criteria, ss_id, project)
     except:
         pass
 
-
-
 async def check_2gis(service, url, pattern, criteria, ss_id, project):
     links = await pars_url(service, ss_id, project)
 
@@ -241,14 +239,6 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project):
 
     elif 'geo' in url:
         await selen_pars(service, links, top_url, pattern, criteria, ss_id, project)
-
-
-
-
-
-
-
-
 
 async def main_2gis(url):
     service = await get_service()
