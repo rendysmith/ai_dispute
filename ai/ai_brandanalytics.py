@@ -1,3 +1,5 @@
+from pprint import pprint
+
 import asyncio
 import os
 import re
@@ -12,7 +14,6 @@ from requests.auth import HTTPBasicAuth
 from itertools import islice
 
 from models.mdl_tables import Prompt
-
 
 from utils.central_module import get_local_ip, rec_data
 from utils.db_loader import read_data_from_db_filter
@@ -255,125 +256,168 @@ async def check_ba(service):
     df_links = await read_table_id(service, sheet_id, worksheet_name)
     links = df_links['portal'].to_list()
 
-    reports = ['12551940', '13602890', '13746174', '13742266', '13771544', '13750792', '13239512', '13288928', '13289396', '13231322', '13601564']
+    async with aiohttp.ClientSession() as session:
+        cookies = await get_cookies()
 
-    tg_links = []
+        headers = {
+            "Accept": "*/*",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
+            "Accept-Language": "ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3",
+            "Connection": "keep-alive",
+            "Content-Type": "application/json",
+            "DNT": "1",
+            "Host": "brandanalytics.ru",
+            "Origin": "https://brandanalytics.ru",
+            "Priority": "u=4",
+            "Referer": "https://brandanalytics.ru/summary",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
+            "TE": "trailers",
+            "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0"
+        }
 
-    for report in reports:
-        url_base = f'https://brandanalytics.ru/theme-data/{report}/'
+        # Тело запроса
+        data = {
+            "blocks": {
+                "theme_list": {},
+                "user_settings": {}
+            }
+        }
 
-        tst = int(time.time())
-        print(datetime.utcfromtimestamp(tst).strftime('%Y-%m-%d %H:%M:%S'))
+        url_themes = 'https://brandanalytics.ru/report/data/'
+        async with session.post(url_themes, headers=headers, cookies=cookies, json=data) as response:
+            print('Resp Status:', response.status)
+            if response.status == 200:
+                r_json = await response.json()
+                #pprint(r_json)
 
-        tsf = int(time.time() - 5 * 24 * 3600)
-        print(datetime.utcfromtimestamp(tsf).strftime('%Y-%m-%d %H:%M:%S'))
+            else:
+                return response.status
 
-        page = 1
-        limit = 100
+        reports = [k for k, v in r_json['theme_list'].items()]
+        print("reports:", reports)
 
-        query = f'?tst={tst}&tsf={tsf}&requested%5B%5D=feed&sort=time_create&order=desc&page={page}&limit={limit}&filter%5Bft%5D%5Bnot%5D%5B%5D=30008&filter%5Bft%5D%5Bnot%5D%5B%5D=30009&filter%5Bft%5D%5Bnot%5D%5B%5D=15&filter%5Bft%5D%5Bnot%5D%5B%5D=30059&filter%5Bft%5D%5Bnot%5D%5B%5D=30025&filter%5Bfmsgproc%5D%5Bany%5D%5B%5D=1'
-        url = url_base + query
-        print('\n\n', url)
+        tg_links = []
 
-        async with aiohttp.ClientSession() as session:
-            cookies = await get_cookies()
-            async with session.get(url, cookies=cookies) as response:
-                if response.status == 200:
-                    r_json = await response.json()
+        for report in reports:
+            url_base = f'https://brandanalytics.ru/theme-data/{report}/'
+
+            tst = int(time.time())
+            tsf = int(time.time() - 5 * 24 * 3600)
+
+            page = 1
+            limit = 100
+
+            query = f'?tst={tst}&tsf={tsf}&requested%5B%5D=feed&sort=time_create&order=desc&page={page}&limit={limit}&filter%5Bft%5D%5Bnot%5D%5B%5D=30008&filter%5Bft%5D%5Bnot%5D%5B%5D=30009&filter%5Bft%5D%5Bnot%5D%5B%5D=15&filter%5Bft%5D%5Bnot%5D%5B%5D=30059&filter%5Bft%5D%5Bnot%5D%5B%5D=30025&filter%5Bfmsgproc%5D%5Bany%5D%5B%5D=1'
+            url = url_base + query
+            print('\nQuery_url:', url)
+
+            async with aiohttp.ClientSession() as session:
+                cookies = await get_cookies()
+
+                async with session.get(url, cookies=cookies) as response:
+                    if response.status == 200:
+                        r_json = await response.json()
+                    else:
+                        continue
+
+                messages = r_json['feed']['messages']
+                len_m = len(messages)
+                print(f'Len_m = {len_m}')
+                if len_m == 0:
+                    continue
+
+                messages_id = [k for k, v in messages.items()]
+                #input(messages_id)
+                #driver = await get_selenium_proxy(proxy=proxy_on)
+
+                status, text_prompt = await read_data_from_db_filter(Prompt, project_name='ba')
+
+                if status:
+                    prompt_trend_gone = text_prompt[0].prompt
                 else:
-                    raise Exception(f"Request failed with status code {response.status}")
+                    return status
 
-        messages = r_json['feed']['messages']
-        #print(messages)
-        len_m = len(messages)
-        print(f'Len_m = {len_m}')
-        if len_m == 0:
-            continue
+                driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
-        messages_id = [k for k, v in messages.items()]
-        #input(messages_id)
-        #driver = await get_selenium_proxy(proxy=proxy_on)
+                for idx, msg_id in enumerate(messages_id):
+                    print(f'\n******************************************{idx} ({len(messages_id) - idx})*********************************************')
 
-        status, text_prompt = await read_data_from_db_filter(Prompt, project_name='ba')
+                    msg = messages[msg_id]
 
-        if status:
-            prompt_trend_gone = text_prompt[0].prompt
-        else:
-            return
+                    author = msg['author']['fullname']
+                    date_create = msg['date_create']
+                    url_answer = msg['url']
 
-        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+                    if url_answer in links:
+                        continue
 
-        for idx, msg_id in enumerate(messages_id):
-            print(f'\n******************************************{idx} ({len(messages_id) - idx})*********************************************')
+                    text_highlighted = msg['text_highlighted']
+                    #print('text', text_highlighted)
 
-            msg = messages[msg_id]
+                    # Создаем объект BeautifulSoup
+                    soup = BeautifulSoup(text_highlighted, 'html.parser')
+                    # Извлекаем весь текст из документа
+                    text = soup.get_text()
+                    #print('text', text)
+                    #input('---------------')
 
-            author = msg['author']['fullname']
-            date_create = msg['date_create']
-            url_answer = msg['url']
+                    print(f'================{date_create} = {url_answer} ===================')
 
-            if url_answer in links:
-                continue
+                    if any(mt in text.lower() for mt in censor):
+                        print('>>>>>>>>>>>>>>>>>> МАТ!!! <<<<<<<<<<<<<<<<<<<<')
+                        print(text)
+                        continue
 
-            text_highlighted = msg['text_highlighted']
-            #print('text', text_highlighted)
+                    # soup = await get_soup(url_answer)
+                    # if not soup:
+                    #     continue
+                    #
+                    # if "Message in a private group or channel" in soup:
+                    #     print('Телеграм - закрытая группа')
+                    #     continue
 
-            # Создаем объект BeautifulSoup
-            soup = BeautifulSoup(text_highlighted, 'html.parser')
-            # Извлекаем весь текст из документа
-            text = soup.get_text()
-            #print('text', text)
-            #input('---------------')
+                    #--------------------------------------------------------------------------------------
+                    if 'vk.com' in url_answer:
+                        await analysis_vk(service, date_create, url_answer, author, prompt_trend_gone, text)
 
-            print(f'================{date_create} = {url_answer} ===================')
+                    elif 'youtube' in url_answer:
+                        await analysis_youtube(service, date_create, url_answer, author, prompt_trend_gone, text)
 
-            if any(mt in text.lower() for mt in censor):
-                print('>>>>>>>>>>>>>>>>>> МАТ!!! <<<<<<<<<<<<<<<<<<<<')
-                print(text)
-                continue
+                    elif 'dzen' in url_answer:
+                        driver.get(url_answer)
+                        driver = await analysis_dzen(service, date_create, url_answer, author, prompt_trend_gone, text, driver)
 
-            # soup = await get_soup(url_answer)
-            # if not soup:
-            #     continue
-            #
-            # if "Message in a private group or channel" in soup:
-            #     print('Телеграм - закрытая группа')
-            #     continue
+                        if not driver:
+                            driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
-            #--------------------------------------------------------------------------------------
-            if 'vk.com' in url_answer:
-                await analysis_vk(service, date_create, url_answer, author, prompt_trend_gone, text)
+                    elif 'telegram' in url_answer:
+                        if all(let not in url_answer for let in ['?', '/c/']):
+                            tg_links.append([date_create, url_answer])
+                            print(f'Add t.com: {len(tg_links)}')
 
-            elif 'youtube' in url_answer:
-                await analysis_youtube(service, date_create, url_answer, author, prompt_trend_gone, text)
-
-            elif 'dzen' in url_answer:
-                driver.get(url_answer)
-                driver = await analysis_dzen(service, date_create, url_answer, author, prompt_trend_gone, text, driver)
-
-                if not driver:
-                    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-
-            elif 'telegram' in url_answer:
-                if all(let not in url_answer for let in ['?', '/c/']):
-                    tg_links.append([date_create, url_answer])
-                    print(f'Add t.com: {len(tg_links)}')
-
-        try:
-            driver.quit()
-        except:
-            pass
+                try:
+                    driver.quit()
+                except:
+                    pass
 
     from portals.portal_tg import analyst_tg
     await analyst_tg(service, tg_links, prompt_trend_gone)
+
+    return 'OK!'
 
 async def main_ba():
     project = 'BA'
     service = await get_service()
 
-    await check_ba(service)
+    status = await check_ba(service)
 
-    data = {'service_name': project, 'date': time.ctime()}
+    data = {
+        'service_name': project,
+            'date': time.ctime(),
+            'error': status
+    }
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
 async def tst_main():
