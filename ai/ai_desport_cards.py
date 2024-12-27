@@ -65,6 +65,10 @@ async def get_prompt():
         return status
 
 async def cheak_desport_cards(service):
+    prompt = await get_prompt()
+    if not prompt:
+        return 'Prompt Error'
+
     df_rec = await get_table_scope(service, rec_worktable_id, rec_worksheet_name)
     #df_rec = df_rec[df_rec['отзыв_1'].notnull()]
     print(df_rec)
@@ -96,17 +100,17 @@ async def cheak_desport_cards(service):
             num = n + 1
             column_name = f'отзыв_{num}'
 
-            prompt = await get_prompt()
-            if prompt:
-                text = prompt.format(subject=subject, title=title, reviews=reviews)
-                result = await get_answer_ai(auth, text)
-                await append_data_to_sheet_cell(service, rec_worktable_id, rec_worksheet_name, column_name, idx + 2, result)
+            text = prompt.format(subject=subject, title=title, reviews=reviews)
+            result = await get_answer_ai(auth, text)
+            await append_data_to_sheet_cell(service, rec_worktable_id, rec_worksheet_name, column_name, idx + 2, result)
+
+    return 'OK!'
 
 async def main_desport_cards():
     service = await get_service()
-    await cheak_desport_cards(service)
+    status = await cheak_desport_cards(service)
 
-    data = {'service_name': market, 'date': time.ctime()}
+    data = {'service_name': market, 'date': time.ctime(), 'error': status}
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
-from models.mdl_tables import ForumRules
+from models.mdl_tables import ForumRules, Prompt
 from utils.ai_module import get_answer_ai
 from utils.central_module import wait_for_portal
 
@@ -47,29 +47,20 @@ print(worktable_id, worksheet_names)
 rec_worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
 rec_worksheet_name = 'Desport'
 
-prompt ="""
-Ты официальный представитель компании DESPORT
-ты должен предоставить профессиональный и вежливый ответ на комментарий пользователя.
-Напишите ответ на следующий комментарий: 
-------------НАЧАЛО КОММЕНТАРИЯ--------------
-{comment}
-------------КОНЕЦ КОММЕНТАРИЯ---------------
-Ответ должен: 
-* Начинаться со стандартного приветствия (например, "Привет" или "Добрый день").
-* Завершите выступление профессиональной заключительной фразой 
-(например, 
-"С уважением, команда DESPORT", 
-"С уважением, Ваш DESPORT", 
-"Хорошего дня!" или "Желаю вам активного дня"). 
+async def get_prompt():
+    status, text = await read_data_from_db_filter(Prompt, project_name='desport')
+    if status:
+        prompt = text[0].prompt
+        return prompt
 
-* Используйте местоимения с заглавной буквы (например, "Ты", "Вы", "Ты", "Твой") 
-* Если клиента не устраивают цены, используй призыв к действию из карты реакции, в частности: 
-    + Отправьте данные по электронной почте на адрес customer.support@octoblu.org 
-    + Напишите в tg-чат по адресу https://t.me/desport_help_bot 
-    + Ссылка на программу лояльности по адресу https://club.desport.ru/,
-"""
+    else:
+        return status
 
 async def cheak_desport(service):
+    prompt = await get_prompt()
+    if not prompt:
+        return 'Error prompt'
+
     df_rec = await get_table_scope(service, rec_worktable_id, rec_worksheet_name)
     links = df_rec['url'].to_list()
 
@@ -114,6 +105,7 @@ async def main_desport():
     data = {'service_name': market,
             'date': time.ctime(),
             'error': status}
+
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
 if __name__ == '__main__':
