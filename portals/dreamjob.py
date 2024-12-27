@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import time
 
+from utils.central_module import get_local_ip
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
 #from ai_skillbox import pars_url, generator
@@ -22,6 +23,18 @@ dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
+
+local_ip = asyncio.run(get_local_ip())
+if '176.124.192' in local_ip:
+    headless = True
+    proxy_on = True
+    only_text = False
+
+else:
+    print(f'local_ip: {local_ip}')
+    headless = False
+    proxy_on = False
+    only_text = False
 
 async def get_raiting(soup):
     # soup = await get_soup(top_url)
@@ -118,7 +131,7 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
         url = f'{link}?erfrp%5BlastParam%5D=&erfrp%5Bfrom_vacancy%5D=&sort=-created_at&page={page}&_={unix_time}'
         print(url)
 
-        soup = await get_soup(url)
+        soup = await get_soup(url, proxy=proxy_on)
         if not soup:
             continue
 
@@ -147,8 +160,8 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
             #print(date)
 
             date_spl = date.split('\xa0')
-            #print(date_spl)
-            month = await months(date_spl[0])
+
+            month = months[date_spl[0]]
 
             last_day = 31
             while True:
@@ -199,7 +212,10 @@ async def main():
     url = 'https://yandex.ru/maps/org/artstudio_moskovsky/125846534919/?ll=30.329628%2C59.907103&mode=search&sll=30.301828%2C59.912472&sspn=0.022573%2C0.006756&text=Artstudio%20Moskovsky&z=14.86'
     url = 'https://dreamjob.ru/employers/41950?review_id=2832885'
     url = 'https://dreamjob.ru/employers/41950'
-    await check_dreamjob(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
+
+
+
+    await check_dreamjob(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 'Петрович')
 
 if __name__ == '__main__':
     asyncio.run(main())

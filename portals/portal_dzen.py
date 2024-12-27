@@ -38,11 +38,14 @@ if '176.124.192' in local_ip:
 
 else:
     print(f'local_ip: {local_ip}')
-    headless = True
+    headless = False
     proxy_on = False
     only_text = False
 
 async def blocks_dzen(driver):
+    page_source = driver.page_source
+    if 'Такой страницы не существует' in str(page_source):
+        return [], []
 
     # driver = await get_selenium_proxy(url, headless=headless, proxy=proxy_on)
     # driver.get(url)
@@ -63,7 +66,7 @@ async def blocks_dzen(driver):
 
     if len_r == 0:
         driver.quit()
-        return
+        return [], []
 
     UsersByID = {v['uidSafe']: v['displayName'] for k, v in r['usersById'].items()}
 
@@ -120,11 +123,14 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
     #print(UsersByID)
     links = await pars_url(service, ss_id, project)
 
-    if any(lk in url for lk in ['video', 'media']):
+    if any(lk in url for lk in ['video', 'media', 'shorts']):
         blocks, UsersByID = await blocks_dzen_media(driver)
 
     else:
         blocks, UsersByID = await blocks_dzen(driver)
+
+    if len(blocks) == 0:
+        return
 
     for block in blocks:
         #print(block)
@@ -174,6 +180,8 @@ async def main_dzen():
 
     url = 'https://dzen.ru/a/Y1o2zJjP7VPVFVdJ'
     url = 'https://dzen.ru/video/watch/64b67afcfff5626738324fb7#comment_1754332642'
+    url = 'https://dzen.ru/shorts/63f9e2173876d93b6f7277fa'
+    url = 'https://dzen.ru/a/ZF3kG27fcA39RZbS#comment_1653038211'
 
     driver = await get_selenium_proxy(url, headless=headless, proxy=proxy_on)
     await check_dzen(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet", driver)
