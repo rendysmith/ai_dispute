@@ -23,7 +23,7 @@ from utils.ai_module import get_answer_ai
 from utils.central_module import get_local_ip
 from utils.db_loader import read_data_from_db_filter
 from utils.gs_editor import get_service, append_data_to_sheet_scope, pars_url, get_table_scope, \
-    append_data_to_sheet_cell
+    append_data_to_sheet_cell, write_log_sheet
 from utils.user_agent import get_soup, get_selenium_proxy
 
 from utils.constants import TABLES_LIST
@@ -349,7 +349,10 @@ async def main_sidorin():
         await total_grade_analysis(service)
 
     else:
-        return
+        status = 'Error prompt'
+
+    data = {'service_name': worksheet_name, 'date': time.ctime(), 'error': status}
+    await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
 if "__main__" == __name__:
     asyncio.run(main_sidorin())
