@@ -3,12 +3,11 @@ import json
 import os
 import time
 #import time
-import numpy as np
-
-import traceback
+#import numpy as np
+#import traceback
 
 import warnings
-import gspread
+#import gspread
 #from oauth2client.service_account import ServiceAccountCredentials
 
 #import gspread_dataframe as gd
@@ -362,6 +361,19 @@ async def pars_url(service, SS_ID, R_N):
     except:
         links = []
     return links
+
+async def get_all_sheet_names(service, spreadsheet_id):
+    """
+    Получение названий всех листов в таблице
+    :param service: авторизованный сервис Google Sheets
+    :param spreadsheet_id: ID Google таблицы
+    :return: список названий листов
+    """
+    # Получение информации о таблице
+    spreadsheet = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+    # Извлечение названий листов
+    sheet_names = [sheet['properties']['title'] for sheet in spreadsheet['sheets']]
+    return sheet_names
 
 def get_all_spreadsheets():
     try:

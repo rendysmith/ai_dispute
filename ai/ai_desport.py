@@ -16,7 +16,7 @@ from utils.central_module import wait_for_portal
 from utils.db_loader import read_data_from_db_filter
 
 from utils.gs_editor import get_service, write_log_sheet, get_table_scope, append_data_to_sheet_cell, \
-    append_data_to_sheet_cells, append_data_to_sheet_scopes, append_data_to_sheet_scope
+    append_data_to_sheet_cells, append_data_to_sheet_scopes, append_data_to_sheet_scope, get_all_sheet_names
 
 from portals.portal_otzovik import get_top_link
 from utils.user_agent import get_soup
@@ -29,6 +29,7 @@ from datetime import datetime
 current_date = datetime.now()
 # Преобразуем дату в формат 20.11.2024
 formatted_date = current_date.strftime("%d.%m.%Y")
+print(formatted_date)
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -57,6 +58,13 @@ async def get_prompt():
         return status
 
 async def cheak_desport(service):
+    tabs = await get_all_sheet_names(service, worktable_id)
+    print(tabs)
+
+    for wn in worksheet_names:
+        if wn not in tabs:
+            return f'ERROR: No *{wn}* in desport sheets'
+
     prompt = await get_prompt()
     if not prompt:
         return 'Error prompt'
@@ -66,22 +74,39 @@ async def cheak_desport(service):
 
     for worksheet_name in worksheet_names:
         df = await get_table_scope(service, worktable_id, worksheet_name)
-        try:
-            df = df[(df['Дата'] == formatted_date) & (df['Текст упоминания'].notnull()) & (df['Текст упоминания'] != '')]
-        except Exception as Ex:
-            return str(Ex)
 
-        #print(df)
+        columns = df.columns
+        #print(columns)
+
+        date_name = 'Дата'
+        text_name = 'Текст упоминания'
+        link_name = 'Ссылка на упоминание'
+
+        for names in [date_name, text_name, link_name]:
+            if names not in columns:
+                return f'ERROR: No head *{names}* in *{worksheet_name}*'
+
+        input()
+
+
+
+
+        try:
+            df = df[(df[date_name] == formatted_date) & (df[text_name].notnull()) & (df[text_name] != '')]
+
+        except Exception as Ex:
+            return print(f'Error: {Ex}')
+
         #print(df['Текст упоминания'])
 
         for idx, row in df.iterrows():
-            date = row['Дата']
-            link = row['Ссылка на упоминание']
+            date = row[date_name]
+            link = row[link_name]
 
             if link in links:
                 continue
 
-            comment = row['Текст упоминания']
+            comment = row[text_name]
 
             text = prompt.format(comment=comment)
             result = await get_answer_ai(auth, text)

@@ -8,11 +8,16 @@ from requests.auth import HTTPBasicAuth
 
 from utils.ai_module import get_answer_ai
 from utils.db_loader import read_data_from_db_filter
-from utils.gs_editor import write_log_sheet, get_table_scope, get_service, append_data_to_sheet_cell
+from utils.gs_editor import (write_log_sheet,
+                             get_table_scope,
+                             get_service,
+                             append_data_to_sheet_cell,
+                             append_data_to_sheet_cells)
+
 from utils.constants import TABLES_LIST
 from utils.central_module import get_articles
 
-from models.mdl_tables import DatasetArticlePersons
+from models.mdl_tables import DatasetArticlePersons, Prompt
 
 from datetime import datetime, timedelta
 
@@ -31,40 +36,20 @@ username = os.environ.get("HOST_USERNAME")
 password = os.environ.get("HOST_PASSWORD")
 auth = HTTPBasicAuth(username, password)
 
-text_fun = """
-Ты копирайтер и автор статей.
-ты {gender} по имени {fio}, которому {age} лет и который живет в городе {region}. 
-Ты {person_description}
-Напишите статью на тему "{subject}" в блоге:
-Статья должна быть длиной примерно 5000 символов символов. 
-Что запрещено:
-Азартные игры, лотереи, стимулирующие мероприятия: Запрещена любая реклама и пропаганда участия.
-Дублированный контент: Повторная публикация материалов.
-Заимствованный контент: Публикация чужого контента без указания авторства.
-Запрещённые товары и услуги: Наркотики, оружие, торговля людьми и т.д.
-Искусственное завышение показателей: Накрутка просмотров, дочитываний, подписчиков.
-Кликбейт: Заголовки и карточки, обманывающие ожидания пользователей.
-Ложная информация и фейки: Публикация недостоверных фактов.
-Незаконная информация: Призывы к противоправным действиям, нарушению прав, размещение ссылок на нелегальный контент.
-Неприятное изображение на карточке: Фотографии, вызывающие отвращение (насекомые, туши животных, и т.д.)
-Оскорбления и нападки: Грубые высказывания, травля, запугивание.
-Откровенный контент: Материалы эротического характера.
-Происшествия и трагедии: Спекуляция на чужом горе.
-Сниженная лексика: Обилие нецензурной лексики и жаргонизмов.
-Спам: Распространение нерелевантной информации.
-Товары и услуги, вредящие здоровью: Реклама и пропаганда табака, алкоголя, вейпов.
-Шокирующий контент: Изображения насилия, трупов, травм.
-Язык вражды и пропаганда насилия: Разжигание ненависти, дискриминация, призывы к насилию.
-Что разрешено с ограничениями:
-Медицина и фармацевтика: Допустимы информационные материалы с опорой на доказательную медицину, без призывов к самолечению и рекламы конкретных препаратов.
-Важно помнить:
-Указывайте авторство при использовании чужих материалов.
-Не используйте кликбейт и шокирующий контент на карточках публикаций.
-Будьте вежливы и уважайте других пользователей.
-Пожалуйста, внимательно изучите задание перед написанием статьи
-"""
+async def get_prompt():
+    status, text = await read_data_from_db_filter(Prompt, project_name='article_fun')
+    if status:
+        prompt = text[0].prompt
+        return prompt
+
+    else:
+        return status
 
 async def ai_generator_article_fun(service, auth, project):
+    text_fun = await get_prompt()
+    if not text_fun:
+        return 'Error prompt'
+
     worktable_id = TABLES_LIST[project][0]
     worksheet_name = next_month.strftime("%b_%Y")
     print(worksheet_name)
@@ -85,11 +70,12 @@ async def ai_generator_article_fun(service, auth, project):
         df = await get_table_scope(service, worktable_id, worksheet_name)
 
     print(worksheet_name)
-    print(df)
+
+    articles_row = df['Article'].to_list()
 
     for idx, row in df.iterrows():
-        date = row['Date']
 
+        date = row['Date']
         if current_date != date:
             print('Next day...')
             continue
@@ -114,7 +100,7 @@ async def ai_generator_article_fun(service, auth, project):
         print(f'--- Всего статей: {len_art}')
 
         top_number = int(row['Top_number'])
-        print(f'--- Указать статью №{top_number}')
+        print(f'--- Select an article №{top_number}')
 
         if top_number > len_art:
             subject = articles.loc[len_art - 1, 0]
@@ -122,11 +108,20 @@ async def ai_generator_article_fun(service, auth, project):
         else:
             subject = articles.loc[top_number - 1, 0]
 
+        if subject in articles_row:
+            print('-- This article is already in there')
+            await append_data_to_sheet_cell(service, worktable_id, worksheet_name, 'Result', idx + 2, 'По этой теме статья уже была сформирована ранее.')
+            continue
+
         print(f'--- Статья: {subject}')
 
         prompt = text_fun.format(fio=fio, subject=subject, region=region, gender=gender, age=age, person_description=person_description)
         result = await get_answer_ai(auth, prompt)
-        await append_data_to_sheet_cell(service, worktable_id, worksheet_name, 'Result', idx + 2, result)
+
+        columns = ['Article', 'Result']
+        datas = [subject, result]
+
+        await append_data_to_sheet_cells(service, worktable_id, worksheet_name, columns, idx + 2, datas)
 
 async def main_article():
     project = 'Article_fun'
@@ -139,6 +134,40 @@ async def main_article():
 
 if __name__ == '__main__':
     asyncio.run(main_article())
+
+
+# text_fun = """
+# Ты копирайтер и автор статей.
+# ты {gender} по имени {fio}, которому {age} лет и который живет в городе {region}.
+# Ты {person_description}
+# Напишите статью на тему "{subject}" в блоге:
+# Статья должна быть длиной примерно 5000 символов символов.
+# Что запрещено:
+# Азартные игры, лотереи, стимулирующие мероприятия: Запрещена любая реклама и пропаганда участия.
+# Дублированный контент: Повторная публикация материалов.
+# Заимствованный контент: Публикация чужого контента без указания авторства.
+# Запрещённые товары и услуги: Наркотики, оружие, торговля людьми и т.д.
+# Искусственное завышение показателей: Накрутка просмотров, дочитываний, подписчиков.
+# Кликбейт: Заголовки и карточки, обманывающие ожидания пользователей.
+# Ложная информация и фейки: Публикация недостоверных фактов.
+# Незаконная информация: Призывы к противоправным действиям, нарушению прав, размещение ссылок на нелегальный контент.
+# Неприятное изображение на карточке: Фотографии, вызывающие отвращение (насекомые, туши животных, и т.д.)
+# Оскорбления и нападки: Грубые высказывания, травля, запугивание.
+# Откровенный контент: Материалы эротического характера.
+# Происшествия и трагедии: Спекуляция на чужом горе.
+# Сниженная лексика: Обилие нецензурной лексики и жаргонизмов.
+# Спам: Распространение нерелевантной информации.
+# Товары и услуги, вредящие здоровью: Реклама и пропаганда табака, алкоголя, вейпов.
+# Шокирующий контент: Изображения насилия, трупов, травм.
+# Язык вражды и пропаганда насилия: Разжигание ненависти, дискриминация, призывы к насилию.
+# Что разрешено с ограничениями:
+# Медицина и фармацевтика: Допустимы информационные материалы с опорой на доказательную медицину, без призывов к самолечению и рекламы конкретных препаратов.
+# Важно помнить:
+# Указывайте авторство при использовании чужих материалов.
+# Не используйте кликбейт и шокирующий контент на карточках публикаций.
+# Будьте вежливы и уважайте других пользователей.
+# Пожалуйста, внимательно изучите задание перед написанием статьи
+# """
 
 
 

@@ -76,8 +76,6 @@ async def get_api_service():
     print(f'- Binded IP: {r_json.get("bindedip")}')
     return r_json
 
-
-
 async def proxy_status():
     proxy_action = await get_api_service()
     return proxy_action['status']
