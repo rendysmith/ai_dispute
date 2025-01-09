@@ -42,7 +42,7 @@ auth = HTTPBasicAuth(username, password)
 
 market = 'Desport'
 worktable_id = '1v20Aroe8hnsKQctG-PzGPR56JfmQCntGavN9upB4cFs'
-worksheet_names = ['Реагирование ОП (оф сайт/товары)', 'Реагирование ОП (гео/магазины)']
+worksheet_names = ['Реагирование ОП (гео/магазины)', 'Реагирование ОП (оф сайт/товары)']
 print(worktable_id, worksheet_names)
 
 rec_worktable_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
@@ -73,6 +73,7 @@ async def cheak_desport(service):
     links = df_rec['url'].to_list()
 
     for worksheet_name in worksheet_names:
+        print(f'---------------{worksheet_name}------------------')
         df = await get_table_scope(service, worktable_id, worksheet_name)
 
         columns = df.columns
@@ -85,11 +86,6 @@ async def cheak_desport(service):
         for names in [date_name, text_name, link_name]:
             if names not in columns:
                 return f'ERROR: No head *{names}* in *{worksheet_name}*'
-
-        input()
-
-
-
 
         try:
             df = df[(df[date_name] == formatted_date) & (df[text_name].notnull()) & (df[text_name] != '')]
