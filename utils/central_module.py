@@ -1,3 +1,4 @@
+import base64
 import os
 import random
 import re
@@ -28,12 +29,42 @@ record_date = now.strftime("%d.%m.%Y")
 token_proxy = os.environ.get("TOKEN_PROXY")
 id_proxy = os.environ.get("ID_PROXY")
 
+email_proxy = os.environ.get("EMAIL_PROXY")
+password_proxy = os.environ.get("PASSWORD_PROXY")
+
+
 max_sec = int(os.environ.get("MAX_SEC"))
 ss_id = TABLES_LIST['zoom']
 
 auth_username = os.environ.get("HOST_USERNAME")
 auth_password = os.environ.get("HOST_PASSWORD")
 auth = HTTPBasicAuth(auth_username, auth_password)
+
+async def get_proxy_token(email: str, password: str):
+    """
+    Создаёт заголовок Authorization для Basic аутентификации.
+
+    :param email: Электронная почта пользователя.
+    :param password: Пароль пользователя.
+    :return: Словарь с заголовком Authorization.
+    """
+    credentials = f"{email}|{password}"
+    encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
+    return encoded_credentials
+
+async def get_serviceid(token_proxy):
+    url = 'https://api.proxy5.net/api/billing/invoices'
+    headers = {
+        'Authorization': f'Basic {token_proxy}',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    }
+
+    response = requests.request('GET', url, headers=headers)
+    r_json = response.json()
+
+    serviceid = r_json[-1]['serviceid']
+    return serviceid
 
 def get_local_ip_sync():
     url = 'https://api.myip.com/'
@@ -62,6 +93,9 @@ def proxy_status_sync():
     return proxy_action['status']
 
 async def get_api_service():
+    token_proxy = await get_proxy_token(email_proxy, password_proxy)
+    id_proxy = await get_serviceid(token_proxy)
+
     url = f'https://api.proxy5.net/api/service/{id_proxy}'
     headers = {
         'Authorization': f'Basic {token_proxy}',

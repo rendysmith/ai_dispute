@@ -6,7 +6,7 @@ import requests
 from dotenv import load_dotenv
 
 from models.mdl_tables import HostsZoom
-from utils.central_module import get_api_service
+from utils.central_module import get_api_service, proxy_status
 from utils.constants import TABLES_LIST
 from utils.db_loader import read_data_from_db
 from utils.gs_editor import get_table_scope, get_service, append_data_to_sheet_cell
@@ -33,8 +33,9 @@ async def change_ip(ip):
         print(status_code, r.text)
 
 async def load_distribution(service):
-    status, results = await read_data_from_db(HostsZoom, 100, 1)
+    p_status = await proxy_status() #Get proxy status
 
+    status, results = await read_data_from_db(HostsZoom, 100, 1)
     hosts = [result.host for result in results]
     #hosts = ['85.192.49.227', '85.192.49.224']
     print(hosts)
@@ -51,16 +52,19 @@ async def load_distribution(service):
     df['assigned_service'] = np.tile(hosts, len(df) // hosts_number + 1)[:len(df)]
     print(df)
 
-    service_data = await get_api_service()
 
     for idx, row in df.iterrows():
         hst = row['assigned_service']
 
-        if service_data['status'] != 'Active':
+        if p_status != 'Active':
             hst = 'status = Deactive'
 
         print(idx, hst)
-        await append_data_to_sheet_cell(service, ss_id, tab_name, 'reserve', idx+2, hst)
+
+        columns = ['reserve', 'status']
+        datas = [hst, p_status]
+
+        await append_data_to_sheet_cells(service, ss_id, tab_name, columns, idx+2, datas)
         await asyncio.sleep(3)
 
     bindedip = service_data['bindedip']

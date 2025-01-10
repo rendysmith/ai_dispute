@@ -19,19 +19,6 @@ token_proxy = os.environ.get("TOKEN_PROXY")
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
 
-async def get_serviceid():
-    url = 'https://api.proxy5.net/api/billing/invoices'
-    headers = {
-        'Authorization': f'Basic {token_proxy}',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-    }
-
-    response = requests.request('GET', url, headers=headers)
-    r_json = response.json()
-    serviceid = r_json[0]['serviceid']
-    return serviceid
-
 async def get_client_list():
     url = 'https://api.proxy5.net/api/clients'
     headers = {
@@ -219,7 +206,8 @@ async def main_proxy():
 
 
 if "__main__" in __name__:
-    asyncio.run(change_setip('95.57.222.150'))
+    srv = asyncio.run(get_serviceid())
+    print(srv)
 
 
 
