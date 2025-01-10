@@ -9,7 +9,7 @@ from models.mdl_tables import HostsZoom
 from utils.central_module import get_api_service, proxy_status
 from utils.constants import TABLES_LIST
 from utils.db_loader import read_data_from_db
-from utils.gs_editor import get_table_scope, get_service, append_data_to_sheet_cell
+from utils.gs_editor import get_table_scope, get_service, append_data_to_sheet_cell, append_data_to_sheet_cells
 
 ss_id = TABLES_LIST['zoom']
 tab_name = 'logs'
@@ -52,7 +52,6 @@ async def load_distribution(service):
     df['assigned_service'] = np.tile(hosts, len(df) // hosts_number + 1)[:len(df)]
     print(df)
 
-
     for idx, row in df.iterrows():
         hst = row['assigned_service']
 
@@ -67,6 +66,7 @@ async def load_distribution(service):
         await append_data_to_sheet_cells(service, ss_id, tab_name, columns, idx+2, datas)
         await asyncio.sleep(3)
 
+    service_data = await get_api_service()
     bindedip = service_data['bindedip']
     if bindedip not in hosts:
         await change_ip(hosts[0])
