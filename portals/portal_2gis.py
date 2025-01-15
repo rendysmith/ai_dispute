@@ -248,6 +248,9 @@ async def main_2gis(url):
 if __name__ == '__main__':
 
     url = 'https://2gis.ru/irkutsk/geo/1548773796872222/104.211407%2C52.355866?m=104.209969%2C52.352144%2F16'
+    url = 'https://2gis.ru/firm/70000001006477930'
+    url = 'https://2gis.ru/firm/70000001059923460'
+
     asyncio.run(main_2gis(url))
     print('OK!')
 

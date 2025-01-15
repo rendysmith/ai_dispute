@@ -74,7 +74,7 @@ async def blocks_dzen(driver):
 
 async def blocks_dzen_media(driver):
     comment_button = driver.find_elements(By.CSS_SELECTOR, 'button[class*="video-site--base-button"][type="button"][tabindex="0"]')
-    print(len(comment_button))
+    print('comment_button:', len(comment_button))
     comment_button[2].click()
     print('--- Click comment...')
 
@@ -120,6 +120,15 @@ async def blocks_dzen_media(driver):
     return blocks, UsersByID
 
 async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
+    for i in range(3):
+        try:
+            not_robot_button = driver.find_element(By.CSS_SELECTOR, 'input[id="js-button"][class="CheckboxCaptcha-Button"]')
+            not_robot_button.click()
+            return
+
+        except:
+            await asyncio.sleep(3)
+
     #print(UsersByID)
     links = await pars_url(service, ss_id, project)
 
@@ -178,10 +187,11 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
 async def main_dzen():
     service = await get_service()
 
-    url = 'https://dzen.ru/a/Y1o2zJjP7VPVFVdJ'
     url = 'https://dzen.ru/video/watch/64b67afcfff5626738324fb7#comment_1754332642'
-    url = 'https://dzen.ru/shorts/63f9e2173876d93b6f7277fa'
-    url = 'https://dzen.ru/a/ZF3kG27fcA39RZbS#comment_1653038211'
+    url = 'https://dzen.ru/media/cat_barion/63f9e2173876d93b6f7277fa'
+
+
+
 
     driver = await get_selenium_proxy(url, headless=headless, proxy=proxy_on)
     await check_dzen(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet", driver)

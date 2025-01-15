@@ -41,15 +41,18 @@ async def get_raiting(soup):
     # if not soup:
     #     return None, None
 
+    #общий рейтинг
     total_rating = soup.find('div', {"class": 'dashboard__grade-total'}).text
-    #print(total_rating)
     total_rating = float(total_rating.replace(',', '.'))
-    #print(total_rating)
 
-    total_reviews = soup.find('span', {"class": 'company-header__tab-count'}).text
-    #print(total_reviews)
-    total_reviews = int(total_reviews.replace(' ', ''))
-    #print(total_reviews)
+    #общее кол-во отзывов
+    try:
+        total_reviews = soup.find('span', {"class": 'company-header__tab-count'}).text
+        total_reviews = int(total_reviews.replace(' ', ''))
+
+    except:
+        total_reviews = soup.find('span', {"class": 'tabs__count'}).text
+        total_reviews = int(total_reviews)
 
     return total_reviews, total_rating
 
@@ -212,6 +215,8 @@ async def main():
     url = 'https://yandex.ru/maps/org/artstudio_moskovsky/125846534919/?ll=30.329628%2C59.907103&mode=search&sll=30.301828%2C59.912472&sspn=0.022573%2C0.006756&text=Artstudio%20Moskovsky&z=14.86'
     url = 'https://dreamjob.ru/employers/41950?review_id=2832885'
     url = 'https://dreamjob.ru/employers/41950'
+    url = 'https://dreamjob.ru/employers/50604'
+    url = 'https://dreamjob.ru/employers/58176'
 
 
 

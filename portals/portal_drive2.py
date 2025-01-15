@@ -93,4 +93,6 @@ if __name__ == '__main__':
     service = asyncio.run(get_service())
     url = 'https://www.drive2.ru/l/659074483675472672/#comments'
     url = 'https://www.drive2.ru/l/659964538338154249/#comments'
-    asyncio.run(check_drive2(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Паритет"))
+
+    url = 'https://www.drive2.ru/l/659074483675472672/#comments'
+    asyncio.run(check_drive2(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Кордиант"))
