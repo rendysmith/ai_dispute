@@ -20,7 +20,7 @@ from models.mdl_tables import Prompt
 from utils.central_module import get_local_ip, rec_data
 from utils.db_loader import read_data_from_db_filter
 from utils.gs_editor import get_service, read_table_id, write_log_sheet
-from utils.user_agent import get_selenium_proxy
+from utils.user_agent import get_selenium_proxy, ua
 
 from portals.portal_vk import blocks_vk
 from portals.youtube import blocks_youtube
@@ -279,7 +279,11 @@ async def analysis_pikabu(service, date_create, url_answer, first_author, prompt
             print(f"Bank = {author}")
             return
 
-        feedback = block.find_element(By.CSS_SELECTOR, 'p.rv-comment').text
+        try:
+            feedback = block.find_element(By.CSS_SELECTOR, 'p.rv-comment').text
+        except:
+            feedback = ''
+
         comments.append([date, author, feedback])
 
     if trend_alife == False:
@@ -288,6 +292,8 @@ async def analysis_pikabu(service, date_create, url_answer, first_author, prompt
 
     await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id,
                    worksheet_name)
+
+    return driver
 
 async def check_ba(service):
     async with aiohttp.ClientSession() as session:
@@ -308,7 +314,7 @@ async def check_ba(service):
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-origin",
             "TE": "trailers",
-            "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0"
+            "User-Agent": ua.random
         }
 
         # Тело запроса
@@ -417,22 +423,44 @@ async def check_ba(service):
                     #     continue
 
                     #--------------------------------------------------------------------------------------
-                    # if 'vk.com' in url_answer:
-                    #     await analysis_vk(service, date_create, url_answer, author, prompt_trend_gone, text)
-                    #
-                    # elif 'youtube' in url_answer:
-                    #     await analysis_youtube(service, date_create, url_answer, author, prompt_trend_gone, text)
+                    if 'vk.com' in url_answer:
+                        await analysis_vk(service, date_create, url_answer, author, prompt_trend_gone, text)
 
-                    if 'pikabu' in url_answer:
-                        driver.get(url_answer)
-                        await analysis_pikabu(service, date_create, url_answer, author, prompt_trend_gone, text, driver)
+                    elif 'youtube' in url_answer:
+                        await analysis_youtube(service, date_create, url_answer, author, prompt_trend_gone, text)
+
+                    elif 'pikabu' in url_answer:
+                        if '?' in url_answer:
+                            url_answer = url_answer.split('?')[0] + '#comments'
+
+                        print('url_answer', url_answer)
+                        try:
+                            driver.get(url_answer)
+
+                        except:
+                            driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+                            await asyncio.sleep(5)
+                            driver.get(url_answer)
+
+                        driver = await analysis_pikabu(service, date_create, url_answer, author, prompt_trend_gone, text, driver)
+                        if not driver:
+                            driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+                            await asyncio.sleep(5)
 
                     elif 'dzen' in url_answer:
-                        driver.get(url_answer)
+                        try:
+                            driver.get(url_answer)
+
+                        except:
+                            driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+                            await asyncio.sleep(5)
+                            driver.get(url_answer)
+
                         driver = await analysis_dzen(service, date_create, url_answer, author, prompt_trend_gone, text, driver)
 
                         if not driver:
                             driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+                            await asyncio.sleep(5)
 
                     elif 'telegram' in url_answer:
                         if all(let not in url_answer for let in ['?', '/c/']):

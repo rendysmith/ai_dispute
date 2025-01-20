@@ -26,6 +26,9 @@ from selenium.webdriver.chrome.options import Options
 from seleniumbase import Driver
 from seleniumbase import config
 
+os.environ["DISABLE_COLORAMA"] = "1"
+os.environ["SELENIUMBASE_COLOR"] = "0"
+
 config.DISABLE_COLORS = True
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -370,6 +373,7 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
 
         else:
             print('>>> Selenium NO PROXY...')
+
 
         driver = Driver(**driver_options)
         print('<<< Selenium connect...')

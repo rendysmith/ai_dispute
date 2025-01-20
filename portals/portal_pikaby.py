@@ -25,7 +25,6 @@ else:
 async def blocks_pikabu_api(link):
     """Не могу найти данные для запроса а именно ids"""
 
-
     url = 'https://pikabu.ru/ajax/comments_actions.php'
 
     headers = {
@@ -36,14 +35,14 @@ async def blocks_pikabu_api(link):
         "X-Csrf-Token": "709dc6558eeb462b193fa28d868ef2ad",
         "X-Requested-With": "XMLHttpRequest",
         "Origin": "https://pikabu.ru",
-        "Referer": "https://pikabu.ru/story/korporativnyiy_chellendzh_dobra_12082740",
+        "Referer": link,
         "DNT": "1",
         "Connection": "keep-alive"
     }
 
     payload = {
         "action": "get_comments_by_ids",
-        "ids": "191517555,191517881,191517647,249343914,211591942,209137588,191517551,191517411,191517597"
+        "ids": 	"331307264,331352050,331347014,331206174,331388857,331203018,331213309,331204424,331204536,331204967,331214876,331197356,331202143,331196759,331222850,331200785,331195100,331204835,331221600,331203327,331210215,331197143,331227552,331198809,331206844,331195506,331228057,331232079,331239352,331278796,331201955,331203768,331214337,331232399,331202795,331249626,331256240,331287338,331298597,331306482"
     }
 
     # Выполняем POST-запрос
@@ -60,8 +59,7 @@ async def blocks_pikabu_api(link):
         print(f"Ошибка: {response.status_code}")
         return
 
-
-async def blocks_pikabu(driver, link):
+async def blocks_pikabu(driver):
     try:
         more_comments = driver.find_element(By.CSS_SELECTOR, 'span.comments__more-count')
         more_comments.click()
@@ -70,34 +68,71 @@ async def blocks_pikabu(driver, link):
 
     await asyncio.sleep(5)
 
-    blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="comment"]')
+    childrens = driver.find_elements(By.CSS_SELECTOR, 'div.comment-toggle-children__icon')
+    print('-- Len childrens', len(childrens))
 
+    # childrens = driver.find_elements(By.CSS_SELECTOR, 'div.comment-toggle-children comment-toggle-children_collapse')
+    # print('-- Len childrens', len(childrens))
+    #
+    # input()
+
+    for children in childrens:
+        try:
+            children.click()
+            await asyncio.sleep(3)
+            print('--- click...')
+
+        except:
+            continue
+
+    blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="comment"]')
     return blocks
 
 
 
 async def main_pikabu():
     link = 'https://pikabu.ru/story/10_luchshikh_torrentobmennikov_v_rossii_aktivnyikh_v_2021_7995137#comments'
+
+    # blocks = await blocks_pikabu_api(link)
+    #
+    # print(blocks)
+    #
+    # input()
+
+
+
     #link = 'https://pikabu.ru/story/otvet_na_post_kassir_pyaterochki_khotel_obmanut_pokupatelnitsu_12236720'
     driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-    blocks = await blocks_pikabu(driver, link)
+    driver.get(link)
+    await asyncio.sleep(2)
+
+    blocks = await blocks_pikabu(driver)
+
+    print('Len', len(blocks))
 
     for block in blocks:
         date_content = block.find_element(By.CSS_SELECTOR, 'time[class="comment__datetime hint"]')
         date_full = date_content.get_attribute("datetime")
         timestamp = datetime.strptime(date_full, '%Y-%m-%dT%H:%M:%S%z')
-
+        date = timestamp.timestamp()
         # Форматирование даты
         formatted_date = timestamp.strftime('%d.%m.%Y')
-        print(time.time(), timestamp.timestamp())
-        print(time.time() - timestamp.timestamp())
 
         if (time.time() - timestamp.timestamp()) <= 3 * 24 * 3600:
             print(f'--- Отзыв младше 3 дней = {formatted_date}.')
 
+        author = block.find_element(By.CSS_SELECTOR, 'span.user__nick').text
+        try:
+            feedback = block.find_element(By.CSS_SELECTOR, 'p.rv-comment').text
+        except:
+            continue
+
+        print(author, feedback)
+
 
 if "__main__" in __name__:
-     asyncio.run(main_pikabu())
+    asyncio.run(main_pikabu())
+
 
 
 

@@ -367,7 +367,7 @@ async def rec_data(service, date_create, url_answer, first_author, prompt_trend_
     """
     prompt = prompt_trend_gone.format(chat_list=comments, text=text)
     result = await get_answer_ai(auth, prompt)
-    print("result:", result)
+    print("result AI:", result)
 
     if result == 'True':
         data = {
