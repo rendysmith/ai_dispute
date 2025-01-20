@@ -189,6 +189,8 @@ async def main_dzen():
 
     url = 'https://dzen.ru/video/watch/64b67afcfff5626738324fb7#comment_1754332642'
     url = 'https://dzen.ru/media/cat_barion/63f9e2173876d93b6f7277fa'
+    url = 'https://dzen.ru/b/Z43zJlq_8hHQtA5L'
+    url = 'https://dzen.ru/a/Z2BJynY-b003N1RB?comment-request=1'
 
 
 

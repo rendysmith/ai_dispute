@@ -62,9 +62,6 @@ async def blocks_pikabu_api(link):
 
 
 async def blocks_pikabu(driver, link):
-    driver.get(link)
-    await asyncio.sleep(5)
-
     try:
         more_comments = driver.find_element(By.CSS_SELECTOR, 'span.comments__more-count')
         more_comments.click()

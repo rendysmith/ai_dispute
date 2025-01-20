@@ -49,8 +49,6 @@ auth = HTTPBasicAuth(auth_username, auth_password)
 sheet_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
 worksheet_name = 'BA'
 
-proxy_on = False
-
 """
 Данное упоминание нам не подходит:
 1) Упоминание находится в закрытом сообществе
@@ -111,7 +109,7 @@ if '176.124.192' in local_ip:
 
 else:
     print(f'local_ip: {local_ip}')
-    headless = True
+    headless = False
     proxy_on = False
 
 async def extract_reply(url):
@@ -256,7 +254,7 @@ async def analysis_vk(service, date_create, url_answer, first_author, prompt_tre
     await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id, worksheet_name)
 
 async def analysis_pikabu(service, date_create, url_answer, first_author, prompt_trend_gone, text, driver):
-    blocks = await blocks_pikabu(driver, url_answer)
+    blocks = await blocks_pikabu(driver)
     if len(blocks) == 0:
         return
 
@@ -270,8 +268,6 @@ async def analysis_pikabu(service, date_create, url_answer, first_author, prompt
         date = timestamp.timestamp()
         # Форматирование даты
         formatted_date = timestamp.strftime('%d.%m.%Y')
-        print(time.time(), timestamp.timestamp())
-        print(time.time() - timestamp.timestamp())
 
         if (time.time() - timestamp.timestamp()) <= 3 * 24 * 3600:
             print(f'--- Отзыв младше 3 дней = {formatted_date}.')
@@ -292,10 +288,6 @@ async def analysis_pikabu(service, date_create, url_answer, first_author, prompt
 
     await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id,
                    worksheet_name)
-
-
-
-
 
 async def check_ba(service):
     async with aiohttp.ClientSession() as session:
@@ -425,19 +417,15 @@ async def check_ba(service):
                     #     continue
 
                     #--------------------------------------------------------------------------------------
-                    if 'vk.com' in url_answer:
-                        await analysis_vk(service, date_create, url_answer, author, prompt_trend_gone, text)
+                    # if 'vk.com' in url_answer:
+                    #     await analysis_vk(service, date_create, url_answer, author, prompt_trend_gone, text)
+                    #
+                    # elif 'youtube' in url_answer:
+                    #     await analysis_youtube(service, date_create, url_answer, author, prompt_trend_gone, text)
 
-                    elif 'youtube' in url_answer:
-                        await analysis_youtube(service, date_create, url_answer, author, prompt_trend_gone, text)
-
-                    elif 'pikabu' in url_answer:
+                    if 'pikabu' in url_answer:
+                        driver.get(url_answer)
                         await analysis_pikabu(service, date_create, url_answer, author, prompt_trend_gone, text, driver)
-
-
-
-
-
 
                     elif 'dzen' in url_answer:
                         driver.get(url_answer)
