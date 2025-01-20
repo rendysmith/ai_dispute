@@ -13,6 +13,8 @@ from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 from itertools import islice
 
+from selenium.webdriver.common.by import By
+
 from models.mdl_tables import Prompt
 
 from utils.central_module import get_local_ip, rec_data
@@ -23,6 +25,7 @@ from utils.user_agent import get_selenium_proxy
 from portals.portal_vk import blocks_vk
 from portals.youtube import blocks_youtube
 from portals.portal_dzen import blocks_dzen
+from portals.portal_pikaby import blocks_pikabu
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -252,6 +255,48 @@ async def analysis_vk(service, date_create, url_answer, first_author, prompt_tre
 
     await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id, worksheet_name)
 
+async def analysis_pikabu(service, date_create, url_answer, first_author, prompt_trend_gone, text, driver):
+    blocks = await blocks_pikabu(driver, url_answer)
+    if len(blocks) == 0:
+        return
+
+    comments = []
+
+    trend_alife = False
+    for block in blocks:
+        date_content = block.find_element(By.CSS_SELECTOR, 'time[class="comment__datetime hint"]')
+        date_full = date_content.get_attribute("datetime")
+        timestamp = datetime.strptime(date_full, '%Y-%m-%dT%H:%M:%S%z')
+        date = timestamp.timestamp()
+        # Форматирование даты
+        formatted_date = timestamp.strftime('%d.%m.%Y')
+        print(time.time(), timestamp.timestamp())
+        print(time.time() - timestamp.timestamp())
+
+        if (time.time() - timestamp.timestamp()) <= 3 * 24 * 3600:
+            print(f'--- Отзыв младше 3 дней = {formatted_date}.')
+            trend_alife = True
+
+        author = block.find_element(By.CSS_SELECTOR, 'span.user__nick').text
+
+        if any(bank in author for bank in official):  # если есть ответ от оф.представителя.
+            print(f"Bank = {author}")
+            return
+
+        feedback = block.find_element(By.CSS_SELECTOR, 'p.rv-comment').text
+        comments.append([date, author, feedback])
+
+    if trend_alife == False:
+        print('Тренд мертв')
+        return driver
+
+    await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id,
+                   worksheet_name)
+
+
+
+
+
 async def check_ba(service):
     async with aiohttp.ClientSession() as session:
         cookies = await get_cookies()
@@ -385,6 +430,14 @@ async def check_ba(service):
 
                     elif 'youtube' in url_answer:
                         await analysis_youtube(service, date_create, url_answer, author, prompt_trend_gone, text)
+
+                    elif 'pikabu' in url_answer:
+                        await analysis_pikabu(service, date_create, url_answer, author, prompt_trend_gone, text, driver)
+
+
+
+
+
 
                     elif 'dzen' in url_answer:
                         driver.get(url_answer)
