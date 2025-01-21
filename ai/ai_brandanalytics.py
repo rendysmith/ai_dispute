@@ -1,5 +1,3 @@
-from pprint import pprint
-
 import asyncio
 import os
 import re
@@ -20,17 +18,20 @@ from models.mdl_tables import Prompt
 from utils.central_module import get_local_ip, rec_data
 from utils.db_loader import read_data_from_db_filter
 from utils.gs_editor import get_service, read_table_id, write_log_sheet
-from utils.user_agent import get_selenium_proxy, ua
+from utils.user_agent import get_selenium_proxy, ua, get_soup
 
 from portals.portal_vk import blocks_vk
 from portals.youtube import blocks_youtube
 from portals.portal_dzen import blocks_dzen
 from portals.portal_pikaby import blocks_pikabu
+from portals.portal_ok import blocks_ok
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
 now = datetime.now()
+print(now)
+
 record_date = now.strftime("%d.%m.%Y")
 
 year_now = now.year
@@ -253,6 +254,40 @@ async def analysis_vk(service, date_create, url_answer, first_author, prompt_tre
 
     await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id, worksheet_name)
 
+async def analysis_ok(service, date_create, url_answer, first_author, prompt_trend_gone, text):
+    blocks = await blocks_ok(url_answer)
+    if len(blocks) == 0:
+        return
+
+    comments = []
+
+    trend_alife = False
+    for block in blocks:
+        date_str = block.find('span', {'class': 'comments_current__footer__main__date'}).text
+        date_obj = datetime.strptime(date_str, "%d %b %Y")
+
+        if (now - date_obj) <= timedelta(days=days_ago):
+            print('Тренд жив.')
+            trend_alife = True
+
+        author = block.find('a', {'class': 'comments_current__header__main__author__name'}).text
+
+        if any(bank in author for bank in official):  # если есть ответ от оф.представителя.
+            print(f"Bank = {author}")
+            return
+
+        feedback = block.find('span', {'class': 'js-text-full'}).text
+        comments.append([date_str, author, feedback])
+
+    if trend_alife == False:
+        print('Тренд мертв')
+        return None
+
+    await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id,
+                   worksheet_name)
+
+
+
 async def analysis_pikabu(service, date_create, url_answer, first_author, prompt_trend_gone, text, driver):
     blocks = await blocks_pikabu(driver)
     if len(blocks) == 0:
@@ -428,6 +463,9 @@ async def check_ba(service):
 
                     elif 'youtube' in url_answer:
                         await analysis_youtube(service, date_create, url_answer, author, prompt_trend_gone, text)
+
+                    elif 'ok.ru' in url_answer:
+                        await analysis_ok(service, date_create, url_answer, author, prompt_trend_gone, text)
 
                     elif 'pikabu' in url_answer:
                         if '?' in url_answer:
