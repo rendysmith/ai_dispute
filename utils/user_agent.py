@@ -296,10 +296,10 @@ async def get_soup_new(url, only_pars=False):
 
     return soup
 
-async def get_selenium(url=None, headless=True):
+async def get_selenium(url=False, headless=True, profile=False):
     print('- >>> Selenium No Proxy...')
     chrome_options = Options()
-    if headless == True:
+    if headless:
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
@@ -308,11 +308,16 @@ async def get_selenium(url=None, headless=True):
         chrome_options.add_argument('--disable-blink-features=AutomationControlled')
         chrome_options.add_argument('--disable-web-security')
 
+    if profile:
+        chrome_options.add_argument(f"--user-data-dir={profile}")
+
     chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
 
     # Инициализация драйвера
     driver = webdriver.Chrome(options=chrome_options)
-    #driver.get(url)
+
+    if url:
+        driver.get(url)
 
     # Ожидание загрузки определенного элемента (например, заголовка)
     #wait = WebDriverWait(driver, 10)
