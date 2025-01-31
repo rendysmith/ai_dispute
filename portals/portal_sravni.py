@@ -228,7 +228,7 @@ async def main_sravni():
     print(f'- Proxy status: {proxy_active}')
 
     local_ip = await get_local_ip()
-    print('- local_ip', local_ip)
+    print('- local_ip SRAVNI', local_ip)
 
     service = await get_service()
     df = await get_table_scope(service, ss_id, 'zoom')

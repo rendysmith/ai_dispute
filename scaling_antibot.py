@@ -30,7 +30,7 @@ ss_id = TABLES_LIST['zoom']
 
 async def main_scaling():
     local_ip = await get_local_ip()
-    print('local_ip', local_ip)
+    print('local_ip ScalAn', local_ip)
 
     service = await get_service()
     df = await get_table_scope(service, ss_id, 'zoom')

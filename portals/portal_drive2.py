@@ -25,7 +25,7 @@ if '176.124.192' in local_ip:
     only_text = False
 
 else:
-    print(f'local_ip: {local_ip}')
+    print(f'local_ip Drive: {local_ip}')
     headless = False
     proxy_on = False
     only_text = False

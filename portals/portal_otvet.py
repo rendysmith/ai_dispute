@@ -39,7 +39,7 @@ if '176.124.192' in local_ip:
     proxy_on = True
 
 else:
-    print(f'local_ip: {local_ip}')
+    print(f'local_ip Otvet: {local_ip}')
     headless = False
     proxy_on = False
 

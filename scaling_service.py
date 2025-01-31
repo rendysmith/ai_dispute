@@ -45,7 +45,7 @@ async def start_zoom(service):
     #timetable, projects, portal = await get_set()
 
     local_ip = await get_local_ip()
-    print('local_ip', local_ip)
+    print('local_ip ScalS', local_ip)
 
     df = await get_table_scope(service, ss_id, 'zoom')
     #print(df)

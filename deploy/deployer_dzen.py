@@ -41,6 +41,8 @@ async def deploy_dzen():
     print('- Text')
     boxs[1].send_keys(text_text)
 
+    input('next?...')
+
     print('- Publish')
     deploy_button = driver.find_element(By.CSS_SELECTOR, 'button[data-testid="article-publish-btn"][type="button"]')
     deploy_button.click()

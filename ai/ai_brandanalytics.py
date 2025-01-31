@@ -30,7 +30,6 @@ dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
 now = datetime.now()
-print(now)
 
 record_date = now.strftime("%d.%m.%Y")
 
@@ -109,7 +108,7 @@ if '176.124.192' in local_ip:
     proxy_on = True
 
 else:
-    print(f'local_ip: {local_ip}')
+    print(f'local_ip BA: {local_ip}')
     headless = False
     proxy_on = False
 
@@ -125,8 +124,8 @@ async def extract_reply(url):
     else:
         return None
 
-async def get_cookies() -> dict:
-    url = 'https://brandanalytics.ru/account/login_check'
+async def get_cookies(session) -> dict:
+    login_url = 'https://brandanalytics.ru/account/login_check'
 
     payload = {
         '_username': username,
@@ -134,14 +133,29 @@ async def get_cookies() -> dict:
         '_remember_me': 'on'
     }
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, data=payload) as response:
-            if response.status == 200:
-                # Возвращаем куки
-                cookies = session.cookie_jar.filter_cookies(url)
-                return {key: cookie.value for key, cookie in cookies.items()}
-            else:
-                raise Exception(f"Request failed with status code {response.status}")
+    #async with aiohttp.ClientSession() as session:
+    async with session.post(login_url, data=payload) as response:
+        if response.status == 200:
+            # Возвращаем куки
+            cookies = session.cookie_jar.filter_cookies(login_url)
+            #return {key: cookie.value for key, cookie in cookies.items()}
+        else:
+            raise Exception(f"Request failed with status code {response.status}")
+
+
+    async with session.post(login_url, data=payload) as response:
+        if response.status != 200:
+            raise Exception(f"Login failed with status code {response.status}")
+
+    # Шаг 2: Переходим на страницу, чтобы получить все cookies
+    summary_url = 'https://brandanalytics.ru/summary'
+    async with session.get(summary_url) as response:
+        if response.status != 200:
+            raise Exception(f"Failed to fetch summary page, status code {response.status}")
+
+    # Возвращаем все cookies
+    cookies = session.cookie_jar.filter_cookies('https://brandanalytics.ru')
+    return {key: cookie.value for key, cookie in cookies.items()}
 
 async def analysis_dzen(service, date_create, url_answer, first_author, prompt_trend_gone, text, driver):
     try:
@@ -286,8 +300,6 @@ async def analysis_ok(service, date_create, url_answer, first_author, prompt_tre
     await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id,
                    worksheet_name)
 
-
-
 async def analysis_pikabu(service, date_create, url_answer, first_author, prompt_trend_gone, text, driver):
     blocks = await blocks_pikabu(driver)
     if len(blocks) == 0:
@@ -330,55 +342,78 @@ async def analysis_pikabu(service, date_create, url_answer, first_author, prompt
 
     return driver
 
+async def get_ids(session, cookies):
+    headers = {
+        'Accept': '*/*',
+        'Accept-Encoding': 'gzip, deflate, br, zstd',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Connection': 'keep-alive',
+        'Content-Type': 'application/json',
+        'DNT': '1',
+        'Host':	'brandanalytics.ru',
+        'Origin': 'https://brandanalytics.ru',
+        'Priority': 'u=4',
+        'Referer': 'https://brandanalytics.ru/report/12551940/summary?tsf=1737752400&tst=1738357199',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        'TE': 'trailers',
+        'User-Agent': ua.firefox
+    }
+
+    url_themes = 'https://brandanalytics.ru/ajax/account_summary'
+    async with session.post(url_themes, headers=headers, cookies=cookies) as response:
+        print('Status:', response.status)
+        if response.status == 200:
+            r_json = await response.json()
+            #print(r_json)
+
+        else:
+            return response.status
+
+    reports = [k for k, v in r_json['activeThemes']['themes'].items()]
+    return reports, headers
+    #
+    # # Тело запроса
+    # data = {
+    #     "blocks": {
+    #         "groups": {},
+    #         "theme_list": {},
+    #         "user_settings": {}
+    #     }
+    # }
+    #
+    # url_themes = 'https://brandanalytics.ru/report/data/'
+    # async with session.post(url_themes, headers=headers, cookies=cookies, json=data) as response:
+    #     print('Status:', response.status)
+    #     if response.status == 200:
+    #         r_json = await response.json()
+    #
+    #     else:
+    #         return response.status
+    #
+    # print(r_json)
+    # reports = [k for k, v in r_json['theme_list'].items()]
+    # input(reports)
+    # return reports
+
+
 async def check_ba(service):
     async with aiohttp.ClientSession() as session:
-        cookies = await get_cookies()
+        cookies = await get_cookies(session)
 
-        headers = {
-            "Accept": "*/*",
-            "Accept-Encoding": "gzip, deflate, br, zstd",
-            "Accept-Language": "ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3",
-            "Connection": "keep-alive",
-            "Content-Type": "application/json",
-            "DNT": "1",
-            "Host": "brandanalytics.ru",
-            "Origin": "https://brandanalytics.ru",
-            "Priority": "u=4",
-            "Referer": "https://brandanalytics.ru/summary",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
-            "TE": "trailers",
-            "User-Agent": ua.random
-        }
-
-        # Тело запроса
-        data = {
-            "blocks": {
-                "theme_list": {},
-                "user_settings": {}
-            }
-        }
-
-        url_themes = 'https://brandanalytics.ru/report/data/'
-        async with session.post(url_themes, headers=headers, cookies=cookies, json=data) as response:
-            print('Resp Status:', response.status)
-            if response.status == 200:
-                r_json = await response.json()
-                #pprint(r_json)
-
-            else:
-                return response.status
-
-        reports = [k for k, v in r_json['theme_list'].items()]
+        reports, headers = await get_ids(session, cookies)
         print("reports:", reports)
 
         tg_links = []
 
         for report in reports:
+            print(f"**************{report}********************")
             df_links = await read_table_id(service, sheet_id, worksheet_name)
             links = df_links['portal'].to_list()
             await asyncio.sleep(3)
+
+            #report = '12551940'
 
             url_base = f'https://brandanalytics.ru/theme-data/{report}/'
 
@@ -388,16 +423,43 @@ async def check_ba(service):
             page = 1
             limit = 100
 
+            # data = {
+            #     'tst': f"{tst}",
+            #     'tsf': f"{tsf}",
+            #     'requested[]': "feed",
+            #     'sort':	"time_create",
+            #     'order': "desc",
+            #     'page': "1",
+            #     'size': "50",
+            #     'limit': "25"
+            # }
+            #
+            # print('---------------------------')
+            # async with session.post(url_base, headers=headers, cookies=cookies, data=data) as response:
+            #     if response.status == 200:
+            #         r_json = await response.json()
+            #         print(response.status)
+            #
+            #     else:
+            #         print(response.status)
+            #         #continue
+
+
             query = f'?tst={tst}&tsf={tsf}&requested%5B%5D=feed&sort=time_create&order=desc&page={page}&limit={limit}&filter%5Bft%5D%5Bnot%5D%5B%5D=30008&filter%5Bft%5D%5Bnot%5D%5B%5D=30009&filter%5Bft%5D%5Bnot%5D%5B%5D=15&filter%5Bft%5D%5Bnot%5D%5B%5D=30059&filter%5Bft%5D%5Bnot%5D%5B%5D=30025&filter%5Bfmsgproc%5D%5Bany%5D%5B%5D=1'
             url = url_base + query
             print('\nQuery_url:', url)
 
             async with aiohttp.ClientSession() as session:
-                cookies = await get_cookies()
+                cookies = await get_cookies(session)
 
                 async with session.get(url, cookies=cookies) as response:
                     if response.status == 200:
-                        r_json = await response.json()
+                        try:
+                            r_json = await response.json()
+
+                        except:
+                            continue
+
                     else:
                         continue
 
@@ -510,6 +572,9 @@ async def check_ba(service):
                 except:
                     pass
 
+    if len(tg_links) == 0:
+        return 'OK!'
+
     from portals.portal_tg import analyst_tg
     await analyst_tg(service, tg_links, prompt_trend_gone)
 
@@ -518,7 +583,6 @@ async def check_ba(service):
 async def main_ba():
     project = 'BA'
     service = await get_service()
-
     status = await check_ba(service)
 
     data = {

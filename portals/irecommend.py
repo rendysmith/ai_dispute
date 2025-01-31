@@ -382,7 +382,7 @@ async def main_irecommend():
         driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
     local_ip = await get_local_ip()
-    print('local_ip', local_ip)
+    print('- local_ip Irec', local_ip)
 
     service = await get_service()
     df = await get_table_scope(service, ss_id, 'zoom')

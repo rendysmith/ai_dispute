@@ -14,7 +14,6 @@ from dotenv import load_dotenv
 
 from selenium.webdriver.common.by import By
 
-from portals.portal_otzovik import headless, proxy_on
 from utils.central_module import get_local_ip
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
@@ -30,17 +29,7 @@ time_unix = str(time.time() * 1000)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
-local_ip = asyncio.run(get_local_ip())
-if '176.124.192' in local_ip:
-    headless = True
-    proxy_on = True
-    only_text = False
 
-else:
-    print(f'local_ip: {local_ip}')
-    headless = False
-    proxy_on = False
-    only_text = False
 
 async def blocks_dzen(driver):
     page_source = driver.page_source
@@ -185,15 +174,24 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
 
 
 async def main_dzen():
+    local_ip = await get_local_ip()
+    if '176.124.192' in local_ip:
+        headless = True
+        proxy_on = True
+        only_text = False
+
+    else:
+        print(f'local_ip Dzen: {local_ip}')
+        headless = False
+        proxy_on = False
+        only_text = False
+
     service = await get_service()
 
     url = 'https://dzen.ru/video/watch/64b67afcfff5626738324fb7#comment_1754332642'
     url = 'https://dzen.ru/media/cat_barion/63f9e2173876d93b6f7277fa'
     url = 'https://dzen.ru/b/Z43zJlq_8hHQtA5L'
     url = 'https://dzen.ru/a/Z2BJynY-b003N1RB?comment-request=1'
-
-
-
 
     driver = await get_selenium_proxy(url, headless=headless, proxy=proxy_on)
     await check_dzen(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet", driver)
