@@ -197,7 +197,11 @@ async def analysis_dzen(service, date_create, url_answer, first_author, prompt_t
             print(f"Bank = {author}")
             return driver
 
-        feedback = block['entityData']['text']
+        try:
+            feedback = block['entityData']['text']
+        except:
+            feedback = ''
+
         comments.append([date, author, feedback])
 
     if trend_alife == False:
@@ -373,36 +377,57 @@ async def get_ids(session, cookies):
 
     reports = [k for k, v in r_json['activeThemes']['themes'].items()]
     return reports, headers
-    #
-    # # Тело запроса
-    # data = {
-    #     "blocks": {
-    #         "groups": {},
-    #         "theme_list": {},
-    #         "user_settings": {}
-    #     }
-    # }
-    #
-    # url_themes = 'https://brandanalytics.ru/report/data/'
-    # async with session.post(url_themes, headers=headers, cookies=cookies, json=data) as response:
-    #     print('Status:', response.status)
-    #     if response.status == 200:
-    #         r_json = await response.json()
-    #
-    #     else:
-    #         return response.status
-    #
-    # print(r_json)
-    # reports = [k for k, v in r_json['theme_list'].items()]
-    # input(reports)
-    # return reports
 
+async def report_data(session, cookies):
+    headers = {
+        'Accept': '*/*',
+        'Accept-Encoding': 'gzip, deflate, br, zstd',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Connection': 'keep-alive',
+        'Content-Type': 'application/json',
+        'DNT': '1',
+        'Host':	'brandanalytics.ru',
+        'Origin': 'https://brandanalytics.ru',
+        'Priority': 'u=4',
+        'Referer': 'https://brandanalytics.ru/report/12551940/summary?tsf=1737752400&tst=1738357199',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        'TE': 'trailers',
+        'User-Agent': ua.firefox
+    }
+
+    data = {'blocks':
+        {
+        "groups": {},
+        "theme_list": {},
+        "user_settings": {}
+        }}
+
+    url_themes = 'https://brandanalytics.ru/report/data/'
+    async with session.post(url_themes, headers=headers, json=data, cookies=cookies) as response:
+        print('Status:', response.status)
+        if response.status == 200:
+            r_json = await response.json()
+
+        else:
+            print(response)
+            return response.status
+
+    # reports = [k for k, v in r_json['user_settings']['userRoles'].items() if k.isdigit()]
+    # print(reports)
+    # print(len(reports))
+
+    reports = [k for k, v in r_json['user_settings']['userPermissions'].items()]
+    print(reports)
+    return reports, headers
 
 async def check_ba(service):
     async with aiohttp.ClientSession() as session:
         cookies = await get_cookies(session)
 
-        reports, headers = await get_ids(session, cookies)
+        #reports, headers = await get_ids(session, cookies)
+        reports, headers = await report_data(session, cookies)
         print("reports:", reports)
 
         tg_links = []
