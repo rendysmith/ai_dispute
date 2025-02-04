@@ -29,7 +29,17 @@ time_unix = str(time.time() * 1000)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
+local_ip = asyncio.run(get_local_ip())
+if '176.124.192' in local_ip:
+    headless = True
+    proxy_on = True
+    only_text = False
 
+else:
+    print(f'local_ip Dzen: {local_ip}')
+    headless = False
+    proxy_on = False
+    only_text = False
 
 async def blocks_dzen(driver):
     page_source = driver.page_source
@@ -174,18 +184,6 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
 
 
 async def main_dzen():
-    local_ip = await get_local_ip()
-    if '176.124.192' in local_ip:
-        headless = True
-        proxy_on = True
-        only_text = False
-
-    else:
-        print(f'local_ip Dzen: {local_ip}')
-        headless = False
-        proxy_on = False
-        only_text = False
-
     service = await get_service()
 
     url = 'https://dzen.ru/video/watch/64b67afcfff5626738324fb7#comment_1754332642'

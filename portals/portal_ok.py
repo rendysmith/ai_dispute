@@ -4,6 +4,18 @@ from utils.central_module import get_local_ip
 from utils.gs_editor import get_service
 from utils.user_agent import get_soup, get_selenium_proxy
 
+local_ip = asyncio.run(get_local_ip())
+if '176.124.192' in local_ip:
+    headless = True
+    proxy_on = True
+    only_text = False
+
+else:
+    print(f'local_ip Ok: {local_ip}')
+    headless = False
+    proxy_on = False
+    only_text = False
+
 
 
 async def blocks_ok(url):
@@ -26,18 +38,6 @@ async def check_ok(service, url, pattern, criteria, ss_id, project, driver):
 
 
 async def main_ok():
-    local_ip = await get_local_ip()
-    if '176.124.192' in local_ip:
-        headless = True
-        proxy_on = True
-        only_text = False
-
-    else:
-        print(f'local_ip Ok: {local_ip}')
-        headless = False
-        proxy_on = False
-        only_text = False
-
     service = await get_service()
 
     url = 'http://www.ok.ru/profile/547913323727/statuses/157921667567823'
