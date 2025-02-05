@@ -69,7 +69,7 @@ async def ai_generate_article_economy(service, auth, project):
     worksheet_name_2 = now_time.strftime("%b_%Y") + '_economy'
     print(worksheet_name_2)
 
-    df_aricles = await get_articles('https://dzen.ru/thematics/economy')
+    df_aricles = await get_articles('https://dzen.ru/topic/economy?tab=articles')
 
     worktable_id = TABLES_LIST[project][0]
 
