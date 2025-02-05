@@ -24,7 +24,6 @@ TABLES_LIST = {
     'PMEF': ['1isMeBJ57Q5jlgRcPogcNGwKwaoTWLxwtnpAWG0hEgoc', 'Карта реакций_2023']
 }
 
-
 months = {
     'янв': 1,
     'января': 1,

@@ -2,6 +2,7 @@ import asyncio
 import os
 import re
 import time
+import locale
 
 from datetime import datetime, timedelta
 
@@ -15,6 +16,8 @@ from selenium.webdriver.common.by import By
 
 from models.mdl_tables import Prompt
 
+from utils.constants import months
+
 from utils.central_module import get_local_ip, rec_data
 from utils.db_loader import read_data_from_db_filter
 from utils.gs_editor import get_service, read_table_id, write_log_sheet
@@ -25,6 +28,8 @@ from portals.youtube import blocks_youtube
 from portals.portal_dzen import blocks_dzen
 from portals.portal_pikaby import blocks_pikabu
 from portals.portal_ok import blocks_ok
+
+locale.setlocale(locale.LC_TIME, "ru_RU.utf8")  # Устанавливаем русскую локаль
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -282,13 +287,24 @@ async def analysis_ok(service, date_create, url_answer, first_author, prompt_tre
     trend_alife = False
     for block in blocks:
         date_str = block.find('span', {'class': 'comments_current__footer__main__date'}).text
-        date_obj = datetime.strptime(date_str, "%d %b %Y")
+        try:
+            date_obj = datetime.strptime(date_str, "%d %b %Y")
+
+        except:
+            # date_str_str = date_str.split(' ')
+            # if months.get(date_str_str[1]):
+            #     pass
+
+            date_obj = datetime.strptime(date_str, "%d %b")
 
         if (now - date_obj) <= timedelta(days=days_ago):
             print('Тренд жив.')
             trend_alife = True
 
-        author = block.find('a', {'class': 'comments_current__header__main__author__name'}).text
+        try:
+            author = block.find('a', {'class': 'comments_current__header__main__author__name'}).text
+        except:
+            author = block.find('a', {'class': 'comments_author-name o'}).text
 
         if any(bank in author for bank in official):  # если есть ответ от оф.представителя.
             print(f"Bank = {author}")
@@ -431,6 +447,10 @@ async def check_ba(service):
         print("reports:", reports)
 
         tg_links = []
+
+        #------------------------------------------------------
+        reports = ['13746174']
+        #------------------------------------------------------
 
         for report in reports:
             print(f"**************{report}********************")

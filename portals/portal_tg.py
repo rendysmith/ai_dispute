@@ -132,8 +132,8 @@ async def analyst_tg(service, datas, prompt_trend_gone):
 
 async def main_tg():
     datas = [
-        ["16.12 09:56:36", "https://telegram.me/marketplacesamara/202539"],
-        ["16.12 07:55:04", "https://telegram.me/tochkabis/1653"]
+        ["16.12 09:56:36", "https://telegram.me/ArtemKozlov555/975"],
+        ["16.12 07:55:04", "https://telegram.me/wb_multiply/52317"]
     ]
 
     service = await get_service()
