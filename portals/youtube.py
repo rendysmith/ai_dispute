@@ -34,31 +34,36 @@ async def check_youtube(service, url, pattern, criteria, ss_id, project):
     comments = await blocks_youtube(url)
 
     links = await pars_url(service, ss_id, project)
-    for comment in islice(comments, 100):
-        date = comment['time_parsed']
-        if time.time() - date >=  days_ago * 24 * 3600:
-            print(f'--- Комментарий больше {days_ago} дней.')
-            return
+    try:
+        for comment in islice(comments, 100):
+            date = comment['time_parsed']
+            if time.time() - date >=  days_ago * 24 * 3600:
+                print(f'--- Комментарий больше {days_ago} дней.')
+                return
 
-        formatted_date = datetime.fromtimestamp(date).strftime('%d.%m.%Y')
-        url_answer = comment['cid']
+            formatted_date = datetime.fromtimestamp(date).strftime('%d.%m.%Y')
+            url_answer = comment['cid']
 
-        if url_answer in links:
-            print('Такой комментарий уже есть в списке')
-            continue
+            if url_answer in links:
+                print('Такой комментарий уже есть в списке')
+                continue
 
-        author = comment['author'] + f'\n{url}'
-        feedback = comment['text']
+            author = comment['author'] + f'\n{url}'
+            feedback = comment['text']
 
-        await generate_and_white(service=service,
-                                 url_answer=url_answer,
-                                 author=author,
-                                 formatted_date=formatted_date,
-                                 ss_id=ss_id,
-                                 project=project,
-                                 feedback=feedback,
-                                 pattern=pattern,
-                                 criteria=criteria)
+            await generate_and_white(service=service,
+                                     url_answer=url_answer,
+                                     author=author,
+                                     formatted_date=formatted_date,
+                                     ss_id=ss_id,
+                                     project=project,
+                                     feedback=feedback,
+                                     pattern=pattern,
+                                     criteria=criteria)
+
+    except Exception as e:
+        print(f"Общая ошибка в check_youtube: {e}")
+
 
 async def check_youtube_play(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
     #playwright, browser, page = await get_playwright(url)
@@ -295,8 +300,9 @@ async def main_youtube():
 
 
 if __name__ == '__main__':
-    asyncio.run(main_youtube())
-    # url = 'https://www.youtube.com/watch?v=jn7JP2iKbEs'
-    # asyncio.run(check_youtube(url))
+    #asyncio.run(main_youtube())
+    url = 'https://www.youtube.com/watch?v=3U8ouYWmlBI&lc=UgzT7IkLK5Dri5Gmn9J4AaABAg'
+
+    asyncio.run(check_youtube('service', url, 'pattern', 'criteria', 'ss_id', 'project'))
 
 
