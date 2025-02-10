@@ -11,7 +11,9 @@ RUN apt-get update -y && \
     apt-get update && \
     apt-get install -y --no-install-recommends google-chrome-stable && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* \
+    locale-gen ru_RU.UTF-8 && \
+    update-locale LANG=ru_RU.UTF-8
 
 # Создание рабочей директории
 WORKDIR /app
@@ -19,6 +21,10 @@ WORKDIR /app
 # Копирование и установка зависимостей Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Установка переменных окружения
+ENV LANG ru_RU.utf8
+ENV LC_ALL ru_RU.utf8
 
 # Копирование остальных файлов проекта
 COPY . .

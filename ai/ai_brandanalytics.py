@@ -29,7 +29,8 @@ from portals.portal_dzen import blocks_dzen
 from portals.portal_pikaby import blocks_pikabu
 from portals.portal_ok import blocks_ok
 
-locale.setlocale(locale.LC_TIME, "ru_RU.utf8")  # Устанавливаем русскую локаль
+#locale.setlocale(locale.LC_TIME, "ru_RU.utf8")  # Устанавливаем русскую локаль
+locale.setlocale(locale.LC_TIME, "en_US.utf8")
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
