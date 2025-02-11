@@ -325,7 +325,6 @@ async def get_selenium(url=False, headless=True, profile=False):
     return driver
 
 async def get_selenium_proxy_old(url=None, headless=True, proxy=True):
-
     if proxy:
         print('>>> Selenium proxy...')
         proxy_host, proxy_port = await get_one_proxy()
@@ -537,30 +536,6 @@ async def get_data_without_proxy(url, text_format=True):
                 await asyncio.sleep(5)
     return None
 
-async def tst_proxy():
-    print('-----------------')
-    url = 'https://ifconfig.me/all.json'
-    response = await get_data_with_proxy(url)
-    print(response)
-
-    soup = await get_soup(url)
-    print(soup)
-
-    print('---------2--------')
-    url = 'https://api.ipify.org?format=json'
-    soup = await get_soup(url)
-    print(soup)
-
-async def main(url):
-    #soup = await get_soup_anticloud(url)
-    #soup = await get_soup(url, only_text=False)
-
-    #playwright, browser, page = await get_playwright(url, headless=False)
-    headless = False
-    driver = await get_selenium_proxy(headless=headless, proxy=False)
-    input('Wait..')
-
-
 def get_selenium_proxy_sync(url=None, headless=True, proxy=True):
         driver_options = {
             'uc': True,
@@ -590,7 +565,28 @@ def get_selenium_proxy_sync(url=None, headless=True, proxy=True):
 
         return driver
 
+async def tst_proxy():
+    print('-----------------')
+    url = 'https://ifconfig.me/all.json'
+    response = await get_data_with_proxy(url)
+    print(response)
 
+    soup = await get_soup(url)
+    print(soup)
+
+    print('---------2--------')
+    url = 'https://api.ipify.org?format=json'
+    soup = await get_soup(url)
+    print(soup)
+
+async def main(url):
+    #soup = await get_soup_anticloud(url)
+    #soup = await get_soup(url, only_text=False)
+
+    #playwright, browser, page = await get_playwright(url, headless=False)
+    headless = False
+    driver = await get_selenium_proxy(headless=headless, proxy=False)
+    input('Wait..')
 
 if "__main__" in __name__:
     #asyncio.run(get_playwright('https://yandex.ru/maps/org/149979773456/reviews', headless=False))

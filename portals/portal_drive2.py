@@ -1,5 +1,7 @@
 import asyncio
 import random
+import os
+from dotenv import load_dotenv
 
 from datetime import datetime, timedelta
 
@@ -10,13 +12,10 @@ from utils.user_agent import get_soup
 
 current_date = datetime.now()
 
-import os
-from dotenv import load_dotenv
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
-
 
 local_ip = asyncio.run(get_local_ip())
 if '176.124.192' in local_ip:
@@ -93,6 +92,6 @@ if __name__ == '__main__':
     service = asyncio.run(get_service())
     url = 'https://www.drive2.ru/l/659074483675472672/#comments'
     url = 'https://www.drive2.ru/l/659964538338154249/#comments'
-
     url = 'https://www.drive2.ru/l/659074483675472672/#comments'
+
     asyncio.run(check_drive2(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Кордиант"))

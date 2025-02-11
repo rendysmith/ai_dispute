@@ -353,6 +353,7 @@ async def main_sidorin():
 
     data = {'service_name': worksheet_name, 'date': time.ctime(), 'error': status}
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
+    print('OK!')
 
 if "__main__" == __name__:
     asyncio.run(main_sidorin())

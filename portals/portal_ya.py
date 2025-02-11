@@ -372,7 +372,7 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
         # await asyncio.sleep(5)
         # driver.get(url_api)
         # print('New Driver OK')
-        return None
+        return
 
     await asyncio.sleep(3)
 
@@ -617,7 +617,11 @@ async def main():
 
 
 if __name__ == '__main__':
-    asyncio.run(main_ya_maps())
+    link = 'https://yandex.kz/maps/org/sidorin_lab/193038195644/reviews'
+
+    a = asyncio.run(get_id_org(link))
+    print(a)
+    #asyncio.run(main_ya_maps())
 
 
 
