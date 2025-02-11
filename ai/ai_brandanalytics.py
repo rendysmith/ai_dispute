@@ -31,11 +31,7 @@ from portals.portal_ok import blocks_ok
 
 os.environ["LANG"] = "ru_RU.UTF-8"
 os.environ["LC_ALL"] = "ru_RU.UTF-8"
-
-#locale.setlocale(locale.LC_TIME, "ru_RU.UTF-8")
 locale.setlocale(locale.LC_TIME, "C.UTF-8")
-
-#locale.setlocale(locale.LC_TIME, "ru_RU.utf8")  # Устанавливаем русскую локаль
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
