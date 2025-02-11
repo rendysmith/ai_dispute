@@ -70,7 +70,7 @@ async def get_hpo():
         only_text = False
 
     else:
-        print(f'local_ip CO: {local_ip}')
+        print(f'local_ip: {local_ip}')
         headless = False
         proxy_on = False
         only_text = False

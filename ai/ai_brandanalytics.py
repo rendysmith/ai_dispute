@@ -1,6 +1,7 @@
 import asyncio
 import os
 import re
+import sys
 import time
 import locale
 
@@ -18,7 +19,7 @@ from models.mdl_tables import Prompt
 
 from utils.constants import months
 
-from utils.central_module import get_local_ip, rec_data
+from utils.central_module import get_local_ip, rec_data, get_hpo
 from utils.db_loader import read_data_from_db_filter
 from utils.gs_editor import get_service, read_table_id, write_log_sheet
 from utils.user_agent import get_selenium_proxy, ua, get_soup
@@ -29,9 +30,7 @@ from portals.portal_dzen import blocks_dzen
 from portals.portal_pikaby import blocks_pikabu
 from portals.portal_ok import blocks_ok
 
-os.environ["LANG"] = "ru_RU.UTF-8"
-os.environ["LC_ALL"] = "ru_RU.UTF-8"
-locale.setlocale(locale.LC_TIME, "C.UTF-8")
+
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -110,15 +109,31 @@ censor = ['похе', 'срать', 'бляд', 'пизд', 'хуй', 'хуев'
           "отъеб", "коллектор", "пристав", "арест"]
 
 print('BA')
-local_ip = asyncio.run(get_local_ip())
-if '176.124.192' in local_ip:
-    headless = True
-    proxy_on = True
+# local_ip = asyncio.run(get_local_ip())
+# if '176.124.192' in local_ip:
+#     headless = True
+#     proxy_on = True
+#
+# else:
+#     print(f'local_ip BA: {local_ip}')
+#     headless = False
+#     proxy_on = False
 
-else:
-    print(f'local_ip BA: {local_ip}')
-    headless = False
-    proxy_on = False
+
+def set_locale():
+    if sys.platform.startswith("win"):  # Windows
+        try:
+            locale.setlocale(locale.LC_TIME, "Russian_Russia.1251")  # Русская локаль для Windows
+        except locale.Error:
+            locale.setlocale(locale.LC_TIME, "en_US.UTF-8")  # Запасной вариант
+    else:  # Linux / macOS
+        os.environ["LANG"] = "ru_RU.UTF-8"
+        os.environ["LC_ALL"] = "ru_RU.UTF-8"
+
+        try:
+            locale.setlocale(locale.LC_TIME, "C.UTF-8")
+        except locale.Error:
+            locale.setlocale(locale.LC_TIME, "en_US.UTF-8")  # Запасной вариант
 
 async def extract_reply(url):
     # Регулярное выражение для извлечения значения reply
@@ -166,6 +181,8 @@ async def get_cookies(session) -> dict:
     return {key: cookie.value for key, cookie in cookies.items()}
 
 async def analysis_dzen(service, date_create, url_answer, first_author, prompt_trend_gone, text, driver):
+    headless, proxy_on, only_text = await get_hpo()
+
     try:
         blocks, UsersByID = await blocks_dzen(driver)
 
@@ -281,6 +298,8 @@ async def analysis_vk(service, date_create, url_answer, first_author, prompt_tre
     await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id, worksheet_name)
 
 async def analysis_ok(service, date_create, url_answer, first_author, prompt_trend_gone, text):
+    set_locale()
+
     blocks = await blocks_ok(url_answer)
     if len(blocks) == 0:
         return
@@ -442,6 +461,8 @@ async def report_data(session, cookies):
     return reports, headers
 
 async def check_ba(service):
+    headless, proxy_on, only_text = await get_hpo()
+
     async with aiohttp.ClientSession() as session:
         cookies = await get_cookies(session)
 

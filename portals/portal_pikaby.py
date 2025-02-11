@@ -7,20 +7,20 @@ import requests
 
 from selenium.webdriver.common.by import By
 
-from utils.central_module import get_local_ip
+from utils.central_module import get_local_ip, get_hpo
 from utils.user_agent import get_soup, get_data_without_proxy, ua, get_selenium, get_selenium_proxy
 
-local_ip = asyncio.run(get_local_ip())
-if '176.124.192' in local_ip:
-    headless = True
-    proxy_on = True
-    only_text = False
-
-else:
-    print(f'local_ip Pikaby: {local_ip}')
-    headless = False
-    proxy_on = False
-    only_text = False
+# local_ip = asyncio.run(get_local_ip())
+# if '176.124.192' in local_ip:
+#     headless = True
+#     proxy_on = True
+#     only_text = False
+#
+# else:
+#     print(f'local_ip Pikaby: {local_ip}')
+#     headless = False
+#     proxy_on = False
+#     only_text = False
 
 async def blocks_pikabu_api(link):
     """Не могу найти данные для запроса а именно ids"""
@@ -91,6 +91,7 @@ async def blocks_pikabu(driver):
 
 
 async def main_pikabu():
+    headless, proxy_on, only_text = await get_hpo()
     link = 'https://pikabu.ru/story/10_luchshikh_torrentobmennikov_v_rossii_aktivnyikh_v_2021_7995137#comments'
 
     # blocks = await blocks_pikabu_api(link)
