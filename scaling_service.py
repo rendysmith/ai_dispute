@@ -22,11 +22,6 @@ from portals.pravda_sotrudnikov import check_pravda
 from portals.rocketdata import check_rocketdata
 from portals.youtube import check_youtube
 
-#from portals.portal_vk import check_vk
-#from portals.portal_otzovik import check_otzovik
-#from portals.irecommend import check_irecommend
-#from portals.portal_ya import check_ya
-
 from utils.central_module import get_local_ip, time_out_on, time_out_sel
 from utils.constants import TABLES_LIST
 from utils.converter import extract_company_name

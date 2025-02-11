@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 from selenium.webdriver.common.by import By
 
-from utils.central_module import get_local_ip
+from utils.central_module import get_local_ip, get_hpo
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
 from utils.user_agent import get_selenium_proxy, get_soup
@@ -29,17 +29,17 @@ time_unix = str(time.time() * 1000)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
-local_ip = asyncio.run(get_local_ip())
-if '176.124.192' in local_ip:
-    headless = True
-    proxy_on = True
-    only_text = False
-
-else:
-    print(f'local_ip Dzen: {local_ip}')
-    headless = False
-    proxy_on = False
-    only_text = False
+# local_ip = asyncio.run(get_local_ip())
+# if '176.124.192' in local_ip:
+#     headless = True
+#     proxy_on = True
+#     only_text = False
+#
+# else:
+#     print(f'local_ip Dzen: {local_ip}')
+#     headless = False
+#     proxy_on = False
+#     only_text = False
 
 async def blocks_dzen(driver):
     page_source = driver.page_source
@@ -111,6 +111,7 @@ async def blocks_dzen_media(driver):
     if not api_url:
         return None
 
+    headless, proxy_on, only_text = await get_hpo()
     r_json = await get_soup(api_url, only_text=False, proxy=proxy_on)
 
     blocks = r_json['items']
@@ -191,6 +192,7 @@ async def main_dzen():
     url = 'https://dzen.ru/b/Z43zJlq_8hHQtA5L'
     url = 'https://dzen.ru/a/Z2BJynY-b003N1RB?comment-request=1'
 
+    headless, proxy_on, only_text = await get_hpo()
     driver = await get_selenium_proxy(url, headless=headless, proxy=proxy_on)
     await check_dzen(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet", driver)
 

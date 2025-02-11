@@ -14,6 +14,7 @@ from requests.auth import HTTPBasicAuth
 
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+from sqlalchemy.util import await_only
 
 from utils.ai_module import get_answer_ai
 from utils.constants import TABLES_LIST
@@ -32,13 +33,49 @@ id_proxy = os.environ.get("ID_PROXY")
 email_proxy = os.environ.get("EMAIL_PROXY")
 password_proxy = os.environ.get("PASSWORD_PROXY")
 
-
 max_sec = int(os.environ.get("MAX_SEC"))
 ss_id = TABLES_LIST['zoom']
 
 auth_username = os.environ.get("HOST_USERNAME")
 auth_password = os.environ.get("HOST_PASSWORD")
 auth = HTTPBasicAuth(auth_username, auth_password)
+
+async def get_local_ip():
+    url = 'https://api.myip.com/'
+    r = requests.get(url)
+    if r.status_code == 200:
+        if r.json().get('ip'):
+            return r.json()['ip']
+
+    url = 'https://api.ipify.org?format=json'
+    r = requests.get(url)
+    if r.status_code == 200:
+        if r.json().get('ip'):
+            return r.json()['ip']
+
+    url = 'https://ifconfig.me/all.json'
+    r = requests.get(url)
+    if r.status_code == 200:
+        if r.json().get('ip_addr'):
+            return r.json()['ip_addr']
+
+    else:
+        return '127.0.0.1'
+
+async def get_hpo():
+    local_ip = await get_local_ip()
+    if '176.124.192' in local_ip:
+        headless = True
+        proxy_on = True
+        only_text = False
+
+    else:
+        print(f'local_ip CO: {local_ip}')
+        headless = False
+        proxy_on = False
+        only_text = False
+
+    return headless, proxy_on, only_text
 
 async def get_proxy_token(email: str, password: str):
     """
@@ -132,28 +169,6 @@ async def get_set():
 
     else:
         return [], [], []
-
-async def get_local_ip():
-    url = 'https://api.myip.com/'
-    r = requests.get(url)
-    if r.status_code == 200:
-        if r.json().get('ip'):
-            return r.json()['ip']
-
-    url = 'https://api.ipify.org?format=json'
-    r = requests.get(url)
-    if r.status_code == 200:
-        if r.json().get('ip'):
-            return r.json()['ip']
-
-    url = 'https://ifconfig.me/all.json'
-    r = requests.get(url)
-    if r.status_code == 200:
-        if r.json().get('ip_addr'):
-            return r.json()['ip_addr']
-
-    else:
-        return '127.0.0.1'
 
 async def fix_error(service, project, portal, error):
     data = {
@@ -260,7 +275,8 @@ async def time_out_sel(async_func, timeout=180, **kwargs):
     ss_id = kwargs['ss_id']
     project = kwargs['project']
 
-    driver = await get_selenium_proxy(link)
+    headless, proxy_on, only_text = await get_hpo()
+    driver = await get_selenium_proxy(link, proxy=proxy_on)
     status = None
 
     try:

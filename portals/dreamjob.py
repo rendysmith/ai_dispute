@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import time
 
-from utils.central_module import get_local_ip
+from utils.central_module import get_local_ip, get_hpo
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
 #from ai_skillbox import pars_url, generator
@@ -24,17 +24,17 @@ load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
-local_ip = asyncio.run(get_local_ip())
-if '176.124.192' in local_ip:
-    headless = True
-    proxy_on = True
-    only_text = False
-
-else:
-    print(f'local_ip DJ: {local_ip}')
-    headless = False
-    proxy_on = False
-    only_text = False
+# local_ip = asyncio.run(get_local_ip())
+# if '176.124.192' in local_ip:
+#     headless = True
+#     proxy_on = True
+#     only_text = False
+#
+# else:
+#     print(f'local_ip DJ: {local_ip}')
+#     headless = False
+#     proxy_on = False
+#     only_text = False
 
 async def get_raiting(soup):
     # soup = await get_soup(top_url)
@@ -134,6 +134,7 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
         url = f'{link}?erfrp%5BlastParam%5D=&erfrp%5Bfrom_vacancy%5D=&sort=-created_at&page={page}&_={unix_time}'
         print(url)
 
+        headless, proxy_on, only_text = await get_hpo()
         soup = await get_soup(url, proxy=proxy_on)
         if not soup:
             continue

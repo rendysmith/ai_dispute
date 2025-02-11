@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from sqlalchemy.sql.base import elements
 
-from portals.portal_dzen import headless
 from utils.central_module import wait_for_portal
 from utils.gs_editor import pars_url, get_service
 from utils.ai_module import generate_and_white

@@ -8,7 +8,7 @@ from pprint import pprint
 import aiohttp
 from selenium.webdriver.common.by import By
 
-from utils.central_module import get_local_ip
+from utils.central_module import get_local_ip, get_hpo
 from utils.compressor import compress_string
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
@@ -33,15 +33,15 @@ max_sec = int(os.environ.get("MAX_SEC"))
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
 
-local_ip = asyncio.run(get_local_ip())
-if '176.124.192' in local_ip:
-    headless = True
-    proxy_on = True
-
-else:
-    print(f'local_ip Otvet: {local_ip}')
-    headless = False
-    proxy_on = False
+#local_ip = asyncio.run(get_local_ip())
+# if '176.124.192' in local_ip:
+#     headless = True
+#     proxy_on = True
+#
+# else:
+#     print(f'local_ip Otvet: {local_ip}')
+#     headless = False
+#     proxy_on = False
 
 async def get_id_obj(url):
     url_split = url.split('/')
@@ -388,6 +388,8 @@ async def check_otvet_sel(service, link, pattern, criteria, ss_id, project, driv
 
 async def check_otvet(service, link, pattern, criteria, ss_id, project):
     question = await get_id_obj(link)
+
+    headless, proxy_on, only_text = await get_hpo()
     soup = await get_soup(link, proxy=proxy_on)
     answers = soup.find_all('div', {"data-aid": True})
     answers = [answer.get('data-aid') for answer in answers]
@@ -396,6 +398,7 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project):
     print(top_url)
 
     try:
+        headless, proxy_on, only_text = await get_hpo()
         json_data = await get_soup(top_url, only_text=False, proxy=proxy_on)
 
     except Exception as Ex:
