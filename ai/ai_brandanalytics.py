@@ -1,9 +1,7 @@
 import asyncio
 import os
 import re
-import sys
 import time
-import locale
 
 from datetime import datetime, timedelta
 
@@ -23,14 +21,13 @@ from utils.central_module import get_local_ip, rec_data, get_hpo
 from utils.db_loader import read_data_from_db_filter
 from utils.gs_editor import get_service, read_table_id, write_log_sheet
 from utils.user_agent import get_selenium_proxy, ua, get_soup
+from utils.ba_conn import get_cookies
 
 from portals.portal_vk import blocks_vk
 from portals.youtube import blocks_youtube
 from portals.portal_dzen import blocks_dzen
 from portals.portal_pikaby import blocks_pikabu
 from portals.portal_ok import blocks_ok
-
-
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -45,12 +42,15 @@ day_now = now.day
 
 days_ago = 3
 
-username = os.environ.get("LOGIN_DA")
-password = os.environ.get("PASS_DA")
+username = os.environ.get("LOGIN_BA_ANKU")
+password = os.environ.get("PASS_BA_ANKU")
 
 auth_username = os.environ.get("HOST_USERNAME")
 auth_password = os.environ.get("HOST_PASSWORD")
 auth = HTTPBasicAuth(auth_username, auth_password)
+
+tsf = int(time.time() - 5 * 24 * 3600)
+tst = int(time.time())
 
 sheet_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
 worksheet_name = 'BA'
@@ -119,21 +119,21 @@ print('BA')
 #     headless = False
 #     proxy_on = False
 
-
-def set_locale():
-    if sys.platform.startswith("win"):  # Windows
-        try:
-            locale.setlocale(locale.LC_TIME, "Russian_Russia.1251")  # Русская локаль для Windows
-        except locale.Error:
-            locale.setlocale(locale.LC_TIME, "en_US.UTF-8")  # Запасной вариант
-    else:  # Linux / macOS
-        os.environ["LANG"] = "ru_RU.UTF-8"
-        os.environ["LC_ALL"] = "ru_RU.UTF-8"
-
-        try:
-            locale.setlocale(locale.LC_TIME, "C.UTF-8")
-        except locale.Error:
-            locale.setlocale(locale.LC_TIME, "en_US.UTF-8")  # Запасной вариант
+#
+# def set_locale():
+#     if sys.platform.startswith("win"):  # Windows
+#         try:
+#             locale.setlocale(locale.LC_TIME, "Russian_Russia.1251")  # Русская локаль для Windows
+#         except locale.Error:
+#             locale.setlocale(locale.LC_TIME, "en_US.UTF-8")  # Запасной вариант
+#     else:  # Linux / macOS
+#         os.environ["LANG"] = "ru_RU.UTF-8"
+#         os.environ["LC_ALL"] = "ru_RU.UTF-8"
+#
+#         try:
+#             locale.setlocale(locale.LC_TIME, "C.UTF-8")
+#         except locale.Error:
+#             locale.setlocale(locale.LC_TIME, "en_US.UTF-8")  # Запасной вариант
 
 async def extract_reply(url):
     # Регулярное выражение для извлечения значения reply
@@ -146,39 +146,6 @@ async def extract_reply(url):
         return match.group(1)
     else:
         return None
-
-async def get_cookies(session) -> dict:
-    login_url = 'https://brandanalytics.ru/account/login_check'
-
-    payload = {
-        '_username': username,
-        '_password': password,
-        '_remember_me': 'on'
-    }
-
-    #async with aiohttp.ClientSession() as session:
-    async with session.post(login_url, data=payload) as response:
-        if response.status == 200:
-            # Возвращаем куки
-            cookies = session.cookie_jar.filter_cookies(login_url)
-            #return {key: cookie.value for key, cookie in cookies.items()}
-        else:
-            raise Exception(f"Request failed with status code {response.status}")
-
-
-    async with session.post(login_url, data=payload) as response:
-        if response.status != 200:
-            raise Exception(f"Login failed with status code {response.status}")
-
-    # Шаг 2: Переходим на страницу, чтобы получить все cookies
-    summary_url = 'https://brandanalytics.ru/summary'
-    async with session.get(summary_url) as response:
-        if response.status != 200:
-            raise Exception(f"Failed to fetch summary page, status code {response.status}")
-
-    # Возвращаем все cookies
-    cookies = session.cookie_jar.filter_cookies('https://brandanalytics.ru')
-    return {key: cookie.value for key, cookie in cookies.items()}
 
 async def analysis_dzen(service, date_create, url_answer, first_author, prompt_trend_gone, text, driver):
     headless, proxy_on, only_text = await get_hpo()
@@ -298,7 +265,7 @@ async def analysis_vk(service, date_create, url_answer, first_author, prompt_tre
     await rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id, worksheet_name)
 
 async def analysis_ok(service, date_create, url_answer, first_author, prompt_trend_gone, text):
-    set_locale()
+    #set_locale()
 
     blocks = await blocks_ok(url_answer)
     if len(blocks) == 0:
@@ -313,11 +280,16 @@ async def analysis_ok(service, date_create, url_answer, first_author, prompt_tre
             date_obj = datetime.strptime(date_str, "%d %b %Y")
 
         except:
-            # date_str_str = date_str.split(' ')
-            # if months.get(date_str_str[1]):
-            #     pass
+            date_str_str = date_str.split(' ')
+            if months.get(date_str_str[1]):
+                number_month = months.get(date_str_str[1])
 
-            date_obj = datetime.strptime(date_str, "%d %b")
+                date_str = date_str.replace(date_str_str[1], number_month)
+                date_obj = datetime.strptime(date_str, "%d %m")
+
+            else:
+                print("-- date_str_str:", date_str_str)
+                continue
 
         if (now - date_obj) <= timedelta(days=days_ago):
             print('Тренд жив.')
@@ -384,38 +356,6 @@ async def analysis_pikabu(service, date_create, url_answer, first_author, prompt
 
     return driver
 
-async def get_ids(session, cookies):
-    headers = {
-        'Accept': '*/*',
-        'Accept-Encoding': 'gzip, deflate, br, zstd',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Connection': 'keep-alive',
-        'Content-Type': 'application/json',
-        'DNT': '1',
-        'Host':	'brandanalytics.ru',
-        'Origin': 'https://brandanalytics.ru',
-        'Priority': 'u=4',
-        'Referer': 'https://brandanalytics.ru/report/12551940/summary?tsf=1737752400&tst=1738357199',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin',
-        'TE': 'trailers',
-        'User-Agent': ua.firefox
-    }
-
-    url_themes = 'https://brandanalytics.ru/ajax/account_summary'
-    async with session.post(url_themes, headers=headers, cookies=cookies) as response:
-        print('Status:', response.status)
-        if response.status == 200:
-            r_json = await response.json()
-            #print(r_json)
-
-        else:
-            return response.status
-
-    reports = [k for k, v in r_json['activeThemes']['themes'].items()]
-    return reports, headers
-
 async def report_data(session, cookies):
     headers = {
         'Accept': '*/*',
@@ -427,7 +367,7 @@ async def report_data(session, cookies):
         'Host':	'brandanalytics.ru',
         'Origin': 'https://brandanalytics.ru',
         'Priority': 'u=4',
-        'Referer': 'https://brandanalytics.ru/report/12551940/summary?tsf=1737752400&tst=1738357199',
+        'Referer': f'https://brandanalytics.ru/report/12551940/summary?tsf={tsf}&tst={tst}',
         'Sec-Fetch-Dest': 'empty',
         'Sec-Fetch-Mode': 'cors',
         'Sec-Fetch-Site': 'same-origin',
@@ -462,9 +402,8 @@ async def report_data(session, cookies):
 
 async def check_ba(service):
     headless, proxy_on, only_text = await get_hpo()
-
     async with aiohttp.ClientSession() as session:
-        cookies = await get_cookies(session)
+        cookies = await get_cookies(session, username, password)
 
         #reports, headers = await get_ids(session, cookies)
         reports, headers = await report_data(session, cookies)
@@ -485,9 +424,6 @@ async def check_ba(service):
             #report = '12551940'
 
             url_base = f'https://brandanalytics.ru/theme-data/{report}/'
-
-            tst = int(time.time())
-            tsf = int(time.time() - 5 * 24 * 3600)
 
             page = 1
             limit = 100
@@ -519,7 +455,7 @@ async def check_ba(service):
             print('\nQuery_url:', url)
 
             async with aiohttp.ClientSession() as session:
-                cookies = await get_cookies(session)
+                #cookies = await get_cookies(session, username, password)
 
                 async with session.get(url, cookies=cookies) as response:
                     if response.status == 200:
