@@ -26,6 +26,8 @@ password = os.environ.get("PASS_BA_DASHA")
 
 url_base = 'https://brandanalytics.ru/theme-data/'
 
+gid_set = '1vxpafRIbjJriSsh9qzK_jk0ZTMJTRAX0jEep2mvBP4g'
+
 size_limit = 200
 
 async def parse_url(url, id_company, page):
@@ -45,15 +47,15 @@ async def parse_url(url, id_company, page):
 async def main():
     service = await get_service()
 
-    df_platform = await read_table_id(service, '1vxpafRIbjJriSsh9qzK_jk0ZTMJTRAX0jEep2mvBP4g', 'platform')
+    df_platform = await read_table_id(service, gid_set, 'platform')
 
-    df_offrep_content = await read_table_id(service, '1vxpafRIbjJriSsh9qzK_jk0ZTMJTRAX0jEep2mvBP4g', 'offrep')
+    df_offrep_content = await read_table_id(service, gid_set, 'offrep')
     offreps = df_offrep_content['name'].to_list()
 
-    df_censor_content = await read_table_id(service, '1vxpafRIbjJriSsh9qzK_jk0ZTMJTRAX0jEep2mvBP4g', 'censor')
+    df_censor_content = await read_table_id(service, gid_set, 'censor')
     censors = df_censor_content['word'].to_list()
 
-    df_set = await read_table_id(service, '1vxpafRIbjJriSsh9qzK_jk0ZTMJTRAX0jEep2mvBP4g', 'set')
+    df_set = await read_table_id(service, gid_set, 'set')
 
     async with aiohttp.ClientSession() as session:
         cookies = await get_cookies(session, username, password)

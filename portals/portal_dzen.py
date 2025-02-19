@@ -186,11 +186,7 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
 
 async def main_dzen():
     service = await get_service()
-
-    url = 'https://dzen.ru/video/watch/64b67afcfff5626738324fb7#comment_1754332642'
-    url = 'https://dzen.ru/media/cat_barion/63f9e2173876d93b6f7277fa'
-    url = 'https://dzen.ru/b/Z43zJlq_8hHQtA5L'
-    url = 'https://dzen.ru/a/Z2BJynY-b003N1RB?comment-request=1'
+    url = 'https://dzen.ru/a/ZLbbbOZJe2IqY9gG#comment_1756262991'
 
     headless, proxy_on, only_text = await get_hpo()
     driver = await get_selenium_proxy(url, headless=headless, proxy=proxy_on)
