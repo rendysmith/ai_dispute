@@ -9,6 +9,7 @@ import urllib.parse
 from utils.ba_conn import get_cookies, get_ids
 from utils.gs_editor import read_table_id, get_service, append_data_to_sheet_scopes
 from utils.user_agent import get_soup, get_soup_bs4
+from utils.bert_moduls import classify_topic
 
 # Получаем текущую дату
 current_date = datetime.now()
@@ -43,9 +44,11 @@ async def parse_url(url, id_company, page):
     print(api_url)
     return api_url
 
-
 async def main():
     service = await get_service()
+
+    df_topics = await read_table_id(service, gid_set, 'product')
+    topics = df_topics['topic'].to_list()
 
     df_platform = await read_table_id(service, gid_set, 'platform')
 
@@ -61,7 +64,6 @@ async def main():
         cookies = await get_cookies(session, username, password)
 
         for k, row in df_set.iterrows():
-
             link = row['link']
             #print(link)
 
@@ -73,7 +75,7 @@ async def main():
                     id_company = v
                     break
 
-            print(id_company)
+            print('ID company:',id_company)
 
             gid = row['gid']
             gtab = row['gtab']
@@ -105,8 +107,8 @@ async def main():
                     messages = r_json['feed']['messages']
 
                 except:
-                    print(r_json)
-                    input('wait...')
+                    print("Error:", r_json)
+                    #input('wait...')
 
                 len_m = len(messages)
                 print('len_m', len_m)
@@ -124,16 +126,23 @@ async def main():
                          }
 
                 for k, message in messages.items():
-                    fullname = message['author']['fullname']
+                    audience = int(message['counterList']['audience']) / 1000
+                    if audience <= 2:
+                        print('--- Охват меньше 2000')
+                        continue
 
+                    fullname = message['author']['fullname']
                     if any(offrep in fullname for offrep in offreps):
                         print(f'-- IS official: {fullname}')
                         continue
 
                     text_snippet = message['text_snippet']
-
                     if any(censor in text_snippet for censor in censors):
                         print(f'-- IS NOT Censor: {text_snippet}')
+                        continue
+
+                    url_comment = message['url']
+                    if url_comment in links:
                         continue
 
                     tone_mark = message['tone_mark']
@@ -144,24 +153,19 @@ async def main():
                     else:
                         work_area = 'Реагирование Без VC'
 
-                    product = 'test'
-
                     hub_name  = message['hub_name']
                     #print(hub_name)
                     index_name = (df_platform['hub_name'] == hub_name).idxmax()
                     platform = df_platform.loc[index_name, 'gs_name']
                     #print(platform)
 
-                    audience = int(message['counterList']['audience']) / 1000
-
-                    url_comment = message['url']
-
-                    if url_comment in links:
-                        continue
-
                     text_snippet_html = message['text_snippet']
-                    text_snippet = await get_soup_bs4(text_snippet_html, only_pars=True)
-                    text_snippet = str(text_snippet.text)
+                    text_snippet_content = await get_soup_bs4(text_snippet_html, only_pars=True)
+                    text_snippet = str(text_snippet_content.text)
+
+                    product, confidence = await classify_topic(text_snippet, topics)
+
+                    text_snippet = "'" + text_snippet
 
                     datas['Дата'].append(formatted_date)
                     datas['Направление работ'].append(work_area)
@@ -173,12 +177,11 @@ async def main():
 
                 if len(datas):
                     pass
-                    #await append_data_to_sheet_scopes(service, gid, gtab, datas)
+                    await append_data_to_sheet_scopes(service, gid, gtab, datas)
 
-                #input('next...')
+                input('next...')
 
                 page += 1
-
                 await asyncio.sleep(5)
 
 
