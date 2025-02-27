@@ -317,17 +317,30 @@ async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_na
         return None
 
 async def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_names: list, row_number, datas: list):
-    # SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-    # SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
-    # credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-    # service = build('sheets', 'v4', credentials=credentials)
-
     # Получение заголовков таблицы
     header_range = f"{worksheet_name}!1:1"
     header_result = service.spreadsheets().values().get(spreadsheetId=sheet_id, range=header_range).execute()
     headers = header_result.get('values', [])[0]
 
-    column_index = headers.index(column_names[0])
+    try:
+        #Если все колонки присутствуют
+        column_index = headers.index(column_names[0])
+
+    except:
+        column_index = len(headers)  # Индекс для новой колонки (0-based)
+        column_letter = chr(65 + column_index)  # Преобразуем в букву (A=65, B=66 и т.д.)
+        range_name = f"{worksheet_name}!{column_letter}1"
+
+        body = {
+            "values": [[column_names]]
+        }
+        service.spreadsheets().values().update(
+            spreadsheetId=sheet_id,
+            range=range_name,
+            valueInputOption="RAW",
+            body=body
+        ).execute()
+
     column_letter = chr(65 + column_index)  # Преобразование индекса в букву (A, B, C и т.д.)
 
     values = [datas]

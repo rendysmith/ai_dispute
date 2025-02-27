@@ -414,10 +414,12 @@ async def cheak_dreamjob(service, brand):
     #ws_name = worksheet_name_dreamjob
     df = await get_table_scope(service, worktable_id, brand)
     print(df)
-    add_column = 'Текст для поддержки'
-    df = df[df[add_column]=='']
+    # add_column = 'Текст для поддержки'
+    # df = df[df[add_column]=='']
 
-    print(df)
+    columns = ['Вероятность удаления', 'Текст для поддержки']
+    for column in columns:
+        df[column] = ''
 
     for idx, row in df.iterrows():
         brand = row['Бренд']
@@ -449,7 +451,6 @@ async def cheak_dreamjob(service, brand):
             else:
                 result[1] = f"Здравствуйте, Я представляю интересы компании '{brand}' и хочу обратиться с просьбой удалить отзыв по ссылке {link}. Отзыв содержит нарушение:\n" + result[1]
 
-            columns = ['Вероятность удаления', 'Текст для поддержки']
             await append_data_to_sheet_cells(service, worktable_id, brand, columns, idx + 2, result)
 
         except SyntaxError as SE:
@@ -464,8 +465,10 @@ async def main_grade():
 
     top_urls = ['https://dreamjob.ru/employers/56859']
 
-    for top_url in top_urls:
-        await pars_dreamjob(service, top_url)
+    # for top_url in top_urls:
+    #     await pars_dreamjob(service, top_url)
+
+    await cheak_dreamjob(service, 'ВкусВилл')
 
     #asyncio.run(main_vkusvill())
     #await cheak_dreamjob(service)
