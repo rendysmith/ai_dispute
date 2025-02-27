@@ -14,7 +14,7 @@ from requests.auth import HTTPBasicAuth
 
 from models.mdl_tables import ForumRules
 from utils.ai_module import get_answer_ai
-from utils.central_module import wait_for_portal
+from utils.central_module import wait_for_portal, get_hpo
 
 from utils.constants import TABLES_LIST
 from utils.db_loader import read_data_from_db_filter
@@ -76,11 +76,11 @@ text = """
 # * Краткое описание нарушений, включая правило и соответствующий текст комментария, если таковой имеется.
 # Выведите результат в формате, который можно использовать напрямую, с каждым элементом, заключенным в двойные кавычки."""
 
-market = 'Vkusvill'
-worktable_id = TABLES_LIST[market][0]
-worksheet_name = TABLES_LIST[market][1]
-worksheet_name_dreamjob = 'reviews_dreamjob'
-print(worktable_id, worksheet_name)
+#market = 'Vkusvill'
+worktable_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
+#worksheet_name = TABLES_LIST[market][1]
+#worksheet_name_dreamjob = 'reviews_dreamjob'
+#print(worktable_id, worksheet_name)
 
 async def extract_link_from_line(url):
     # Шаблон для поиска ссылки от https: до .html
@@ -91,15 +91,14 @@ async def extract_link_from_line(url):
         return match.group(0)
     return None
 
-async def cheak_vkusvill(service):
-    df = await get_table_scope(service, worktable_id, worksheet_name)
+async def create_email(service, brand):
+    df = await get_table_scope(service, worktable_id, brand)
     add_column = 'Текст для поддержки'
     df = df[df[add_column].isnull()]
 
     print(df)
 
     for idx, row in df.iterrows():
-        brand = 'ВкусВилл'
         link = row['Url']
         comment = row['Текст']
         source = row['Источник']
@@ -126,7 +125,7 @@ async def cheak_vkusvill(service):
             result[1] = f"Здравствуйте, Я представляю интересы компании {brand} и хочу обратиться с просьбой удалить отзыв {link}. Отзыв содержит нарушение:\n" + result[1]
 
             columns = ['Вероятность удаления', 'Текст для поддержки']
-            await append_data_to_sheet_cells(service, worktable_id, worksheet_name, columns, idx + 2, result)
+            await append_data_to_sheet_cells(service, worktable_id, brand, columns, idx + 2, result)
 
         except SyntaxError as SE:
             print(f'ERROR: {SE}')
@@ -194,7 +193,10 @@ async def grade_analysis():
             pass
 
 async def total_grade_analysis(service, tn_name):
-    '''Функция для подсчета рейтинга после удаления отзыва'''
+    '''
+    Функция для подсчета рейтинга после удаления отзыва
+    '''
+
     df = await get_table_scope(service, worktable_id, tn_name)
 
     data_rows = []
@@ -236,40 +238,65 @@ async def total_grade_analysis(service, tn_name):
                 print(f'{idx_mini} Add info...')
                 data_rows.append(idx_mini)
 
-async def pars_dreamjob():
+async def pars_dreamjob(service, top_url):
+    """Функция для получения негативных отзывовов и записьм их в таблицу"""
     unix_time = str(int(time.time() * 1000))
-
-    service = await get_service()
 
     #https://dreamjob.ru/employers/56859?employerId=56859&erfrp%5BlastParam%5D=&erfrp%5Bfrom_vacancy%5D=&sort=-total_rating&page=1&_=1730535359347
     #https://dreamjob.ru/employers/56859?employerId=56859&erfrp%5BlastParam%5D=ratings&erfrp%5Bfrom_vacancy%5D=&sort=-total_rating&erfrp%5Bratings%5D%5B%5D=1&page=1&_=1730535359348
 
-    top_url = 'https://dreamjob.ru/employers/56859'
-    soup = await get_soup(top_url)
+    headless, proxy_on, only_text = await get_hpo()
+    soup = await get_soup(top_url, proxy=proxy_on)
     if not soup:
         return
+
+    brand = soup.find('div', {'class': 'company__name line-clamp-2', 'data-js': 'companyName'}).text.strip()
+    print(brand)
 
     total_rating = soup.find('div', {"class": 'dashboard__grade-total'}).text
     print(total_rating)
     total_rating = float(total_rating.replace(',', '.'))
     print(total_rating)
 
-    total_reviews = soup.find('span', {"class": 'company-header__tab-count'}).text
-    print(total_reviews)
-    total_reviews = int(total_reviews.replace(' ', ''))
-    print(total_reviews)
+    try:
+        total_reviews_content = soup.find('span', {"class": 'tabs__count'}).text
+        print(total_reviews_content)
+        total_reviews = int(total_reviews_content.replace(' ', ''))
+        print(total_reviews)
 
-    pages = ['1',
-             '2.2',
-             '3.3666666666666667',
-             '4.533333333333333',
-             '5.7',
-             '6.866666666666666']
+    except:
+        total_reviews_content = soup.find('div', {"class": 'dashboard__grade-reviews'}).text
+        total_reviews_split = total_reviews_content.split(' ')[0]
+        print(total_reviews_split)
+        total_reviews = int(total_reviews_split.replace(' ', ''))
+        print(total_reviews)
 
-    for page in pages:
-        url = f'{top_url}?employerId=56859&erfrp%5BlastParam%5D=ratings&erfrp%5Bfrom_vacancy%5D=&sort=total_rating&erfrp%5Bratings%5D%5B%5D=1&page={page}&_={unix_time}'
+    employerId = top_url.split('/')[-1]
 
-        soup = await get_soup(url)
+    # pages = ['1',
+    #          '2.2',
+    #          '3.3666666666666667',
+    #          '4.533333333333333',
+    #          '5.7',
+    #          '6.866666666666666']
+
+    #for page in pages:
+    page_int = 0
+    while True:
+        page_int += 1
+        page = str(page_int)
+        print(f'Page: {page}')
+
+        url = (f'{top_url}?'
+               f'employerId={employerId}&'
+               f'sort=total_rating&'
+               f'erfrp%5Bratings%5D%5B%5D=2&'
+               f'erfrp%5Bratings%5D%5B%5D=1&'
+               f'page={page}&'
+               f'_={unix_time}')
+
+        headless, proxy_on, only_text = await get_hpo()
+        soup = await get_soup(url, proxy=proxy_on)
         if not soup:
             continue
 
@@ -293,23 +320,12 @@ async def pars_dreamjob():
                  }
 
         for block in blocks:
-            print('\n*******************************************')
+            #print('\n*******************************************')
             date = block.find_next('div', {'class': 'review__header-date'}).text
-            print(date)
-            # date_spl = date.split('\xa0')
-            # print(date_spl)
-            # month = months[date_spl[0]]
-            # last_day = 31
-            # while True:
-            #     try:
-            #         target_date = datetime(int(date_spl[1]), month, last_day)
-            #         print(target_date)
-            #         break
-            #     except:
-            #         last_day -= 1
+            #print(date)
 
             title = block.find_next('h2', {'class': 'review__header-title'}).text.strip()
-            print(title)
+            #print(title)
 
             title_div_plus = block.find('div', class_='review__title review__gap')
             plus_title = title_div_plus.text
@@ -323,6 +339,7 @@ async def pars_dreamjob():
             for sibling in title_div_plus.next_siblings:
                 if sibling == next_div:
                     break
+
                 if isinstance(sibling, str):
                     full_text += sibling
                 elif sibling.name == 'br':
@@ -349,9 +366,8 @@ async def pars_dreamjob():
                        """
 
             feedback = textwrap.dedent(feedback)
-            print(feedback)
+            #print(feedback)
 
-            brand = 'Вкусвилл'
             portal = 'dreamjob.ru'
 
             url_answer = block.find('a', {'class': 'bt bt--32 bt--primary-link icon-copy'}).get('href')
@@ -360,20 +376,20 @@ async def pars_dreamjob():
 
             if not url_answer:
                 url_answer = block.find('a', tabindex='0').get('href')
-            print(url_answer)
+            #print(url_answer)
 
             author = block.find('h2', {'class': 'review__header-title'}).text.strip()
-            print(author)
+            #print(author)
 
             #rating = block.find('div', {'class': 'review__header-title'}).text.strip()
             rating = soup.find(lambda tag: tag.name == "div" and "class" in tag.attrs and "data-partly-switch" in tag.attrs).text.strip()
             rating = float(rating.replace(',', '.'))
-            print(rating)
+            #print(rating)
 
-            if rating >= 2:
-                continue
+            if rating >= 3:
+                return
 
-            top_url = 'https://dreamjob.ru/employers/56859'
+            #top_url = 'https://dreamjob.ru/employers/56859'
 
             datas['Дата'].append(date)
             datas['Заголовок'].append(title)
@@ -388,109 +404,15 @@ async def pars_dreamjob():
             datas['Кол-во отзывов'].append(total_reviews)
             datas['Оценка компании до удаления'].append(total_rating)
 
-
-        await append_data_to_sheet_scopes(service, '1HtUgQn3UJKbpjKHqqRqt5WSjDWKCJa0fOYLiM9UwcTw', 'reviews_dreamjob', datas)
-
-
+        await append_data_to_sheet_scopes(service, worktable_id, brand, datas)
+        print('White datas - OK!')
         await asyncio.sleep(5)
 
-
-
-
-
-
-            #
-            #
-            #
-            #
-            #
-            #
-            #
-            #
-            # url_answer = block.find('a', {'class': 'bt bt--32 bt--primary-link icon-copy'}).get('href')
-            # if not url_answer:
-            #     url_answer = block.find('a', role='button', tabindex='0').get('href')
-            #
-            # if not url_answer:
-            #     url_answer = block.find('a', tabindex='0').get('href')
-            #
-            # print(url_answer)
-            #
-            # date = block.find_next('div', {'class': 'review__header-date'}).text
-            #
-            # date_spl = date.split('\xa0')
-            # #print(date_spl)
-            # month = await months(date_spl[0])
-            #
-            # last_day = 31
-            # while True:
-            #     try:
-            #         target_date = datetime(int(date_spl[1]), month, last_day)
-            #         print(target_date)
-            #         break
-            #
-            #     except:
-            #         last_day -= 1
-            #
-            # if (current_date - target_date) > timedelta(days=days_ago):
-            #     print(f'--- Отзыв старше {days_ago} дней = {date}.')
-            #     continue
-            #     # return  # Выход если очень старые отзывы
-            #
-            # answer_title = block.find('h3', class_='review__answer-title')
-            # if answer_title:
-            #     print("Найден заголовок ответа:", answer_title.text)
-            #     continue
-            #
-            # author = block.find('h2', {'class': 'review__header-title'}).text.strip()
-            # #print(author)
-            #
-            # #title_div_plus = soup.find('div', class_='review__title review__gap')
-            # title_div_plus = block.find('div', class_='review__title review__gap')
-            # plus_title = title_div_plus.text
-            # #print(plus_title)
-            #
-            # # Находим следующий div
-            # next_div = title_div_plus.find_next('div', class_='review__title')
-            #
-            # # Получаем весь текст между двумя div
-            # full_text = ''
-            # for sibling in title_div_plus.next_siblings:
-            #     if sibling == next_div:
-            #         break
-            #     if isinstance(sibling, str):
-            #         full_text += sibling
-            #     elif sibling.name == 'br':
-            #         full_text += '\n'
-            #
-            # # Очищаем текст от лишних пробелов и переносов строк
-            # plus = ' '.join(full_text.split())
-            # #print(plus)
-            #
-            # title_div_minus = block.select_one('div.review__title:not(.review__gap)')
-            # #print(title_div_minus)
-            # minus_title = title_div_minus.text
-            # #print(minus_title)
-            #
-            # if title_div_minus:
-            #     minus = title_div_minus.find_next_sibling(text=True).strip()
-            #     #print(minus)
-            #
-            # feedback = f"""
-            # {plus_title}:
-            # {plus}
-            # {minus_title}:
-            # {minus}
-            # """
-            # #print(feedback)
-            #
-            # feedback = textwrap.dedent(feedback)
-
-async def cheak_dreamjob(service):
+async def cheak_dreamjob(service, brand):
     '''Функция для анализа отзыва'''
 
-    ws_name = worksheet_name_dreamjob
-    df = await get_table_scope(service, worktable_id, ws_name)
+    #ws_name = worksheet_name_dreamjob
+    df = await get_table_scope(service, worktable_id, brand)
     print(df)
     add_column = 'Текст для поддержки'
     df = df[df[add_column]=='']
@@ -498,7 +420,7 @@ async def cheak_dreamjob(service):
     print(df)
 
     for idx, row in df.iterrows():
-        brand = 'ВкусВилл'
+        brand = row['Бренд']
         link = row['Url']
         comment = row['Текст']
         source = row['Источник']
@@ -528,18 +450,28 @@ async def cheak_dreamjob(service):
                 result[1] = f"Здравствуйте, Я представляю интересы компании '{brand}' и хочу обратиться с просьбой удалить отзыв по ссылке {link}. Отзыв содержит нарушение:\n" + result[1]
 
             columns = ['Вероятность удаления', 'Текст для поддержки']
-            await append_data_to_sheet_cells(service, worktable_id, ws_name, columns, idx + 2, result)
+            await append_data_to_sheet_cells(service, worktable_id, brand, columns, idx + 2, result)
 
         except SyntaxError as SE:
             print(f'ERROR: {SE}')
 
 async def main_grade():
     service = await get_service()
+
+    top_urls = ['https://dreamjob.ru/employers/56859',
+               'https://dreamjob.ru/employers/25946']
+
+
+    top_urls = ['https://dreamjob.ru/employers/56859']
+
+    for top_url in top_urls:
+        await pars_dreamjob(service, top_url)
+
     #asyncio.run(main_vkusvill())
     #await cheak_dreamjob(service)
 
     #asyncio.run(grade_analysis())
-    await total_grade_analysis(service, 'reviews')
+    #await total_grade_analysis(service, 'reviews')
 
 if __name__ == '__main__':
 

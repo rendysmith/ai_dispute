@@ -94,6 +94,8 @@ async def create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
         }
         try:
             service.spreadsheets().batchUpdate(spreadsheetId=SAMPLE_SPREADSHEET_ID, body=batch_update_body).execute()
+            return True
+
         except HttpError as e:
             print(f"An error occurred while creating the sheet: {e}")
             return
@@ -231,7 +233,7 @@ async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANG
     return 'OK!'
 
 async def append_data_to_sheet_scopes(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, datas):
-    await create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME)
+    status = await create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME)
 
     # Получаем текущие заголовки колонок
     result = service.spreadsheets().values().get(
@@ -261,6 +263,10 @@ async def append_data_to_sheet_scopes(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RAN
     body = {
         'values': rows_to_append
     }
+
+    if status:
+        headers = [k for k in datas.keys()]
+        body['values'].insert(0, headers)
 
     result = service.spreadsheets().values().append(
         spreadsheetId=SAMPLE_SPREADSHEET_ID,
