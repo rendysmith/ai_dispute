@@ -11,6 +11,9 @@ from utils.gs_editor import read_table_id, get_service, append_data_to_sheet_sco
 from utils.user_agent import get_soup, get_soup_bs4
 from utils.bert_moduls import classify_topic
 
+from portals.portal_ok import blocks_ok
+from portals.portal_tg import check_tg_link
+
 # Получаем текущую дату
 current_date = datetime.now()
 
@@ -19,7 +22,7 @@ formatted_date = current_date.strftime("%d.%m.%Y")
 
 print(formatted_date)
 
-tsf = int(time.time() - 1 * 1 * 3600)
+tsf = int(time.time() - 0.5 * 1 * 3600)
 tst = int(time.time())
 
 username = os.environ.get("LOGIN_BA_DASHA")
@@ -43,6 +46,31 @@ async def parse_url(url, id_company, page):
     api_url = f'https://brandanalytics.ru/theme-data/{id_company}/?requested%5B%5D=feed&sort=time_create&order=desc&page={str(page)}&size={str(size_limit)}&limit={str(size_limit)}&{urllib.parse.urlencode(params_dict, doseq=True)}'
     print(api_url)
     return api_url
+
+async def check_link(link):
+    if 'ok.ru' in link:
+        print('--- Check link ok.ru')
+        blocks = await blocks_ok(link)
+        if len(blocks) == 0:
+            return False
+        else:
+            return True
+
+    elif any(tg_link in link for tg_link in ['telegram.me', 't.me']):
+        print('--- Check link t.me!')
+        status_tg = await check_tg_link(link)
+        if status_tg:
+            return False
+        else:
+            return True
+
+    return True
+
+# print(asyncio.run(check_link('https://telegram.me/c/2082156527/2086958')))
+# print(asyncio.run(check_link('https://telegram.me/chat_easyi/3678228')))
+# print(asyncio.run(check_link('https://telegram.me/chat_easyi/3678228')))
+# input()
+
 
 async def main():
     service = await get_service()
@@ -143,6 +171,11 @@ async def main():
 
                     url_comment = message['url']
                     if url_comment in links:
+                        continue
+
+                    #Проверка ссылки на приватность и наличие коментов.
+                    status_link = await check_link(url_comment)
+                    if not status_link:
                         continue
 
                     tone_mark = message['tone_mark']

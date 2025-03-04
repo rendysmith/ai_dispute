@@ -8,8 +8,9 @@ import pyrogram.errors
 from dotenv import load_dotenv
 from pyrogram import Client
 
-from utils.central_module import rec_data
+from utils.central_module import rec_data, get_hpo
 from utils.gs_editor import get_service
+from utils.user_agent import get_soup
 
 current_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -27,6 +28,16 @@ session_string = os.environ.get("TG_SESSION_STRING")
 
 sheet_id = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
 worksheet_name = 'BA'
+
+async def check_tg_link(url):
+    headless, proxy_on, only_text = await get_hpo()
+    soup = await get_soup(url, proxy=proxy_on)
+    try:
+        text = soup.find('div', {'class': 'tgme_page_description'}).text
+        return True
+    except:
+        return False
+
 
 async def search_sec(message):
     match = re.search(r'of (\d+) seconds', message)

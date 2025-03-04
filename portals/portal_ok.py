@@ -19,7 +19,6 @@ from utils.user_agent import get_soup, get_selenium_proxy
 
 
 async def blocks_ok(url):
-
     headless, proxy_on, only_text = await get_hpo()
     soup = await get_soup(url, proxy=proxy_on)
     blocks = soup.find_all('div', {'class': 'comments_i __new-comments h-mod'})
