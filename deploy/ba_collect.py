@@ -160,6 +160,8 @@ async def main():
                         continue
 
                     fullname = message['author']['fullname']
+                    print(fullname)
+
                     if any(offrep in fullname for offrep in offreps):
                         print(f'-- IS official: {fullname}')
                         continue
@@ -172,6 +174,13 @@ async def main():
                     url_comment = message['url']
                     if url_comment in links:
                         continue
+
+                    #Если это сообщество официала.
+                    if 'vk.com' in url_comment:
+                        group_name = await blocks_ok(url_comment)
+                        if any(offrep in group_name for offrep in offreps):
+                            print(f'-- IS official group name: {group_name}')
+                            continue
 
                     #Проверка ссылки на приватность и наличие коментов.
                     status_link = await check_link(url_comment)

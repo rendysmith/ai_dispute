@@ -212,7 +212,6 @@ async def total_grade_analysis(service, tn_name):
         #df = df[(df[add_column] == '') & (df[add_column_2].str.contains(r'([5-9][0-9]|[1-9][0-9]{2,})'))]
         df_mini = df[(df['Общий Url'] == company_link) & (df['Вероятность удаления'].str.contains(r'([5-9][0-9]|[1-9][0-9]{2,})'))]
 
-
         df_mini = df_mini.drop_duplicates(subset=["Ссылка Url"]) #Удаляем дублика ссылок!!!!!!!!!!!!!!!!!!!!!!
         df_mini["Оценка"] = pd.to_numeric(df_mini["Оценка"], errors='coerce')  # Преобразуем в числа
 
@@ -238,20 +237,22 @@ async def total_grade_analysis(service, tn_name):
                 print(f'{idx_mini} Add info...')
                 data_rows.append(idx_mini)
 
-async def pars_dreamjob(service, top_url):
+async def pars_dreamjob(service, top_url, proxy_on):
     """Функция для получения негативных отзывовов и записьм их в таблицу"""
     unix_time = str(int(time.time() * 1000))
 
     #https://dreamjob.ru/employers/56859?employerId=56859&erfrp%5BlastParam%5D=&erfrp%5Bfrom_vacancy%5D=&sort=-total_rating&page=1&_=1730535359347
     #https://dreamjob.ru/employers/56859?employerId=56859&erfrp%5BlastParam%5D=ratings&erfrp%5Bfrom_vacancy%5D=&sort=-total_rating&erfrp%5Bratings%5D%5B%5D=1&page=1&_=1730535359348
 
-    headless, proxy_on, only_text = await get_hpo()
     soup = await get_soup(top_url, proxy=proxy_on)
     if not soup:
         return
 
     brand = soup.find('div', {'class': 'company__name line-clamp-2', 'data-js': 'companyName'}).text.strip()
     print(brand)
+
+    df = await get_table_scope(service, worktable_id, brand)
+    df_urls = df['Url'].to_list()
 
     total_rating = soup.find('div', {"class": 'dashboard__grade-total'}).text
     print(total_rating)
@@ -281,11 +282,11 @@ async def pars_dreamjob(service, top_url):
     #          '6.866666666666666']
 
     #for page in pages:
-    page_int = 0
+    page_int = 30
     while True:
         page_int += 1
         page = str(page_int)
-        print(f'Page: {page}')
+        print(f'\nPage: {page}')
 
         url = (f'{top_url}?'
                f'employerId={employerId}&'
@@ -295,7 +296,6 @@ async def pars_dreamjob(service, top_url):
                f'page={page}&'
                f'_={unix_time}')
 
-        headless, proxy_on, only_text = await get_hpo()
         soup = await get_soup(url, proxy=proxy_on)
         if not soup:
             continue
@@ -321,8 +321,12 @@ async def pars_dreamjob(service, top_url):
 
         for block in blocks:
             #print('\n*******************************************')
-            date = block.find_next('div', {'class': 'review__header-date'}).text
-            #print(date)
+            try:
+                date = block.find_next('div', {'class': 'review__header-date'}).text
+            except:
+                date_content = block.find_all('div', {'class': 'tags__item'})[1].text
+                data_split = date_content.split(',')[-1]
+                date = data_split.strip()
 
             title = block.find_next('h2', {'class': 'review__header-title'}).text.strip()
             #print(title)
@@ -378,6 +382,9 @@ async def pars_dreamjob(service, top_url):
                 url_answer = block.find('a', tabindex='0').get('href')
             #print(url_answer)
 
+            if url_answer in df_urls:
+                continue
+
             author = block.find('h2', {'class': 'review__header-title'}).text.strip()
             #print(author)
 
@@ -390,6 +397,10 @@ async def pars_dreamjob(service, top_url):
                 return
 
             #top_url = 'https://dreamjob.ru/employers/56859'
+
+
+
+            #print(date)
 
             datas['Дата'].append(date)
             datas['Заголовок'].append(title)
@@ -418,10 +429,18 @@ async def cheak_dreamjob(service, brand):
     # df = df[df[add_column]=='']
 
     columns = ['Вероятность удаления', 'Текст для поддержки']
-    for column in columns:
-        df[column] = ''
+    # for column in columns:
+    #     df[column] = ''
 
     for idx, row in df.iterrows():
+        probably_delete = row[columns[0]]
+        text_support = row[columns[1]]
+
+        if pd.notnull(probably_delete) and pd.notnull(text_support):
+            continue
+
+        print(f'IDX = {idx}')
+
         brand = row['Бренд']
         link = row['Url']
         comment = row['Текст']
@@ -442,6 +461,7 @@ async def cheak_dreamjob(service, brand):
 
         prompt = text.format(source=source, comment=comment, rule=rule)
         result = await get_answer_ai(auth, prompt)
+
         print(result)
 
         try:
@@ -449,7 +469,9 @@ async def cheak_dreamjob(service, brand):
             if '49' in result[0]:
                 pass
             else:
-                result[1] = f"Здравствуйте, Я представляю интересы компании '{brand}' и хочу обратиться с просьбой удалить отзыв по ссылке {link}. Отзыв содержит нарушение:\n" + result[1]
+                result[1] = (f"Здравствуйте, "
+                             f"Я представляю интересы компании '{brand}' и хочу обратиться с просьбой удалить отзыв по ссылке {link}. "
+                             f"Отзыв содержит нарушение:\n") + result[1]
 
             await append_data_to_sheet_cells(service, worktable_id, brand, columns, idx + 2, result)
 
@@ -457,18 +479,19 @@ async def cheak_dreamjob(service, brand):
             print(f'ERROR: {SE}')
 
 async def main_grade():
+    headless, proxy_on, only_text = await get_hpo()
     service = await get_service()
 
     top_urls = ['https://dreamjob.ru/employers/56859',
                'https://dreamjob.ru/employers/25946']
 
 
-    top_urls = ['https://dreamjob.ru/employers/56859']
+    top_urls = ['https://dreamjob.ru/employers/25946']
 
     # for top_url in top_urls:
-    #     await pars_dreamjob(service, top_url)
+    #     await pars_dreamjob(service, top_url, proxy_on)
 
-    await cheak_dreamjob(service, 'ВкусВилл')
+    await cheak_dreamjob(service, 'МТС')
 
     #asyncio.run(main_vkusvill())
     #await cheak_dreamjob(service)

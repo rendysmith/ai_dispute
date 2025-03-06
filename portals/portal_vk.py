@@ -1,6 +1,7 @@
 import asyncio
 import json
 from datetime import datetime, timedelta
+from pprint import pprint
 
 import aiohttp
 import requests
@@ -187,7 +188,7 @@ async def get_access_token():
         print(json_string)
         input()
 
-async def blocks_vk(url):
+async def blocks_vk(url, author_name=False):
     """
         Получает все комментарии к посту на стене ВКонтакте
         url = https://dvmn.org/encyclopedia/qna/63/kak-poluchit-token-polzovatelja-dlja-vkontakte/
@@ -246,12 +247,17 @@ async def blocks_vk(url):
             print(f'Error Ex1 {Ex}')
             return
 
-    #print('Data', data)
+    #pprint(data)
 
     # Проверяем наличие ошибок
     if 'error' in data:
         print(f"Ошибка: {data['error']['error_msg']}")
         return
+
+    # Получаем информацию о группе
+    if author_name:
+        group_name = data['response']['groups'][0]['name']
+        return group_name
 
     # Получаем информацию о комментариях
     items = data['response']['items']
@@ -281,17 +287,18 @@ async def blocks_vk(url):
     return comments
 
 async def main_vk():
-    service = await get_service()
+    #service = await get_service()
     url = 'https://vk.com/wall-11694885_373082?reply=373184'
     url = 'https://vk.com/amurr24?w=wall-72072592_6066'
+    url = 'https://vk.com/wall-20225241_1024998?reply=1025059&thread=1025049'
 
-    await check_vk(url)
+    await blocks_vk(url)
 
 if __name__ == '__main__':
     #asyncio.run(check_vk(''))
     #asyncio.run(get_token())
     #asyncio.run(main_vk())
-    asyncio.run(get_access_token())
+    asyncio.run(main_vk())
 
 # async def check_vk_sel(service, link, pattern, criteria, ss_id, project):
 #     print(link)

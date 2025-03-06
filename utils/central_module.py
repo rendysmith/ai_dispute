@@ -41,26 +41,35 @@ auth_password = os.environ.get("HOST_PASSWORD")
 auth = HTTPBasicAuth(auth_username, auth_password)
 
 async def get_local_ip():
-    url = 'https://api.myip.com/'
-    r = requests.get(url)
-    if r.status_code == 200:
-        if r.json().get('ip'):
-            return r.json()['ip']
+    try:
+        url = 'https://api.myip.com/'
+        r = requests.get(url)
+        if r.status_code == 200:
+            if r.json().get('ip'):
+                return r.json()['ip']
 
-    url = 'https://api.ipify.org?format=json'
-    r = requests.get(url)
-    if r.status_code == 200:
-        if r.json().get('ip'):
-            return r.json()['ip']
+            else:
+                return '127.0.0.1'
 
-    url = 'https://ifconfig.me/all.json'
-    r = requests.get(url)
-    if r.status_code == 200:
-        if r.json().get('ip_addr'):
-            return r.json()['ip_addr']
+    except requests.exceptions.ConnectionError as CE:
+        url = 'https://api.ipify.org?format=json'
+        r = requests.get(url)
+        if r.status_code == 200:
+            if r.json().get('ip'):
+                return r.json()['ip']
 
-    else:
-        return '127.0.0.1'
+            else:
+                return '127.0.0.1'
+
+    except:
+        url = 'https://ifconfig.me/all.json'
+        r = requests.get(url)
+        if r.status_code == 200:
+            if r.json().get('ip_addr'):
+                return r.json()['ip_addr']
+
+        else:
+            return '127.0.0.1'
 
 async def get_hpo():
     local_ip = await get_local_ip()
