@@ -362,12 +362,11 @@ async def pars_dreamjob(service, top_url, proxy_on):
                 minus = title_div_minus.find_next_sibling(text=True).strip()
                 # print(minus)
 
-            feedback = f"""
-                       {plus_title}:
-                       {plus}
-                       {minus_title}:
-                       {minus}
-                       """
+            feedback = f"""{plus_title}:
+{plus}
+{minus_title}:
+{minus}
+"""
 
             feedback = textwrap.dedent(feedback)
             #print(feedback)
@@ -397,8 +396,6 @@ async def pars_dreamjob(service, top_url, proxy_on):
                 return
 
             #top_url = 'https://dreamjob.ru/employers/56859'
-
-
 
             #print(date)
 

@@ -153,24 +153,29 @@ async def get_table_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
     return str(VE) if VE else "Unknown Error"
 
 async def read_table_id(service, spreadsheet_id, worksheet_name):
-    try:
-        # Получение данных из таблицы
-        range_name = f'{worksheet_name}'
-        result = service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=range_name).execute()
-        values = result.get('values', [])
+    # Получение данных из таблицы
+    range_name = f'{worksheet_name}'
+    result = service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=range_name).execute()
+    values = result.get('values', [])
 
-        if not values:
-            print(f'--- Лист {worksheet_name} пуст.')
+    while True:
+        try:
+            if not values:
+                print(f'--- Лист {worksheet_name} пуст.')
+                return pd.DataFrame()
+
+            # Преобразование данных в DataFrame
+            df = pd.DataFrame(values[1:], columns=values[0])
+            df = df.dropna(axis=0, how="all")  # Удаление пустых строк
+            return df
+
+        except ValueError as VE:
+            print(VE)
+            del values[0][-1]
+
+        except Exception as Ex:
+            print(f'!!!Error Ex: {Ex}')
             return pd.DataFrame()
-
-        # Преобразование данных в DataFrame
-        df = pd.DataFrame(values[1:], columns=values[0])
-        df = df.dropna(axis=0, how="all")  # Удаление пустых строк
-        return df
-
-    except Exception as Ex:
-        print(f'!!!Error Ex: {Ex}')
-        return pd.DataFrame()
 
 async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, data):
     # Подключение к Google Sheets API
@@ -489,10 +494,13 @@ def write_data_old(worktable_name, worksheet_name, data):
 
 async def main():
     service = await get_service()
-    current_date = datetime.now().strftime("%d.%m.%Y")
-    data = {'service_name': "СберСтрахование_2", 'count': 5, 'date': current_date}
-    ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
-    await write_log_sheet(service, ss_id, 'logs', data)
+    # current_date = datetime.now().strftime("%d.%m.%Y")
+    # data = {'service_name': "СберСтрахование_2", 'count': 5, 'date': current_date}
+    # ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
+    # await write_log_sheet(service, ss_id, 'logs', data)
+
+    df = await read_table_id(service, '1uAgMSukxmO0KZLZ-C5mhv7c3IsxvgyD1vxaSPg3TykU', 'ORM (test)')
+    print(df)
 
 if "__main__" == __name__:
     asyncio.run(main())

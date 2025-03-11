@@ -111,6 +111,8 @@ async def main():
             gid = '1uAgMSukxmO0KZLZ-C5mhv7c3IsxvgyD1vxaSPg3TykU'
             gtab = 'ORM (test)'
             df = await read_table_id(service, gid, gtab)
+            print(df)
+
             links = df['Ссылка на упоминание'].to_list()
 
             page = 1
