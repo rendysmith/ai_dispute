@@ -34,8 +34,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Установка chromedriver
 RUN wget -O /tmp/chromedriver.zip https://storage.googleapis.com/chrome-for-testing-public/134.0.6998.88/linux64/chromedriver-linux64.zip && \
-    unzip /tmp/chromedriver.zip -d /usr/local/bin/ && \
-    rm /tmp/chromedriver.zip && \
+    unzip /tmp/chromedriver.zip -d /tmp/ && \
+    mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
+    rm -rf /tmp/chromedriver-linux64 /tmp/chromedriver.zip && \
     chmod +x /usr/local/bin/chromedriver
 
 # Копирование остальных файлов проекта
