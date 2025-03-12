@@ -75,6 +75,9 @@ async def check_link(link):
 async def main():
     service = await get_service()
 
+    df_wl = await read_table_id(service, gid_set, 'white_list')
+    wlist = df_wl['word'].to_list()
+
     df_topics = await read_table_id(service, gid_set, 'product')
     topics = df_topics['topic'].to_list()
 
@@ -125,12 +128,13 @@ async def main():
                     if response.status == 200:
                         try:
                             r_json = await response.json()
-                            #print(r_json)
 
-                        except:
+                        except Exception as Ex:
+                            print(f"Error Ex: {Ex}")
                             continue
 
                     else:
+                        print(f'Status: {response.status}')
                         continue
 
                 try:
@@ -156,6 +160,17 @@ async def main():
                          }
 
                 for k, message in messages.items():
+                    text_snippet_html = message['text_snippet']
+                    text_snippet_content = await get_soup_bs4(text_snippet_html, only_pars=True)
+                    text_snippet = str(text_snippet_content.get_text())
+
+                    if all(wl not in text_snippet for wl in wlist):
+                        continue
+
+                    if any(censor in text_snippet for censor in censors):
+                        print(f'-- IS NOT Censor: {text_snippet}')
+                        continue
+
                     audience = int(message['counterList']['audience']) / 1000
                     if audience <= 2:
                         print('--- Охват меньше 2000')
@@ -166,11 +181,6 @@ async def main():
 
                     if any(offrep in fullname for offrep in offreps):
                         print(f'-- IS official: {fullname}')
-                        continue
-
-                    text_snippet = message['text_snippet']
-                    if any(censor in text_snippet for censor in censors):
-                        print(f'-- IS NOT Censor: {text_snippet}')
                         continue
 
                     url_comment = message['url']
@@ -202,10 +212,6 @@ async def main():
                     index_name = (df_platform['hub_name'] == hub_name).idxmax()
                     platform = df_platform.loc[index_name, 'gs_name']
                     #print(platform)
-
-                    text_snippet_html = message['text_snippet']
-                    text_snippet_content = await get_soup_bs4(text_snippet_html, only_pars=True)
-                    text_snippet = str(text_snippet_content.text)
 
                     product, confidence = await classify_topic(text_snippet, topics)
 
