@@ -130,7 +130,7 @@ async def main():
                             r_json = await response.json()
 
                         except Exception as Ex:
-                            print(f"Error Ex: {Ex}")
+                            print(f"Error Ex: {Ex}\n{await response.text()}")
                             continue
 
                     else:
@@ -229,9 +229,8 @@ async def main():
                     pass
                     await append_data_to_sheet_scopes(service, gid, gtab, datas)
 
-                input('next...')
-
                 page += 1
+                input(f'next...page = {page}')
                 await asyncio.sleep(5)
 
 
