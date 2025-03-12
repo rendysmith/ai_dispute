@@ -109,8 +109,12 @@ async def get_serviceid(token_proxy):
     response = requests.request('GET', url, headers=headers)
     r_json = response.json()
 
-    serviceid = r_json[-1]['serviceid']
-    return serviceid
+    r_json.reverse()
+
+    for rj in r_json:
+        if rj['serviceid']:
+            serviceid = rj['serviceid']
+            return serviceid
 
 def get_local_ip_sync():
     url = 'https://api.myip.com/'
@@ -152,7 +156,7 @@ async def get_api_service():
     response = requests.get(url, headers=headers)
     #print(response)
     r_json = response.json()
-    #print(r_json)
+    print(r_json)
     print(f'- Binded IP: {r_json.get("bindedip")}')
     return r_json
 
