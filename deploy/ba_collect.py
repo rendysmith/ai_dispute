@@ -92,7 +92,7 @@ async def main():
     df_set = await read_table_id(service, gid_set, 'set')
 
     async with aiohttp.ClientSession() as session:
-        cookies = await get_cookies(session, username, password)
+        #cookies = await get_cookies(session, username, password)
 
         for k, row in df_set.iterrows():
             link = row['link']
@@ -124,6 +124,7 @@ async def main():
                 print(f'\nPage: {page}')
                 api_url = await parse_url(link, id_company, page)
 
+                cookies = await get_cookies(session, username, password)
                 async with session.get(api_url, cookies=cookies) as response:
                     if response.status == 200:
                         try:
@@ -140,12 +141,12 @@ async def main():
                 try:
                     messages = r_json['feed']['messages']
 
-                except:
-                    print("Error:", r_json)
-                    #input('wait...')
+                except Exception as Ex:
+                    print(f"Error Ex2: {Ex}")
+                    input('wait...')
 
                 len_m = len(messages)
-                print('len_m', len_m)
+                print('len_m =', len_m)
 
                 if len_m == 0:
                     break
@@ -226,12 +227,16 @@ async def main():
                     datas['Текст упоминания'].append(text_snippet)
 
                 if len(datas):
-                    pass
                     await append_data_to_sheet_scopes(service, gid, gtab, datas)
 
                 page += 1
                 input(f'next...page = {page}')
                 await asyncio.sleep(5)
+
+                if len_m < size_limit:
+                    break
+
+
 
 
 
