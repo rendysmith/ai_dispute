@@ -22,7 +22,7 @@ formatted_date = current_date.strftime("%d.%m.%Y")
 
 print(formatted_date)
 
-tsf = int(time.time() - 0.5 * 1 * 3600)
+tsf = int(time.time() - 1 * 1 * 3600)
 tst = int(time.time())
 
 username = os.environ.get("LOGIN_BA_DASHA")

@@ -20,7 +20,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
-from utils.user_agent import gen_ua, get_selenium, get_soup
+from utils.user_agent import gen_ua, get_selenium, get_soup, get_selenium_proxy
 
 from dotenv import load_dotenv
 
@@ -32,27 +32,24 @@ current_date = datetime.now()
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
-async def convert_date(month):
-    months = {
-        'января': 1,
-        'февраля': 2,
-        "марта": 3,
-        "апреля": 4,
-        "мая": 5,
-        "июня": 6,
-        "июля": 7,
-        "августа": 8,
-        "сентября": 9,
-        "октября": 10,
-        "ноября": 11,
-        "декабря": 12
-    }
-    return months[month]
+async def check_ya_market_new(driver):
+    json_data = driver.find_element(By.CSS_SELECTOR, 'noframes[data-apiary="patch"]').text
+    print(json_data)
+    print('----------------------')
+
+    blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-apiary-widget-name="@card/ReviewItem"]')
+    print(len(blocks))
+
 
 async def check_ya_market(service, url, pattern, criteria, ss_id, project, driver):
     print(f"New link = {url}")
 
-    #playwright, browser, page = await get_playwright(url)
+    try:
+        i_am_robot = driver.find_element(By.CSS_SELECTOR, 'span[id="checkbox-label"]')
+        print(i_am_robot==True)
+        return "Antibot"
+    except:
+        print('- No antibot')
 
     links = await pars_url(service, ss_id, project)
 
@@ -64,18 +61,29 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project, drive
     #await page.evaluate("document.body.style.zoom=0.5")
     driver.execute_script("document.body.style.zoom='0.5'")
 
+    page = driver.page_source
+    if ' в этом ценовом диапазоне выбор' in str(page):
+        input('Есть заметка')
+
     #blocks = await page.query_selector_all('div[class="eoZns"]')
     blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="eoZns"]')
     print(len(blocks))
-
     if not blocks:
-        driver.quit()
-        return "Страница не отдала данные"
+        blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-apiary-widget-name="@card/ReviewItem"]')
+        print(len(blocks))
+        if not blocks:
+            driver.quit()
+            return "Страница не отдала данные"
+
+
 
     for block in blocks:
         # date_content = await block.query_selector('span[class="ncho4"]')
         # date = await date_content.inner_text()
-        date = block.find_element(By.CSS_SELECTOR, 'span[class="ncho4"]').text
+        try:
+            date = block.find_element(By.CSS_SELECTOR, 'span[class="ncho4"]').text
+        except:
+            date = block.find_element(By.CSS_SELECTOR, 'div[class="ds-textLine ds-textLine_gap_2"][data-auto="created-date"]').text
         print("date", date)
 
         if not any(i in date for i in ['Неделю назад', 'дней назад', 'дня назад', 'вчера', 'день назад']):
@@ -169,9 +177,14 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project, drive
 
 async def main():
     service = await get_service()
+
     url = 'https://market.yandex.ru/product--comfort-2/1913043741/reviews?sku=101282794585&uniqueId=1163401&do-waremd5=uhNIeXveQKQN_q2xrkkQIQ&grade_value=4&sort_by=date&sort_desc=1'
-    url = 'https://market.yandex.ru/product/496791076/reviews'
-    await check_ya_market(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1)
+    url = 'https://market.yandex.ru/product--cordiant-snow-cross-2-suv-zimniaia-shipovannaia/496791076/reviews?_redirectCount=1'
+
+    driver = await get_selenium_proxy(url, False, False)
+    #await check_ya_market(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver)
+
+    await check_ya_market_new(driver)
 
 if __name__ == '__main__':
     asyncio.run(main())
