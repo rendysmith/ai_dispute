@@ -160,12 +160,19 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
 
             print(url_answer)
 
-            date = block.find_next('div', {'class': 'review__header-date'}).text
-            #print(date)
+            try:
+                date_content = block.find_next('div', {'class': 'review__header-date'}).text
+                date_spl = date_content.split('\xa0')
+                month = months[date_spl[0]]
 
-            date_spl = date.split('\xa0')
+            except:
+                date_content = block.find_next('div', {'class': 'tags__item'}).text
+                print(date_content)
+                date_spl = date_content.split(',')[1]
+                input(date_spl)
+                month = months[date_spl[0]]
 
-            month = months[date_spl[0]]
+
 
             last_day = 31
             while True:
@@ -188,15 +195,7 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
                 continue
 
             author = block.find('h2', {'class': 'review__header-title'}).text.strip()
-            #print(author)
-
             feedback = await get_full_feedback(block)
-
-            #print('///////////////')
-            #print(url_answer)
-            #print(feedback)
-            #input()
-
             formatted_date = target_date.strftime("%d.%m.%Y")
 
             #await generate_and_white(service, url_answer, author, formatted_date, prompt)
@@ -217,7 +216,7 @@ async def main():
     url = 'https://dreamjob.ru/employers/41950?review_id=2832885'
     url = 'https://dreamjob.ru/employers/41950'
     url = 'https://dreamjob.ru/employers/50604'
-    url = 'https://dreamjob.ru/employers/58176'
+    url = 'https://dreamjob.ru/employers/41950'
 
 
 
