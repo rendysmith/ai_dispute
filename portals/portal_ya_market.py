@@ -61,9 +61,9 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project, drive
     #await page.evaluate("document.body.style.zoom=0.5")
     driver.execute_script("document.body.style.zoom='0.5'")
 
-    page = driver.page_source
-    if ' в этом ценовом диапазоне выбор' in str(page):
-        input('Есть заметка')
+    # page = driver.page_source
+    # if 'в этом ценовом диапазоне выбор' in str(page):
+    #     input('Есть заметка')
 
     #blocks = await page.query_selector_all('div[class="eoZns"]')
     blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="eoZns"]')
@@ -84,19 +84,21 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project, drive
             date = block.find_element(By.CSS_SELECTOR, 'span[class="ncho4"]').text
         except:
             date = block.find_element(By.CSS_SELECTOR, 'div[class="ds-textLine ds-textLine_gap_2"][data-auto="created-date"]').text
-        print("date", date)
+
+        print("date:", date)
 
         if not any(i in date for i in ['Неделю назад', 'дней назад', 'дня назад', 'вчера', 'день назад']):
-            driver.quit()
+            print('NO DATE')
+            #driver.quit()
             return
 
-        #link_content = await block.query_selector('div[data-apiary-widget-id]')
-        link_content = block.find_element(By.CSS_SELECTOR, 'div[data-apiary-widget-id]')
+        try:
+            link_content = block.find_element(By.CSS_SELECTOR, 'div[data-apiary-widget-id]')
+            url_answer = link_content.get_attribute("data-apiary-widget-id")
+        except:
+            url_answer = block.get_atribyte('id')
 
-        #url_answer = await link_content.get_attribute('data-apiary-widget-id')
-        url_answer = link_content.get_attribute("data-apiary-widget-id")
-
-        print("YAm url_answer", url_answer)
+        print("YAm url_answer:", url_answer)
 
         if url_answer in links:
             continue
@@ -182,9 +184,9 @@ async def main():
     url = 'https://market.yandex.ru/product--cordiant-snow-cross-2-suv-zimniaia-shipovannaia/496791076/reviews?_redirectCount=1'
 
     driver = await get_selenium_proxy(url, False, False)
-    #await check_ya_market(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver)
+    await check_ya_market(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver)
 
-    await check_ya_market_new(driver)
+    #await check_ya_market_new(driver)
 
 if __name__ == '__main__':
     asyncio.run(main())
