@@ -515,6 +515,10 @@ async def get_data_without_proxy(url, text_format=True):
                         if i == trying - 1:
                             return None
 
+                    if status_code == 404:
+                        if i == trying - 1:
+                            return None
+
                     elif status_code == 507:
                         if i == trying - 1:
                             return None
