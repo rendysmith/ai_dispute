@@ -81,7 +81,7 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project, drive
             link_content = block.find_element(By.CSS_SELECTOR, 'div[data-apiary-widget-id]')
             url_answer = link_content.get_attribute("data-apiary-widget-id")
         except:
-            print(block.get_attribute('outerHTML'))
+            #print(block.get_attribute('outerHTML'))
             url_answer = block.get_attribute('id')
 
         print("YAm url_answer:", url_answer)
