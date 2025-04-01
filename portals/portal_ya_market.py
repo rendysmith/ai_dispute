@@ -21,6 +21,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from utils.gs_editor import get_service, get_table_scope, pars_url
 from utils.ai_module import generate_and_white
 from utils.user_agent import gen_ua, get_selenium, get_soup, get_selenium_proxy
+from utils.constants import months
 
 from dotenv import load_dotenv
 
@@ -72,50 +73,29 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project, drive
         blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-apiary-widget-name="@card/ReviewItem"]')
         print(len(blocks))
         if not blocks:
-            driver.quit()
+            #driver.quit()
             return "Страница не отдала данные"
 
-
-
     for block in blocks:
-        # date_content = await block.query_selector('span[class="ncho4"]')
-        # date = await date_content.inner_text()
-        try:
-            date = block.find_element(By.CSS_SELECTOR, 'span[class="ncho4"]').text
-        except:
-            date = block.find_element(By.CSS_SELECTOR, 'div[class="ds-textLine ds-textLine_gap_2"][data-auto="created-date"]').text
-
-        print("date:", date)
-
-        if not any(i in date for i in ['Неделю назад', 'дней назад', 'дня назад', 'вчера', 'день назад']):
-            print('NO DATE')
-            #driver.quit()
-            return
-
         try:
             link_content = block.find_element(By.CSS_SELECTOR, 'div[data-apiary-widget-id]')
             url_answer = link_content.get_attribute("data-apiary-widget-id")
         except:
-            url_answer = block.get_atribyte('id')
+            print(block.get_attribute('outerHTML'))
+            url_answer = block.get_attribute('id')
 
         print("YAm url_answer:", url_answer)
 
         if url_answer in links:
             continue
 
-        # author_content = await block.query_selector('span[class="_3WbcX"]')
-        # author = await author_content.inner_text()
+        try:
+            date = block.find_element(By.CSS_SELECTOR, 'span[class="ncho4"]').text
+            if not any(i in date for i in ['Неделю назад', 'дней назад', 'дня назад', 'вчера', 'день назад']):
+                print('NO DATE')
+                # driver.quit()
+                return
 
-        author = block.find_element(By.CSS_SELECTOR, 'span[class="_3WbcX"]').text
-        print(author)
-
-        #feedback_content = await block.query_selector('div[class="_1I3ni"]')
-        #feedback = await feedback_content.inner_text()
-
-        feedback = block.find_element(By.CSS_SELECTOR, 'div[class="_1I3ni"]').text
-        print(feedback)
-
-        if any(i in date for i in ['Неделю назад', 'дней назад', 'дня назад', 'вчера', 'день назад']):
             if '1' in date:
                 day = current_date.day - 1
 
@@ -153,8 +133,32 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project, drive
             formatted_date = target_date.strftime("%d.%m.%Y")
             print(formatted_date)
 
-        else:
-            continue
+            author = block.find_element(By.CSS_SELECTOR, 'span[class="_3WbcX"]').text
+            print(author)
+
+            feedback = block.find_element(By.CSS_SELECTOR, 'div[class="_1I3ni"]').text
+            print(feedback)
+
+        except:
+            date_content = block.find_element(By.CSS_SELECTOR, 'div[class="ds-textLine ds-textLine_gap_2"][data-auto="created-date"]').text
+            date_split = date_content.split(' ')
+            if len(date_split) == 2:
+                data_int = int(date_split[0])
+                month = months[date_split[1]]
+                year = current_date.year
+
+            else:
+                return
+
+            target_date = datetime(year, month, data_int)
+            formatted_date = target_date.strftime("%d.%m.%Y")
+            print(formatted_date)
+
+            author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"][data-auto="nickname"]').text
+            print(author)
+
+            feedback = block.find_element(By.CSS_SELECTOR, 'div[class="_2lqnk"]').text
+            print(feedback)
 
         await generate_and_white(service=service,
                                  url_answer=url_answer,
