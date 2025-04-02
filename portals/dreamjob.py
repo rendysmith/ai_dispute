@@ -164,20 +164,19 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
                 date_content = block.find_next('div', {'class': 'review__header-date'}).text
                 date_spl = date_content.split('\xa0')
                 month = months[date_spl[0]]
+                year = int(date_spl[1])
 
             except:
-                date_content = block.find_next('div', {'class': 'tags__item'}).text
+                date_content = block.find_all('div', {'class': 'tags__item'})[1].text.replace('\n', '')
                 print(date_content)
-                date_spl = date_content.split(',')[1]
-                input(date_spl)
-                month = months[date_spl[0]]
-
-
+                date_spl = date_content.split(',')[-1].split('\xa0')
+                month = months[date_spl[0].strip()]
+                year = int(date_spl[1])
 
             last_day = 31
             while True:
                 try:
-                    target_date = datetime(int(date_spl[1]), month, last_day)
+                    target_date = datetime(year, month, last_day)
                     print(target_date)
                     break
 
@@ -185,7 +184,7 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
                     last_day -= 1
 
             if (current_date - target_date) > timedelta(days=days_ago):
-                print(f'--- Отзыв старше {days_ago} дней = {date}.')
+                print(f'--- Отзыв старше {days_ago} дней = {target_date}.')
                 continue
                 # return  # Выход если очень старые отзывы
 
@@ -196,6 +195,7 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
 
             author = block.find('h2', {'class': 'review__header-title'}).text.strip()
             feedback = await get_full_feedback(block)
+
             formatted_date = target_date.strftime("%d.%m.%Y")
 
             #await generate_and_white(service, url_answer, author, formatted_date, prompt)
@@ -217,8 +217,6 @@ async def main():
     url = 'https://dreamjob.ru/employers/41950'
     url = 'https://dreamjob.ru/employers/50604'
     url = 'https://dreamjob.ru/employers/41950'
-
-
 
     await check_dreamjob(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 'Петрович')
 
