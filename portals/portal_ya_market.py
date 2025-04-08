@@ -133,7 +133,8 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project, drive
             formatted_date = target_date.strftime("%d.%m.%Y")
             print(formatted_date)
 
-            author = block.find_element(By.CSS_SELECTOR, 'span[class="_3WbcX"]').text
+            author_text = block.find_element(By.CSS_SELECTOR, 'span[class="_3WbcX"]').text
+            author = f"{author_text}, {url}"
             print(author)
 
             feedback = block.find_element(By.CSS_SELECTOR, 'div[class="_1I3ni"]').text
