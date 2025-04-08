@@ -41,7 +41,6 @@ async def check_ya_market_new(driver):
     blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-apiary-widget-name="@card/ReviewItem"]')
     print(len(blocks))
 
-
 async def check_ya_market(service, url, pattern, criteria, ss_id, project, driver):
     print(f"New link = {url}")
 

@@ -14,7 +14,7 @@ from selenium.webdriver.common.by import By
 
 
 from utils.ai_module import generate_and_white
-from utils.central_module import wait_for_portal, proxy_status, get_local_ip
+from utils.central_module import wait_for_portal, proxy_status, get_local_ip, get_hpo
 from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, get_table_scope, \
     append_data_to_sheet_cell, write_log_sheet
@@ -37,13 +37,13 @@ ss_id = TABLES_LIST['zoom']
 
 local_ip = asyncio.run(get_local_ip())
 
-if '176.124.192' in local_ip:
-    headless = False
-    proxy_on = True
-
-else:
-    headless = False
-    proxy_on = False
+# if '176.124.192' in local_ip:
+#     headless = False
+#     proxy_on = True
+#
+# else:
+#     headless = False
+#     proxy_on = False
 
 image_path = os.path.join(corn_folder, 'temp/image_to_find.png')
 
@@ -208,6 +208,8 @@ async def clicker_pil():
 
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
+    headless, proxy_on, only_text = await get_hpo()
+
     try:
         driver.get(link)
         print('Driver OK')
@@ -379,6 +381,7 @@ async def main_irecommend():
 
     driver = None
     if proxy_active == 'Active':
+        headless, proxy_on, only_text = await get_hpo()
         driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
     local_ip = await get_local_ip()

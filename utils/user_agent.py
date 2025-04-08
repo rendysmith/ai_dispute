@@ -371,13 +371,12 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
         if proxy:
             print('>>> Selenium PROXY...')
             proxy_host, proxy_port = await get_one_proxy()
-            print(f'Proxy: {proxy_host}:{proxy_port}')
+            print(f'New One Proxy: {proxy_host}:{proxy_port}')
             proxy_string = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
             driver_options['proxy'] = proxy_string
 
         else:
             print('>>> Selenium NO PROXY...')
-
 
         driver = Driver(**driver_options)
         print('<<< Selenium connect...')

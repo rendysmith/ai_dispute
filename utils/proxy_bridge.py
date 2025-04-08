@@ -206,7 +206,7 @@ async def main_proxy():
 
 
 if "__main__" in __name__:
-    srv = asyncio.run(get_serviceid())
+    srv = asyncio.run(get_one_proxy())
     print(srv)
 
 
