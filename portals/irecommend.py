@@ -382,7 +382,7 @@ async def main_irecommend():
     driver = None
     if proxy_active == 'Active':
         headless, proxy_on, only_text = await get_hpo()
-        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+        driver = await get_selenium_proxy(proxy=proxy_on)
 
     local_ip = await get_local_ip()
     print('- local_ip Irec', local_ip)
