@@ -29,7 +29,7 @@ async def get_client_list():
 
     response = requests.request('GET', url, headers=headers)
     r_json = response.json()
-    print(r_json)
+    #print(r_json)
 
 async def get_iplist():
     """ typel  string
@@ -120,7 +120,7 @@ async def get_one_proxy():
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             one_proxy = await response.text()
-            print(one_proxy)
+            #print(one_proxy)
             data = one_proxy.split(':')
             #print(type(data))
             print('Get one Proxy:', data)
@@ -132,7 +132,7 @@ async def change_setip(ip):
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             text = response.text
-            print(text)
+            #print(text)
 
 async def proxy_tor_stem():
     # Устанавливаем SOCKS прокси для использования Tor
@@ -162,7 +162,7 @@ async def proxy_tor_stem():
     # Пример использования
     url = 'https://api.ipify.org?format=json'
     response = make_tor_request(url)
-    print(response.join())
+    #print(response.join())
 
 async def proxy_tor():
     proxies = {
@@ -175,11 +175,11 @@ async def proxy_tor():
 
     # Выполнение запроса для проверки соединения через Tor
     result = requests.get(url, proxies=proxies)
-    print(result.json())
+    #print(result.json())
 
 async def main_proxy():
     host_port = await get_one_proxy()
-    print(host_port)
+    #print(host_port)
     input('OK!')
 
 
@@ -188,13 +188,13 @@ async def main_proxy():
 
     proxy_list = await parse_data()
     for i in proxy_list:
-        print(i)
-        print(i['host'])
-        print(i['port'])
+        #print(i)
+        ##print(i['host'])
+        #print(i['port'])
         input()
 
     host_port = await get_iplist()
-    print(host_port)
+    #print(host_port)
     input()
 
     proxies = {

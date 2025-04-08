@@ -301,6 +301,7 @@ async def get_selenium(url=False, headless=True, profile=False, proxy=False):
     if proxy:
         print('- >>> Selenium WITH Proxy...')
         proxy_host, proxy_port = await get_one_proxy()
+        print(proxy_host)
         chrome_options.add_argument(f'--proxy-server=http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}')
 
     else:
