@@ -118,6 +118,9 @@ async def ai_generator_article_fun(service, auth, project):
         prompt = text_fun.format(fio=fio, subject=subject, region=region, gender=gender, age=age, person_description=person_description)
         result = await get_answer_ai(auth, prompt)
 
+        print(type(result))
+        print(result)
+
         columns = ['Article', 'Result']
         datas = [subject, result]
 

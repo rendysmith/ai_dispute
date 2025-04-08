@@ -119,7 +119,7 @@ async def get_answer_ai(auth: HTTPBasicAuth, prompt: str):
                 response = await client.post(url, json=data, auth=auth)
 
             if response.status_code == 200:
-                result = response.json()['result']
+                result = response.json()['result'][1]
                 print('OK!')
                 return result
 
