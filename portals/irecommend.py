@@ -55,7 +55,6 @@ async def click_checkbox(driver):
 
     return driver
 
-
 async def clicker_pyautogui():
     import pyautogui
     from PIL import Image
@@ -224,20 +223,24 @@ async def clicker_pil():
         mouse.click()
         await asyncio.sleep(5)
 
+async def get_driver():
+    headless, proxy_on, only_text = await get_hpo()
+    driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
+    return driver
+
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
     print(f'\nLink: {link}')
-    headless, proxy_on, only_text = await get_hpo()
 
     try:
         driver.get(link)
         print('Driver OK')
 
     except:
-        driver = await get_selenium(headless=False, proxy=proxy_on)
+        driver = await get_driver()
         driver.get(link)
         print('New Driver OK')
 
-    await clicker_autoit_w()
+    #await clicker_autoit_w()
     #await clicker_pywinauto()
 
     await wait_for_portal() #Время ожидания
@@ -313,7 +316,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
             print('Driver OK')
 
         except:
-            driver = await get_selenium(headless=False, proxy=proxy_on)
+            driver = await get_driver()
             driver.get(link)
             print('New Driver OK')
 
@@ -405,8 +408,7 @@ async def main_irecommend():
 
     driver = None
     if proxy_active == 'Active':
-        headless, proxy_on, only_text = await get_hpo()
-        driver = await get_selenium(headless=False, proxy=proxy_on)
+        driver = await get_driver()
 
     local_ip = await get_local_ip()
     print('- local_ip Irec', local_ip)
@@ -533,7 +535,7 @@ async def main_irecommend():
 
                 if not status:
                     driver.quit()
-                    driver = await get_selenium(headless=False, proxy=proxy_on)
+                    driver = await get_driver()
 
         if record:
             finish_sec = time.time() - start_time
