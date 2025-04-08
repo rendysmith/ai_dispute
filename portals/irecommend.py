@@ -39,6 +39,23 @@ local_ip = asyncio.run(get_local_ip())
 
 image_path = os.path.join(corn_folder, 'temp/image_to_find.png')
 
+async def click_checkbox(driver):
+    n = 0
+    while n < 20:
+        try:
+            click_box = driver.find_element(By.CSS_SELECTOR, 'input[type="checkbox"]')
+            click_box.click()
+            return driver
+
+        except:
+            await asyncio.sleep(2)
+            print('------------NO Checkbox--------------')
+            print(driver.page_source)
+            n+=1
+
+    return driver
+
+
 async def clicker_pyautogui():
     import pyautogui
     from PIL import Image
@@ -73,6 +90,7 @@ async def clicker_pywinauto():
     import numpy as np
 
     while True:
+        print('---- Click checkbox pywinauto')
         try:
             # Подключаемся к уже открытому Chrome
             app = Application(backend="uia").connect(title_re=".*Chrome.*", timeout=10)  # timeout added for robustness
@@ -103,9 +121,9 @@ async def clicker_pywinauto():
             window.click_input(coords=(click_x, click_y))
             print('---> Clock! ')
 
-
         except pywinauto.findbestmatch.MatchError:
             raise Exception(f"Изображение '{image_path}' не найдено на экране.")
+
         except Exception as e:
             raise Exception(f"Произошла ошибка: {e}")
 
@@ -117,6 +135,7 @@ async def clicker_pyscreeze():
     import pyautogui
 
     while True:
+        print("---- Click checkbox pyautogui")
         try:
             # Ищем изображение на экране
             location = pyscreeze.locateOnScreen(image_path, confidence=0.8)
@@ -169,7 +188,8 @@ async def async_find_and_click():
 async def clicker_autoit_w():
     from autoit import autoit as auto
 
-    while True:
+    n = 0
+    while n < 10:
         # Поиск изображения
         if auto.pixel_search(image_path):
             x, y = auto.mouse_get_pos()
@@ -179,6 +199,7 @@ async def clicker_autoit_w():
         else:
             print('--- NO checkbox')
 
+        n += 1
         await asyncio.sleep(5)
 
 async def clicker_pil():
@@ -207,13 +228,19 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
         print('Driver OK')
 
     except:
-        driver = await get_selenium_proxy(proxy=proxy_on)
+        driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
         driver.get(link)
         print('New Driver OK')
 
+    await clicker_autoit_w()
+    #await clicker_pywinauto()
+
     await wait_for_portal() #Время ожидания
-    #page_source = driver.page_source
-    #print(page_source)
+
+    #print('Старт clicker...')
+    #driver = await click_checkbox(driver)
+
+    #input()
     #----------------------------------------------------------------
     #print('Старт clicker...')
     #driver = await click_checkbox(driver)
@@ -281,7 +308,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
             print('Driver OK')
 
         except:
-            driver = await get_selenium_proxy(proxy=proxy_on)
+            driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
             driver.get(link)
             print('New Driver OK')
 
@@ -374,7 +401,7 @@ async def main_irecommend():
     driver = None
     if proxy_active == 'Active':
         headless, proxy_on, only_text = await get_hpo()
-        driver = await get_selenium_proxy(proxy=proxy_on)
+        driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
 
     local_ip = await get_local_ip()
     print('- local_ip Irec', local_ip)
@@ -501,7 +528,7 @@ async def main_irecommend():
 
                 if not status:
                     driver.quit()
-                    driver = await get_selenium_proxy(proxy=proxy_on)
+                    driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
 
         if record:
             finish_sec = time.time() - start_time
@@ -518,8 +545,8 @@ async def main_irecommend():
 
 async def main_starter():
     main_irecommend_task = asyncio.create_task(main_irecommend())
-    find_and_click_task_1 = asyncio.create_task(clicker_autoit_w())
-    find_and_click_task_2 = asyncio.create_task(clicker_pywinauto())
+    #find_and_click_task_1 = asyncio.create_task(clicker_autoit_w())
+    #find_and_click_task_2 = asyncio.create_task(clicker_pywinauto())
 
     try:
         # Ждем завершения main_irecommend_task с таймаутом
@@ -533,16 +560,16 @@ async def main_starter():
     except Exception as e:
         print(f"Ошибка в main_irecommend_task: {e}")
 
-    finally:
-        # В любом случае останавливаем find_and_click_task
-        if not find_and_click_task_1.done():
-            find_and_click_task_1.cancel()
-            find_and_click_task_2.cancel()
-            try:
-                await find_and_click_task_1
-                await find_and_click_task_2
-            except asyncio.CancelledError:
-                print("find_and_click_task остановлена")
+    # finally:
+    #     # В любом случае останавливаем find_and_click_task
+    #     if not find_and_click_task_1.done():
+    #         find_and_click_task_1.cancel()
+    #         find_and_click_task_2.cancel()
+    #         try:
+    #             await find_and_click_task_1
+    #             await find_and_click_task_2
+    #         except asyncio.CancelledError:
+    #             print("find_and_click_task остановлена")
 
 if "__main__" in __name__:
     asyncio.run(main_starter())
