@@ -84,7 +84,7 @@ async def get_fetcher_local(api_url, flare_bypasser_url="http://localhost:8080/v
             return None
 
     except requests.exceptions.RequestException as e:
-        print(f"An error occurred: {e}")
+        print(f"GFL An error occurred: {e}")
         return None
 
 async def get_soup_curl_cffi(url, dict_type=True, proxy=True):

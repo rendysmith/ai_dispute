@@ -124,7 +124,7 @@ def create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
         response = service.spreadsheets().get(spreadsheetId=SAMPLE_SPREADSHEET_ID).execute()
         sheet_exists = any(sheet['properties']['title'] == SAMPLE_RANGE_NAME for sheet in response['sheets'])
     except HttpError as e:
-        print(f"An error occurred: {e}")
+        print(f"CNR An error occurred: {e}")
         return
 
     # Если вкладка не существует, создаем её
@@ -226,7 +226,7 @@ def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_name, ro
         return response
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"ADSC An error occurred: {e}")
         return None
 
 def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_names: list, row_number, datas: list):
