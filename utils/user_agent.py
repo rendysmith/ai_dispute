@@ -25,6 +25,7 @@ from selenium.webdriver.chrome.options import Options
 
 from seleniumbase import Driver
 from seleniumbase import config
+from seleniumbase import SB
 
 os.environ["DISABLE_COLORAMA"] = "1"
 os.environ["SELENIUMBASE_COLOR"] = "0"
@@ -368,6 +369,36 @@ async def get_selenium_proxy_old(url=None, headless=True, proxy=True):
         print('<<< Selenium connect')
         return driver
 
+async def get_seleniumbase_SB(url=None, headless=True, proxy=True):
+    driver_options = {
+        'uc': True,
+        'headless': headless,
+        'headless1': headless,
+        'headless2': headless,
+        'agent': ua.chrome,
+        'log_cdp_events': True,
+    }
+
+    if proxy:
+        print('>>> Selenium PROXY...')
+        proxy_host, proxy_port = await get_one_proxy()
+        print(f'New One Proxy: {proxy_host}:{proxy_port}')
+        proxy_string = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
+        driver_options['proxy'] = proxy_string
+
+    else:
+        print('>>> Selenium NO PROXY...')
+
+    driver = Driver(**driver_options)
+    print('<<< Selenium connect...')
+
+    if url:
+        # Если нужно использовать get, убедитесь что используете асинхронный метод
+        driver.get(url)
+
+    driver.execute_cdp_cmd('Network.enable', {})
+    return driver
+
 async def get_selenium_proxy(url=None, headless=True, proxy=True):
         driver_options = {
             'uc': True,
@@ -375,7 +406,7 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
             'headless1': headless,
             'headless2': headless,
             'agent': ua.chrome,
-            'log_cdp_events': True
+            'log_cdp_events': True,
         }
 
         if proxy:
@@ -383,12 +414,7 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
             proxy_host, proxy_port = await get_one_proxy()
             print(f'New One Proxy: {proxy_host}:{proxy_port}')
             proxy_string = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
-
-            #driver_options['proxy'] = proxy_string
-            driver_options['chrome_options'] = [
-                f'--proxy-server={proxy_string}',
-                f'--proxy-auth={login_proxy}:{pass_proxy}'  # Логин и пароль для прокси
-            ]
+            driver_options['proxy'] = proxy_string
 
         else:
             print('>>> Selenium NO PROXY...')
