@@ -296,7 +296,7 @@ async def get_soup_new(url, only_pars=False):
 
     return soup
 
-async def get_selenium(url=False, headless=True, profile=False):
+async def get_selenium(url=False, headless=True, profile=False, proxy=False):
     print('- >>> Selenium No Proxy...')
     chrome_options = Options()
     if headless:
@@ -307,6 +307,10 @@ async def get_selenium(url=False, headless=True, profile=False):
 
         chrome_options.add_argument('--disable-blink-features=AutomationControlled')
         chrome_options.add_argument('--disable-web-security')
+
+    if proxy:
+        proxy_host, proxy_port = await get_one_proxy()
+        chrome_options.add_argument(f'--proxy-server=http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}')
 
     if profile:
         chrome_options.add_argument(f"--user-data-dir={profile}")

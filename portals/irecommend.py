@@ -18,7 +18,7 @@ from utils.central_module import wait_for_portal, proxy_status, get_local_ip, ge
 from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, get_table_scope, \
     append_data_to_sheet_cell, write_log_sheet
-from utils.user_agent import extract_main_site, get_selenium_proxy
+from utils.user_agent import extract_main_site, get_selenium_proxy, get_selenium
 
 from threading import Thread
 
@@ -207,7 +207,6 @@ async def clicker_autoit_w():
             n += 1
             await asyncio.sleep(5)
 
-
 async def clicker_pil():
     from PIL import Image, ImageGrab
     import numpy as np
@@ -234,7 +233,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
         print('Driver OK')
 
     except:
-        driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
+        driver = await get_selenium(headless=False, proxy=proxy_on)
         driver.get(link)
         print('New Driver OK')
 
@@ -314,7 +313,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
             print('Driver OK')
 
         except:
-            driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
+            driver = await get_selenium(headless=False, proxy=proxy_on)
             driver.get(link)
             print('New Driver OK')
 
@@ -407,7 +406,7 @@ async def main_irecommend():
     driver = None
     if proxy_active == 'Active':
         headless, proxy_on, only_text = await get_hpo()
-        driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
+        driver = await get_selenium(headless=False, proxy=proxy_on)
 
     local_ip = await get_local_ip()
     print('- local_ip Irec', local_ip)
@@ -534,7 +533,7 @@ async def main_irecommend():
 
                 if not status:
                     driver.quit()
-                    driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
+                    driver = await get_selenium(headless=False, proxy=proxy_on)
 
         if record:
             finish_sec = time.time() - start_time
