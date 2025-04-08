@@ -190,17 +190,23 @@ async def clicker_autoit_w():
 
     n = 0
     while n < 10:
-        # Поиск изображения
-        if auto.pixel_search(image_path):
-            x, y = auto.mouse_get_pos()
-            auto.mouse_click("left", x, y)
-            print('--- Click checkbox')
+        try:
+            # Поиск изображения
+            if auto.pixel_search(image_path):
+                x, y = auto.mouse_get_pos()
+                auto.mouse_click("left", x, y)
+                print('--- Click checkbox')
 
-        else:
-            print('--- NO checkbox')
+            else:
+                print('--- NO checkbox')
 
-        n += 1
-        await asyncio.sleep(5)
+            n += 1
+            await asyncio.sleep(5)
+
+        except:
+            n += 1
+            await asyncio.sleep(5)
+
 
 async def clicker_pil():
     from PIL import Image, ImageGrab
