@@ -37,14 +37,6 @@ ss_id = TABLES_LIST['zoom']
 
 local_ip = asyncio.run(get_local_ip())
 
-# if '176.124.192' in local_ip:
-#     headless = False
-#     proxy_on = True
-#
-# else:
-#     headless = False
-#     proxy_on = False
-
 image_path = os.path.join(corn_folder, 'temp/image_to_find.png')
 
 async def clicker_pyautogui():
@@ -215,7 +207,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
         print('Driver OK')
 
     except:
-        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+        driver = await get_selenium_proxy(proxy=proxy_on)
         driver.get(link)
         print('New Driver OK')
 
@@ -289,7 +281,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
             print('Driver OK')
 
         except:
-            driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+            driver = await get_selenium_proxy(proxy=proxy_on)
             driver.get(link)
             print('New Driver OK')
 
@@ -509,7 +501,7 @@ async def main_irecommend():
 
                 if not status:
                     driver.quit()
-                    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+                    driver = await get_selenium_proxy(proxy=proxy_on)
 
         if record:
             finish_sec = time.time() - start_time
