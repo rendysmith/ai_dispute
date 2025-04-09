@@ -370,34 +370,24 @@ async def get_selenium_proxy_old(url=None, headless=True, proxy=True):
         return driver
 
 async def get_seleniumbase_SB(url=None, headless=True, proxy=True):
-    driver_options = {
-        'uc': True,
-        'headless': headless,
-        'headless1': headless,
-        'headless2': headless,
-        'agent': ua.chrome,
-        'log_cdp_events': True,
-    }
-
     if proxy:
         print('>>> Selenium PROXY...')
         proxy_host, proxy_port = await get_one_proxy()
         print(f'New One Proxy: {proxy_host}:{proxy_port}')
         proxy_string = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
-        driver_options['proxy'] = proxy_string
 
     else:
         print('>>> Selenium NO PROXY...')
+        proxy_string = None
 
-    driver = Driver(**driver_options)
-    print('<<< Selenium connect...')
 
-    if url:
-        # Если нужно использовать get, убедитесь что используете асинхронный метод
-        driver.get(url)
+    with SB(proxy=proxy_string, headless=headless, agent=ua.chrome) as sb:
+        #sb.__enter__()  # вручную запускаем контекст
+        if url:
+            sb.driver.get(url)
 
-    driver.execute_cdp_cmd('Network.enable', {})
-    return driver
+        return sb
+
 
 async def get_selenium_proxy(url=None, headless=True, proxy=True):
         driver_options = {

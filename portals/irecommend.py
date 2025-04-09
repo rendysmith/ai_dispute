@@ -18,7 +18,7 @@ from utils.central_module import wait_for_portal, proxy_status, get_local_ip, ge
 from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, get_table_scope, \
     append_data_to_sheet_cell, write_log_sheet
-from utils.user_agent import extract_main_site, get_selenium_proxy, get_selenium
+from utils.user_agent import extract_main_site, get_selenium_proxy, get_selenium, get_seleniumbase_SB
 
 from threading import Thread
 
@@ -226,6 +226,7 @@ async def clicker_pil():
 async def get_driver():
     headless, proxy_on, only_text = await get_hpo()
     driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
+    #driver = await get_seleniumbase_SB(headless=False, proxy=proxy_on)
     return driver
 
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
@@ -533,8 +534,8 @@ async def main_irecommend():
                                        project=project,
                                        driver=driver)
 
-                if not status:
-                    driver.quit()
+                if not driver:
+                    #driver.quit()
                     driver = await get_driver()
 
         if record:
