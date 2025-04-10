@@ -563,7 +563,6 @@ async def main_tst():
 
     login_proxy = os.environ.get("LOGIN_PROXY")
     pass_proxy = os.environ.get("PASS_PROXY")
-
     url = 'https://irecommend.ru/content/detskaya-molochnaya-smes-nutricia-molochnaya-smes-nutrilon-1-dlya-detei-s-rozhdeniya-do-6-me'
 
     class UsersSpider(scrapy.Spider):
