@@ -358,8 +358,8 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
         print('****************************')
         url_n_content = block.find_element(By.CSS_SELECTOR, 'a.reviewTextSnippet')
         url_n = url_n_content.get_attribute('href')
-        url_answer = domen + url_n
-        #print(url_answer)
+        url_answer = url_n
+        print(url_answer)
 
         if url_answer in links:
             print('Отзыв уже есть в таблице')

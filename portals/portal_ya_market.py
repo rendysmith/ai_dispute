@@ -185,7 +185,7 @@ async def main():
     service = await get_service()
 
     url = 'https://market.yandex.ru/product--comfort-2/1913043741/reviews?sku=101282794585&uniqueId=1163401&do-waremd5=uhNIeXveQKQN_q2xrkkQIQ&grade_value=4&sort_by=date&sort_desc=1'
-    url = 'https://market.yandex.ru/product--cordiant-snow-cross-2-suv-zimniaia-shipovannaia/496791076/reviews?_redirectCount=1'
+    url = 'https://market.yandex.ru/product--comfort-2/1913043741/reviews?sku=101282794585&uniqueId=1163401&do-waremd5=uhNIeXveQKQN_q2xrkkQIQ&grade_value=4&sort_by=date&sort_desc=1'
 
     driver = await get_selenium_proxy(url, False, False)
     await check_ya_market(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver)
