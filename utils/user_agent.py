@@ -389,6 +389,32 @@ async def get_seleniumbase_SB(url=None, headless=True, proxy=True):
         return sb
 
 
+from seleniumbase import Driver
+from selenium.webdriver.chrome.options import Options
+
+
+async def get_selenium_win(url=None, headless=True, proxy=True):
+    chrome_options = Options()
+    chrome_options.add_argument(f"--user-agent={ua.chrome}")
+    chrome_options.headless = headless
+
+    if proxy:
+        print('>>> Selenium PROXY...')
+        proxy_host, proxy_port = await get_one_proxy()
+        print(f'New One Proxy: {proxy_host}:{proxy_port}')
+        proxy_string = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
+        chrome_options.add_argument(f"--proxy-server={proxy_string}")
+
+    driver = Driver(browser="chrome", uc=True)
+    print('<<< Selenium connect...')
+
+    if url:
+        driver.get(url)
+
+    driver.execute_cdp_cmd('Network.enable', {})
+    return driver
+
+
 async def get_selenium_proxy(url=None, headless=True, proxy=True):
         driver_options = {
             'uc': True,
@@ -622,13 +648,22 @@ async def main(url):
     driver = await get_selenium_proxy(headless=headless, proxy=False)
     input('Wait..')
 
+import scrapy
+class MySpider(scrapy.Spider):
+    name = 'example'
+    start_urls = ['http://example.com']
+
+    def parse(self, response):
+        title = response.css('h1::text').get()
+        yield {'title': title}
+
 if "__main__" in __name__:
     #asyncio.run(get_playwright('https://yandex.ru/maps/org/149979773456/reviews', headless=False))
     #asyncio.run(tst_proxy())
     url = 'https://ocompanii.net/reviews/detail.php?id=1137222'
     url = "https://httpbin.org/ip"
     url = 'https://irecommend.ru/content/2-nedeli-polet-normalnyi'
-    url = 'https://otzovik.com/reviews/molochnaya_smes_nutrilon_gipoallergenniy/?order=date_desc'
+
 
     a = asyncio.run(get_soup_anticloud(url))
     # url = 'https://yandex.ru/maps/2/saint-petersburg/geo/zhiloy_kompleks_biografiya/4184971603/?ll=30.281608%2C59.960850&z=15.46'

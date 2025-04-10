@@ -18,7 +18,8 @@ from utils.central_module import wait_for_portal, proxy_status, get_local_ip, ge
 from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, get_table_scope, \
     append_data_to_sheet_cell, write_log_sheet
-from utils.user_agent import extract_main_site, get_selenium_proxy, get_selenium, get_seleniumbase_SB
+from utils.proxy_bridge import get_one_proxy
+from utils.user_agent import extract_main_site, get_selenium_proxy, get_selenium, get_seleniumbase_SB, get_selenium_win
 
 from threading import Thread
 
@@ -225,7 +226,7 @@ async def clicker_pil():
 
 async def get_driver():
     headless, proxy_on, only_text = await get_hpo()
-    driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
+    driver = await get_selenium_win(headless=False, proxy=proxy_on)
     #driver = await get_seleniumbase_SB(headless=False, proxy=proxy_on)
     return driver
 
@@ -551,6 +552,72 @@ async def main_irecommend():
     if driver:
         driver.quit()
 
+async def main_tst():
+    import scrapy
+    from scrapy.crawler import CrawlerProcess
+
+    from utils.user_agent import ua
+
+    dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+    load_dotenv(dotenv_path)
+
+    login_proxy = os.environ.get("LOGIN_PROXY")
+    pass_proxy = os.environ.get("PASS_PROXY")
+
+    url = 'https://irecommend.ru/content/detskaya-molochnaya-smes-nutricia-molochnaya-smes-nutrilon-1-dlya-detei-s-rozhdeniya-do-6-me'
+
+    class UsersSpider(scrapy.Spider):
+        name = 'users'
+        start_urls = [
+            url,
+        ]
+
+        custom_settings = {
+            'RETRY_HTTP_CODES': [500, 503, 504, 400, 408, 521],
+            'RETRY_TIMES': 5
+        }
+
+        def parse(self, response):
+            if response.status == 521:
+                self.logger.warning("Got 521 error, retrying...")
+                return
+
+            blocks = response.css('li.item')
+            print(len(blocks))
+
+            for item in response.css('li.item'):
+                user_link = item.css('a[href^="/users/"]')
+                username = user_link.css('::text').get()
+                print(username)
+                user_url = user_link.attrib['href']
+
+                # if username and user_url:
+                #     yield {
+                #         'username': username.strip(),
+                #         'profile_url': response.urljoin(user_url)
+                #     }
+
+    async def run_spider():
+        host, port = await get_one_proxy()
+        proxy_1 = f'http://{login_proxy}:{pass_proxy}@{host}:{port}'
+
+        host, port = await get_one_proxy()
+        proxy_2 = f'http://{login_proxy}:{pass_proxy}@{host}:{port}'
+
+        host, port = await get_one_proxy()
+        proxy_3 = f'http://{login_proxy}:{pass_proxy}@{host}:{port}'
+
+        process = CrawlerProcess(settings={
+            'USER_AGENT': ua.chrome,
+            'HTTPPROXY_ENABLED': True,
+            'HTTPPROXY_PROXY_LIST': [proxy_1, proxy_2, proxy_3],
+            'DOWNLOAD_FAIL_ON_DATALOSS': False
+        })
+        process.crawl(UsersSpider)
+        process.start()
+
+    await run_spider()
+
 async def main_starter():
     main_irecommend_task = asyncio.create_task(main_irecommend())
     #find_and_click_task_1 = asyncio.create_task(clicker_autoit_w())
@@ -580,7 +647,7 @@ async def main_starter():
     #             print("find_and_click_task остановлена")
 
 if "__main__" in __name__:
-    asyncio.run(main_starter())
+    asyncio.run(main_tst())
     #asyncio.run(main_irecommend())
 
     # asyncio.create_task(async_find_and_click())
