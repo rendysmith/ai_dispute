@@ -138,6 +138,7 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project, drive
 
             feedback = block.find_element(By.CSS_SELECTOR, 'div[class="_1I3ni"]').text
             print(feedback)
+            print('------TRY--------')
 
         except:
             date_content = block.find_element(By.CSS_SELECTOR, 'div[class="ds-textLine ds-textLine_gap_2"][data-auto="created-date"]').text
@@ -159,6 +160,7 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project, drive
 
             feedback = block.find_element(By.CSS_SELECTOR, 'div[class="_2lqnk"]').text
             print(feedback)
+            print('------EXCTRA--------')
 
         await generate_and_white(service=service,
                                  url_answer=url_answer,
@@ -188,7 +190,7 @@ async def main():
     url = 'https://market.yandex.ru/product--comfort-2/1913043741/reviews?sku=101282794585&uniqueId=1163401&do-waremd5=uhNIeXveQKQN_q2xrkkQIQ&grade_value=4&sort_by=date&sort_desc=1'
 
     driver = await get_selenium_proxy(url, False, False)
-    await check_ya_market(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver)
+    await check_ya_market(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Кордиант", driver)
 
     #await check_ya_market_new(driver)
 

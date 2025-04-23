@@ -408,3 +408,7 @@ async def rec_data(service, date_create, url_answer, first_author, prompt_trend_
 
         await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
         print('Rec data...')
+
+if "__main__" == __name__:
+    top_url = 'https://dzen.ru/topic/o-kino-i-serialah'
+    asyncio.run(get_articles(top_url))

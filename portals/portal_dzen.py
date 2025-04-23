@@ -73,11 +73,23 @@ async def blocks_dzen(driver):
 
 async def blocks_dzen_media(driver):
     comment_button = driver.find_elements(By.CSS_SELECTOR, 'button[class*="video-site--base-button"][type="button"][tabindex="0"]')
-    print('comment_button:', len(comment_button))
+    print('comment_button 1:', len(comment_button))
 
     if len(comment_button) > 2:
         comment_button[2].click()
-        print('--- Click comment...')
+        print('--- Click comment 1...')
+
+    if len(comment_button) == 0:
+        comment_button = driver.find_elements(By.CSS_SELECTOR,
+                                              'button[class*="shorts--base-button__rootElement-12"][type="button"][tabindex="0"]')
+
+        print('comment_button 2:', len(comment_button))
+
+    if len(comment_button) > 2:
+        comment_button[2].click()
+        print('--- Click comment 2...')
+
+
 
     await asyncio.sleep(3)
 
@@ -188,7 +200,7 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
 
 async def main_dzen():
     service = await get_service()
-    url = 'https://dzen.ru/video/watch/639465b7db73347319dc9c8b'
+    url = 'https://dzen.ru/video/watch/64a13f8d2b78d102db33ce34#comment_1736033114'
 
     headless, proxy_on, only_text = await get_hpo()
     driver = await get_selenium_proxy(url, headless=headless, proxy=proxy_on)

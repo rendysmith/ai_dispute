@@ -6,6 +6,10 @@ from datetime import datetime
 import aiohttp
 import urllib.parse
 
+from dotenv import load_dotenv
+from requests.auth import HTTPBasicAuth
+
+from utils.ai_module import get_answer_ai
 from utils.ba_conn import get_cookies, get_ids
 from utils.gs_editor import read_table_id, get_service, append_data_to_sheet_scopes
 from utils.user_agent import get_soup, get_soup_bs4
@@ -20,10 +24,17 @@ current_date = datetime.now()
 # Форматируем дату в нужный формат
 formatted_date = current_date.strftime("%d.%m.%Y")
 
-print(formatted_date)
+print("formatted_date", formatted_date)
 
 tsf = int(time.time() - 1 * 1 * 3600)
 tst = int(time.time())
+
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(dotenv_path)
+
+HOST_USERNAME = os.environ.get("HOST_USERNAME")
+HOST_PASSWORD = os.environ.get("HOST_PASSWORD")
+auth = HTTPBasicAuth(HOST_USERNAME, HOST_PASSWORD)
 
 username = os.environ.get("LOGIN_BA_DASHA")
 password = os.environ.get("PASS_BA_DASHA")
@@ -88,6 +99,9 @@ async def main():
 
     df_censor_content = await read_table_id(service, gid_set, 'censor')
     censors = df_censor_content['word'].to_list()
+
+    df_llm = await read_table_id(service, gid_set, 'LLM')
+    df_llm_prompt = df_llm[['text', 'comment']]
 
     df_set = await read_table_id(service, gid_set, 'set')
 
@@ -157,7 +171,8 @@ async def main():
                          'Площадка': [],
                          'Охват': [],
                          'Ссылка на упоминание': [],
-                         'Текст упоминания': []
+                         'Текст упоминания': [],
+                         'Комментарий': []
                          }
 
                 for k, message in messages.items():
@@ -178,7 +193,7 @@ async def main():
                         continue
 
                     fullname = message['author']['fullname']
-                    print(fullname)
+                    #print(fullname)
 
                     if any(offrep in fullname for offrep in offreps):
                         print(f'-- IS official: {fullname}')
@@ -214,6 +229,36 @@ async def main():
                     platform = df_platform.loc[index_name, 'gs_name']
                     #print(platform)
 
+                    #Проверка текста на косвенность.
+
+                    text_ba = """Внимательно изучи массив данных
+                    ----------------НАЧАЛО ДАННЫХ---------------
+                    {df_llm_prompt}
+                    ----------------КОНЕЦ ДАННЫХ----------------
+                    text - Комментарий о товаре или услуге                                            
+                    comment - Причина почему этот комментарий не подходит для дальнейшего анализа
+                    На основании приложенного выше массива данных, ты должен проанализировать следующий текст
+                    ---------------НАЧАЛО ТЕКСТА-----------------
+                    {text_snippet}
+                    ---------------КОНЕЦ ТЕКСТА------------------
+                    Твоя задача выявить можно ли брать данный текст для дальнейшего анализа или нет.
+                    Если текст можно брать для последующего анализа дай результат в виде текста "CONTINUE"
+                    Если текст похож на тот что в массиве и не подходит для дальнейшего анализа выведи результат в виде текста "STOP"
+                    Дополнительно можешь написать, почему ты принял такое решение.
+                    """
+
+                    prompt = text_ba.format(df_llm_prompt=df_llm_prompt, text_snippet=text_snippet)
+                    result = await get_answer_ai(auth, prompt)
+
+                    if 'STOP'.lower() in result.lower():
+                        #print("--- AI analyst result:\n", result)
+                        datas['Комментарий'].append(result)
+                        #continue
+
+                    else:
+                        datas['Комментарий'].append('')
+                        print('+++ Data')
+
                     product, confidence = await classify_topic(text_snippet, topics)
 
                     text_snippet = "'" + text_snippet
@@ -226,8 +271,16 @@ async def main():
                     datas['Ссылка на упоминание'].append(url_comment)
                     datas['Текст упоминания'].append(text_snippet)
 
-                if len(datas):
+                print("datas")
+                print(datas)
+
+                if len(datas['Дата']):
+                    print('+++++++++++++++++++++++++++')
                     await append_data_to_sheet_scopes(service, gid, gtab, datas)
+                    print('+++++++++++++++++++++++++++')
+
+                else:
+                    print('--- NO datas...')
 
                 page += 1
                 input(f'next...page = {page}')
@@ -275,7 +328,19 @@ async def main():
 #url = 'https://brandanalytics.ru/report/12551940/summary?tsf=1739566800&tst=1739825999&fmsgproc[any]=1&ft[not]=30008&ft[not]=30009&ft[not]=15&ft[not]=30029&ft[not]=30059&ft[not]=30025&fsource[not]=14497&fsource[not]=21&fsource[not]=583&fsource[not]=10273&fsource[not]=122919&fsource[not]=150992&fsource[not]=60312'
 #url = 'https://brandanalytics.ru/theme-data/12551940/?tst=1739825999&tsf=1739566800&requested%5B%5D=feed&sort=time_create&order=desc&page=1&size=50&limit=25&filter%5Bfmsgproc%5D%5Bany%5D%5B%5D=1&filter%5Bft%5D%5Bnot%5D%5B%5D=30008&filter%5Bft%5D%5Bnot%5D%5B%5D=30009&filter%5Bft%5D%5Bnot%5D%5B%5D=15&filter%5Bft%5D%5Bnot%5D%5B%5D=30029&filter%5Bft%5D%5Bnot%5D%5B%5D=30059&filter%5Bft%5D%5Bnot%5D%5B%5D=30025&filter%5Bfsource%5D%5Bnot%5D%5B%5D=14497&filter%5Bfsource%5D%5Bnot%5D%5B%5D=21&filter%5Bfsource%5D%5Bnot%5D%5B%5D=583&filter%5Bfsource%5D%5Bnot%5D%5B%5D=10273&filter%5Bfsource%5D%5Bnot%5D%5B%5D=122919&filter%5Bfsource%5D%5Bnot%5D%5B%5D=150992&filter%5Bfsource%5D%5Bnot%5D%5B%5D=60312'
 
+async def tst():
+    service = await get_service()
+    gid = '1uAgMSukxmO0KZLZ-C5mhv7c3IsxvgyD1vxaSPg3TykU'
+    gtab = 'ORM (test)'
 
+    datas = {'Дата': [formatted_date],
+             'Направление работ': [12],
+             'Продукт': [23],
+             'Площадка': [234]}
+
+    await append_data_to_sheet_scopes(service, gid, gtab, datas)
 
 if "__main__" == __name__:
     asyncio.run(main())
+    #asyncio.run(tst())
+    #
