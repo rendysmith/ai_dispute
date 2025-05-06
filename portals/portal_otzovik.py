@@ -89,12 +89,18 @@ async def captcha_check(driver):
 
     print("-- Refresh")
     driver.refresh()
-    print('Wait 5 sec.')
-    await asyncio.sleep(5)
+    await wait_for_portal()
 
     n = 0
     while n < 10:
         try:
+            try:
+                tbody = driver.find_element(By.CSS_SELECTOR, 'tbody').text
+                print(tbody)
+
+            except:
+                pass
+
             capcha = driver.find_elements(By.CSS_SELECTOR, 'img[src]')
 
             len_c = len(capcha)
@@ -117,7 +123,7 @@ async def captcha_check(driver):
             print('- 2', file_link)
 
             capcha[0].screenshot(file_link)
-            print(f"Скриншот капчи сохранен по адресу {file_link}")
+            print(f"-- Скриншот капчи сохранен по адресу {file_link}")
 
             capcha_text = await sent_captcha(file_link)
             print(capcha_text)
@@ -138,7 +144,7 @@ async def captcha_check(driver):
         except Exception as Ex:
             n += 1
             print(f'Error captcha: {Ex}')
-            await asyncio.sleep(5)
+            await wait_for_portal()
 
     return driver
 

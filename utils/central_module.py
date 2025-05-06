@@ -165,8 +165,12 @@ async def proxy_status():
     return proxy_action['status']
 
 async def wait_for_portal():
+    """
+    Функция ожидания портала.
+    Returns: random secs.
+    """
     ts = random.randint(5, max_sec)
-    print(f'Wait {ts} sec...')
+    print(f'...Wait {ts} sec...')
     await asyncio.sleep(ts)
 
 async def get_set():
