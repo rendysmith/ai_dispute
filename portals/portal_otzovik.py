@@ -87,6 +87,9 @@ async def captcha_check(driver):
         print(f'Capcha {url} = {status_code}')
         return None
 
+    print("-- Refresh")
+    driver.refresh()
+    print('Wait 5 sec.')
     await asyncio.sleep(5)
 
     n = 0
@@ -144,6 +147,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
     try:
         print('--- Get 1.0')
         driver.get(link)
+
     except:
         print('--- Get 1.1')
         driver = await get_selenium_proxy(link, headless=headless, proxy=proxy_on)
@@ -154,11 +158,11 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
             print('Error Driver')
             return
 
-    if '46.39.21.228' in local_ip:
-        driver = await captcha_check(driver) #обработка капчи
-        if not driver:
-            print('Error Driver')
-            return
+    # if '46.39.21.228' in local_ip:
+    #     driver = await captcha_check(driver) #обработка капчи
+    #     if not driver:
+    #         print('Error Driver')
+    #         return
 
     await wait_for_portal()  # Время ожидания
 
