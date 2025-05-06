@@ -87,6 +87,8 @@ async def captcha_check(driver):
         print(f'Capcha {url} = {status_code}')
         return None
 
+    await asyncio.sleep(5)
+
     n = 0
     while n < 10:
         try:
@@ -147,6 +149,12 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
         driver = await get_selenium_proxy(link, headless=headless, proxy=proxy_on)
 
     if '176.124.192' in local_ip:
+        driver = await captcha_check(driver) #обработка капчи
+        if not driver:
+            print('Error Driver')
+            return
+
+    if '46.39.21.228' in local_ip:
         driver = await captcha_check(driver) #обработка капчи
         if not driver:
             print('Error Driver')

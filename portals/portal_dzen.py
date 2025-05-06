@@ -89,8 +89,6 @@ async def blocks_dzen_media(driver):
         comment_button[2].click()
         print('--- Click comment 2...')
 
-
-
     await asyncio.sleep(3)
 
     logs = driver.get_log('performance')
@@ -200,7 +198,7 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
 
 async def main_dzen():
     service = await get_service()
-    url = 'https://dzen.ru/video/watch/64a13f8d2b78d102db33ce34#comment_1736033114'
+    url = 'https://dzen.ru/a/Y256lfZgtFWmCJ8F#comment_1391738222'
 
     headless, proxy_on, only_text = await get_hpo()
     driver = await get_selenium_proxy(url, headless=headless, proxy=proxy_on)
