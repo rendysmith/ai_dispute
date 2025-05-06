@@ -96,10 +96,11 @@ async def captcha_check(driver):
         try:
             try:
                 tbody = driver.find_element(By.CSS_SELECTOR, 'tbody').text
-                print(tbody)
+                print("--- tbody\n", tbody)
 
             except:
-                pass
+                print('--- No tbody')
+                print(driver.page_source)
 
             capcha = driver.find_elements(By.CSS_SELECTOR, 'img[src]')
 
