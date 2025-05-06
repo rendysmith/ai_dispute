@@ -646,16 +646,7 @@ async def main(url):
     #playwright, browser, page = await get_playwright(url, headless=False)
     headless = False
     driver = await get_selenium_proxy(headless=headless, proxy=False)
-    input('Wait..')
-
-import scrapy
-class MySpider(scrapy.Spider):
-    name = 'example'
-    start_urls = ['http://example.com']
-
-    def parse(self, response):
-        title = response.css('h1::text').get()
-        yield {'title': title}
+    #input('Wait..')
 
 if "__main__" in __name__:
     #asyncio.run(get_playwright('https://yandex.ru/maps/org/149979773456/reviews', headless=False))
