@@ -95,12 +95,12 @@ async def captcha_check(driver):
     while n < 10:
         try:
             try:
-                tbody = driver.find_element(By.CSS_SELECTOR, 'tbody').text
+                tbody = driver.find_element(By.CSS_SELECTOR, 'input[type="text"]')
                 print("--- tbody\n", tbody)
 
             except:
                 print('--- No tbody')
-                print(driver.page_source)
+                #print(driver.page_source)
 
             capcha = driver.find_elements(By.CSS_SELECTOR, 'img[src]')
 
@@ -165,11 +165,11 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
             print('Error Driver')
             return
 
-    # if '46.39.21.228' in local_ip:
-    #     driver = await captcha_check(driver) #обработка капчи
-    #     if not driver:
-    #         print('Error Driver')
-    #         return
+    if '46.39.21.228' in local_ip:
+        driver = await captcha_check(driver) #обработка капчи
+        if not driver:
+            print('Error Driver')
+            return
 
     await wait_for_portal()  # Время ожидания
 
