@@ -9,7 +9,7 @@ import asyncio
 from selenium.webdriver.common.by import By
 from urllib.parse import urlparse
 
-from portals.portal_pikaby import blocks_pikabu
+from portals.portal_pikaby import blocks_pikabu, check_pikaby
 from utils.ai_module import generate_and_white
 from utils.central_module import get_hpo
 from utils.gs_editor import read_table_id, get_service, write_log_sheet
@@ -73,11 +73,11 @@ async def vk_parser(service, uniq_links, url, pattern, criteria):
                                  pattern=pattern,
                                  criteria=criteria)
 
-async def pikabu_parser(service, uniq_links, link, pattern, criteria):
+async def pikabu_parser(service, uniq_links, link, pattern, criteria, driver):
     headless, proxy_on, only_text = await get_hpo()
 
-    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-    driver.get(link)
+    #driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+    #driver.get(link)
     await asyncio.sleep(2)
 
     blocks = await blocks_pikabu(driver)
@@ -116,25 +116,21 @@ async def pikabu_parser(service, uniq_links, link, pattern, criteria):
                                  pattern=pattern,
                                  criteria=criteria)
 
-
-
-
-
-
 async def main_alfa():
+    headless, proxy_on, only_text = await get_hpo()
     service = await get_service()
 
     df = await read_table_id(service, ss_id, 'zoom')
     df_logs = await read_table_id(service, ss_id, 'logs')
 
     df_mini = df[["Проект", project]]
-    print(df_mini)
+    #print(df_mini)
 
     df_mini_pattern = [row[project] for ind, row in df_mini.iterrows() if "Пример реакции" in row['Проект']]
     df_mini_criteria = [row[project] for ind, row in df_mini.iterrows() if "Особые критерии" in row['Проект']]
 
     links_alfa = df[project].tolist()
-    print(links_alfa)
+    #print(links_alfa)
 
     df_links = await read_table_id(service, ss_id, project)
     uniq_links = df_links['Link'].tolist()
@@ -158,9 +154,11 @@ async def main_alfa():
     for k1, v1 in domens.items():
         print(f"{k1}: {len(v1)}")
 
+    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+
     for key, value in domens.items():
         name_project = f"{project}_{key}"
-        print(f"------------------{name_project}--------------------")
+        print(f"\n------------------{name_project}--------------------")
         start_time = time.time()
 
         filtered_logs = df_logs[df_logs['service_name'] == name_project]
@@ -174,19 +172,40 @@ async def main_alfa():
 
 
         for url in value:
-            if any(for tm in ['t.me', 'telegram.me']):
+            print(f'\n************{url}**************')
+            if any(tm in url for tm in ['t.me', 'telegram.me']):
+                continue
 
-
-            elif 'dzen.ru' in url:
-                await check_dzen(service, url, df_mini_pattern, df_mini_criteria, ss_id, project)
+            elif any(tm in url for tm in ['dzen.ru', 'zen.yandex.ru']):
+                driver.get(url)
+                await asyncio.sleep(5)
+                try:
+                    driver = await check_dzen(service, url, df_mini_pattern, df_mini_criteria, ss_id, project, driver)
+                except:
+                    print('--- Ошибка функции Dzen')
 
             elif "pikabu.ru" in url:
-                await pikabu_parser(service, uniq_links, url, df_mini_pattern, df_mini_criteria)
+                driver.get(url)
+                await asyncio.sleep(5)
+                try:
+                    driver = await check_pikaby(service, url, df_mini_pattern, df_mini_criteria, ss_id, project, driver)
+                except:
+                    print('--- Ошибка функции Dzen')
+
+            # elif "vk.com" in url:
+            #     await vk_parser(service, uniq_links, url, df_mini_pattern, df_mini_criteria)
+
+
+            try:
+                print(driver.title)
+
+            except:
+                print('- Driver quit!')
+                print('-- New driver...')
+                driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
 
 
-            elif "vk.com" in url:
-                await vk_parser(service, uniq_links, url, df_mini_pattern, df_mini_criteria)
 
 
 
@@ -204,7 +223,8 @@ async def main_alfa():
 
 
 
-
+    driver.close()
+    driver.quit()
 
 
 

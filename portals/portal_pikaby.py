@@ -1,13 +1,15 @@
 import asyncio
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pprint import pprint
 
 import requests
 
 from selenium.webdriver.common.by import By
 
+from utils.ai_module import generate_and_white
 from utils.central_module import get_local_ip, get_hpo
+from utils.gs_editor import pars_url
 from utils.user_agent import get_soup, get_data_without_proxy, ua, get_selenium, get_selenium_proxy
 
 # local_ip = asyncio.run(get_local_ip())
@@ -88,6 +90,45 @@ async def blocks_pikabu(driver):
     blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="comment"]')
     return blocks
 
+async def check_pikaby(service, url, pattern, criteria, ss_id, project, driver):
+    links = await pars_url(service, ss_id, project)
+    blocks = await blocks_pikabu(driver)
+
+    print('Len', len(blocks))
+
+    for block in blocks:
+        date_content = block.find_element(By.CSS_SELECTOR, 'time[class="comment__datetime hint"]')
+        date_full = date_content.get_attribute("datetime")
+        if date_full in links:
+            continue
+
+        timestamp = datetime.strptime(date_full, '%Y-%m-%dT%H:%M:%S%z')
+        date_ts = timestamp.timestamp()
+        # Форматирование даты
+        formatted_date = timestamp.strftime('%d.%m.%Y')
+
+        parsed_datetime = timestamp.astimezone(None).replace(tzinfo=None)
+        if (now - parsed_datetime) > timedelta(days=days_ago):
+            print(f'--- Отзыв старше {days_ago} дней = {formatted_date}.')
+            continue
+
+        author = block.find_element(By.CSS_SELECTOR, 'span.user__nick').text
+        try:
+            feedback = block.find_element(By.CSS_SELECTOR, 'p.rv-comment').text
+        except:
+            continue
+
+        await generate_and_white(service=service,
+                                 url_answer=date_full,
+                                 author=author,
+                                 formatted_date=formatted_date,
+                                 ss_id=ss_id,
+                                 project=project,
+                                 feedback=feedback,
+                                 pattern=pattern,
+                                 criteria=criteria)
+
+    return driver
 
 
 async def main_pikabu():
