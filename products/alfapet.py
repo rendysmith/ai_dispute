@@ -6,21 +6,30 @@ from pprint import pprint
 from dotenv import load_dotenv
 
 import asyncio
+from selenium.webdriver.common.by import By
 from urllib.parse import urlparse
 
+from portals.portal_pikaby import blocks_pikabu
 from utils.ai_module import generate_and_white
-from utils.gs_editor import read_table_id, get_service
+from utils.central_module import get_hpo
+from utils.gs_editor import read_table_id, get_service, write_log_sheet
 from utils.constants import TABLES_LIST
 
 from portals.portal_vk import blocks_vk
+from portals.portal_dzen import check_dzen
+from utils.user_agent import get_selenium_proxy
 
 ss_id = TABLES_LIST['zoom']
 now = datetime.now()
+
+current_date = now.strftime("%d.%m.%Y")
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
+
+project = 'AlphaPet'
 
 async def get_domen(url):
     parsed_url = urlparse(url)
@@ -31,23 +40,20 @@ async def get_domen(url):
     else:
         return
 
-async def vk_parser(service, url_answer):
-    comments = await blocks_vk(url_answer)
+async def vk_parser(service, uniq_links, url, pattern, criteria):
+    comments = await blocks_vk(url)
     await asyncio.sleep(5)
 
     if not comments:
         return
 
     for comment in comments:
-
-        pprint(comment)
+        uniq_id = comment['from_id']
+        if uniq_id in uniq_links:
+            continue
 
         date = comment['date']
         date_ts = datetime.fromtimestamp(date)
-
-        print(type(now))
-        print(type(date_ts))
-        print(type(days_ago))
 
         formatted_date = date_ts.strftime("%d.%m.%Y")
         if (now - date_ts) > timedelta(days=days_ago):
@@ -58,7 +64,7 @@ async def vk_parser(service, url_answer):
         feedback = comment['text']
 
         await generate_and_white(service=service,
-                                 url_answer=url_answer,
+                                 url_answer=uniq_id,
                                  author=author,
                                  formatted_date=formatted_date,
                                  ss_id=ss_id,
@@ -66,6 +72,50 @@ async def vk_parser(service, url_answer):
                                  feedback=feedback,
                                  pattern=pattern,
                                  criteria=criteria)
+
+async def pikabu_parser(service, uniq_links, link, pattern, criteria):
+    headless, proxy_on, only_text = await get_hpo()
+
+    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+    driver.get(link)
+    await asyncio.sleep(2)
+
+    blocks = await blocks_pikabu(driver)
+
+    print('Len', len(blocks))
+
+    for block in blocks:
+        date_content = block.find_element(By.CSS_SELECTOR, 'time[class="comment__datetime hint"]')
+        date_full = date_content.get_attribute("datetime")
+        if date_full in uniq_links:
+            continue
+
+        timestamp = datetime.strptime(date_full, '%Y-%m-%dT%H:%M:%S%z')
+        date_ts = timestamp.timestamp()
+        # Форматирование даты
+        formatted_date = timestamp.strftime('%d.%m.%Y')
+
+        parsed_datetime = timestamp.astimezone(None).replace(tzinfo=None)
+        if (now - parsed_datetime) > timedelta(days=days_ago):
+            print(f'--- Отзыв старше {days_ago} дней = {formatted_date}.')
+            continue
+
+        author = block.find_element(By.CSS_SELECTOR, 'span.user__nick').text
+        try:
+            feedback = block.find_element(By.CSS_SELECTOR, 'p.rv-comment').text
+        except:
+            continue
+
+        await generate_and_white(service=service,
+                                 url_answer=date_full,
+                                 author=author,
+                                 formatted_date=formatted_date,
+                                 ss_id=ss_id,
+                                 project=project,
+                                 feedback=feedback,
+                                 pattern=pattern,
+                                 criteria=criteria)
+
 
 
 
@@ -75,39 +125,29 @@ async def main_alfa():
     service = await get_service()
 
     df = await read_table_id(service, ss_id, 'zoom')
+    df_logs = await read_table_id(service, ss_id, 'logs')
 
-    df_mini = df[["Проект", "AlphaPet"]]
+    df_mini = df[["Проект", project]]
     print(df_mini)
 
-    # for ind, row in df_mini.iterrows():
-    #     if "Пример реакции" in row['Проект']:
-    #         print(row['AlphaPet'])
-    #
-    # input()
+    df_mini_pattern = [row[project] for ind, row in df_mini.iterrows() if "Пример реакции" in row['Проект']]
+    df_mini_criteria = [row[project] for ind, row in df_mini.iterrows() if "Особые критерии" in row['Проект']]
 
-
-
-    df_mini_pattern = [row["AlphaPet"] for ind, row in df_mini.iterrows() if "Пример реакции" in row['Проект']]
-    print(df_mini_pattern)
-
-    df_mini_criteria = [row["AlphaPet"] for ind, row in df_mini.iterrows() if "Особые критерии" in row['Проект']]
-    input(df_mini_criteria)
-    input()
-
-    links_alfa = df['AlphaPet'].tolist()
+    links_alfa = df[project].tolist()
     print(links_alfa)
+
+    df_links = await read_table_id(service, ss_id, project)
+    uniq_links = df_links['Link'].tolist()
 
     domens = {}
 
     for _url in links_alfa:
-        if "google.com" in _url:
+        if any(dom in _url for dom in ["google.com", "irecommend.ru", "otzovik.com", "sravni", "maps"]):
             continue
 
         domen = await get_domen(_url)
         if domen:
             domens[domen] = []
-
-    print(domens)
 
     for url_ in links_alfa:
         for k in domens.keys():
@@ -115,13 +155,55 @@ async def main_alfa():
                 domens[k].append(url_)
                 break
 
-    print(domens)
+    for k1, v1 in domens.items():
+        print(f"{k1}: {len(v1)}")
 
     for key, value in domens.items():
-        print(f"------------------{key}--------------------")
+        name_project = f"{project}_{key}"
+        print(f"------------------{name_project}--------------------")
+        start_time = time.time()
+
+        filtered_logs = df_logs[df_logs['service_name'] == name_project]
+        if not filtered_logs.empty:
+            idx_logs = filtered_logs.index[0]
+
+            # Пропуск по дате
+            date_logs = df_logs.loc[idx_logs, 'date']
+            if date_logs == current_date:
+                continue
+
+
         for url in value:
-            if "vk.com" in url:
-                await vk_parser(service, url)
+            if any(for tm in ['t.me', 'telegram.me']):
+                pass
+
+            elif 'dzen.ru' in url:
+                await check_dzen(service, url, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+
+
+
+
+
+            elif "pikabu.ru" in url:
+                await pikabu_parser(service, uniq_links, url, df_mini_pattern, df_mini_criteria)
+
+
+
+            elif "vk.com" in url:
+                await vk_parser(service, uniq_links, url, df_mini_pattern, df_mini_criteria)
+
+
+
+
+        finish_sec = time.time() - start_time
+        datas = {
+            'service_name': name_project,
+            'count': len(value),
+            'date': current_date,
+            'time': finish_sec}
+
+        await write_log_sheet(service, ss_id, 'logs', datas)
 
 
 

@@ -194,8 +194,6 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
 
     driver.quit()
 
-
-
 async def main_dzen():
     service = await get_service()
     url = 'https://dzen.ru/a/Y256lfZgtFWmCJ8F#comment_1391738222'
