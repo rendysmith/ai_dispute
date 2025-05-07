@@ -63,7 +63,8 @@ async def start_zoom(service):
     print(df_logs)
 
     for project in list_:
-        if 'Проект' in project:
+        #Исключить проекты
+        if any(prj in ['Проект', 'AlphaPet'] for prj in project):
             continue
 
         #-----------------------------------------------------
@@ -95,12 +96,11 @@ async def start_zoom(service):
 
         #project = 'AlphaPet'
 
+        df_mini_prj = df[["Проект", project]]
+        df_mini_pattern = [row[project] for ind, row in df_mini_prj.iterrows() if "Пример реакции" in row['Проект']]
+        df_mini_criteria = [row[project] for ind, row in df_mini_prj.iterrows() if "Особые критерии" in row['Проект']]
+
         df_mini = df[project]
-        #print(len(df_mini))
-
-        df_mini_pattern = df_mini[df_mini.str.contains('Пример реакции', na=False)]
-        df_mini_criteria = df_mini[df_mini.str.contains('Особые критерии', na=False)]
-
         # Filter rows that contain 'http://'
         df_mini = df_mini[df_mini.str.contains('http', na=False)]
 
