@@ -519,11 +519,11 @@ def main_irecommend():
             idx_logs = filtered_logs.index[0]
 
             if proxy_active != 'Active':
-                append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2, f'Proxy {proxy_active}')
+                append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2, f'Proxy {proxy_active}')
                 break
 
             else:
-                append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2,
+                append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2,
                                                 f'Proxy {proxy_active}')
 
             #Пропуск по дате

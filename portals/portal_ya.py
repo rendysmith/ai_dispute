@@ -503,11 +503,11 @@ async def main_ya_maps():
             idx_logs = filtered_logs.index[0]
 
             if proxy_active != 'Active':
-                await append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2, f'Proxy {proxy_active}')
+                await append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2, f'Proxy {proxy_active}')
                 break
 
             else:
-                await append_data_to_sheet_cell(service, ss_id, 'logs', 'proxy_status', idx_logs + 2,
+                await append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2,
                                                 f'Proxy {proxy_active}')
 
             #Пропуск по дате

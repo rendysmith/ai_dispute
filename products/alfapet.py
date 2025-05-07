@@ -175,15 +175,10 @@ async def main_alfa():
 
         for url in value:
             if any(for tm in ['t.me', 'telegram.me']):
-                pass
+
 
             elif 'dzen.ru' in url:
                 await check_dzen(service, url, df_mini_pattern, df_mini_criteria, ss_id, project)
-
-
-
-
-
 
             elif "pikabu.ru" in url:
                 await pikabu_parser(service, uniq_links, url, df_mini_pattern, df_mini_criteria)
