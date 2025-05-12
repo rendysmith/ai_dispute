@@ -151,43 +151,25 @@ async def check_tg(service, url, pattern, criteria, ss_id, project):
             in_memory=True
     ) as client:
 
-        for data in datas:
-            date_create = data[0]
-            date_from = await convert_time(data[0])
-            url_answer = data[1]
-            url_split = data[1].split('/')
-            print(url_split)
 
-            channel = '@' + url_split[3]
-            user_message_id = url_split[4]
+        try:
+            chat = await client.get_chat(channel)
+            async for message in client.get_chat_history(chat_id=chat.id, limit=200):
+                message_date = message.date
+                message_id = message.id
 
-            if '?' in user_message_id:
-                user_message_id = user_message_id.split('?')[0]
-
-            user_message_id = int(user_message_id)
-
-            print(f"\nConnect {channel}: -------------------> {data[1]}")
-            try:
-                chat = await client.get_chat(channel)
-
-                dialogy = []
-                # Выводим текст последних сообщений
-                async for message in client.get_chat_history(chat_id=chat.id, limit=200):
-                    message_date = message.date
-                    message_id = message.id
-                    #print("message_id", message_id)
-                    message_text = message.text
+                message_text = message.text
 
 
-    await generate_and_white(service=service,
-                             url_answer=url_answer,
-                             author=author,
-                             formatted_date=formatted_date,
-                             ss_id=ss_id,
-                             project=project,
-                             feedback=feedback,
-                             pattern=pattern,
-                             criteria=criteria)
+                await generate_and_white(service=service,
+                                         url_answer=message_id,
+                                         author=author,
+                                         formatted_date=formatted_date,
+                                         ss_id=ss_id,
+                                         project=project,
+                                         feedback=message_text,
+                                         pattern=pattern,
+                                         criteria=criteria)
 
 
 async def main_tg():

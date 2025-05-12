@@ -9,18 +9,17 @@ import asyncio
 from selenium.webdriver.common.by import By
 from urllib.parse import urlparse
 
-from portals.portal_pikaby import blocks_pikabu, check_pikaby
+from portals.portal_pikaby import check_pikaby
 from portals.youtube import check_youtube
 from portals.portal_otvet import check_otvet
 from portals.portal_vk import check_vk
+from portals.portal_dzen import check_dzen
 
 from utils.ai_module import generate_and_white
 from utils.central_module import get_hpo
 from utils.gs_editor import read_table_id, get_service, write_log_sheet
 from utils.constants import TABLES_LIST
 
-from portals.portal_vk import blocks_vk
-from portals.portal_dzen import check_dzen
 from utils.user_agent import get_selenium_proxy
 
 ss_id = TABLES_LIST['zoom']
@@ -43,49 +42,6 @@ async def get_domen(url):
 
     else:
         return
-
-async def pikabu_parser(service, uniq_links, link, pattern, criteria, driver):
-    headless, proxy_on, only_text = await get_hpo()
-
-    #driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-    #driver.get(link)
-    await asyncio.sleep(2)
-
-    blocks = await blocks_pikabu(driver)
-
-    print('Len', len(blocks))
-
-    for block in blocks:
-        date_content = block.find_element(By.CSS_SELECTOR, 'time[class="comment__datetime hint"]')
-        date_full = date_content.get_attribute("datetime")
-        if date_full in uniq_links:
-            continue
-
-        timestamp = datetime.strptime(date_full, '%Y-%m-%dT%H:%M:%S%z')
-        date_ts = timestamp.timestamp()
-        # Форматирование даты
-        formatted_date = timestamp.strftime('%d.%m.%Y')
-
-        parsed_datetime = timestamp.astimezone(None).replace(tzinfo=None)
-        if (now - parsed_datetime) > timedelta(days=days_ago):
-            print(f'--- Отзыв старше {days_ago} дней = {formatted_date}.')
-            continue
-
-        author = block.find_element(By.CSS_SELECTOR, 'span.user__nick').text
-        try:
-            feedback = block.find_element(By.CSS_SELECTOR, 'p.rv-comment').text
-        except:
-            continue
-
-        await generate_and_white(service=service,
-                                 url_answer=date_full,
-                                 author=author,
-                                 formatted_date=formatted_date,
-                                 ss_id=ss_id,
-                                 project=project,
-                                 feedback=feedback,
-                                 pattern=pattern,
-                                 criteria=criteria)
 
 async def main_alfa():
     headless, proxy_on, only_text = await get_hpo()
@@ -145,6 +101,7 @@ async def main_alfa():
             print(f'\n************{url}**************')
 
             if any(tm in url for tm in ['t.me', 'telegram.me']):
+                #Пока не понятно как отбирать.
                 continue
 
             elif "vk.com" in url:
@@ -186,12 +143,6 @@ async def main_alfa():
                 print('-- New driver...')
                 driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
-
-
-
-
-
-
         finish_sec = time.time() - start_time
         datas = {
             'service_name': name_project,
@@ -200,10 +151,6 @@ async def main_alfa():
             'time': finish_sec}
 
         await write_log_sheet(service, ss_id, 'logs', datas)
-
-
-
-
 
     driver.close()
     driver.quit()
