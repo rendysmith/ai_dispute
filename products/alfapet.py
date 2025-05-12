@@ -10,6 +10,9 @@ from selenium.webdriver.common.by import By
 from urllib.parse import urlparse
 
 from portals.portal_pikaby import blocks_pikabu, check_pikaby
+from portals.youtube import check_youtube
+from portals.portal_otvet import check_otvet
+
 from utils.ai_module import generate_and_white
 from utils.central_module import get_hpo
 from utils.gs_editor import read_table_id, get_service, write_log_sheet
@@ -173,8 +176,18 @@ async def main_alfa():
 
         for url in value:
             print(f'\n************{url}**************')
+
             if any(tm in url for tm in ['t.me', 'telegram.me']):
                 continue
+
+            elif "vk.com" in url:
+                await vk_parser(service, uniq_links, url, df_mini_pattern, df_mini_criteria)
+
+            elif 'youtube' in url:
+                await check_youtube(service, url, df_mini_pattern, df_mini_criteria, ss_id, project)
+
+            elif 'otvet.mail' in url:
+                await check_otvet(service, url, df_mini_pattern, df_mini_criteria, ss_id, project)
 
             elif any(tm in url for tm in ['dzen.ru', 'zen.yandex.ru']):
                 driver.get(url)
@@ -191,10 +204,6 @@ async def main_alfa():
                     driver = await check_pikaby(service, url, df_mini_pattern, df_mini_criteria, ss_id, project, driver)
                 except Exception as Ex:
                     print('--- Ошибка функции Dzen {Ex}')
-
-            # elif "vk.com" in url:
-            #     await vk_parser(service, uniq_links, url, df_mini_pattern, df_mini_criteria)
-
 
             try:
                 print(driver.title)
