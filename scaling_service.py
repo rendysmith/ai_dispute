@@ -118,6 +118,8 @@ async def start_zoom(service):
         list_links = []
         black_list = []
 
+        links = await pars_url(service, ss_id, project)
+
         for idx, link in enumerate(df_link_list):
             left = len_df - df_link_list.index(link)
             print(f'\n*************************{idx}*({left})*[{host_logs}]**************************\n----------------- {link} ----------------')
@@ -145,7 +147,8 @@ async def start_zoom(service):
                                            df_mini_pattern=df_mini_pattern,
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
-                                           project=project)
+                                           project=project,
+                                           links=links)
                 # if status:
                 #     black_list.append('pravda-sotrudnikov.ru')
 
@@ -170,7 +173,8 @@ async def start_zoom(service):
                                            df_mini_pattern=df_mini_pattern,
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
-                                           project=project)
+                                           project=project,
+                                           links=links)
                 # if status:
                 #     black_list.append('ocompanii')
 
@@ -195,7 +199,8 @@ async def start_zoom(service):
                                            df_mini_pattern=df_mini_pattern,
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
-                                           project=project)
+                                           project=project,
+                                           links=links)
                 # if status:
                 #     black_list.append('dreamjob.ru')
 
@@ -220,7 +225,8 @@ async def start_zoom(service):
                                            df_mini_pattern=df_mini_pattern,
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
-                                           project=project)
+                                           project=project,
+                                           links=links)
 
 
             # ---------------------------------------------------------------------------------------------------------
@@ -259,7 +265,7 @@ async def start_zoom(service):
                                            df_mini_pattern=df_mini_pattern,
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
-                                           project=project)
+                                           project=project, links=links)
 
 
             # ---------------------------------------------------------------------------------------------------------
@@ -277,7 +283,8 @@ async def start_zoom(service):
                                            df_mini_pattern=df_mini_pattern,
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
-                                           project=project)
+                                           project=project,
+                                           links=links)
                 # if status:
                 #     black_list.append('drive2.ru')
 
@@ -299,7 +306,8 @@ async def start_zoom(service):
                                            df_mini_pattern=df_mini_pattern,
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
-                                           project=project)
+                                           project=project,
+                                   links=links)
                 # if status:
                 #     black_list.append('youtube')
 
@@ -312,7 +320,7 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                await check_youtube(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                await check_youtube(service, link, df_mini_pattern, df_mini_criteria, ss_id, project, links)
 
             #----------------------------------------------------------------------------------------------------------
             elif 'ingate' in link:
@@ -324,7 +332,7 @@ async def start_zoom(service):
                 else:
                     list_links.append(link)
 
-                await check_ingate(service, link, df_mini_pattern, df_mini_criteria, ss_id, project)
+                await check_ingate(service, link, df_mini_pattern, df_mini_criteria, ss_id, project, links)
 
 
             #---------------------------------------------------------------------------------------------------------
@@ -347,7 +355,7 @@ async def start_zoom(service):
                                            df_mini_pattern=df_mini_pattern,
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
-                                           project=project)
+                                           project=project, links=links)
                 # if status:
                 #     black_list.append('aplaut.io')
 
@@ -417,7 +425,7 @@ async def start_zoom(service):
                                            df_mini_pattern=df_mini_pattern,
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
-                                           project=project)
+                                           project=project, links=links)
                 # if status:
                 #     black_list.append('otvet.mail')
 
@@ -436,10 +444,9 @@ async def start_zoom(service):
                                            df_mini_pattern=df_mini_pattern,
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
-                                           project=project)
+                                           project=project, links=links)
                 # if status:
                 #     black_list.append('market.yandex')
-
             #---------------------------------------------------------------------------------------
             elif 'rustore.ru' in link:
                 if link in list_links:
@@ -455,7 +462,7 @@ async def start_zoom(service):
                                              df_mini_pattern=df_mini_pattern,
                                              df_mini_criteria=df_mini_criteria,
                                              ss_id=ss_id,
-                                             project=project)
+                                             project=project, links=links)
 
                 #--------------------------------------------------------------------
             elif 'rocketdata' in link:
@@ -473,7 +480,7 @@ async def start_zoom(service):
                                              df_mini_pattern=df_mini_pattern,
                                              df_mini_criteria=df_mini_criteria,
                                              ss_id=ss_id,
-                                             project=project)
+                                             project=project, links=links)
 
             # ---------------------------------------------------------------------------------------------------------
             # elif 'vk.com' in link:

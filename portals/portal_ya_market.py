@@ -41,7 +41,7 @@ async def check_ya_market_new(driver):
     blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-apiary-widget-name="@card/ReviewItem"]')
     print(len(blocks))
 
-async def check_ya_market(service, url, pattern, criteria, ss_id, project, driver):
+async def check_ya_market(service, url, pattern, criteria, ss_id, project, driver, links=False):
     print(f"New link = {url}")
 
     try:
@@ -51,7 +51,8 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project, drive
     except:
         print('- No antibot')
 
-    links = await pars_url(service, ss_id, project)
+    if not links:
+        links = await pars_url(service, ss_id, project)
 
     if not driver:
         driver.quit()

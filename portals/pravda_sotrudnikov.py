@@ -19,10 +19,12 @@ load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
-async def check_pravda(service, link, pattern, criteria, ss_id, project):
+async def check_pravda(service, link, pattern, criteria, ss_id, project, links=False):
     url = f'https://pravda-sotrudnikov.ru/company/{link}?sort=date'
     print(url)
-    links = await pars_url(service, ss_id, project)
+
+    if not links:
+        links = await pars_url(service, ss_id, project)
 
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')

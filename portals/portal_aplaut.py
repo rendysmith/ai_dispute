@@ -57,10 +57,11 @@ async def auth_aplout():
         return session, headers
 
 
-async def check_aplout(service, link, pattern, criteria, ss_id, project):
+async def check_aplout(service, link, pattern, criteria, ss_id, project, links=False):
 
     print("\n", link)
-    links = await pars_url(service, ss_id, project)
+    if not links:
+        links = await pars_url(service, ss_id, project)
 
     #scraper = cloudscraper.create_scraper()  # returns a requests.Session object
     session, headers = await auth_aplout()

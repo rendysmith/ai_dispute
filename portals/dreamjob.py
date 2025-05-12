@@ -120,10 +120,11 @@ async def get_full_feedback(block):
     # print(feedback)
     return textwrap.dedent(feedback)
 
-async def check_dreamjob(service, link, pattern, criteria, ss_id, project):
+async def check_dreamjob(service, link, pattern, criteria, ss_id, project, links=False):
     print(link)
 
-    links = await pars_url(service, ss_id, project)
+    if not links:
+        links = await pars_url(service, ss_id, project)
     #print(links)
 
     unix_time = str(int(time.time() * 1000))

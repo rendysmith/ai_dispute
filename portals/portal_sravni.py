@@ -50,7 +50,7 @@ async def get_top_url(link):
 
     return f"https://www.sravni.ru/{link_company}/otzyvy/", companies.get(link_company, None)
 
-async def check_sravni(service, link, pattern, criteria, ss_id, project):
+async def check_sravni(service, link, pattern, criteria, ss_id, project, links=False):
     top_url, reviewObjectId = await get_top_url(link)
 
     if not reviewObjectId:
@@ -174,7 +174,8 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project):
 
     blocks = json_data['items']
 
-    links = await pars_url(service, ss_id, project)
+    if not links:
+        links = await pars_url(service, ss_id, project)
 
     #blocks = r['items']
     len_b = len(blocks)

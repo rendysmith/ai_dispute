@@ -22,7 +22,7 @@ max_sec = int(os.environ.get("MAX_SEC"))
 email = os.environ.get("LOGIN_ROCKETDATA")
 password = os.environ.get("PASS_ROCKETDATA")
 
-async def check_rocketdata(service, link, pattern, criteria, ss_id, project):
+async def check_rocketdata(service, link, pattern, criteria, ss_id, project, links=False):
     print(link)
 
     async with aiohttp.ClientSession() as session:
@@ -60,7 +60,8 @@ async def check_rocketdata(service, link, pattern, criteria, ss_id, project):
                 r_json = await response.json()
                 print(response.status)
 
-    links = await pars_url(service, ss_id, project)
+    if not links:
+        links = await pars_url(service, ss_id, project)
 
     for i in r_json['results']:
         company_answer = i['children']

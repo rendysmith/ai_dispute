@@ -24,7 +24,7 @@ max_sec = int(os.environ.get("MAX_SEC"))
 current_date = datetime.now()
 
 timeout = 10000
-async def check_rustore(service, url, pattern, criteria, ss_id, project, driver):
+async def check_rustore(service, url, pattern, criteria, ss_id, project, driver, links=False):
     # print(link)
     await wait_for_portal()
 
@@ -62,7 +62,9 @@ async def check_rustore(service, url, pattern, criteria, ss_id, project, driver)
     if len_b == 0:
         return
 
-    links = await pars_url(service, ss_id, project)
+    if not links:
+        links = await pars_url(service, ss_id, project)
+
     for block in blocks:
         #answer_develop = await block.query_selector_all('h3')
         answer_develop = block.find_elements(By.CSS_SELECTOR, 'h3')

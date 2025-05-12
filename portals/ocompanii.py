@@ -43,10 +43,11 @@ async def get_top_link(link):
         traceback.print_exc()
         return False, False
 
-async def check_ocompanii(service, url, pattern, criteria, ss_id, project):
+async def check_ocompanii(service, url, pattern, criteria, ss_id, project, links=False):
     print(url)
 
-    links = await pars_url(service, ss_id, project)
+    if not links:
+        links = await pars_url(service, ss_id, project)
 
     status, top_link = await get_top_link(url)
 

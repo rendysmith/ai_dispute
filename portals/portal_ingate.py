@@ -51,7 +51,7 @@ async def auth_ingate():
                 print(error_response)
                 return None
 
-async def check_ingate(service, url, pattern, criteria, ss_id, project):
+async def check_ingate(service, url, pattern, criteria, ss_id, project, links=False):
     url = "https://pntr.ingate.ru/api/client/v100/networks/940/reviews"
     jwt_token = await auth_ingate()
 
@@ -95,7 +95,9 @@ async def check_ingate(service, url, pattern, criteria, ss_id, project):
 
     #pprint(data)
 
-    links = await pars_url(service, ss_id, project)
+    if not links:
+        links = await pars_url(service, ss_id, project)
+
     for block in data['reviews']:
         if block['replyText']: #если есть ответ компании
             continue
