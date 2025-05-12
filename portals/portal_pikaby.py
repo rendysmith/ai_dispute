@@ -1,16 +1,32 @@
+import os
+
 import asyncio
 import time
 from datetime import datetime, timedelta
 from pprint import pprint
 
+import load_dotenv
 import requests
+
+from dotenv import load_dotenv
 
 from selenium.webdriver.common.by import By
 
 from utils.ai_module import generate_and_white
 from utils.central_module import get_local_ip, get_hpo
-from utils.gs_editor import pars_url
+from utils.gs_editor import pars_url, get_service
 from utils.user_agent import get_soup, get_data_without_proxy, ua, get_selenium, get_selenium_proxy
+
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(dotenv_path)
+#
+# current_date = datetime.now()
+# record_date = current_date.strftime("%d.%m.%Y")
+# now_month = current_date.month
+
+days_ago = int(os.environ.get("DAYS_AGO"))
+
+now_time = datetime.now()
 
 # local_ip = asyncio.run(get_local_ip())
 # if '176.124.192' in local_ip:
@@ -108,7 +124,7 @@ async def check_pikaby(service, url, pattern, criteria, ss_id, project, driver):
         formatted_date = timestamp.strftime('%d.%m.%Y')
 
         parsed_datetime = timestamp.astimezone(None).replace(tzinfo=None)
-        if (now - parsed_datetime) > timedelta(days=days_ago):
+        if (now_time - parsed_datetime) > timedelta(days=days_ago):
             print(f'--- Отзыв старше {days_ago} дней = {formatted_date}.')
             continue
 
@@ -133,43 +149,51 @@ async def check_pikaby(service, url, pattern, criteria, ss_id, project, driver):
 
 async def main_pikabu():
     headless, proxy_on, only_text = await get_hpo()
-    link = 'https://pikabu.ru/story/10_luchshikh_torrentobmennikov_v_rossii_aktivnyikh_v_2021_7995137#comments'
 
-    # blocks = await blocks_pikabu_api(link)
+    url = 'https://pikabu.ru/story/spisok_sukhikh_kormov_iz_rf_dlya_koshek_i_sobak_9204451?cid=240886719'
+
+    driver = await get_selenium_proxy(url=url, headless=headless, proxy=proxy_on)
+
+    ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
+    project = 'AlphaPet'
+    service = await get_service()
+    await check_pikaby(service, url, "pattern", "criteria", ss_id, project, driver)
+
+    # # blocks = await blocks_pikabu_api(link)
+    # #
+    # # print(blocks)
+    # #
+    # # input()
     #
-    # print(blocks)
     #
-    # input()
-
-
-
-    #link = 'https://pikabu.ru/story/otvet_na_post_kassir_pyaterochki_khotel_obmanut_pokupatelnitsu_12236720'
-    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-    driver.get(link)
-    await asyncio.sleep(2)
-
-    blocks = await blocks_pikabu(driver)
-
-    print('Len', len(blocks))
-
-    for block in blocks:
-        date_content = block.find_element(By.CSS_SELECTOR, 'time[class="comment__datetime hint"]')
-        date_full = date_content.get_attribute("datetime")
-        timestamp = datetime.strptime(date_full, '%Y-%m-%dT%H:%M:%S%z')
-        date = timestamp.timestamp()
-        # Форматирование даты
-        formatted_date = timestamp.strftime('%d.%m.%Y')
-
-        if (time.time() - timestamp.timestamp()) <= 3 * 24 * 3600:
-            print(f'--- Отзыв младше 3 дней = {formatted_date}.')
-
-        author = block.find_element(By.CSS_SELECTOR, 'span.user__nick').text
-        try:
-            feedback = block.find_element(By.CSS_SELECTOR, 'p.rv-comment').text
-        except:
-            continue
-
-        print(author, feedback)
+    #
+    # #link = 'https://pikabu.ru/story/otvet_na_post_kassir_pyaterochki_khotel_obmanut_pokupatelnitsu_12236720'
+    # driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+    # driver.get(link)
+    # await asyncio.sleep(2)
+    #
+    # blocks = await blocks_pikabu(driver)
+    #
+    # print('Len', len(blocks))
+    #
+    # for block in blocks:
+    #     date_content = block.find_element(By.CSS_SELECTOR, 'time[class="comment__datetime hint"]')
+    #     date_full = date_content.get_attribute("datetime")
+    #     timestamp = datetime.strptime(date_full, '%Y-%m-%dT%H:%M:%S%z')
+    #     date = timestamp.timestamp()
+    #     # Форматирование даты
+    #     formatted_date = timestamp.strftime('%d.%m.%Y')
+    #
+    #     if (time.time() - timestamp.timestamp()) <= 3 * 24 * 3600:
+    #         print(f'--- Отзыв младше 3 дней = {formatted_date}.')
+    #
+    #     author = block.find_element(By.CSS_SELECTOR, 'span.user__nick').text
+    #     try:
+    #         feedback = block.find_element(By.CSS_SELECTOR, 'p.rv-comment').text
+    #     except:
+    #         continue
+    #
+    #     print(author, feedback)
 
 
 if "__main__" in __name__:

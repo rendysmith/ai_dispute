@@ -181,16 +181,16 @@ async def main_alfa():
                 await asyncio.sleep(5)
                 try:
                     driver = await check_dzen(service, url, df_mini_pattern, df_mini_criteria, ss_id, project, driver)
-                except:
-                    print('--- Ошибка функции Dzen')
+                except Exception as Ex:
+                    print(f'--- Ошибка функции Dzen {Ex}')
 
             elif "pikabu.ru" in url:
                 driver.get(url)
                 await asyncio.sleep(5)
                 try:
                     driver = await check_pikaby(service, url, df_mini_pattern, df_mini_criteria, ss_id, project, driver)
-                except:
-                    print('--- Ошибка функции Dzen')
+                except Exception as Ex:
+                    print('--- Ошибка функции Dzen {Ex}')
 
             # elif "vk.com" in url:
             #     await vk_parser(service, uniq_links, url, df_mini_pattern, df_mini_criteria)
