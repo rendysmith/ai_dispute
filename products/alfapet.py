@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from portals.portal_pikaby import blocks_pikabu, check_pikaby
 from portals.youtube import check_youtube
 from portals.portal_otvet import check_otvet
+from portals.portal_vk import check_vk
 
 from utils.ai_module import generate_and_white
 from utils.central_module import get_hpo
@@ -42,39 +43,6 @@ async def get_domen(url):
 
     else:
         return
-
-async def vk_parser(service, uniq_links, url, pattern, criteria):
-    comments = await blocks_vk(url)
-    await asyncio.sleep(5)
-
-    if not comments:
-        return
-
-    for comment in comments:
-        uniq_id = comment['from_id']
-        if uniq_id in uniq_links:
-            continue
-
-        date = comment['date']
-        date_ts = datetime.fromtimestamp(date)
-
-        formatted_date = date_ts.strftime("%d.%m.%Y")
-        if (now - date_ts) > timedelta(days=days_ago):
-            print(f'--- Отзыв старше {days_ago} дней = {formatted_date}.')
-            continue
-
-        author = comment['author_name']
-        feedback = comment['text']
-
-        await generate_and_white(service=service,
-                                 url_answer=uniq_id,
-                                 author=author,
-                                 formatted_date=formatted_date,
-                                 ss_id=ss_id,
-                                 project="AlphaPet",
-                                 feedback=feedback,
-                                 pattern=pattern,
-                                 criteria=criteria)
 
 async def pikabu_parser(service, uniq_links, link, pattern, criteria, driver):
     headless, proxy_on, only_text = await get_hpo()
@@ -173,7 +141,6 @@ async def main_alfa():
             if date_logs == current_date:
                 continue
 
-
         for url in value:
             print(f'\n************{url}**************')
 
@@ -181,19 +148,25 @@ async def main_alfa():
                 continue
 
             elif "vk.com" in url:
-                await vk_parser(service, uniq_links, url, df_mini_pattern, df_mini_criteria)
+                await check_vk(service, url, df_mini_pattern, df_mini_criteria, ss_id, project, uniq_links)
 
             elif 'youtube' in url:
-                await check_youtube(service, url, df_mini_pattern, df_mini_criteria, ss_id, project)
+                await check_youtube(service, url, df_mini_pattern, df_mini_criteria, ss_id, project, uniq_links)
 
             elif 'otvet.mail' in url:
-                await check_otvet(service, url, df_mini_pattern, df_mini_criteria, ss_id, project)
+                driver.get(url)
+                await asyncio.sleep(5)
+                try:
+                    await check_otvet(service, url, df_mini_pattern, df_mini_criteria, ss_id, project, uniq_links)
+
+                except Exception as Ex:
+                    print(f'--- Ошибка функции Otvet {Ex}')
 
             elif any(tm in url for tm in ['dzen.ru', 'zen.yandex.ru']):
                 driver.get(url)
                 await asyncio.sleep(5)
                 try:
-                    driver = await check_dzen(service, url, df_mini_pattern, df_mini_criteria, ss_id, project, driver)
+                    driver = await check_dzen(service, url, df_mini_pattern, df_mini_criteria, ss_id, project, driver, uniq_links)
                 except Exception as Ex:
                     print(f'--- Ошибка функции Dzen {Ex}')
 
@@ -201,7 +174,7 @@ async def main_alfa():
                 driver.get(url)
                 await asyncio.sleep(5)
                 try:
-                    driver = await check_pikaby(service, url, df_mini_pattern, df_mini_criteria, ss_id, project, driver)
+                    driver = await check_pikaby(service, url, df_mini_pattern, df_mini_criteria, ss_id, project, driver, uniq_links)
                 except Exception as Ex:
                     print('--- Ошибка функции Dzen {Ex}')
 

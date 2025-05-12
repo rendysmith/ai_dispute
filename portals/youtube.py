@@ -30,10 +30,12 @@ async def blocks_youtube(url):
     comments = downloader.get_comments_from_url(youtube_url=url, sort_by=SORT_BY_RECENT)
     return comments
 
-async def check_youtube(service, url, pattern, criteria, ss_id, project):
+async def check_youtube(service, url, pattern, criteria, ss_id, project, links=False):
     comments = await blocks_youtube(url)
 
-    links = await pars_url(service, ss_id, project)
+    if links == False:
+        links = await pars_url(service, ss_id, project)
+
     try:
         for comment in islice(comments, 100):
             date = comment['time_parsed']

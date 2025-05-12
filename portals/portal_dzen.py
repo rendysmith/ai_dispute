@@ -132,7 +132,7 @@ async def blocks_dzen_media(driver):
 
     return blocks, UsersByID
 
-async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
+async def check_dzen(service, url, pattern, criteria, ss_id, project, driver, links=False):
     for i in range(3):
         try:
             not_robot_button = driver.find_element(By.CSS_SELECTOR, 'input[id="js-button"][class="CheckboxCaptcha-Button"]')
@@ -143,7 +143,9 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, driver):
             await asyncio.sleep(3)
 
     await asyncio.sleep(10)
-    links = await pars_url(service, ss_id, project)
+
+    if not links:
+        links = await pars_url(service, ss_id, project)
 
     if any(lk in url for lk in ['video', 'media', 'shorts']):
         try:

@@ -7,6 +7,7 @@ import aiohttp
 import requests
 from bs4 import BeautifulSoup
 
+from utils.ai_module import generate_and_white
 from utils.gs_editor import get_service
 
 import base64
@@ -285,6 +286,41 @@ async def blocks_vk(url, author_name=False):
 
     print(len(comments))
     return comments
+
+async def check_vk(service, url, pattern, criteria, ss_id, project, links=False):
+    comments = await blocks_vk(url)
+    await asyncio.sleep(5)
+
+    if not comments:
+        return
+
+    for comment in comments:
+        uniq_id = comment['from_id']
+
+        if links:
+            if uniq_id in links:
+                continue
+
+        date = comment['date']
+        date_ts = datetime.fromtimestamp(date)
+
+        formatted_date = date_ts.strftime("%d.%m.%Y")
+        if (now - date_ts) > timedelta(days=days_ago):
+            print(f'--- Отзыв старше {days_ago} дней = {formatted_date}.')
+            continue
+
+        author = comment['author_name']
+        feedback = comment['text']
+
+        await generate_and_white(service=service,
+                                 url_answer=uniq_id,
+                                 author=author,
+                                 formatted_date=formatted_date,
+                                 ss_id=ss_id,
+                                 project=project,
+                                 feedback=feedback,
+                                 pattern=pattern,
+                                 criteria=criteria)
 
 async def main_vk():
     #service = await get_service()

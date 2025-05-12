@@ -106,8 +106,9 @@ async def blocks_pikabu(driver):
     blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="comment"]')
     return blocks
 
-async def check_pikaby(service, url, pattern, criteria, ss_id, project, driver):
-    links = await pars_url(service, ss_id, project)
+async def check_pikaby(service, url, pattern, criteria, ss_id, project, driver, links=False):
+    if not links:
+        links = await pars_url(service, ss_id, project)
     blocks = await blocks_pikabu(driver)
 
     print('Len', len(blocks))

@@ -386,7 +386,7 @@ async def check_otvet_sel(service, link, pattern, criteria, ss_id, project, driv
 
     driver.quit()
 
-async def check_otvet(service, link, pattern, criteria, ss_id, project):
+async def check_otvet(service, link, pattern, criteria, ss_id, project, links=False):
     question = await get_id_obj(link)
 
     headless, proxy_on, only_text = await get_hpo()
@@ -413,7 +413,8 @@ async def check_otvet(service, link, pattern, criteria, ss_id, project):
         print("Json haven't result")
         return
 
-    links = await pars_url(service, ss_id, project)
+    if links == False:
+        links = await pars_url(service, ss_id, project)
 
     for block in json_data['result']['answers']:
         date_str = block['created_at']
