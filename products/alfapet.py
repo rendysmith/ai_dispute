@@ -51,7 +51,8 @@ async def main_alfa():
     df_logs = await read_table_id(service, ss_id, 'logs')
 
     df_mini = df[["Проект", project]]
-    #print(df_mini)
+
+    df_mini =df_mini.drop_duplicates(project)
 
     df_mini_pattern = [row[project] for ind, row in df_mini.iterrows() if "Пример реакции" in row['Проект']]
     df_mini_criteria = [row[project] for ind, row in df_mini.iterrows() if "Особые критерии" in row['Проект']]
@@ -98,7 +99,7 @@ async def main_alfa():
                 continue
 
         for url in value:
-            print(f'\n************{url}**************')
+            print(f'\n*********** {len(value) - value.index(url)} * {url} **************')
 
             if any(tm in url for tm in ['t.me', 'telegram.me']):
                 #Пока не понятно как отбирать.
