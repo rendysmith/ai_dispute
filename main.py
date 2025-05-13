@@ -19,6 +19,8 @@ from portals.irecommend import main_irecommend #Отдельная функци�
 from portals.portal_sravni import main_sravni
 from portals.portal_ya import main_ya_maps
 
+from products.alfapet import main_alfa
+
 from load_distribution import main_distribution #Распределение сервером на масштабировании
 
 async def main_total():

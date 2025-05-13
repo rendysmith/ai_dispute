@@ -156,8 +156,5 @@ async def main_alfa():
     driver.quit()
 
 
-
-
-
 if "__main__" in __name__:
     asyncio.run(main_alfa())
