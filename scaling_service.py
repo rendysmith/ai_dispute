@@ -45,7 +45,8 @@ async def start_zoom(service):
     df = await get_table_scope(service, ss_id, 'zoom')
     #print(df)
     idx_num_row = df.index[df['Проект'] == 'Кол-во строк'].tolist()[0]
-    print(idx_num_row)
+    print(f"ROW of COUNT: {idx_num_row}")
+
     df_counts = pd.Series(df.iloc[idx_num_row].values, index=df.columns).reset_index()
     df_counts[0] = pd.to_numeric(df_counts[0], errors='coerce')
     # Удаляем строки с NaN значениями в указанной колонке
@@ -58,13 +59,14 @@ async def start_zoom(service):
     #random.shuffle(list_)
 
     df_uniq = await get_table_scope(service, ss_id, 'unique_url')
-
     df_logs = await get_table_scope(service, ss_id, 'logs')
     print(df_logs)
 
     for project in list_:
+        print(f'+++++++++++++++++ {project} +++++++++++++++++++++')
         #Исключить проекты
-        if any(prj in ['Проект', 'AlphaPet'] for prj in project):
+        if any(prj == project for prj in ['Проект', 'AlphaPet']):
+            print(f'--- Skip: {project}')
             continue
 
         #-----------------------------------------------------
