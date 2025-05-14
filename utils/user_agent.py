@@ -401,7 +401,7 @@ async def get_selenium_win(url=None, headless=True, proxy=True):
     if proxy:
         print('>>> Selenium PROXY...')
         proxy_host, proxy_port = await get_one_proxy()
-        print(f'New One Proxy: {proxy_host}:{proxy_port}')
+        print(f'-- New One Proxy: {proxy_host}:{proxy_port}')
         proxy_string = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
         chrome_options.add_argument(f"--proxy-server={proxy_string}")
 

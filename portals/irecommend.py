@@ -226,7 +226,9 @@ async def clicker_pil():
 
 async def get_driver():
     headless, proxy_on, only_text = await get_hpo()
-    driver = await get_selenium_win(headless=False, proxy=proxy_on)
+    headless = False
+    print("-- HPO:", headless, proxy_on)
+    driver = await get_selenium_win(headless=headless, proxy=proxy_on)
     #driver = await get_seleniumbase_SB(headless=False, proxy=proxy_on)
     return driver
 
@@ -437,6 +439,8 @@ async def main_irecommend():
     #print(df_logs)
 
     for project in list_:
+        count_records = 0
+
         if 'Проект' in project:
             continue
 
@@ -535,6 +539,8 @@ async def main_irecommend():
                                        project=project,
                                        driver=driver)
 
+                count_records += 1
+
                 if not driver:
                     #driver.quit()
                     driver = await get_driver()
@@ -544,7 +550,8 @@ async def main_irecommend():
             datas = {'service_name': project_irecommend,
                     'count': len_irec,
                     'date': record_date,
-                    'time': finish_sec}
+                    'time': finish_sec,
+                     'recorded': count_records}
 
             print('datas', datas)
             await write_log_sheet(service, ss_id, 'logs', datas)
@@ -646,7 +653,7 @@ async def main_starter():
     #             print("find_and_click_task остановлена")
 
 if "__main__" in __name__:
-    asyncio.run(main_tst())
+    asyncio.run(main_irecommend())
     #asyncio.run(main_irecommend())
 
     # asyncio.create_task(async_find_and_click())
