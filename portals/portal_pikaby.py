@@ -1,11 +1,8 @@
 import os
 
 import asyncio
-import time
 from datetime import datetime, timedelta
-from pprint import pprint
 
-import load_dotenv
 import requests
 
 from dotenv import load_dotenv
