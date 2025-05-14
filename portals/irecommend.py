@@ -83,7 +83,14 @@ async def clicker_pyautogui():
 
         await asyncio.sleep(5)
 
-async def clicker_pywinauto():
+async def clicker_pywinauto_old():
+    """
+    Only for Windows
+    pip3 install pywinauto
+    pip3 install Pillow
+    Returns:
+
+    """
     import pywinauto
     from pywinauto.application import Application
     from PIL import Image
@@ -122,12 +129,101 @@ async def clicker_pywinauto():
             print('---> Clock! ')
 
         except pywinauto.findbestmatch.MatchError:
-            raise Exception(f"Изображение '{image_path}' не найдено на экране.")
+            raise Exception(f"--- Изображение '{image_path}' не найдено на экране.")
 
         except Exception as e:
-            raise Exception(f"Произошла ошибка: {e}")
+            raise Exception(f"--- Произошла ошибка: {e}")
 
         finally:
+            await asyncio.sleep(5)
+
+async def clicker_pywinauto():
+    """
+        Only for Windows
+        pip3 install pywinauto
+        # pip3 install Pillow  # Pillow НЕ нужен для стандартного поиска элементов pywinauto
+        Returns:
+
+        """
+    import pywinauto
+    from pywinauto.application import Application
+    # Убираем импорт Pillow и numpy, т.к. они не используются для стандартного поиска в pywinauto
+    # from PIL import Image
+    # import numpy as np
+    import asyncio  # Убедитесь, что asyncio импортирован, т.к. функция async
+
+    # Внимание: image_path не определен в этом сниппете и НЕ используется в исправленной версии
+    # для поиска элемента, т.к. pywinauto так не работает надежно.
+    # Если image_path нужен для других целей в вашей логике, определите его выше.
+    # image_path = "путь/к/вашему/изображению.png"
+
+    while True:
+        print('---- Click checkbox pywinauto')
+        try:
+            # Подключаемся к уже открытому Chrome
+            # Если окно Chrome может не существовать, app.connect выбросит исключение.
+            # Возможно, вам нужно использовать app.start() или обернуть connect в try/except.
+            app = Application(backend="uia").connect(title_re=".*Chrome.*", timeout=10)
+            window = app.window(title_re=".*Chrome.*")
+
+            # --- Исходный код пытался найти элемент по изображению, что не является
+            #     надежным и стандартным методом для pywinauto. ---
+            # pywinauto находит элементы по их свойствам (типу контрола, тексту, Automation ID и т.д.).
+            # Метод _perform_image_recognition является, скорее всего, внутренним и не предназначен
+            # для общего использования.
+
+            # Если вам КРИТИЧЕСКИ важно искать элемент по его визуальному виду (изображению),
+            # то pywinauto НЕ является подходящим инструментом для этой конкретной задачи.
+            # Рассмотрите использование библиотек типа 'pyautogui' с функцией 'locateOnScreen'
+            # или интеграцию библиотек для обработки изображений типа OpenCV.
+
+            # --- ИСПРАВЛЕНИЕ: Найдем элемент, используя стандартные методы pywinauto ---
+            # Замените строку ниже на логику поиска вашего конкретного элемента "Pane"
+            # на основе его свойств (например, текста, automation_id, class_name, индекса).
+            # Вам НУЖНО определить уникальные свойства нужного вам элемента Pane.
+
+            try:
+                # Используем child_window для поиска дочернего элемента внутри окна
+                # !!! ВНИМАНИЕ: 'found_index=0' найдет ПЕРВЫЙ попавшийся Pane.
+                #     Это редко бывает точным. Укажите другие свойства (text, auto_id и т.д.),
+                #     чтобы найти нужный вам Pane!
+                pane_element = window.child_window(control_type="Pane",
+                                                   found_index=0)  # <<< УТОЧНИТЕ КРИТЕРИИ ПОИСКА ЗДЕСЬ!
+
+                # Дожидаемся, пока найденный элемент станет готовым (например, видимым, активным).
+                # 'ready' - часто подходящее состояние, означающее видимость и активность.
+                # Выберите состояние, которое подходит для вашего элемента.
+                wrapper = pane_element.wait('ready', timeout=10)
+
+            # Перехватываем конкретное исключение, если дочерний элемент не найден по критериям
+            except pywinauto.findbestmatch.MatchError:
+                print("--- Не удалось найти элемент Pane по указанным критериям.")
+                # Вы можете пропустить клик и попробовать снова в следующей итерации
+                await asyncio.sleep(5)  # Ждем перед следующей попыткой
+                continue  # Переходим к следующей итерации цикла
+
+            # --- Клик по найденному элементу ---
+            # Если 'wrapper' - это обертка нужного вам элемента, можно кликнуть по нему напрямую.
+            wrapper.click_input()  # Кликнет по центру элемента
+
+            # Исходный код вычислял координаты на основе распознавания изображения,
+            # что здесь не применимо, т.к. мы используем стандартный поиск pywinauto.
+            # Если нужно кликнуть по определенной точке внутри элемента,
+            # используйте wrapper.click_input(coords=(относительный_x, относительный_y))
+            # где относительные_x/y - смещения от верхнего левого угла элемента.
+
+            print('---> Click! ')  # Исправлено "Clock!" на "Click!"
+
+        except Exception as e:
+            # Этот блок перехватит другие ошибки, например, если не удалось подключиться к Chrome
+            print(f"--- Произошла ошибка в процессе работы: {e}")
+            # Добавьте дополнительную логику обработки ошибок, если необходимо.
+            # Например, можно попробовать перезапустить Chrome или выйти из цикла.
+            # await asyncio.sleep(5) # Можно добавить задержку и здесь
+
+        finally:
+            # Добавляем небольшую задержку в конце каждой итерации,
+            # даже при ошибке, чтобы не перегружать систему частыми попытками.
             await asyncio.sleep(5)
 
 async def clicker_pyscreeze():
@@ -201,10 +297,12 @@ async def clicker_autoit_w():
                 print('--- NO checkbox')
 
             n += 1
+            print(f'-- autoit {n}')
             await asyncio.sleep(5)
 
         except:
             n += 1
+            print(f'-- autoit {n}')
             await asyncio.sleep(5)
 
 async def clicker_pil():
@@ -244,7 +342,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
         driver.get(link)
         print('New Driver OK')
 
-    await clicker_autoit_w()
+   #await clicker_autoit_w()
     await clicker_pywinauto()
 
     await wait_for_portal() #Время ожидания
