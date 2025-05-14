@@ -152,7 +152,7 @@ async def clicker_pywinauto():
                 # Используем свойства Name и ControlType, которые вы нашли в Accessibility Insights
                 verify_checkbox_element = window.child_window(
                     control_type="CheckBox",
-                    Name="Verify you are human"
+                    title="Verify you are human"
                 )
 
                 # Дожидаемся, пока элемент станет готовым (например, видимым и активным)
@@ -176,6 +176,7 @@ async def clicker_pywinauto():
 
 
             print('---> Click! ') # Исправлено "Clock!" на "Click!"
+            return
 
         except Exception as e:
             print(f"--- Произошла ошибка в процессе работы: {e}")
