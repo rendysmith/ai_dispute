@@ -36,7 +36,7 @@ days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 ss_id = TABLES_LIST['zoom']
 
-local_ip = asyncio.run(get_local_ip())
+#local_ip = asyncio.run(get_local_ip())
 
 image_path = os.path.join(corn_folder, 'temp/image_to_find.png')
 
@@ -244,8 +244,8 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
         driver.get(link)
         print('New Driver OK')
 
-    #await clicker_autoit_w()
-    #await clicker_pywinauto()
+    await clicker_autoit_w()
+    await clicker_pywinauto()
 
     await wait_for_portal() #Время ожидания
 
