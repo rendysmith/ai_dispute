@@ -13,6 +13,7 @@ from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
 
 from utils.ai_module import generate_and_white
@@ -41,6 +42,103 @@ ss_id = TABLES_LIST['zoom']
 #local_ip = asyncio.run(get_local_ip())
 
 image_path = os.path.join(corn_folder, 'temp/image_to_find.png')
+
+
+def find_and_click_cloudflare_checkbox(driver):
+    """
+    Finds and clicks the Cloudflare "Verify you are human" checkbox in a Selenium-controlled Chrome browser.
+
+    Args:
+        driver: An instance of a Selenium WebDriver (specifically for Chrome).
+
+    Returns:
+        bool: True if the checkbox was found and clicked successfully, False otherwise.
+    """
+    print("Attempting to find and click the Cloudflare checkbox...")
+    try:
+        # Cloudflare challenges are often inside an iframe.
+        # We need to switch to the iframe first.
+        # We'll wait for the iframe to be present.
+        # Common ways to locate the Cloudflare iframe are by its title, name, or by a part of its src.
+        # A common pattern for the iframe title or name is related to "challenge" or "captcha".
+        # Let's try to locate the iframe by tag name and wait for one to appear,
+        # or by a potential ID or name if known. A more reliable way is often
+        # to look for an iframe whose content seems related to the challenge.
+
+        # A common iframe locator for Cloudflare might be by title or name containing "challenge".
+        # However, locating by CSS selector or XPath targeting the iframe itself is often more reliable.
+        # Let's try to find an iframe that is likely the Cloudflare one.
+        # A common CSS selector for the Cloudflare iframe can be 'iframe[title="Widget containing a checkbox for verifying user access"]'
+        # or simply targeting the iframe based on its presence when the challenge appears.
+
+        # Let's try a more general approach first: find any iframe that appears.
+        # If there are multiple iframes, this might need refinement.
+        # A better approach is to wait for a specific iframe by a more unique attribute if possible.
+
+        # A common and often reliable way is to wait for the iframe by its title or a specific attribute.
+        # Based on common Cloudflare implementations, let's try waiting for an iframe
+        # with a title that suggests it's the verification widget.
+        iframe_locator = (By.XPATH, "//iframe[contains(@title, 'challenge') or contains(@name, 'cf-chl-widget')]")
+        # Or by CSS selector if that's more stable on the target site:
+        # iframe_locator = (By.CSS_SELECTOR, "iframe[title*='challenge']")
+
+
+        WebDriverWait(driver, 20).until(
+            EC.frame_to_be_available_and_switch_to_it(iframe_locator)
+        )
+        print("Switched to Cloudflare iframe.")
+
+        # Now that we are inside the iframe, locate the checkbox.
+        # The checkbox is typically an input element. Common locators:
+        # By ID: 'cf-challenge-response' or similar
+        # By CSS Selector: 'input[type="checkbox"]' or a more specific CSS selector for the checkbox element
+        # By XPath: //input[@type='checkbox'] or targeting it relative to the "Verify you are human" text
+
+        # Let's try locating the checkbox by its type, as it's a standard input type for checkboxes.
+        # We'll wait for the checkbox to be clickable.
+        checkbox_locator = (By.CSS_SELECTOR, 'input[type="checkbox"]')
+        # Or, if there's a specific ID:
+        # checkbox_locator = (By.ID, 'cf-challenge-response')
+
+        checkbox_element = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable(checkbox_locator)
+        )
+        print("Checkbox element found.")
+
+        # Click the checkbox
+        checkbox_element.click()
+        print("Checkbox clicked successfully.")
+
+        # Switch back to the default content (main page)
+        driver.switch_to.default_content()
+        print("Switched back to default content.")
+
+        return True
+
+    except TimeoutException:
+        print("Timeout: Could not find the iframe or the checkbox within the specified time.")
+        # Switch back to default content in case we were stuck in an iframe attempt
+        try:
+            driver.switch_to.default_content()
+        except:
+            pass # Ignore if already in default content or driver is closed
+        return False
+    except NoSuchElementException:
+        print("Element not found: Could not locate the iframe or the checkbox.")
+        # Switch back to default content in case we were stuck in an iframe attempt
+        try:
+            driver.switch_to.default_content()
+        except:
+            pass # Ignore if already in default content or driver is closed
+        return False
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        # Switch back to default content in case we were stuck in an iframe attempt
+        try:
+            driver.switch_to.default_content()
+        except:
+            pass # Ignore if already in default content or driver is closed
+        return False
 
 async def click_checkbox(driver):
     n = 0
@@ -318,8 +416,8 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
         driver.get(link)
         print('New Driver OK')
 
-   #await clicker_autoit_w()
-    await clicker_pywinauto()
+    await find_and_click_cloudflare_checkbox(driver)
+    #await clicker_pywinauto()
 
     await wait_for_portal() #Время ожидания
 
