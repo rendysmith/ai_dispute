@@ -1,8 +1,6 @@
 import json
 import traceback
 
-#from playwright.async_api import async_playwright
-
 import asyncio
 import aiohttp
 from aiohttp_proxy import ProxyConnector, ProxyType
@@ -22,6 +20,13 @@ from utils.proxy_bridge import get_one_proxy
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+
+from webdriver_manager.chrome import ChromeDriverManager
 
 from seleniumbase import Driver
 from seleniumbase import config
@@ -335,39 +340,109 @@ async def get_selenium(url=False, headless=True, profile=False, proxy=False):
     print('- <<< Selenium No Proxy connect')
     return driver
 
-async def get_selenium_proxy_old(url=None, headless=True, proxy=True):
-    if proxy:
-        print('>>> Selenium proxy...')
-        proxy_host, proxy_port = await get_one_proxy()
-        print(f'Proxy: {proxy_host}:{proxy_port}')
-        proxy = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
+async def get_selenium_anticloud(url=None, headless=False, proxy=True):
+    options = Options()
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("--start-maximized")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
+    options.add_argument("--disable-extensions")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-gpu")
 
-        # create a Driver instance with undetected_chromedriver (uc) and headless mode
-        driver = Driver(uc=True,
-                        headless=headless,
-                        headless1=headless,
-                        headless2=headless,
-                        proxy=proxy,
-                        agent=ua.chrome,
-                        log_cdp_events=True
+    options.headless = headless
+
+    #service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(options=options)
+
+    # Дополнительно можно модифицировать User-Agent
+    driver.execute_cdp_cmd("Network.setUserAgentOverride", {
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    })
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+    driver.get(url)
+    await asyncio.sleep(5)
+
+    try:
+        # Поиск всех iframe на странице
+        iframes = driver.find_elements(By.TAG_NAME, "iframe")
+
+        # Если iframe найдены, перебираем их
+        if iframes:
+            for iframe in iframes:
+                try:
+                    driver.switch_to.frame(iframe)
+
+                    # Попытка 1: стандартный чекбокс
+                    try:
+                        checkbox = WebDriverWait(driver, 3).until(
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='checkbox']"))
                         )
-        #driver.get(url)
-        print('<<< Selenium connect')
-        return driver
+                        human_like_click(checkbox, driver)
+                        print("Нашли чекбокс через input[type='checkbox']")
+                        return True
+                    except:
+                        pass
 
-    else:
-        print('>>> Selenium NO proxy...')
-        # create a Driver instance with undetected_chromedriver (uc) and headless mode
-        driver = Driver(uc=True,
-                        headless=headless,
-                        headless1=headless,
-                        headless2=headless,
-                        agent=ua.chrome,
-                        log_cdp_events=True
+                    # Попытка 2: чекбокс Cloudflare внутри label
+                    try:
+                        checkbox = WebDriverWait(driver, 3).until(
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, "label.check"))
                         )
+                        human_like_click(checkbox, driver)
+                        print("Нашли чекбокс через label.check")
+                        return True
+                    except:
+                        pass
 
-        print('<<< Selenium connect')
-        return driver
+                    # Попытка 3: чекбокс как div
+                    try:
+                        checkbox = WebDriverWait(driver, 3).until(
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, "div.checkbox"))
+                        )
+                        human_like_click(checkbox, driver)
+                        print("Нашли чекбокс через div.checkbox")
+                        return True
+                    except:
+                        pass
+
+                    # Попытка 4: по XPath, ищем элемент рядом с текстом "Verify you are human"
+                    try:
+                        checkbox = WebDriverWait(driver, 3).until(
+                            EC.element_to_be_clickable(
+                                (By.XPATH, "//*[contains(text(), 'Verify you are human')]/preceding::input[1]"))
+                        )
+                        human_like_click(checkbox, driver)
+                        print("Нашли чекбокс через XPath около текста")
+                        return True
+                    except:
+                        pass
+
+                    # Возвращаемся из iframe если не нашли чекбокс
+                    driver.switch_to.default_content()
+                except:
+                    # Если произошла ошибка при переключении на iframe, возвращаемся к основному контенту
+                    driver.switch_to.default_content()
+
+        # Если в iframe не нашли, попробуем найти на основной странице
+        try:
+            checkbox = WebDriverWait(driver, 3).until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, "//label[contains(text(), 'Verify you are human')]/preceding-sibling::input"))
+            )
+            human_like_click(checkbox, driver)
+            print("Нашли чекбокс на основной странице")
+            return True
+        except:
+            print("pass")
+
+        print('pass')
+        return False
+
+    except Exception as e:
+        print(f"Произошла ошибка: {e}")
+        return False
 
 async def get_seleniumbase_SB(url=None, headless=True, proxy=True):
     if proxy:
@@ -387,11 +462,6 @@ async def get_seleniumbase_SB(url=None, headless=True, proxy=True):
             sb.driver.get(url)
 
         return sb
-
-
-from seleniumbase import Driver
-from selenium.webdriver.chrome.options import Options
-
 
 async def get_selenium_win(url=None, headless=True, proxy=True):
     chrome_options = Options()
@@ -413,7 +483,6 @@ async def get_selenium_win(url=None, headless=True, proxy=True):
 
     driver.execute_cdp_cmd('Network.enable', {})
     return driver
-
 
 async def get_selenium_proxy(url=None, headless=True, proxy=True):
         driver_options = {
@@ -506,6 +575,41 @@ async def get_playwright(url, headless=True):
         print("ERROR PW Ex:", Ex)
         traceback.print_exc()
         return None, None, None
+
+async def get_playwright_anticloud(url, headless=True, proxy=None):
+    print('>>> start PW AntiCloud')
+    """
+     :param url: url
+     :param headless: headless (boot) headless=True
+     :return:
+     """
+    from patchright.async_api import async_playwright, Browser, BrowserContext, Page
+
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch(
+            channel='chrome',
+            headless=headless,
+            proxy=None,
+            args=[
+                '--disable-blink-features=AutomationControlled',
+            ]
+        )
+        context = await browser.new_context()
+
+        # Assuming you want to return the first page for simplicity
+        page = await context.new_page()
+        await page.goto(url)
+
+        await asyncio.sleep(10)
+
+        print(await page.content())
+
+        input('Next...')
+
+        await asyncio.Future()
+
+        # Return the Page object
+        return page  # Added return statement
 
 async def get_data_with_proxy(url, text_format=True):
     trying = 3
@@ -624,99 +728,66 @@ def get_selenium_proxy_sync(url=None, headless=True, proxy=True):
 
         return driver
 
+async def get_patchright(url):
+    from patchright.async_api import async_playwright
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            channel='chrome',
+            headless=False,
+            args=['--disable-blink-features=AutomationControlled']
+        )
+        page = await browser.new_page()
+
+        await asyncio.sleep(10)
+        await page.goto(url)
+
+        input('wait..............')
+        #await page.screenshot(path=f'example-{p.chromium.name}.png')
+        await browser.close()
+
+
+
 async def tst_proxy():
-    print('-----------------')
-    url = 'https://ifconfig.me/all.json'
-    response = await get_data_with_proxy(url)
-    print(response)
+    from DrissionPage import ChromiumPage
 
-    soup = await get_soup(url)
-    print(soup)
+    page = ChromiumPage()
+    page.get('https://irecommend.ru/content/rezina-dlya-legkogo-i-ne-ochen-bezdorozhya')
+    while True:
+        await asyncio.sleep(7)
+        html_code = page.html
+        print(html_code)
 
-    print('---------2--------')
-    url = 'https://api.ipify.org?format=json'
-    soup = await get_soup(url)
-    print(soup)
+        # Находим чекбокс по тегу и типу или любому другому локатору
+        checkbox = page.ele("tag:input@@type=checkbox")
+        checkbox.wait.enabled(timeout=10)
 
-async def main(url):
+        # Кликаем по найденному чекбоксу
+        checkbox.click()
+
+
+
+    input('Wait ...')
+
+
+async def main():
     #soup = await get_soup_anticloud(url)
     #soup = await get_soup(url, only_text=False)
 
     #playwright, browser, page = await get_playwright(url, headless=False)
     headless = False
-    driver = await get_selenium_proxy(headless=headless, proxy=False)
+    #driver = await get_selenium_proxy(headless=headless, proxy=False)
+
+    url = 'https://irecommend.ru/content/vozmeshchenie-ubytkov-posle-krazhi-instrumenta'
+
+    await get_selenium_anticloud(url)
+    input('Wait...')
+
+    page = await get_playwright_anticloud(url, headless=headless)
+    input('Wait')
+
+
     #input('Wait..')
 
 if "__main__" in __name__:
-    #asyncio.run(get_playwright('https://yandex.ru/maps/org/149979773456/reviews', headless=False))
-    #asyncio.run(tst_proxy())
-    url = 'https://ocompanii.net/reviews/detail.php?id=1137222'
-    url = "https://httpbin.org/ip"
-    url = 'https://irecommend.ru/content/2-nedeli-polet-normalnyi'
-
-
-    a = asyncio.run(get_soup_anticloud(url))
-    # url = 'https://yandex.ru/maps/2/saint-petersburg/geo/zhiloy_kompleks_biografiya/4184971603/?ll=30.281608%2C59.960850&z=15.46'
-    # playwright, browser, page = asyncio.run(get_playwright(url))
-    # if page:
-    #     print(page.url)
-    #     print('OK!')
-
-
-    #
-    #
-    # def enable_secure_dns(driver):
-    #     # Включаем Secure DNS и выбираем Cloudflare (1.1.1.1)
-    #     driver.execute_cdp_cmd("Network.setExtraHTTPHeaders", {
-    #         "headers": {
-    #             "Secure-DNS": "1.1.1.1"
-    #         }
-    #     })
-    #
-    # chrome_options = webdriver.ChromeOptions()
-    # chrome_options.add_argument(f'--user-agent={ua.chrome}')
-    # chrome_options.add_argument("--no-sandbox")
-    # chrome_options.add_argument("--disable-dev-shm-usage")
-    #
-    # # Initialize SeleniumAuthenticatedProxy
-    # proxy_helper = SeleniumAuthenticatedProxy(proxy_url=f"http://{proxy}")
-    #
-    # # Enrich Chrome options with proxy authentication
-    # proxy_helper.enrich_chrome_options(chrome_options)
-    #
-    # # Start WebDriver with enriched options
-    # driver = webdriver.Chrome(options=chrome_options)
-    # enable_secure_dns(driver)
-    # driver.get(url)
-    #
-    # return driver
-
-
-    # from seleniumwire.undetected_chromedriver import Chrome
-    #
-    # chrome_options = Options()
-    # if headless == True:
-    #     chrome_options.add_argument("--headless")
-    #     chrome_options.add_argument("--no-sandbox")
-    #     chrome_options.add_argument("--disable-dev-shm-usage")
-    #
-    # chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
-    #
-    #
-    #
-    # seleniumwire_options = {
-    #     'proxy': {
-    #         'http': f'http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}',
-    #         'verify_ssl': False,
-    #     },
-    # }
-    #
-    # # driver = webdriver.Chrome(
-    # #     seleniumwire_options=seleniumwire_options
-    # # )
-    # driver = Chrome(options=chrome_options, seleniumwire_options=seleniumwire_options)
-    # driver.get(url)
-    #
-    # # Ожидание загрузки определенного элемента (например, заголовка)
-    # wait = WebDriverWait(driver, 10)
-    # return driver
+    asyncio.run(main())

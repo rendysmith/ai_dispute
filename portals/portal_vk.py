@@ -212,7 +212,8 @@ async def blocks_vk(url, author_name=False):
            'response_type=token&'
            'v=5.92&'
            'state=123456')
-    print(url_access_token)
+
+    #print(url_access_token)
 
     comments = []
     offset = 0
@@ -241,18 +242,18 @@ async def blocks_vk(url, author_name=False):
         try:
             async with session.get(url, params=params) as response:
                 status_code = response.status
-                print(status_code)
+                #print(status_code)
                 data = await response.json()
 
         except Exception as Ex:
-            print(f'Error Ex1 {Ex}')
+            print(f'--- Error Ex1 {Ex}')
             return
 
     #pprint(data)
 
     # Проверяем наличие ошибок
     if 'error' in data:
-        print(f"Ошибка: {data['error']['error_msg']}")
+        print(f"--- Ошибка: {data['error']['error_msg']}")
         return
 
     # Получаем информацию о группе
@@ -284,7 +285,7 @@ async def blocks_vk(url, author_name=False):
         if comment.get('author_name'):
             comments.append(comment)
 
-    print(len(comments))
+    #print(len(comments))
     return comments
 
 async def check_vk(service, url, pattern, criteria, ss_id, project, links=False):

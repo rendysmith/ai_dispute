@@ -22,7 +22,8 @@ from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, get_table_scope, \
     append_data_to_sheet_cell, write_log_sheet
 from utils.proxy_bridge import get_one_proxy
-from utils.user_agent import extract_main_site, get_selenium_proxy, get_selenium, get_seleniumbase_SB, get_selenium_win
+from utils.user_agent import extract_main_site, get_selenium_proxy, get_selenium, get_seleniumbase_SB, get_selenium_win, \
+    get_playwright_anticloud
 
 from threading import Thread
 
@@ -40,105 +41,13 @@ max_sec = int(os.environ.get("MAX_SEC"))
 ss_id = TABLES_LIST['zoom']
 
 #local_ip = asyncio.run(get_local_ip())
+int_time = int(time.time())
 
-image_path = os.path.join(corn_folder, 'temp/image_to_find.png')
+image_path = os.path.join(corn_folder, 'temp', 'box_black.png')
+screenshot_path = os.path.join(corn_folder, "temp", f"{int_time}_screen.png")
+result_after_click = os.path.join(corn_folder, "temp", "result_after_click.png")
+detected_checkboxes = os.path.join(corn_folder, 'temp', "detected_checkboxes.png")
 
-
-def find_and_click_cloudflare_checkbox(driver):
-    """
-    Finds and clicks the Cloudflare "Verify you are human" checkbox in a Selenium-controlled Chrome browser.
-
-    Args:
-        driver: An instance of a Selenium WebDriver (specifically for Chrome).
-
-    Returns:
-        bool: True if the checkbox was found and clicked successfully, False otherwise.
-    """
-    print("Attempting to find and click the Cloudflare checkbox...")
-    try:
-        # Cloudflare challenges are often inside an iframe.
-        # We need to switch to the iframe first.
-        # We'll wait for the iframe to be present.
-        # Common ways to locate the Cloudflare iframe are by its title, name, or by a part of its src.
-        # A common pattern for the iframe title or name is related to "challenge" or "captcha".
-        # Let's try to locate the iframe by tag name and wait for one to appear,
-        # or by a potential ID or name if known. A more reliable way is often
-        # to look for an iframe whose content seems related to the challenge.
-
-        # A common iframe locator for Cloudflare might be by title or name containing "challenge".
-        # However, locating by CSS selector or XPath targeting the iframe itself is often more reliable.
-        # Let's try to find an iframe that is likely the Cloudflare one.
-        # A common CSS selector for the Cloudflare iframe can be 'iframe[title="Widget containing a checkbox for verifying user access"]'
-        # or simply targeting the iframe based on its presence when the challenge appears.
-
-        # Let's try a more general approach first: find any iframe that appears.
-        # If there are multiple iframes, this might need refinement.
-        # A better approach is to wait for a specific iframe by a more unique attribute if possible.
-
-        # A common and often reliable way is to wait for the iframe by its title or a specific attribute.
-        # Based on common Cloudflare implementations, let's try waiting for an iframe
-        # with a title that suggests it's the verification widget.
-        iframe_locator = (By.XPATH, "//iframe[contains(@title, 'challenge') or contains(@name, 'cf-chl-widget')]")
-        # Or by CSS selector if that's more stable on the target site:
-        # iframe_locator = (By.CSS_SELECTOR, "iframe[title*='challenge']")
-
-
-        WebDriverWait(driver, 20).until(
-            EC.frame_to_be_available_and_switch_to_it(iframe_locator)
-        )
-        print("Switched to Cloudflare iframe.")
-
-        # Now that we are inside the iframe, locate the checkbox.
-        # The checkbox is typically an input element. Common locators:
-        # By ID: 'cf-challenge-response' or similar
-        # By CSS Selector: 'input[type="checkbox"]' or a more specific CSS selector for the checkbox element
-        # By XPath: //input[@type='checkbox'] or targeting it relative to the "Verify you are human" text
-
-        # Let's try locating the checkbox by its type, as it's a standard input type for checkboxes.
-        # We'll wait for the checkbox to be clickable.
-        checkbox_locator = (By.CSS_SELECTOR, 'input[type="checkbox"]')
-        # Or, if there's a specific ID:
-        # checkbox_locator = (By.ID, 'cf-challenge-response')
-
-        checkbox_element = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable(checkbox_locator)
-        )
-        print("Checkbox element found.")
-
-        # Click the checkbox
-        checkbox_element.click()
-        print("Checkbox clicked successfully.")
-
-        # Switch back to the default content (main page)
-        driver.switch_to.default_content()
-        print("Switched back to default content.")
-
-        return True
-
-    except TimeoutException:
-        print("Timeout: Could not find the iframe or the checkbox within the specified time.")
-        # Switch back to default content in case we were stuck in an iframe attempt
-        try:
-            driver.switch_to.default_content()
-        except:
-            pass # Ignore if already in default content or driver is closed
-        return False
-    except NoSuchElementException:
-        print("Element not found: Could not locate the iframe or the checkbox.")
-        # Switch back to default content in case we were stuck in an iframe attempt
-        try:
-            driver.switch_to.default_content()
-        except:
-            pass # Ignore if already in default content or driver is closed
-        return False
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        # Switch back to default content in case we were stuck in an iframe attempt
-        try:
-            driver.switch_to.default_content()
-        except:
-            pass # Ignore if already in default content or driver is closed
-        return False
 
 async def click_checkbox(driver):
     n = 0
@@ -301,35 +210,68 @@ async def clicker_pywinauto():
             await asyncio.sleep(5)
 
 async def clicker_pyscreeze():
+    """
+    Ищет заданное изображение на экране и кликает по его центру.
+
+    Args:
+        image_path (str): Путь к файлу с изображением, которое нужно найти.
+        confidence (float): Уровень уверенности для поиска (от 0.0 до 1.0).
+                            Более низкое значение менее строго, но может привести к ложным срабатываниям.
+                            Требуется установка opencv-python.
+        grayscale (bool): Искать в оттенках серого. Может ускорить поиск и сделать его
+                          более устойчивым к незначительным изменениям цвета. Требуется opencv-python.
+        duration (float): Длительность движения мыши до клика в секундах.
+
+    Returns:
+        bool: True, если изображение найдено и клик выполнен, False в противном случае.
+    """
+
     import pyscreeze
-    import pyautogui
+    import pyautogui  # Импортируем pyautogui для управления мышью
+    import time
 
-    while True:
-        print("---- Click checkbox pyautogui")
-        try:
-            # Ищем изображение на экране
-            location = pyscreeze.locateOnScreen(image_path, confidence=0.8)
+    confidence = 0.7
+    grayscale = True
+    #confidence=0.9
+    #grayscale=False
+    duration=0.2
 
-            if location is not None:
-                print(f"Найдено изображение в позиции: {location}")
+    print(f"Ищем изображение: {image_path} на экране...")
 
-                # Получаем центр найденного изображения
-                center_x = location.left + (location.width / 2)
-                center_y = location.top + (location.height / 2)
+    try:
+        # Ищем центр изображения на экране с помощью pyscreeze
+        location = pyscreeze.locateCenterOnScreen(
+            image_path,
+            confidence=confidence,
+            grayscale=grayscale
+        )
 
-                # Кликаем по центру
-                pyautogui.click(center_x, center_y)
-                print(f"Клик выполнен по координатам: {center_x}, {center_y}")
-                return True
-            else:
-                print("Изображение не найдено")
-                return False
+        if location:
+            x, y = location
+            print(f"Изображение найдено по координатам: ({x}, {y}). Выполняем клик.")
 
-        except Exception as e:
-            print(f"Произошла ошибка: {e}")
+            # Перемещаем курсор и кликаем с помощью pyautogui
+            # Добавим небольшую задержку и плавность движения
+            pyautogui.moveTo(x, y, duration=duration)  # Исправлено на pyautogui.moveTo
+            time.sleep(0.1)  # Короткая пауза перед кликом
+            pyautogui.click(x, y)  # Исправлено на pyautogui.click
+            print("Клик выполнен.")
+            return True
+
+        else:
+            print("Изображение не найдено на экране.")
             return False
 
-        time.sleep(5)
+    except pyscreeze.ImageNotFoundException:
+        # Это исключение возникает, если locateCenterOnScreen не находит изображение
+        print("Изображение не найдено на экране (исключение ImageNotFoundException).")
+        return False
+
+    except Exception as e:
+        print(f"Произошла ошибка при поиске или клике: {e}")
+        return False
+
+
 
 async def async_find_and_click():
     import pyautogui
@@ -396,6 +338,162 @@ async def clicker_pil():
         mouse.click()
         await asyncio.sleep(5)
 
+async def find_and_click_cloudflare_checkbox(driver):
+    import cv2
+    import pyautogui
+
+    # Сделаем скриншот экрана
+
+    pyautogui.screenshot(screenshot_path)
+
+    def find_checkbox_and_click():
+        # Загружаем изображение
+        screen = cv2.imread(screenshot_path)
+
+        # Конвертируем в оттенки серого
+        gray = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
+
+        # Метод 1: Поиск квадратного чекбокса
+        # Применяем пороговую обработку для выделения контрастных областей
+        _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY_INV)
+
+        # Ищем контуры
+        contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Ищем квадратные контуры подходящего размера
+        checkbox_candidates = []
+        for contour in contours:
+            # Аппроксимируем контур
+            approx = cv2.approxPolyDP(contour, 0.01 * cv2.arcLength(contour, True), True)
+
+            # Проверяем, похож ли контур на квадрат (4 точки) и имеет подходящий размер
+            x, y, w, h = cv2.boundingRect(contour)
+            aspect_ratio = float(w) / h
+
+            # Если контур почти квадратный и подходящего размера (от 15x15 до 50x50 пикселей)
+            if len(approx) >= 4 and 0.8 <= aspect_ratio <= 1.2 and 15 <= w <= 50 and 15 <= h <= 50:
+                area = cv2.contourArea(contour)
+                if area > 200:  # Минимальная площадь, чтобы исключить шум
+                    checkbox_candidates.append((x, y, w, h))
+                    # Рисуем найденный контур для отладки
+                    cv2.rectangle(screen, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+        # Метод 2: Попытка поиска текста "Verify you are human" и определение положения рядом
+        # Этот метод требует использования библиотеки для OCR, например, pytesseract
+        # Здесь мы просто проверим найденные кандидаты относительно центра экрана,
+        # предполагая, что капча обычно находится в центре
+
+        # Сортируем кандидатов по близости к центру экрана
+        height, width = screen.shape[:2]
+        center_x, center_y = width // 2, height // 2
+
+        checkbox_candidates.sort(key=lambda rect:
+        ((rect[0] + rect[2] / 2 - center_x) ** 2 +
+         (rect[1] + rect[3] / 2 - center_y) ** 2))
+
+        # Сохраняем изображение с выделенными кандидатами для отладки
+        cv2.imwrite(detected_checkboxes, screen)
+
+        # Если нашли кандидатов, кликаем по центру первого (самого вероятного)
+        if checkbox_candidates:
+            best_candidate = checkbox_candidates[0]
+            x, y, w, h = best_candidate
+
+            # Вычисляем центр чекбокса
+            center_x = x + w // 2
+            center_y = y + h // 2
+
+            print(f"Найден возможный чекбокс по координатам: ({center_x}, {center_y})")
+
+            # Делаем движение мышью плавным и человекоподобным
+            current_x, current_y = pyautogui.position()
+            pyautogui.moveTo(center_x, center_y, duration=0.5)  # Плавное движение к чекбоксу
+            time.sleep(0.2)  # Небольшая пауза перед кликом
+            pyautogui.click()  # Клик по чекбоксу
+            time.sleep(0.5)  # Пауза после клика
+
+            return True
+        else:
+            print("Не удалось найти подходящие чекбоксы на изображении")
+            return False
+
+    # Метод 3: Поиск по шаблону
+    def find_by_template():
+        # Необходимо иметь заранее сохраненное изображение чекбокса
+        # template_path = "cloudflare_checkbox_template.png"
+
+        # Проверяем, есть ли шаблонное изображение
+        template_path = image_path
+        if not os.path.exists(template_path):
+            print(f"Шаблон {template_path} не найден. Сначала нужно создать шаблонное изображение чекбокса.")
+            return False
+
+        # Загружаем шаблон и скриншот
+        template = cv2.imread(template_path, 0)
+        screen = cv2.imread(screenshot_path, 0)
+
+        # Находим совпадения шаблона на изображении
+        result = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+
+        # Если совпадение достаточно хорошее
+        if max_val > 0.7:  # Порог совпадения (от 0 до 1)
+            # Получаем координаты
+            h, w = template.shape
+            top_left = max_loc
+            center_x = top_left[0] + w // 2
+            center_y = top_left[1] + h // 2
+
+            print(f"Найдено совпадение с шаблоном по координатам: ({center_x}, {center_y})")
+
+            # Делаем движение мышью плавным и человекоподобным
+            pyautogui.moveTo(center_x, center_y, duration=0.5)
+            time.sleep(0.2)
+            pyautogui.click()
+            time.sleep(0.5)
+
+            return True
+        else:
+            print("Шаблон не найден на изображении")
+            return False
+
+    # Выполняем поиск и клик
+    try:
+        # Пробуем сначала метод определения по контурам
+        if find_checkbox_and_click():
+            print("Клик по чекбоксу выполнен методом определения контуров")
+        # Если не сработало, пробуем метод по шаблону
+        elif find_by_template():
+            print("Клик по чекбоксу выполнен методом поиска по шаблону")
+        else:
+            print("Не удалось найти и кликнуть по чекбоксу. Пробуем универсальный способ...")
+
+            # Универсальный способ - клик в центр области, где чаще всего находится капча
+            screen_width, screen_height = pyautogui.size()
+
+            # Предполагаем, что капча находится в центральной области экрана
+            center_x = screen_width // 2
+            center_y = screen_height // 2
+
+            # Смещаемся немного вверх от центра, где обычно находится чекбокс
+            click_y = center_y - 50
+
+            print(f"Пробуем кликнуть по предполагаемой позиции чекбокса: ({center_x}, {click_y})")
+            pyautogui.moveTo(center_x, click_y, duration=0.5)
+            time.sleep(0.2)
+            pyautogui.click()
+
+        # Ждем некоторое время, чтобы страница прошла проверку и загрузилась
+        print("Ожидание загрузки страницы после клика...")
+        time.sleep(5)
+
+        # Делаем снимок экрана для проверки результата
+        pyautogui.screenshot(result_after_click)
+        print(f"Сохранен скриншот после клика: {result_after_click}")
+
+    except Exception as e:
+        print(f"Произошла ошибка: {e}")
+
 async def get_driver():
     headless, proxy_on, only_text = await get_hpo()
     headless = False
@@ -416,19 +514,11 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
         driver.get(link)
         print('New Driver OK')
 
-    await find_and_click_cloudflare_checkbox(driver)
-    #await clicker_pywinauto()
+    box_true = True
+    while box_true:
+        await wait_for_portal()  # Время ожидания
+        box_true = await clicker_pyscreeze()
 
-    await wait_for_portal() #Время ожидания
-
-    #print('Старт clicker...')
-    #driver = await click_checkbox(driver)
-
-    #input()
-    #----------------------------------------------------------------
-    #print('Старт clicker...')
-    #driver = await click_checkbox(driver)
-    #----------------------------------------------------------------
 
     if 'new=1' not in link:
         n = 0
