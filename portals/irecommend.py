@@ -43,7 +43,9 @@ ss_id = TABLES_LIST['zoom']
 #local_ip = asyncio.run(get_local_ip())
 int_time = int(time.time())
 
-image_path = os.path.join(corn_folder, 'temp', 'box_black.png')
+box_black = os.path.join(corn_folder, 'temp', 'box_black.png')
+box_white = os.path.join(corn_folder, 'temp', 'box_white.png')
+
 screenshot_path = os.path.join(corn_folder, "temp", f"{int_time}_screen.png")
 result_after_click = os.path.join(corn_folder, "temp", "result_after_click.png")
 detected_checkboxes = os.path.join(corn_folder, 'temp', "detected_checkboxes.png")
@@ -236,40 +238,44 @@ async def clicker_pyscreeze():
     #grayscale=False
     duration=0.2
 
-    print(f"Ищем изображение: {image_path} на экране...")
+    for image_path in [box_black, box_white]:
+        print(f"Ищем изображение: {image_path} на экране...")
 
-    try:
-        # Ищем центр изображения на экране с помощью pyscreeze
-        location = pyscreeze.locateCenterOnScreen(
-            image_path,
-            confidence=confidence,
-            grayscale=grayscale
-        )
+        try:
+            # Ищем центр изображения на экране с помощью pyscreeze
+            location = pyscreeze.locateCenterOnScreen(
+                image_path,
+                confidence=confidence,
+                grayscale=grayscale
+            )
 
-        if location:
-            x, y = location
-            print(f"Изображение найдено по координатам: ({x}, {y}). Выполняем клик.")
+            if location:
+                x, y = location
+                print(f"Изображение найдено по координатам: ({x}, {y}). Выполняем клик.")
 
-            # Перемещаем курсор и кликаем с помощью pyautogui
-            # Добавим небольшую задержку и плавность движения
-            pyautogui.moveTo(x, y, duration=duration)  # Исправлено на pyautogui.moveTo
-            time.sleep(0.1)  # Короткая пауза перед кликом
-            pyautogui.click(x, y)  # Исправлено на pyautogui.click
-            print("Клик выполнен.")
-            return True
+                # Перемещаем курсор и кликаем с помощью pyautogui
+                # Добавим небольшую задержку и плавность движения
+                pyautogui.moveTo(x, y, duration=duration)  # Исправлено на pyautogui.moveTo
+                time.sleep(0.1)  # Короткая пауза перед кликом
+                pyautogui.click(x, y)  # Исправлено на pyautogui.click
+                print("Клик выполнен.")
+                return True
 
-        else:
-            print("Изображение не найдено на экране.")
-            return False
+            else:
+                print("Изображение не найдено на экране.")
+                if image_path == box_white:
+                    return False
 
-    except pyscreeze.ImageNotFoundException:
-        # Это исключение возникает, если locateCenterOnScreen не находит изображение
-        print("Изображение не найдено на экране (исключение ImageNotFoundException).")
-        return False
+        except pyscreeze.ImageNotFoundException:
+            # Это исключение возникает, если locateCenterOnScreen не находит изображение
+            print("Изображение не найдено на экране (исключение ImageNotFoundException).")
+            if image_path == box_white:
+                return False
 
-    except Exception as e:
-        print(f"Произошла ошибка при поиске или клике: {e}")
-        return False
+        except Exception as e:
+            print(f"Произошла ошибка при поиске или клике: {e}")
+            if image_path == box_white:
+                return False
 
 
 
@@ -518,7 +524,6 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
     while box_true:
         await wait_for_portal()  # Время ожидания
         box_true = await clicker_pyscreeze()
-
 
     if 'new=1' not in link:
         n = 0
