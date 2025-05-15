@@ -277,8 +277,6 @@ async def clicker_pyscreeze():
             if image_path == box_black:
                 return False
 
-
-
 async def async_find_and_click():
     import pyautogui
     import pyscreeze
