@@ -238,7 +238,7 @@ async def clicker_pyscreeze():
     #grayscale=False
     duration=0.2
 
-    for image_path in [box_black, box_white]:
+    for image_path in [box_white, box_black]:
         print(f"Ищем изображение: {image_path} на экране...")
 
         try:
@@ -258,23 +258,23 @@ async def clicker_pyscreeze():
                 pyautogui.moveTo(x, y, duration=duration)  # Исправлено на pyautogui.moveTo
                 time.sleep(0.1)  # Короткая пауза перед кликом
                 pyautogui.click(x, y)  # Исправлено на pyautogui.click
-                print("Клик выполнен.")
+                print(f"Клик {image_path} выполнен.")
                 return True
 
             else:
                 print("Изображение не найдено на экране.")
-                if image_path == box_white:
+                if image_path == box_black:
                     return False
 
         except pyscreeze.ImageNotFoundException:
             # Это исключение возникает, если locateCenterOnScreen не находит изображение
             print("Изображение не найдено на экране (исключение ImageNotFoundException).")
-            if image_path == box_white:
+            if image_path == box_black:
                 return False
 
         except Exception as e:
             print(f"Произошла ошибка при поиске или клике: {e}")
-            if image_path == box_white:
+            if image_path == box_black:
                 return False
 
 
