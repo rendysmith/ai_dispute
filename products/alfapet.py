@@ -79,6 +79,10 @@ async def main_alfa():
                 domens[k].append(url_)
                 break
 
+    first_key = next(iter(domens))
+    first_value = domens.pop(first_key)
+    domens[first_key] = first_value
+
     for k1, v1 in domens.items():
         print(f"{k1}: {len(v1)}")
 
