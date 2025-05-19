@@ -619,7 +619,7 @@ async def main():
 if __name__ == '__main__':
     link = 'https://yandex.kz/maps/org/sidorin_lab/193038195644/reviews'
 
-    a = asyncio.run(get_id_org(link))
+    a = asyncio.run(main_ya_maps())
     print(a)
     #asyncio.run(main_ya_maps())
 

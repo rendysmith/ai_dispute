@@ -462,25 +462,15 @@ async def get_seleniumbase_SB(url=None, headless=True, proxy=True):
         return sb
 
 async def get_selenium_win(url=None, headless=True, proxy=True):
-    from selenium.webdriver.firefox.options import Options
-
+    proxy = "username:password@proxy_address:proxy_port"
     proxy_host, proxy_port = await get_one_proxy()
     print(proxy_host)
+    proxy = f'{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}'
 
-    firefox_options = Options()
-    #firefox_options.add_argument(f'--proxy-server={login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}')
+    chrome_options = Options()
+    chrome_options.add_argument(f'--proxy-server=http://{proxy}')
 
-    firefox_options.set_preference("network.proxy.type", 1)  # 1 для ручной настройки
-    firefox_options.set_preference("network.proxy.http", proxy_host)
-    firefox_options.set_preference("network.proxy.http_port", proxy_port)
-    firefox_options.set_preference("network.proxy.ssl", proxy_host)
-    firefox_options.set_preference("network.proxy.ssl_port", proxy_port)
-    firefox_options.set_preference("network.proxy.socks", proxy_host)
-    firefox_options.set_preference("network.proxy.socks_port", proxy_port)
-    firefox_options.set_preference("network.proxy.socks_version", 5)  # Например, для SOCKS5
-    firefox_options.set_preference("network.proxy.no_proxies_on", "localhost, 127.0.0.1")  # Список адресов без прокси
-
-    driver = webdriver.Firefox(options=firefox_options)
+    driver = webdriver.Chrome(options=chrome_options)
 
     if url:
         driver.get(url)
