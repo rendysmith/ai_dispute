@@ -222,7 +222,7 @@ async def set_windows_proxy():
     winreg.CloseKey(key)
 
     # Обновление настроек прокси без перезагрузки
-    os.system('RunDll32.exe InetCpl.cpl,LaunchConnectionDialog')
+    #os.system('RunDll32.exe InetCpl.cpl,LaunchConnectionDialog')
 
 
 if "__main__" in __name__:
