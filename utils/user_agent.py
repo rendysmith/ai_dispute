@@ -308,7 +308,7 @@ async def get_selenium(url=False, headless=True, profile=False, proxy=False):
         print('- >>> Selenium WITH Proxy...')
         proxy_host, proxy_port = await get_one_proxy()
         print(proxy_host)
-        chrome_options.add_argument(f'--proxy-server=http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}')
+        chrome_options.add_argument(f'--proxy-server={login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}')
 
     else:
         print('- >>> Selenium WITHOUT Proxy...')
@@ -321,8 +321,6 @@ async def get_selenium(url=False, headless=True, profile=False, proxy=False):
 
         chrome_options.add_argument('--disable-blink-features=AutomationControlled')
         chrome_options.add_argument('--disable-web-security')
-
-
 
     if profile:
         chrome_options.add_argument(f"--user-data-dir={profile}")
