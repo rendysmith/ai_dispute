@@ -285,9 +285,9 @@ async def main_otzovik():
 
     driver = None
     if proxy_active == 'Active':
-        print(">>> Start WinProxy...")
-        await set_windows_proxy()
-        await asyncio.sleep(5)
+        # print(">>> Start WinProxy...")
+        # await set_windows_proxy()
+        # await asyncio.sleep(5)
 
         print('>>> Start Selenium...')
         #driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
