@@ -462,29 +462,25 @@ async def get_seleniumbase_SB(url=None, headless=True, proxy=True):
         return sb
 
 async def get_selenium_win(url=None, headless=True, proxy=True):
+    from selenium.webdriver.firefox.options import Options
+
     proxy_host, proxy_port = await get_one_proxy()
     print(proxy_host)
-    # formulate the proxy url with authentication
-    proxy_url = f"http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
 
-    # set selenium-wire options to use the proxy
-    seleniumwire_options = {
-        "proxy": {
-            "http": proxy_url,
-            "https": proxy_url
-        },
-    }
+    firefox_options = Options()
+    #firefox_options.add_argument(f'--proxy-server={login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}')
 
-    # set Chrome options to run in headless mode
-    options = Options()
-    options.add_argument("--headless")
+    firefox_options.set_preference("network.proxy.type", 1)  # 1 для ручной настройки
+    firefox_options.set_preference("network.proxy.http", proxy_host)
+    firefox_options.set_preference("network.proxy.http_port", proxy_port)
+    firefox_options.set_preference("network.proxy.ssl", proxy_host)
+    firefox_options.set_preference("network.proxy.ssl_port", proxy_port)
+    firefox_options.set_preference("network.proxy.socks", proxy_host)
+    firefox_options.set_preference("network.proxy.socks_port", proxy_port)
+    firefox_options.set_preference("network.proxy.socks_version", 5)  # Например, для SOCKS5
+    firefox_options.set_preference("network.proxy.no_proxies_on", "localhost, 127.0.0.1")  # Список адресов без прокси
 
-    # initialize the Chrome driver with service, selenium-wire options, and chrome options
-    driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()),
-        seleniumwire_options=seleniumwire_options,
-        options=options
-    )
+    driver = webdriver.Firefox(options=firefox_options)
 
     if url:
         driver.get(url)
@@ -787,7 +783,7 @@ async def main():
 
     url = 'https://irecommend.ru/content/vozmeshchenie-ubytkov-posle-krazhi-instrumenta'
 
-    await get_selenium_anticloud(url)
+    await get_selenium_win(url)
     input('Wait...')
 
     page = await get_playwright_anticloud(url, headless=headless)
