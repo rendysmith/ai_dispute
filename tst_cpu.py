@@ -1,3 +1,4 @@
+import asyncio
 import os
 from dotenv import load_dotenv
 
@@ -50,3 +51,7 @@ async def get_selenium_win(url=None, headless=True, proxy=True):
         driver.get(url)
 
     return driver
+
+if "__main__" in __name__:
+    asyncio.run(func_1())
+    asyncio.run(get_selenium_win())
