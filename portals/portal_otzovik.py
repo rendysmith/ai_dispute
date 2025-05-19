@@ -285,11 +285,15 @@ async def main_otzovik():
 
     driver = None
     if proxy_active == 'Active':
+        print(">>> Start WinProxy...")
+        await set_windows_proxy()
+        await asyncio.sleep(5)
+
         print('>>> Start Selenium...')
         #driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
         driver = await get_selenium_win(headless=headless, proxy=proxy_on)
     
-    await set_windows_proxy()
+
     print('local_ip', local_ip)
 
     service = await get_service()
