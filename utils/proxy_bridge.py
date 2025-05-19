@@ -204,6 +204,26 @@ async def main_proxy():
 
     response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
 
+async def set_windows_proxy():
+    import winreg
+    host, port = await get_one_proxy()
+
+    proxy = f"{host}:{port}"
+    os.environ['http_proxy'] = f"http://{login_proxy}:{pass_proxy}@{proxy}"
+    os.environ['https_proxy'] = f"https://{login_proxy}:{pass_proxy}@{proxy}"
+
+    key = winreg.OpenKey(
+        winreg.HKEY_CURRENT_USER,
+        r"Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+        0, winreg.KEY_SET_VALUE
+    )
+    winreg.SetValueEx(key, "ProxyEnable", 0, winreg.REG_DWORD, 1)
+    winreg.SetValueEx(key, "ProxyServer", 0, winreg.REG_SZ, proxy)
+    winreg.CloseKey(key)
+
+    # Обновление настроек прокси без перезагрузки
+    os.system('RunDll32.exe InetCpl.cpl,LaunchConnectionDialog')
+
 
 if "__main__" in __name__:
     srv = asyncio.run(get_one_proxy())
