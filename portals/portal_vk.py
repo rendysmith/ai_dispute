@@ -295,7 +295,7 @@ async def check_vk(service, url, pattern, criteria, ss_id, project, links=False)
         return
 
     for comment in comments:
-        uniq_id = comment['id']
+        uniq_id = f"{comment['id']}_{comment['from_id']}_{comment['date']}"
 
         if links:
             if uniq_id in links:
@@ -328,9 +328,11 @@ async def main_vk():
     url = 'https://vk.com/amurr24?w=wall-72072592_6066'
     url = 'https://vk.com/wall-20225241_1024998?reply=1025059&thread=1025049'
 
-    comment = await blocks_vk(url)
-    for com in comment:
-        print(com)
+    comments = await blocks_vk(url)
+    for comment in comments:
+        uniq_id = f"{comment['id']}_{comment['from_id']}_{comment['date']}"
+        print(uniq_id)
+        #print(com)
 
 if __name__ == '__main__':
     #asyncio.run(check_vk(''))
