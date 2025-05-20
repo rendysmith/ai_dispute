@@ -24,6 +24,7 @@ async def func_1():
     # Define custom options for the Selenium driver
     options = Options()
     proxy_server_url = f"https://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
+    print(proxy_server_url)
     options.add_argument(f'--proxy-server={proxy_server_url}')
 
     # Create the ChromeDriver instance with custom options
@@ -31,6 +32,7 @@ async def func_1():
         service=ChromeService(ChromeDriverManager().install()),
         options=options
     )
+    driver.get("2ip.ru")
 
     input(1)
 
@@ -40,11 +42,13 @@ async def get_selenium_win(url=None, headless=True, proxy=True):
     proxy_host, proxy_port = await get_one_proxy()
     print(proxy_host)
     proxy = f'{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}'
+    print(proxy)
 
     chrome_options = Options()
     chrome_options.add_argument(f'--proxy-server=http://{proxy}')
 
     driver = webdriver.Chrome(options=chrome_options)
+    driver.get("2ip.ru")
     input(2)
 
     if url:
@@ -52,6 +56,32 @@ async def get_selenium_win(url=None, headless=True, proxy=True):
 
     return driver
 
+async def get_seleniumbase_SB(url=None, headless=True, proxy=True):
+    from seleniumbase import SB
+
+    from fake_useragent import UserAgent
+    ua = UserAgent()
+
+
+    print('>>> Selenium PROXY...')
+    proxy_host, proxy_port = await get_one_proxy()
+    print(f'New One Proxy: {proxy_host}:{proxy_port}')
+    proxy_string = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
+
+
+    with SB(proxy=proxy_string, headless=headless, agent=ua.chrome) as sb:
+        #sb.__enter__()  # вручную запускаем контекст
+
+        sb.driver.get("2ip.ru")
+
+        input(3)
+
+        # if url:
+        #     sb.driver.get(url)
+        #
+        # return sb
+
 if "__main__" in __name__:
     asyncio.run(func_1())
     asyncio.run(get_selenium_win())
+    asyncio.run(get_seleniumbase_SB())
