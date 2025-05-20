@@ -18,7 +18,7 @@ from utils.central_module import get_local_ip, wait_for_portal, proxy_status
 from utils.constants import TABLES_LIST
 from utils.gs_editor import get_service, pars_url, get_table_scope, write_log_sheet, append_data_to_sheet_scope, \
     append_data_to_sheet_cell
-from utils.user_agent import get_selenium_proxy, get_selenium_win
+from utils.user_agent import get_selenium_proxy, get_selenium_sap
 from utils.proxy_bridge import set_windows_proxy
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
@@ -160,7 +160,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
     except:
         print('--- Get 1.1')
         #driver = await get_selenium_proxy(link, headless=headless, proxy=proxy_on)
-        driver = await get_selenium_win(link, headless=headless, proxy=proxy_on)
+        driver = await get_selenium_sap(link, headless=headless, proxy=proxy_on)
 
     if '176.124.192' in local_ip:
         driver = await captcha_check(driver) #обработка капчи
@@ -200,7 +200,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
             except:
                 print('--- Get 2.1')
                 #driver = await get_selenium_proxy(top_link, headless=headless, proxy=proxy_on)
-                driver = await get_selenium_win(top_link, headless=headless, proxy=proxy_on)
+                driver = await get_selenium_sap(top_link, headless=headless, proxy=proxy_on)
                 driver = await captcha_check(driver)  # обработка капчи
                 if not driver:
                     print('Error Driver')
@@ -291,7 +291,7 @@ async def main_otzovik():
 
         print('>>> Start Selenium...')
         #driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-        driver = await get_selenium_win(headless=headless, proxy=proxy_on)
+        driver = await get_selenium_sap(headless=headless, proxy=proxy_on)
     
 
     print('local_ip', local_ip)
@@ -415,7 +415,7 @@ async def main_otzovik():
                 if not status:
                     driver.quit()
                     #driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-                    driver = await get_selenium_win(headless=headless, proxy=proxy_on)
+                    driver = await get_selenium_sap(headless=headless, proxy=proxy_on)
 
         if record:
             finish_sec = time.time() - start_time

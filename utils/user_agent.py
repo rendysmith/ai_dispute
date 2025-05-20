@@ -692,7 +692,7 @@ async def get_data_without_proxy(url, text_format=True):
                 await asyncio.sleep(5)
     return None
 
-async def get_selenium_sap(url=None):
+async def get_selenium_sap(url=None, headless=True, proxy=True):
     """
     Selenium Authenticated Proxy Helper — это утилита Python, разработанная для бесшовной обработки аутентификации
     прокси при использовании Selenium WebDriver. Этот пакет генерирует расширение Chrome,
