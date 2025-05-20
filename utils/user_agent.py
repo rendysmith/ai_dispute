@@ -692,6 +692,39 @@ async def get_data_without_proxy(url, text_format=True):
                 await asyncio.sleep(5)
     return None
 
+async def get_selenium_sap(url=None):
+    """
+    Selenium Authenticated Proxy Helper — это утилита Python, разработанная для бесшовной обработки аутентификации
+    прокси при использовании Selenium WebDriver. Этот пакет генерирует расширение Chrome,
+    которое заботится об аутентификации прокси, позволяя вам больше сосредоточиться на задачах веб-скрейпинга или
+    автоматизации, не беспокоясь о тонкостях настройки прокси.
+    https://github.com/freezingdata/selenium-authenticated-proxy
+    Returns: driver
+    """
+
+    from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
+
+    proxy_host, proxy_port = await get_one_proxy()
+    print(proxy_host)
+    proxy_string = f"http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
+
+    # Initialize Chrome options
+    chrome_options = webdriver.ChromeOptions()
+
+    # Initialize SeleniumAuthenticatedProxy
+    proxy_helper = SeleniumAuthenticatedProxy(proxy_url=proxy_string)
+
+    # Enrich Chrome options with proxy authentication
+    proxy_helper.enrich_chrome_options(chrome_options)
+
+    # Start WebDriver with enriched options
+    driver = webdriver.Chrome(options=chrome_options)
+    if url:
+        driver.get(url)
+
+    return driver
+
+
 def get_selenium_proxy_sync(url=None, headless=True, proxy=True):
         driver_options = {
             'uc': True,
