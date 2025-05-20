@@ -249,8 +249,6 @@ async def blocks_vk(url, author_name=False):
             print(f'--- Error Ex1 {Ex}')
             return
 
-    #pprint(data)
-
     # Проверяем наличие ошибок
     if 'error' in data:
         print(f"--- Ошибка: {data['error']['error_msg']}")
@@ -271,6 +269,7 @@ async def blocks_vk(url, author_name=False):
     # Обрабатываем каждый комментарий
     for item in items:
         comment = {
+            'id': item['id'],
             'from_id': item['from_id'],
             'date': item['date'],
             'text': item['text']
@@ -296,7 +295,7 @@ async def check_vk(service, url, pattern, criteria, ss_id, project, links=False)
         return
 
     for comment in comments:
-        uniq_id = comment['from_id']
+        uniq_id = comment['id']
 
         if links:
             if uniq_id in links:
@@ -329,7 +328,9 @@ async def main_vk():
     url = 'https://vk.com/amurr24?w=wall-72072592_6066'
     url = 'https://vk.com/wall-20225241_1024998?reply=1025059&thread=1025049'
 
-    await blocks_vk(url)
+    comment = await blocks_vk(url)
+    for com in comment:
+        print(com)
 
 if __name__ == '__main__':
     #asyncio.run(check_vk(''))
