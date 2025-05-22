@@ -1,0 +1,46 @@
+name: Docker Image CI for ai_one_off
+
+on:
+  push:
+    branches: [ "main" ] # Запускать при пуше в ветку main
+  # pull_request: # Можно добавить запуск на pull request для проверок
+  #   branches: [ "main" ]
+
+env:
+  IMAGE_NAME: ${{ github.repository_owner }}/ai_one_off # Имя образа будет вида: ваш-username/ai_one_off
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest # Использовать свежую Ubuntu для сборки
+    permissions:
+      contents: read # Право на чтение содержимого репозитория
+      packages: write # Право на запись пакетов (Docker-образов в GHCR)
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4 # Экшен для клонирования репозитория в воркер Actions
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }} # Имя пользователя или организации GitHub
+          password: ${{ secrets.GHCR_PAT }} # Используем созданный секрет
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta # Даем ID этому шагу, чтобы ссылаться на его выводы
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ env.IMAGE_NAME }} # Полное имя образа в GHCR
+          tags: | # Как тегировать образ
+            type=sha # Тег по SHA коммита, например, ghcr.io/user/app:sha-abcdef1
+            type=raw,value=latest,enable={{is_default_branch}} # Тег 'latest' только для основной ветки
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: . # Контекст сборки - корень репозитория (где Dockerfile)
+          file: ./Dockerfile # Явное указание Dockerfile (если он не в корне, измените путь)
+          push: true # Загружать образ после сборки
+          tags: ${{ steps.meta.outputs.tags }} # Используем теги, сгенерированные шагом meta
+          labels: ${{ steps.meta.outputs.labels }} # Используем метки, сгенерированные шагом meta
