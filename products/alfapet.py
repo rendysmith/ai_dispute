@@ -1,12 +1,10 @@
 import os
 import time
 from datetime import datetime, timedelta
-from pprint import pprint
-
 from dotenv import load_dotenv
 
 import asyncio
-from selenium.webdriver.common.by import By
+
 from urllib.parse import urlparse
 
 from portals.portal_pikaby import check_pikaby
@@ -15,7 +13,6 @@ from portals.portal_otvet import check_otvet
 from portals.portal_vk import check_vk
 from portals.portal_dzen import check_dzen
 
-from utils.ai_module import generate_and_white
 from utils.central_module import get_hpo
 from utils.gs_editor import read_table_id, get_service, write_log_sheet
 from utils.constants import TABLES_LIST
