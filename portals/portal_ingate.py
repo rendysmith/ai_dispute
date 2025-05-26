@@ -53,7 +53,7 @@ async def auth_ingate():
 
 async def check_ingate(service, url, pattern, criteria, ss_id, project, links=False):
     url = "https://pntr.ingate.ru/api/client/v100/networks/940/reviews"
-    jwt_token = await auth_ingate()
+    jwt_token = await auth_ingate() #Авторизация
 
     headers = {
         "Accept": "*/*",
