@@ -1,24 +1,21 @@
-name: Docker Image CI and Deploy for ai_one_off # Изменили имя для ясности
+name: Docker Image CI for ai_one_off # Изменили имя для ясности, так как деплоя больше нет
 
 on:
   push:
-    branches: [ "main" ]
-
-env:
-  IMAGE_NAME: ${{ github.repository_owner }}/ai_one_off
-  # --- ДОБАВЬТЕ ЭТИ ПЕРЕМЕННЫЕ ---
-  K8S_DEPLOYMENT_NAME: ai-one-off-deployment # Имя вашего Deployment в Kubernetes
-  K8S_NAMESPACE: default # Namespace, где находится ваш Deployment (если не default, укажите свой)
-  K8S_CONTAINER_NAME: ai-one-off-container # Имя контейнера внутри вашего Deployment
+    branches: [ "main" ] # Запускать при пуше в ветку main
 
 jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
-    outputs: # --- ДОБАВЬТЕ ЭТУ СЕКЦИЮ ДЛЯ ПЕРЕДАЧИ ТЕГА ---
-      image_tag: ${{ steps.meta.outputs.version }} # Передаем тег образа (обычно SHA)
+      contents: read    # Необходимо для checkout
+      packages: write   # Необходимо для пуша образов в GHCR
+
+    # outputs: # Эту секцию можно оставить, если вы планируете использовать image_tag в других job'ах в будущем,
+               # но для текущей конфигурации (только сборка и пуш) она не обязательна.
+               # Если outputs не используется ни одним другим job'ом (который бы зависел от этого через 'needs'),
+               # ее можно удалить для чистоты. Оставим пока, на всякий случай.
+    #   image_tag: ${{ steps.meta.outputs.version }}
 
     steps:
       - name: Checkout repository
@@ -28,71 +25,23 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GHCR_PAT }}
+          username: ${{ github.repository_owner }} # Имя пользователя или организации GitHub
+          password: ${{ secrets.GHCR_PAT }}      # Ваш Personal Access Token
 
       - name: Extract metadata (tags, labels) for Docker
-        id: meta
+        id: meta # Даем ID этому шагу, чтобы ссылаться на его выводы (если понадобятся outputs)
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ env.IMAGE_NAME }}
-          tags: |
-            type=sha 
-            type=raw,value=latest,enable={{is_default_branch}}
+          images: ghcr.io/${{ github.repository }} # Используем github.repository напрямую
+          tags: | # Как тегировать образ
+            type=sha # Тег по SHA коммита, например, ghcr.io/user/app:sha-abcdef1
+            type=raw,value=latest,enable={{is_default_branch}} # Тег 'latest' только для основной ветки
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-  # --- НАЧАЛО НОВОГО JOB ДЛЯ РАЗВЕРТЫВАНИЯ ---
-  deploy-to-kubernetes:
-    runs-on: ubuntu-latest
-    needs: build-and-push-image # Этот job запустится только после успешного build-and-push-image
-    # permissions: # Если нужны специфичные права для доступа к кластеру через OIDC (не наш случай сейчас)
-    #   id-token: write
-    #   contents: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4 # Может понадобиться, если манифесты в репо
-
-      - name: Set up Kubeconfig
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
-        # Этот шаг создает файл Kubeconfig на раннере из секрета
-
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v3 # Используем готовый action для установки kubectl
-        # with: # Можно указать версию kubectl, если нужно
-        #   version: 'v1.28.2'
-        id: install
-
-      - name: Deploy to Kubernetes
-        run: |
-          # Используем тег SHA, так как он уникален для каждого коммита
-          # Если вы хотите всегда использовать 'latest', замените ${{ needs.build-and-push-image.outputs.image_tag }} на 'latest'
-          # НО ИСПОЛЬЗОВАНИЕ УНИКАЛЬНЫХ ТЕГОВ (SHA) НАМНОГО НАДЕЖНЕЕ!
-          # Docker/metadata-action версиирует по SHA, если type=sha. Это и есть ${{ steps.meta.outputs.version }} из предыдущего job.
-          # Обратите внимание, что ${{ needs.build-and-push-image.outputs.image_tag }} будет содержать только значение SHA (без префикса sha-)
-          # Docker-образы, тегированные как 'sha-<short-sha>', создаются по умолчанию.
-          # Мы будем использовать 'latest' для простоты, но в проде лучше SHA.
-          
-          echo "Updating deployment ${{ env.K8S_DEPLOYMENT_NAME }} in namespace ${{ env.K8S_NAMESPACE }}"
-          echo "Using image: ghcr.io/${{ env.IMAGE_NAME }}:latest" # Используем latest для простоты сейчас
-
-          kubectl set image deployment/${{ env.K8S_DEPLOYMENT_NAME }} \
-            ${{ env.K8S_CONTAINER_NAME }}=ghcr.io/${{ env.IMAGE_NAME }}:latest \
-            -n ${{ env.K8S_NAMESPACE }} --record=true # --record устарел, но иногда еще используется
-          
-          echo "Waiting for rollout to complete..."
-          kubectl rollout status deployment/${{ env.K8S_DEPLOYMENT_NAME }} -n ${{ env.K8S_NAMESPACE }} --timeout=120s
-          
-          echo "Deployment successful!"
-      # --- КОНЕЦ НОВОГО JOB ---
+          context: . # Контекст сборки - корень репозитория (где Dockerfile)
+          file: ./Dockerfile # Явное указание Dockerfile (если он не в корне, измените путь)
+          push: true # Загружать образ после сборки
+          tags: ${{ steps.meta.outputs.tags }} # Используем теги, сгенерированные шагом meta
+          labels: ${{ steps.meta.outputs.labels }} # Используем метки, сгенерированные шагом meta
