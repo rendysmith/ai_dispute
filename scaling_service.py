@@ -25,7 +25,7 @@ from portals.youtube import check_youtube
 from utils.central_module import get_local_ip, time_out_on, time_out_sel
 from utils.constants import TABLES_LIST
 from utils.converter import extract_company_name
-from utils.gs_editor import get_service, get_table_scope, write_log_sheet
+from utils.gs_editor import get_service, get_table_scope, write_log_sheet, pars_url
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -88,10 +88,10 @@ async def start_zoom(service):
                 continue
 
             #Пропуск по IP
-            host_logs = df_logs.loc[idx_logs, 'reserve']
-            if host_logs != local_ip:
-                print('Skip:', host_logs, local_ip)
-                continue
+            # host_logs = df_logs.loc[idx_logs, 'reserve']
+            # if host_logs != local_ip:
+            #     print('Skip:', host_logs, local_ip)
+            #     continue
 
         else:
             print(f"No logs found for service: {project}")
@@ -153,7 +153,6 @@ async def start_zoom(service):
                                            links=links)
                 # if status:
                 #     black_list.append('pravda-sotrudnikov.ru')
-
             # ---------------------------------------------------------------------------------------------------------
             elif 'ocompanii' in link:
                 #link = 'https://ocompanii.net/company/information.php?cid=764047'
@@ -179,7 +178,6 @@ async def start_zoom(service):
                                            links=links)
                 # if status:
                 #     black_list.append('ocompanii')
-
             #---------------------------------------------------------------------------------------------------------
             elif 'dreamjob.ru' in link:
                 pattern = r'(https://dreamjob\.ru/employers/\d+)'
@@ -205,7 +203,6 @@ async def start_zoom(service):
                                            links=links)
                 # if status:
                 #     black_list.append('dreamjob.ru')
-
             #---------------------------------------------------------------------------------------------------------
             elif '2gis.ru' in link:
                 top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
@@ -229,8 +226,6 @@ async def start_zoom(service):
                                            ss_id=ss_id,
                                            project=project,
                                            links=links)
-
-
             # ---------------------------------------------------------------------------------------------------------
             elif 'sravni.ru_off' in link:
                 top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
@@ -268,8 +263,6 @@ async def start_zoom(service):
                                            df_mini_criteria=df_mini_criteria,
                                            ss_id=ss_id,
                                            project=project, links=links)
-
-
             # ---------------------------------------------------------------------------------------------------------
             elif 'drive2.ru' in link:
                 if link in list_links:
@@ -289,10 +282,6 @@ async def start_zoom(service):
                                            links=links)
                 # if status:
                 #     black_list.append('drive2.ru')
-
-
-
-
             #---------------------------------------------------------------------------------------------------------
             elif 'dzen.ru' in link:
                 if link in list_links:
@@ -312,7 +301,6 @@ async def start_zoom(service):
                                    links=links)
                 # if status:
                 #     black_list.append('youtube')
-
             # ---------------------------------------------------------------------------------------------------------
             elif 'youtube' in link:
                 if link in list_links:
@@ -323,7 +311,6 @@ async def start_zoom(service):
                     list_links.append(link)
 
                 await check_youtube(service, link, df_mini_pattern, df_mini_criteria, ss_id, project, links)
-
             #----------------------------------------------------------------------------------------------------------
             elif 'ingate' in link:
                 link = 'https://pntr.ingate.ru'
@@ -335,8 +322,6 @@ async def start_zoom(service):
                     list_links.append(link)
 
                 await check_ingate(service, link, df_mini_pattern, df_mini_criteria, ss_id, project, links)
-
-
             #---------------------------------------------------------------------------------------------------------
             elif 'aplaut.io' in link:
                 link = 'https://app.aplaut.io/b/reviews'
@@ -360,7 +345,6 @@ async def start_zoom(service):
                                            project=project, links=links)
                 # if status:
                 #     black_list.append('aplaut.io')
-
             #---------------------------------------------------------------------------------------------------------
             # elif 'yandex.ru/maps' in link or 'yandex.ru/web-maps' in link:
             #
@@ -430,7 +414,6 @@ async def start_zoom(service):
                                            project=project, links=links)
                 # if status:
                 #     black_list.append('otvet.mail')
-
             # ---------------------------------------------------------------------------------------------------------
             elif 'market.yandex' in link:
                 if link in list_links:
@@ -568,9 +551,9 @@ async def start_zoom(service):
             #                                project=project)
 
         finish_sec = time.time() - start_time
-        datas = {'service_name': project,
-                'count': len_df,
-                'date': current_date,
+        datas = {'service_name': f"zoom_{project}",
+                 'count': len_df,
+                 'date': current_date,
                  'time': finish_sec}
 
         await write_log_sheet(service, ss_id, 'logs', datas)

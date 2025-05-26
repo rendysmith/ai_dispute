@@ -7,6 +7,7 @@ import traceback
 
 from datetime import datetime, timedelta
 
+from utils.central_module import get_hpo
 from utils.gs_editor import pars_url, append_data_to_sheet_scope
 from utils.ai_module import generate_and_white
 from utils.user_agent import get_soup
@@ -28,9 +29,9 @@ async def extract_ids(url):
     ids = re.search(pattern, url).group(1)
     return ids
 
-async def get_top_link(link):
+async def get_top_link(link, proxy=False):
     try:
-        soup = await get_soup(link)
+        soup = await get_soup(link, proxy=proxy)
         if not soup:
             return False, False
 
@@ -44,6 +45,7 @@ async def get_top_link(link):
         return False, False
 
 async def check_ocompanii(service, url, pattern, criteria, ss_id, project, links=False):
+    headless, proxy_on, only_text = await get_hpo()
     print(url)
 
     if not links:
@@ -60,7 +62,7 @@ async def check_ocompanii(service, url, pattern, criteria, ss_id, project, links
     else:
         top_link = url
 
-    soup = await get_soup(top_link)
+    soup = await get_soup(top_link, proxy=proxy_on)
 
     if not soup:
         no_data = 'Сайт не отдал данные!'
@@ -107,7 +109,7 @@ async def check_ocompanii(service, url, pattern, criteria, ss_id, project, links
         id_ = await extract_ids(url_answer)
         url_full_comm = f'https://ocompanii.net/reviews/load_detail.php?id={id_}'
 
-        soup = await get_soup(url_full_comm)
+        soup = await get_soup(url_full_comm, proxy=proxy_on)
 
         if not soup:
             no_data = 'Сайт не отдал данные!'
