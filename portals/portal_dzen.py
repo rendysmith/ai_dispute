@@ -203,97 +203,13 @@ async def check_dzen(service, url, pattern, criteria, ss_id, project, driver, li
 
 async def main_dzen():
     service = await get_service()
-    url = 'https://dzen.ru/a/Y256lfZgtFWmCJ8F#comment_1391738222'
+
+    url = 'https://dzen.ru/a/Y4Rdw5quQE1tDUZf#comment_1408542554'
 
     headless, proxy_on, only_text = await get_hpo()
+    headless = True
     driver = await get_selenium_proxy(url, headless=headless, proxy=proxy_on)
     await check_dzen(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "AlphaPet", driver)
 
 if __name__ == '__main__':
     asyncio.run(main_dzen())
-
-
-
-
-#
-# async def check_dzen_old(service, url, pattern, criteria, ss_id, project, playwright, browser, page):
-#     #playwright, browser, page = await get_playwright(url)
-#
-#     links = await pars_url(service, ss_id, project)
-#
-#     if not page:
-#         # await browser.close()
-#         # await playwright.stop()
-#         return 'Сайт не отдал данные.'
-#
-#     try:
-#         zen_object_id_content = await page.query_selector('meta[property="zen_object_id"]')
-#         zen_object_id = await zen_object_id_content.get_attribute('content')
-#         zen_object_id = zen_object_id.split(':')
-#
-#     except:
-#         await browser.close()
-#         await playwright.stop()
-#         return 'Сайт не отдал данные.'
-#
-#     #print(zen_object_id)
-#     documentId = zen_object_id[1]
-#     publicationPublisherId = zen_object_id[0]
-#
-#     url_json = f'https://dzen.ru/api/comments/v2/root-comments?documentId=native%3A{documentId}&publicationPublisherId={publicationPublisherId}'
-#     r = requests.get(url_json).json()
-#     len_r = len(r['items'])
-#
-#     if len_r == 0:
-#         url_json = f'https://dzen.ru/api/comments/v2/root-comments?documentId=brief%3A{documentId}&publicationPublisherId={publicationPublisherId}'
-#         r = requests.get(url_json).json()
-#         len_r = len(r['items'])
-#
-#     print(len_r)
-#     if len_r == 0:
-#         await browser.close()
-#         await playwright.stop()
-#         return
-#
-#     UsersByID = {v['uidSafe']: v['displayName'] for k, v in r['usersById'].items()}
-#     #print(UsersByID)
-#
-#     for block in r['items']:
-#         #print(block)
-#         url_answer = block['entityData']['id']
-#         #print(url_answer)
-#
-#         if url_answer in links:
-#             print('Такой комментарий уже есть в списке')
-#             continue
-#
-#         date = block['entityData']['createdTs']/1000
-#         print(date)
-#
-#         if (time.time() - date) > 7 * 24 * 3600:
-#             print(f'--- Отзыв старше 30 дней = {date}.')
-#             continue
-#
-#         # Форматирование даты
-#         #formatted_date = date.strftime('%d.%m.%Y')
-#         formatted_date = datetime.fromtimestamp(date).strftime('%d.%m.%Y')
-#
-#         #authorSafeUid = block['authorSafeUid']
-#         author = UsersByID[block['entityData']['authorSafeUid']]
-#         #print(author)
-#
-#         feedback = block['entityData']['text']
-#         #input(feedback)
-#
-#         await generate_and_white(service=service,
-#                                  url_answer=url_answer,
-#                                  author=author,
-#                                  formatted_date=formatted_date,
-#                                  ss_id=ss_id,
-#                                  project=project,
-#                                  feedback=feedback,
-#                                  pattern=pattern,
-#                                  criteria=criteria)
-#
-#     await browser.close()
-#     await playwright.stop()

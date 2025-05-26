@@ -4,6 +4,7 @@ import random
 import os
 
 import requests
+import selenium.common.exceptions
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import time
@@ -44,12 +45,20 @@ async def check_ya_market_new(driver):
 async def check_ya_market(service, url, pattern, criteria, ss_id, project, driver, links=False):
     print(f"New link = {url}")
 
+    await asyncio.sleep(10)
+
     try:
-        i_am_robot = driver.find_element(By.CSS_SELECTOR, 'span[id="checkbox-label"]')
-        print(i_am_robot==True)
-        return "Antibot"
-    except:
-        print('- No antibot')
+        click_checkbox = driver.find_element(By.CSS_SELECTOR, 'input[class="CheckboxCaptcha-Button"]')
+        click_checkbox.click()
+
+    # except Exception as Ex:
+    #     i_am_robot = driver.find_element(By.CSS_SELECTOR, 'span[id="checkbox-label"]')
+    #     print(i_am_robot==True)
+    #     return "Antibot"
+
+    except selenium.common.exceptions.NoSuchElementException as NSEE:
+
+        print('- No CheckBox and antibot')
 
     if not links:
         links = await pars_url(service, ss_id, project)
@@ -66,9 +75,12 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project, drive
     # if 'в этом ценовом диапазоне выбор' in str(page):
     #     input('Есть заметка')
 
+    await asyncio.sleep(5)
+
     #blocks = await page.query_selector_all('div[class="eoZns"]')
     blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="eoZns"]')
     print(len(blocks))
+
     if not blocks:
         blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-apiary-widget-name="@card/ReviewItem"]')
         print(len(blocks))
@@ -90,10 +102,15 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project, drive
             continue
 
         try:
-            date = block.find_element(By.CSS_SELECTOR, 'span[class="ncho4"]').text
-            if not any(i in date for i in ['Неделю назад', 'дней назад', 'дня назад', 'вчера', 'день назад']):
+            try:
+                date = block.find_element(By.CSS_SELECTOR, 'span[class="ncho4"]').text
+            except:
+                date = block.find_element(By.CSS_SELECTOR, 'div[data-auto="created-date"]').text
+
+            print(date)
+
+            if not any(i in date.lower() for i in ['неделю назад', 'дней назад', 'дня назад', 'вчера', 'день назад']):
                 print('NO DATE')
-                # driver.quit()
                 return
 
             if '1' in date:
@@ -187,10 +204,12 @@ async def check_ya_market(service, url, pattern, criteria, ss_id, project, drive
 async def main():
     service = await get_service()
 
-    url = 'https://market.yandex.ru/product--comfort-2/1913043741/reviews?sku=101282794585&uniqueId=1163401&do-waremd5=uhNIeXveQKQN_q2xrkkQIQ&grade_value=4&sort_by=date&sort_desc=1'
-    url = 'https://market.yandex.ru/product--comfort-2/1913043741/reviews?sku=101282794585&uniqueId=1163401&do-waremd5=uhNIeXveQKQN_q2xrkkQIQ&grade_value=4&sort_by=date&sort_desc=1'
+    url = 'https://market.yandex.ru/product--cordiant-snow-cross-2-zimniaia-shipovannaia/177735076/reviews?no-pda-redir=1&sort_by=date&page=5'
+    url = 'https://market.yandex.ru/product--sport-3/10682420/reviews?sku=101282723653&uniqueId=10698030&do-waremd5=Zw1mXQ0cMnQecAKjfF4EbQ&grade_value=1&sort_by=date&sort_desc=1'
 
     driver = await get_selenium_proxy(url, False, False)
+
+    await asyncio.sleep(5)
     await check_ya_market(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "Кордиант", driver)
 
     #await check_ya_market_new(driver)
