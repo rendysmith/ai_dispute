@@ -1,5 +1,6 @@
 import asyncio
-import os.path
+
+import os
 import random
 import time
 from datetime import datetime
@@ -27,7 +28,6 @@ from utils.constants import TABLES_LIST
 from utils.converter import extract_company_name
 from utils.gs_editor import get_service, get_table_scope, write_log_sheet, pars_url
 
-import os
 os.environ['DISABLE_COLIED_TRACEBACK'] = '1'
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
