@@ -27,6 +27,9 @@ from utils.constants import TABLES_LIST
 from utils.converter import extract_company_name
 from utils.gs_editor import get_service, get_table_scope, write_log_sheet, pars_url
 
+import os
+os.environ['DISABLE_COLIED_TRACEBACK'] = '1'
+
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
@@ -63,6 +66,8 @@ async def start_zoom(service):
     print(df_logs)
 
     for project in list_:
+        project_rec = f"zoom_{project}"
+
         print(f'+++++++++++++++++ {project} +++++++++++++++++++++')
         #Исключить проекты
         if any(prj == project for prj in ['Проект', 'AlphaPet']):
@@ -77,14 +82,17 @@ async def start_zoom(service):
 
         #Если дата не совпадает с сегодняшней
         host_logs = ''
-        filtered_logs = df_logs[df_logs['service_name'] == project]
+        filtered_logs = df_logs[df_logs['service_name'] == project_rec]
         if not filtered_logs.empty:
             idx_logs = filtered_logs.index[0]
 
             #Пропуск по дате
             date_logs = df_logs.loc[idx_logs, 'date']
+            print(date_logs == current_date)
+            print(date_logs, current_date)
+
             if date_logs == current_date:
-                #print()
+                print(f'{project} уже проверен {date_logs}')
                 continue
 
             #Пропуск по IP
@@ -94,7 +102,7 @@ async def start_zoom(service):
             #     continue
 
         else:
-            print(f"No logs found for service: {project}")
+            print(f"No logs found for service: {project_rec}")
 
         #project = 'AlphaPet'
 
@@ -124,7 +132,7 @@ async def start_zoom(service):
 
         for idx, link in enumerate(df_link_list):
             left = len_df - df_link_list.index(link)
-            print(f'\n*************************{idx}*({left})*[{host_logs}]**************************\n----------------- {link} ----------------')
+            print(f'\n*************************{idx}*({left})*[{project}]**************************\n----------------- {link} ----------------')
 
             #link = row[project]
             #---------------------------------------------------------------------------------------------------------
@@ -551,7 +559,7 @@ async def start_zoom(service):
             #                                project=project)
 
         finish_sec = time.time() - start_time
-        datas = {'service_name': f"zoom_{project}",
+        datas = {'service_name': project_rec,
                  'count': len_df,
                  'date': current_date,
                  'time': finish_sec}

@@ -32,6 +32,7 @@ from seleniumbase import Driver
 from seleniumbase import config
 from seleniumbase import SB
 
+os.environ['DISABLE_COLIED_TRACEBACK'] = '1'
 os.environ["DISABLE_COLORAMA"] = "1"
 os.environ["SELENIUMBASE_COLOR"] = "0"
 
