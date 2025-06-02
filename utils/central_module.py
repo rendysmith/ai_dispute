@@ -18,7 +18,7 @@ from sqlalchemy.util import await_only
 
 from utils.ai_module import get_answer_ai
 from utils.constants import TABLES_LIST
-from utils.gs_editor import append_data_to_sheet_scope
+from utils.gs_editor import append_data_to_sheet_scope, read_table_id, append_data_to_sheet_cell
 from utils.user_agent import get_playwright, get_selenium_proxy
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -413,6 +413,31 @@ async def rec_data(service, date_create, url_answer, first_author, prompt_trend_
         await append_data_to_sheet_scope(service, sheet_id, worksheet_name, data)
         print('Rec data...')
 
+async def rec_count(service, ss_id, project):
+    df = await read_table_id(service, ss_id, "logs")
+
+    try:
+        idx = df[df['service_name'] == project].index[0]
+
+        count = df.loc[idx, 'recorded']
+
+        date = df.loc[idx, 'date']
+
+        if count == "" or record_date != date:
+            rec_count = 1
+
+        else:
+            rec_count = int(count) + 1
+
+        await append_data_to_sheet_cell(service, ss_id, 'logs', 'recorded', idx + 2, rec_count)
+
+    except:
+        print('--- Error rec_count.')
+
+
+
+
 if "__main__" == __name__:
-    top_url = 'https://dzen.ru/topic/o-kino-i-serialah'
-    asyncio.run(get_articles(top_url))
+    from utils.gs_editor import get_service
+    service = asyncio.run(get_service())
+    asyncio.run(rec_count(service, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "ya_maps_НовикомБанк"))

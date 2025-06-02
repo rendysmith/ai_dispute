@@ -14,6 +14,7 @@ from requests.auth import HTTPBasicAuth
 
 import httpx
 
+from utils.central_module import rec_count
 from utils.db_loader import get_api_tokens, get_hosts
 from utils.gs_editor import append_data_to_sheet_scope
 from utils.constants import farm_hosts
@@ -396,6 +397,7 @@ async def generate_and_white(**kwargs):
     #print(data)
 
     status = await append_data_to_sheet_scope(service, ss_id, project, data)
+    await rec_count(service, ss_id, project)
     #print(status)
 
 # Пример использования функции

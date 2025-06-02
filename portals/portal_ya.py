@@ -18,7 +18,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from dotenv import load_dotenv
 import re
 
-from utils.central_module import wait_for_portal, get_local_ip, proxy_status, fix_error
+from utils.central_module import wait_for_portal, get_local_ip, proxy_status, fix_error, rec_count
 from utils.constants import months, TABLES_LIST
 from utils.ai_module import generate_and_white
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope, get_table_scope, write_log_sheet, \
@@ -450,6 +450,8 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
                                      feedback=feedback,
                                      pattern=pattern,
                                      criteria=criteria)
+
+            #await rec_count(service, ss_id, project)
 
     return 'OK!'
 
