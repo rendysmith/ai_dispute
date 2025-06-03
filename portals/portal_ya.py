@@ -451,7 +451,7 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
                                      pattern=pattern,
                                      criteria=criteria)
 
-            #await rec_count(service, ss_id, project)
+            await rec_count(service, ss_id, "ya_maps_" + project)
 
     return 'OK!'
 

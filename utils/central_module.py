@@ -16,7 +16,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from sqlalchemy.util import await_only
 
-from utils.ai_module import get_answer_ai
+
 from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope, read_table_id, append_data_to_sheet_cell
 from utils.user_agent import get_playwright, get_selenium_proxy
@@ -382,6 +382,8 @@ async def get_articles(top_url):
     return df
 
 async def rec_data(service, date_create, url_answer, first_author, prompt_trend_gone, comments, text, sheet_id, worksheet_name):
+    from utils.ai_module import get_answer_ai
+
     """
     Функция для BA - определение тренда.
     Args:
@@ -418,21 +420,26 @@ async def rec_count(service, ss_id, project):
 
     try:
         idx = df[df['service_name'] == project].index[0]
-
         count = df.loc[idx, 'recorded']
-
         date = df.loc[idx, 'date']
 
-        if count == "" or record_date != date:
+        print(idx, date, count)
+
+        if count == "":
             rec_count = 1
+
+        # elif date != record_date:
+        #     rec_count = 1
+        #     await append_data_to_sheet_cell(service, ss_id, 'logs', 'date', idx + 2, record_date)
 
         else:
             rec_count = int(count) + 1
 
+        print(idx, rec_count)
         await append_data_to_sheet_cell(service, ss_id, 'logs', 'recorded', idx + 2, rec_count)
 
-    except:
-        print('--- Error rec_count.')
+    except Exception as Ex:
+        print(f'--- Error <{project}> rec_count. {Ex}')
 
 
 

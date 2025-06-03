@@ -13,7 +13,7 @@ from portals.portal_otvet import check_otvet
 from portals.portal_vk import check_vk
 from portals.portal_dzen import check_dzen
 
-from utils.central_module import get_hpo
+from utils.central_module import get_hpo, rec_count
 from utils.gs_editor import read_table_id, get_service, write_log_sheet
 from utils.constants import TABLES_LIST
 

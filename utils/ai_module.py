@@ -397,8 +397,6 @@ async def generate_and_white(**kwargs):
     #print(data)
 
     status = await append_data_to_sheet_scope(service, ss_id, project, data)
-    await rec_count(service, ss_id, project)
-    #print(status)
 
 # Пример использования функции
 # user_message = "Какое расстояние от земли до солнца?"
