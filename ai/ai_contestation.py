@@ -1,3 +1,5 @@
+from pprint import pprint
+
 import asyncio
 import os
 import random
@@ -6,6 +8,8 @@ import time
 from datetime import datetime
 from xml.sax.handler import feature_external_ges
 
+from selenium.webdriver.common.by import By
+
 import numpy as np
 import pandas as pd
 from asyncpg.compat import wait_for
@@ -13,6 +17,7 @@ from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
 from models.mdl_tables import ForumRules
+from portals.portal_ya import main_ya_maps
 from utils.ai_module import get_answer_ai
 from utils.central_module import wait_for_portal, get_hpo
 
@@ -23,7 +28,10 @@ from utils.gs_editor import get_service, write_log_sheet, get_table_scope, appen
     append_data_to_sheet_cells, append_data_to_sheet_scopes
 
 from portals.portal_otzovik import get_top_link
-from utils.user_agent import get_soup
+from portals.portal_ya import get_json
+
+
+from utils.user_agent import get_soup, get_selenium_proxy
 
 from utils.constants import months
 
@@ -496,8 +504,101 @@ async def main_grade():
     #asyncio.run(grade_analysis())
     #await total_grade_analysis(service, 'reviews')
 
+async def main_stroyenergokom():
+    service = await get_service()
+    driver = await get_selenium_proxy(headless=False, proxy=False)
+
+    ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
+    project = 'СтройЭнергоКом'
+
+    urls = ['https://yandex.kz/maps/org/stroyenergokom/157241800880/reviews/?ll=57.075250%2C56.146695&z=3',
+            'https://yandex.kz/maps/org/stroyenergokom/200448132769/reviews/?ll=37.625540%2C55.706822&z=16']
+
+    for url in urls:
+        driver.get(url)
+
+        await asyncio.sleep(5)
+
+        while True:
+            blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-reviews-card-view__review"]')
+            len_b = len(blocks)
+            await asyncio.sleep(3)
+
+            if len_b == 50:
+                break
+
+        if 'url' == 'https://yandex.kz/maps/org/stroyenergokom/157241800880/reviews/?ll=57.075250%2C56.146695&z=3':
+            number_reviews = 402
+            rating_before = 1
+
+        else:
+            number_reviews = 57
+            rating_before = 1.2
+
+
+        datas = {
+            "Дата": [],
+            "Текст": [],
+            "Бренд": [project] * len_b,
+            "Источник": ["yandex.ru/maps"] * len_b,
+            "Url": [],
+            "Автор": [],
+            "Оценка": [],
+            "Общий Url": [url] * len_b,
+            "Кол-во отзывов": [number_reviews] * len_b,
+            "Оценка компании до удаления": [rating_before] * len_b
+        }
+
+        for block in blocks:
+            formatted_date = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__date"]').text
+            feedback = ""
+            url_answer = ""
+            author = ""
+            rating = ""
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    "Дата": formatted_date,
+                    "Текст": feedback,
+                    "Бренд": project,
+                    "Источник": "yandex.ru/maps",
+                    "Url": url_answer,
+                    "Автор": author,
+                    "Оценка": rating,
+                    "Общий Url": url,
+                    "Кол-во отзывов": number_reviews,
+                    "Оценка компании до удаления": ""
+
+                }
+
+                pprint(datas)
+
+                input()
+
+
+
+
+
+async def maim():
+    await main_stroyenergokom()
+
+
 if __name__ == '__main__':
 
     #asyncio.run(cheak_dreamjob(service))
-    asyncio.run(main_grade())
+    asyncio.run(maim())
 
