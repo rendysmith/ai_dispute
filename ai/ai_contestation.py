@@ -9,6 +9,8 @@ from datetime import datetime
 from xml.sax.handler import feature_external_ges
 
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 import numpy as np
 import pandas as pd
@@ -57,7 +59,7 @@ text = """
 ------------НАЧАЛО ПРАВИЛ ПРОЩАДКИ-------------
 {rule} 
 ------------КОНЕЦ ПРАВИЛ ПРОЩАДКИ--------------
-Если комментарий нарушает какое-либо правило, укажите, какое именно правило он нарушает в формате: 
+Если комментарий нарушает какое-либо правило, ОБЯЗАТЕЛЬНО, укажи какое именно правило он нарушает, процитируй его и укажи номер, например: 
 '*новая строка* *Порядковый номер строки, например*: Пункт правила и его текст и обязательно текст отзыва или его часть которое нарушает правило'.  
 В противном случае укажите, что он не нарушает никаких правил.
 Так же тебе нужно оценить вероятность удаление отзыва в процентном соотношении основываясь на указанных правилах выше, 
@@ -99,26 +101,41 @@ async def extract_link_from_line(url):
         return match.group(0)
     return None
 
-async def create_email(service, brand):
+async def review_analysis_old(service, brand):
+    """
+    Функция для анализа отзыва
+    Args:
+        service:
+        brand:
+    Returns:
+    """
     df = await get_table_scope(service, worktable_id, brand)
     add_column = 'Текст для поддержки'
     df = df[df[add_column].isnull()]
-
     print(df)
 
     for idx, row in df.iterrows():
+        print(idx)
         link = row['Url']
         comment = row['Текст']
         source = row['Источник']
 
-        project = source.split('.')[0]
+        if 'yandex.ru/maps' in source:
+            project = 'yandex_maps'
+
+        else:
+            project = source.split('.')[0]
 
         status, rules_db = await read_data_from_db_filter(ForumRules, forum_name=project)
+        print(status)
+
         if status:
             if len(rules_db) > 0:
+                print(1)
                 rule = rules_db[0].forum_rule
 
             else:
+                print(2)
                 continue
 
         else:
@@ -424,65 +441,6 @@ async def pars_dreamjob(service, top_url, proxy_on):
         print('White datas - OK!')
         await asyncio.sleep(5)
 
-async def cheak_dreamjob(service, brand):
-    '''Функция для анализа отзыва'''
-
-    #ws_name = worksheet_name_dreamjob
-    df = await get_table_scope(service, worktable_id, brand)
-    print(df)
-    # add_column = 'Текст для поддержки'
-    # df = df[df[add_column]=='']
-
-    columns = ['Вероятность удаления', 'Текст для поддержки']
-    # for column in columns:
-    #     df[column] = ''
-
-    for idx, row in df.iterrows():
-        probably_delete = row[columns[0]]
-        text_support = row[columns[1]]
-
-        if pd.notnull(probably_delete) and pd.notnull(text_support):
-            continue
-
-        print(f'IDX = {idx}')
-
-        brand = row['Бренд']
-        link = row['Url']
-        comment = row['Текст']
-        source = row['Источник']
-
-        project = source.split('.')[0]
-
-        status, rules_db = await read_data_from_db_filter(ForumRules, forum_name=project)
-        if status:
-            if len(rules_db) > 0:
-                rule = rules_db[0].forum_rule
-
-            else:
-                continue
-
-        else:
-            continue
-
-        prompt = text.format(source=source, comment=comment, rule=rule)
-        result = await get_answer_ai(auth, prompt)
-
-        print(result)
-
-        try:
-            result = eval(result)
-            if '49' in result[0]:
-                pass
-            else:
-                result[1] = (f"Здравствуйте, "
-                             f"Я представляю интересы компании '{brand}' и хочу обратиться с просьбой удалить отзыв по ссылке {link}. "
-                             f"Отзыв содержит нарушение:\n") + result[1]
-
-            await append_data_to_sheet_cells(service, worktable_id, brand, columns, idx + 2, result)
-
-        except SyntaxError as SE:
-            print(f'ERROR: {SE}')
-
 async def main_grade():
     headless, proxy_on, only_text = await get_hpo()
     service = await get_service()
@@ -511,30 +469,32 @@ async def main_stroyenergokom():
     ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
     project = 'СтройЭнергоКом'
 
-    urls = ['https://yandex.kz/maps/org/stroyenergokom/157241800880/reviews/?ll=57.075250%2C56.146695&z=3',
-            'https://yandex.kz/maps/org/stroyenergokom/200448132769/reviews/?ll=37.625540%2C55.706822&z=16']
+    urls = ['https://yandex.kz/maps/org/stroyenergokom/200448132769/reviews/?ll=37.625540%2C55.706822&z=16',
+            'https://yandex.kz/maps/org/stroyenergokom/157241800880/reviews/?ll=57.075250%2C56.146695&z=3',
+          ]
 
     for url in urls:
         driver.get(url)
 
         await asyncio.sleep(5)
 
+        reviews_element = WebDriverWait(driver, 20).until(
+            EC.visibility_of_element_located((By.CSS_SELECTOR, 'h2[class="card-section-header__title _wide"]'))
+        )
+        reviews_text= reviews_element.text
+        number_reviews = int(reviews_text.split(" ")[0])
+        print(number_reviews)
+
+        rating_before = driver.find_element(By.CSS_SELECTOR, 'div[class="business-summary-rating-badge-view__rating"]').text
+
         while True:
             blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-reviews-card-view__review"]')
             len_b = len(blocks)
+            print(len_b)
             await asyncio.sleep(3)
 
-            if len_b == 50:
+            if len_b == number_reviews:
                 break
-
-        if 'url' == 'https://yandex.kz/maps/org/stroyenergokom/157241800880/reviews/?ll=57.075250%2C56.146695&z=3':
-            number_reviews = 402
-            rating_before = 1
-
-        else:
-            number_reviews = 57
-            rating_before = 1.2
-
 
         datas = {
             "Дата": [],
@@ -551,10 +511,20 @@ async def main_stroyenergokom():
 
         for block in blocks:
             formatted_date = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__date"]').text
-            feedback = ""
+            feedback = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__body-text"]').text
             url_answer = ""
-            author = ""
-            rating = ""
+            author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
+
+            star_full = block.find_elements(By.CSS_SELECTOR, 'span[class="inline-image _loaded icon business-rating-badge-view__star _full"]')
+            rating = len(star_full)
+
+            datas['Дата'].append(formatted_date)
+            datas['Текст'].append(feedback)
+            datas['Url'].append(url_answer)
+            datas['Автор'].append(author)
+            datas['Оценка'].append(rating)
+
+        await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
 
 
@@ -568,37 +538,99 @@ async def main_stroyenergokom():
 
 
 
+class ChallengeSystem:
+    def __init__(self, brand, rating_before):
+        self.service = None # Initialize to None
+        self.brand = brand
+        self.rating_before = rating_before
+
+    async def async_init(self):
+        self.service = await get_service()
+
+    async def review_analysis(self):
+        '''Функция для анализа отзыва'''
+
+        # ws_name = worksheet_name_dreamjob
+        df = await get_table_scope(self.service, worktable_id, self.brand)
+        print(df)
+        # add_column = 'Текст для поддержки'
+        # df = df[df[add_column]=='']
+
+        columns = ['Вероятность удаления', 'Текст для поддержки']
+        # for column in columns:
+        #     df[column] = ''
+
+        for idx, row in df.iterrows():
+            probably_delete = row[columns[0]]
+            text_support = row[columns[1]]
+
+            if pd.notnull(probably_delete) and pd.notnull(text_support):
+                continue
+
+            print(f'IDX = {idx}')
+
+            brand = row['Бренд']
+            link = row['Url']
+            comment = row['Текст']
+            source = row['Источник']
+            rating = float(row['Оценка'])
+
+            if rating > self.rating_before:
+                continue
+
+            if 'yandex.ru/maps' in source:
+                project = 'yandex_maps'
+
+            else:
+                project = source.split('.')[0]
+
+            status, rules_db = await read_data_from_db_filter(ForumRules, forum_name=project)
+            if status:
+                if len(rules_db) > 0:
+                    rule = rules_db[0].forum_rule
+
+                else:
+                    continue
+
+            else:
+                continue
+
+            prompt = text.format(source=source, comment=comment, rule=rule)
+            result = await get_answer_ai(auth, prompt)
+            print(result)
+
+            try:
+                result = eval(result)
+                if '49' in result[0]:
+                    pass
+                else:
+                    result[1] = (f"Здравствуйте, "
+                                 f"Я представляю интересы компании '{brand}' и хочу обратиться с просьбой удалить отзыв по ссылке {link}. "
+                                 f"Отзыв содержит нарушение:\n") + result[1]
+
+                await append_data_to_sheet_cells(self.service, worktable_id, self.brand, columns, idx + 2, result)
+
+            except SyntaxError as SE:
+                print(f'ERROR: {SE}')
 
 
 
 
-                    "Дата": formatted_date,
-                    "Текст": feedback,
-                    "Бренд": project,
-                    "Источник": "yandex.ru/maps",
-                    "Url": url_answer,
-                    "Автор": author,
-                    "Оценка": rating,
-                    "Общий Url": url,
-                    "Кол-во отзывов": number_reviews,
-                    "Оценка компании до удаления": ""
-
-                }
-
-                pprint(datas)
-
-                input()
 
 
 
 
 
-async def maim():
-    await main_stroyenergokom()
+async def main():
+    systemch = ChallengeSystem("СтройЭнергоКом", 3)
+    await systemch.async_init()  # <--- YOU NEED TO CALL THIS!
+    await systemch.review_analysis()
+
+
 
 
 if __name__ == '__main__':
 
     #asyncio.run(cheak_dreamjob(service))
-    asyncio.run(maim())
+    asyncio.run(main())
 
