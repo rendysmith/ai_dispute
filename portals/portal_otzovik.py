@@ -292,7 +292,6 @@ async def main_otzovik():
         print('>>> Start Selenium...')
         #driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
         driver = await get_selenium_sap(headless=headless, proxy=proxy_on)
-    
 
     print('local_ip', local_ip)
 
@@ -404,13 +403,25 @@ async def main_otzovik():
                 else:
                     list_links.append(link)
 
-                status = await check_otzovik(service=service,
-                                       link=link,
-                                       pattern=df_mini_pattern,
-                                       criteria=df_mini_criteria,
-                                       ss_id=ss_id,
-                                       project=project,
-                                       driver=driver)
+                timeout_seconds = 5 * 60  # 5 minuts
+                try:
+                    status = await asyncio.wait_for(
+                        check_otzovik(service=service,
+                                      link=link,
+                                      pattern=df_mini_pattern,
+                                      criteria=df_mini_criteria,
+                                      ss_id=ss_id,
+                                      project=project,
+                                      driver=driver),
+                    timeout= timeout_seconds) #5 минут.
+
+                except asyncio.TimeoutError:
+                    status = None
+                    print(f"Function 'check_otzovik' timed out after {timeout_seconds / 60} minutes.")
+
+                except Exception as e:
+                    status = None
+                    print(f"An unexpected error occurred: {e}")
 
                 if not status:
                     driver.quit()

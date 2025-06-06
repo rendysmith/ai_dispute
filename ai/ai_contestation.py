@@ -76,16 +76,6 @@ text = """
 Перед выполнением прочитай задание еще раз.
 """
 
-# text = """
-# Оцените комментарий '{comment}' на соответствие правилам сайта:
-# '{rule}'.
-# Определите, нарушает ли он какое-либо из этих правил.
-# Если нарушает, укажите, какое правило он нарушает, и процитируйте соответствующий текст или часть комментария, которая нарушает правило.
-# Оформите результат в виде списка с двумя элементами:
-# * процент удаления комментария, классифицированный как «возможно» (80-100 %), «сомнительно» (50-79 %) или «невозможно» (>49 %), в кавычках.
-# * Краткое описание нарушений, включая правило и соответствующий текст комментария, если таковой имеется.
-# Выведите результат в формате, который можно использовать напрямую, с каждым элементом, заключенным в двойные кавычки."""
-
 #market = 'Vkusvill'
 worktable_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
 #worksheet_name = TABLES_LIST[market][1]
@@ -527,91 +517,73 @@ async def main_stroyenergokom():
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
 
+async def review_analysis(tab_name, rating_before):
+    '''Функция для анализа отзыва'''
 
+    service = await get_service()
 
+    # ws_name = worksheet_name_dreamjob
+    df = await get_table_scope(service, worktable_id, tab_name)
+    print(df)
+    # add_column = 'Текст для поддержки'
+    # df = df[df[add_column]=='']
 
+    columns = ['Вероятность удаления', 'Текст для поддержки']
+    # for column in columns:
+    #     df[column] = ''
 
+    for idx, row in df.iterrows():
+        probably_delete = row[columns[0]]
+        text_support = row[columns[1]]
 
+        if pd.notnull(probably_delete) and pd.notnull(text_support):
+            continue
 
+        print(f'IDX = {idx}')
 
+        brand = row['Бренд']
+        link = row['Url']
+        comment = row['Текст']
+        source = row['Источник']
+        rating = float(row['Оценка'])
 
+        if rating > rating_before: #если рейтинг выше нужного, пропускает отзыв
+            continue
 
+        if 'yandex.ru/maps' in source:
+            project = 'yandex_maps'
 
+        else:
+            project = source.split('.')[0]
 
-class ChallengeSystem:
-    def __init__(self, brand, rating_before):
-        self.service = None # Initialize to None
-        self.brand = brand
-        self.rating_before = rating_before
-
-    async def async_init(self):
-        self.service = await get_service()
-
-    async def review_analysis(self):
-        '''Функция для анализа отзыва'''
-
-        # ws_name = worksheet_name_dreamjob
-        df = await get_table_scope(self.service, worktable_id, self.brand)
-        print(df)
-        # add_column = 'Текст для поддержки'
-        # df = df[df[add_column]=='']
-
-        columns = ['Вероятность удаления', 'Текст для поддержки']
-        # for column in columns:
-        #     df[column] = ''
-
-        for idx, row in df.iterrows():
-            probably_delete = row[columns[0]]
-            text_support = row[columns[1]]
-
-            if pd.notnull(probably_delete) and pd.notnull(text_support):
-                continue
-
-            print(f'IDX = {idx}')
-
-            brand = row['Бренд']
-            link = row['Url']
-            comment = row['Текст']
-            source = row['Источник']
-            rating = float(row['Оценка'])
-
-            if rating > self.rating_before:
-                continue
-
-            if 'yandex.ru/maps' in source:
-                project = 'yandex_maps'
-
-            else:
-                project = source.split('.')[0]
-
-            status, rules_db = await read_data_from_db_filter(ForumRules, forum_name=project)
-            if status:
-                if len(rules_db) > 0:
-                    rule = rules_db[0].forum_rule
-
-                else:
-                    continue
+        status, rules_db = await read_data_from_db_filter(ForumRules, forum_name=project)
+        if status:
+            if len(rules_db) > 0:
+                rule = rules_db[0].forum_rule
 
             else:
                 continue
 
-            prompt = text.format(source=source, comment=comment, rule=rule)
-            result = await get_answer_ai(auth, prompt)
-            print(result)
+        else:
+            continue
 
-            try:
-                result = eval(result)
-                if '49' in result[0]:
-                    pass
-                else:
-                    result[1] = (f"Здравствуйте, "
-                                 f"Я представляю интересы компании '{brand}' и хочу обратиться с просьбой удалить отзыв по ссылке {link}. "
-                                 f"Отзыв содержит нарушение:\n") + result[1]
+        prompt = text.format(source=source, comment=comment, rule=rule)
+        result = await get_answer_ai(auth, prompt)
+        print(result)
 
-                await append_data_to_sheet_cells(self.service, worktable_id, self.brand, columns, idx + 2, result)
+        try:
+            result = eval(result)
+            if '49' in result[0]:
+                pass
+            else:
+                result[1] = (f"Здравствуйте, "
+                             f"Я представляю интересы компании '{brand}' и хочу обратиться с просьбой удалить отзыв по ссылке {link}. "
+                             f"Отзыв содержит нарушение:\n") + result[1]
 
-            except SyntaxError as SE:
-                print(f'ERROR: {SE}')
+            await append_data_to_sheet_cells(service, worktable_id, brand, columns, idx + 2, result)
+
+        except SyntaxError as SE:
+            print(f'ERROR: {SE}')
 
 
 
@@ -622,9 +594,7 @@ class ChallengeSystem:
 
 
 async def main():
-    systemch = ChallengeSystem("СтройЭнергоКом", 3)
-    await systemch.async_init()  # <--- YOU NEED TO CALL THIS!
-    await systemch.review_analysis()
+    await review_analysis("", 3)
 
 
 
