@@ -711,6 +711,8 @@ async def get_selenium_sap(url=None, headless=True, proxy=True):
 
     # Initialize Chrome options
     chrome_options = webdriver.ChromeOptions()
+    # Set logging preferences for 'performance'
+    chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})  # This is the new way for Selenium 4+
 
     # Initialize SeleniumAuthenticatedProxy
     proxy_helper = SeleniumAuthenticatedProxy(proxy_url=proxy_string)

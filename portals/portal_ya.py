@@ -23,7 +23,7 @@ from utils.constants import months, TABLES_LIST
 from utils.ai_module import generate_and_white
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope, get_table_scope, write_log_sheet, \
     append_data_to_sheet_cell
-from utils.user_agent import get_selenium_proxy, extract_main_site
+from utils.user_agent import get_selenium_sap, extract_main_site
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -39,7 +39,7 @@ ss_id = TABLES_LIST['zoom']
 
 local_ip = asyncio.run(get_local_ip())
 if '176.124.192' in local_ip:
-    headless = True
+    headless = False
     proxy_on = True
 
 else:
@@ -263,7 +263,7 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
         print('Driver OK')
 
     except:
-        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+        driver = await get_selenium_sap(headless=headless, proxy=proxy_on)
         driver.get(link)
         print('New Driver OK')
 
@@ -292,7 +292,7 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
         print('Driver OK')
 
     except:
-        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+        driver = await get_selenium_sap(headless=headless, proxy=proxy_on)
         driver.get(top_url)
         print('New Driver OK')
 
@@ -322,7 +322,12 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
                 print(f'Error Ex, n = {n}: {Ex}')
                 return
 
-    logs = driver.get_log('performance')
+    try:
+        logs = driver.get_log('performance')
+    except:
+        return
+
+    url_s = None
 
     for idx, log in enumerate(logs):
         if 'fetchReviews' in str(log):
@@ -368,7 +373,7 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
         print('Driver OK')
 
     except:
-        # driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+        # driver = await get_selenium_sap(headless=headless, proxy=proxy_on)
         # await asyncio.sleep(5)
         # driver.get(url_api)
         # print('New Driver OK')
@@ -467,7 +472,7 @@ async def main_ya_maps():
 
     driver = None
     if proxy_active == 'Active':
-        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+        driver = await get_selenium_sap(headless=headless, proxy=proxy_on)
 
     local_ip = await get_local_ip()
     print('local_ip', local_ip)
@@ -590,7 +595,7 @@ async def main_ya_maps():
 
                 if not status:
                     driver.quit()
-                    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+                    driver = await get_selenium_sap(headless=headless, proxy=proxy_on)
 
         if record:
             finish_sec = time.time() - start_time
@@ -613,7 +618,7 @@ async def main():
     #url = 'https://yandex.kz/maps/org/schastye/187776871438/reviews/?ll=66.272509%2C56.632288&utm_source=review&z=16'
     #url = 'https://yandex.kz/maps/org/krylya/115857625887/reviews/?ll=65.263154%2C57.147658&utm_source=review&z=16'
 
-    driver = await get_selenium_proxy(headless=headless)
+    driver = await get_selenium_sap(headless=headless)
     await check_ya(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver)
 
 
