@@ -8,6 +8,7 @@ RUN apt-get update --fix-missing -y && \
     unzip \
     gnupg \
     xvfb \
+    jq \
     # Зависимости для Chrome
     libglib2.0-0 \
     libnss3 \
@@ -25,12 +26,13 @@ RUN apt-get update --fix-missing -y && \
     && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-# Установка chromedriver (версия должна соответствовать Chrome)
-RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1) && \
-    CHROMEDRIVER_VERSION=$(wget -qO- https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION) && \
-    wget -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip && \
-    unzip /tmp/chromedriver.zip -d /usr/local/bin/ && \
-    rm /tmp/chromedriver.zip && \
+# Установка chromedriver по-новому (через JSON эндпоинты Chrome for Testing)
+RUN CHROMEDRIVER_URL=$(wget -qO- https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | jq -r '.channels.Stable.downloads.chromedriver[] | select(.platform=="linux64") | .url') && \
+    wget -O /tmp/chromedriver.zip "$CHROMEDRIVER_URL" && \
+    unzip /tmp/chromedriver.zip -d /tmp/ && \
+    # Новые архивы chromedriver содержат папку, например, chromedriver-linux64
+    mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
+    rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64 && \
     chmod +x /usr/local/bin/chromedriver
 
 WORKDIR /app
@@ -43,8 +45,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Копирование остальных файлов проекта
 COPY . .
 
-# Установка правильных прав для Xvfb
+# Установка правильных прав для Xvfb (не обязательно, но оставим на всякий случай)
 RUN chmod 777 /tmp
 
 # Команда запуска с виртуальным дисплеем
-CMD ["sh", "-c", "Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset & export DISPLAY=:99 && python3 -um main"]
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset & export DISPLAY=:99 && python3 -u main"]
