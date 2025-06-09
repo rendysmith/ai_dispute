@@ -493,15 +493,17 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
     driver_options = {
         'uc': True,
         'agent': ua.chrome,
-        'log_cdp_events': True,
+        'headless': headless,
+        'headless1': headless,
+        'headless2': headless,
+        'log_cdp': True,  # Enable Chrome DevTools Protocol logging
+        'no_sandbox': True,  # Required for Docker/CI environments
+        'disable_gpu': True,  # Better for headless execution
+        'pls': 'eager',  # Page load strategy: 'normal', 'eager', or 'none'
+        'window_size': '1920,1080'  # Default window size
     }
 
-    if headless:
-        driver_options['headless'] =  headless
-        driver_options['headless1']: headless
-        driver_options['headless2']: headless
-
-    else:
+    if not headless:
         display = Display(visible=0, size=(1920, 1080))  # Виртуальный дисплей
         display.start()
 
