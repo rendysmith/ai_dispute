@@ -463,50 +463,67 @@ async def get_seleniumbase_SB(url=None, headless=True, proxy=True):
         return sb
 
 async def get_selenium_win(url=None, headless=True, proxy=True):
-    proxy = "username:password@proxy_address:proxy_port"
+
+    from selenium_authenticated_proxy import SeleniumAuthenticatedProxy
+
     proxy_host, proxy_port = await get_one_proxy()
     print(proxy_host)
-    proxy = f'{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}'
+    proxy_string = f"http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
 
-    chrome_options = Options()
-    chrome_options.add_argument(f'--proxy-server=http://{proxy}')
+    # Initialize Chrome options
+    chrome_options = webdriver.ChromeOptions()
+    # Set logging preferences for 'performance'
+    chrome_options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})  # This is the new way for Selenium 4+
 
+    # Initialize SeleniumAuthenticatedProxy
+    proxy_helper = SeleniumAuthenticatedProxy(proxy_url=proxy_string)
+
+    # Enrich Chrome options with proxy authentication
+    proxy_helper.enrich_chrome_options(chrome_options)
+
+    # Start WebDriver with enriched options
     driver = webdriver.Chrome(options=chrome_options)
-
     if url:
         driver.get(url)
 
     return driver
 
 async def get_selenium_proxy(url=None, headless=True, proxy=True):
-        driver_options = {
-            'uc': True,
-            'headless': headless,
-            'headless1': headless,
-            'headless2': headless,
-            'agent': ua.chrome,
-            'log_cdp_events': True,
-        }
+    from pyvirtualdisplay import Display
+    driver_options = {
+        'uc': True,
+        'agent': ua.chrome,
+        'log_cdp_events': True,
+    }
 
-        if proxy:
-            print('>>> Selenium PROXY...')
-            proxy_host, proxy_port = await get_one_proxy()
-            print(f'New One Proxy: {proxy_host}:{proxy_port}')
-            proxy_string = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
-            driver_options['proxy'] = proxy_string
+    if headless:
+        driver_options['headless'] =  headless
+        driver_options['headless1']: headless
+        driver_options['headless2']: headless
 
-        else:
-            print('>>> Selenium NO PROXY...')
+    else:
+        display = Display(visible=0, size=(1920, 1080))  # Виртуальный дисплей
+        display.start()
 
-        driver = Driver(**driver_options)
-        print('<<< Selenium connect...')
+    if proxy:
+        print('>>> Selenium PROXY...')
+        proxy_host, proxy_port = await get_one_proxy()
+        print(f'New One Proxy: {proxy_host}:{proxy_port}')
+        proxy_string = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
+        driver_options['proxy'] = proxy_string
 
-        if url:
-            # Если нужно использовать get, убедитесь что используете асинхронный метод
-            driver.get(url)
+    else:
+        print('>>> Selenium NO PROXY...')
 
-        driver.execute_cdp_cmd('Network.enable', {})
-        return driver
+    driver = Driver(**driver_options)
+    print('<<< Selenium connect...')
+
+    if url:
+        # Если нужно использовать get, убедитесь что используете асинхронный метод
+        driver.get(url)
+
+    driver.execute_cdp_cmd('Network.enable', {})
+    return driver
 
 async def get_playwright(url, headless=True):
     print('>>> start PW')
