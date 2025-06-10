@@ -25,7 +25,9 @@ from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope, g
     append_data_to_sheet_cell
 from utils.user_agent import get_selenium_proxy, extract_main_site
 
-dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+core_path = os.path.dirname(os.path.dirname(__file__))
+
+dotenv_path = os.path.join(core_path, '.env')
 load_dotenv(dotenv_path)
 
 current_date = datetime.now()
@@ -45,6 +47,18 @@ if '176.124.192' in local_ip:
 else:
     headless = True
     proxy_on = False
+
+global recorded
+
+async def take_photo(driver):
+    error_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    screenshot_path = os.path.join(core_path, "downloaded_files", f"error_screenshot_{error_timestamp}.png")
+    html_path = os.path.join(core_path, "downloaded_files", f"error_page_{error_timestamp}.html")
+
+    driver.save_screenshot(screenshot_path)
+    with open(html_path, 'w', encoding='utf-8') as f:
+        f.write(driver.page_source)
 
 async def cut_token(text, pattern):
     match = re.search(pattern, text)
@@ -320,6 +334,7 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
             print(f'- {n} No click.')
             if n > 10:
                 print(f'Error Ex, n = {n}: {Ex}')
+                await take_photo(driver)
                 return
 
     try:
@@ -456,7 +471,7 @@ async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
                                      pattern=pattern,
                                      criteria=criteria)
 
-            await rec_count(service, ss_id, "ya_maps_" + project)
+            recorded += 1
 
     return 'OK!'
 
@@ -564,6 +579,7 @@ async def main_ya_maps():
         list_links = []
 
         record = False
+        recorded = 0
         for idx, link in enumerate(df_link_list):
             left = len_df - df_link_list.index(link)
 
@@ -602,7 +618,8 @@ async def main_ya_maps():
             datas = {'service_name': project_ya_maps,
                     'count': len_ymap,
                     'date': record_date,
-                    'time': finish_sec}
+                    'time': finish_sec,
+                     "recorded": recorded}
 
             print('datas', datas)
             await write_log_sheet(service, ss_id, 'logs', datas)
