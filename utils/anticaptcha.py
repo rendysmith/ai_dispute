@@ -1,3 +1,6 @@
+import re
+from pprint import pprint
+
 import asyncio
 import os
 
@@ -18,7 +21,6 @@ class SendCaptcha:
 
     async def normal_captcha(self):
         print('- Send normal captcha...')
-
         n = 0
         while n < 10:
             result = self.solver.normal(self.file_link)
@@ -29,21 +31,20 @@ class SendCaptcha:
 
             await asyncio.sleep(1)
             n += 1
-            print(f'nC = {n}')
+            print(f'nN = {n}')
 
         return None
 
     async def coordinates_captcha(self):
         print('- Send coordinates captcha...')
-
         n = 0
         while n < 10:
             result = self.solver.coordinates(self.file_link)
-            print(result)
-            if result.get('solution'):
-
-                print(result['solution']['coordinates'])
-                return result['solution']['coordinates']
+            pprint(result)
+            if result.get('code'):
+                matches = re.findall(r'x=(\d+),y=(\d+)', result['code'])
+                parsed_list = [[int(x), int(y)] for x, y in matches]
+                return parsed_list
 
             await asyncio.sleep(1)
             n += 1
@@ -52,8 +53,7 @@ class SendCaptcha:
         return None
 
 async def main():
-    anti = SendCaptcha('')
-
+    anti = SendCaptcha('/home/andrewsmith/PycharmProjects/Sidorin/ai_one_off/downloaded_files/test_smartcaptcha.png')
     result = await anti.coordinates_captcha()
     print(result)
 
