@@ -23,6 +23,7 @@ from utils.constants import months, TABLES_LIST
 from utils.ai_module import generate_and_white
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope, get_table_scope, write_log_sheet, \
     append_data_to_sheet_cell
+from utils.tg_module import send_telegram_file
 from utils.user_agent import get_selenium_proxy, extract_main_site
 from utils.db_loader import SessionLocal
 
@@ -58,6 +59,12 @@ async def take_photo(driver):
     driver.save_screenshot(screenshot_path)
     with open(html_path, 'w', encoding='utf-8') as f:
         f.write(driver.page_source)
+
+    try:
+        await send_telegram_file(screenshot_path, f"YA_screenshot_{error_timestamp}")
+        await send_telegram_file(html_path, f"YA_html_{error_timestamp}")
+    except:
+        pass
 
     return screenshot_path
 
@@ -336,6 +343,8 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
             if n > 10:
                 print(f'Error Ex, n = {n}: {Ex}')
                 screenshot_path = await take_photo(driver)
+                #тут будет код который будет проходить капчу.
+
                 return
 
     try:

@@ -504,7 +504,7 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
     }
 
     if headless:
-        print('- Vertual Display ON')
+        print('- Virtual Display ON')
         display = Display(visible=0, size=(1920, 1080))  # Виртуальный дисплей
         display.start()
 

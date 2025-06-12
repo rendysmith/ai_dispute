@@ -669,6 +669,8 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
                                  pattern=pattern,
                                  criteria=criteria)
 
+        count_records += 1
+
     return 'OK!'
 
 async def main_irecommend():
@@ -704,8 +706,6 @@ async def main_irecommend():
     #print(df_logs)
 
     for project in list_:
-        count_records = 0
-
         if 'Проект' in project:
             continue
 
@@ -775,6 +775,10 @@ async def main_irecommend():
         list_links = []
 
         record = False
+
+        global count_records
+        count_records = 0
+
         for idx, link in enumerate(df_link_list):
             left = len_df - df_link_list.index(link)
             print(
@@ -804,8 +808,6 @@ async def main_irecommend():
                                        project=project,
                                        driver=driver)
 
-                count_records += 1
-
                 if not driver:
                     #driver.quit()
                     driver = await get_driver()
@@ -816,7 +818,7 @@ async def main_irecommend():
                     'count': len_irec,
                     'date': record_date,
                     'time': finish_sec,
-                     'recorded': count_records}
+                    'recorded': count_records}
 
             print('datas', datas)
             await write_log_sheet(service, ss_id, 'logs', datas)
@@ -924,65 +926,3 @@ if "__main__" in __name__:
     # asyncio.create_task(async_find_and_click())
     #main_irecommend_task = asyncio.create_task(main_irecommend())
     #find_and_click_task = asyncio.create_task(async_find_and_click())
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# async def click_checkbox(driver):
-#     # Получение скриншота
-#     screenshot = driver.get_screenshot_as_png()
-#     screenshot_image = cv2.imdecode(np.frombuffer(screenshot, np.uint8), cv2.IMREAD_COLOR)
-#
-#     number_file = int(time.time())
-#
-#     temp_path = os.path.join(corn_folder, 'temp')
-#     if not os.path.exists(temp_path):
-#         os.makedirs(temp_path)
-#         print(f"+++ Папка <{temp_path}> создана.")
-#     else:
-#         print(f"+++ Папка <{temp_path}> уже существует.")
-#
-#     file_link = os.path.join(temp_path, "image_to_find.png")
-#     # driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-#     # driver.save_screenshot(file_link)
-#
-#     template = cv2.imread(file_link)  # Укажите путь к изображению, которое ищем
-#
-#     # Поиск изображения на скриншоте
-#     result = cv2.matchTemplate(screenshot_image, template, cv2.TM_CCOEFF_NORMED)
-#     threshold = 0.8
-#     yloc, xloc = np.where(result >= threshold)
-#     print(yloc, xloc)
-#
-#     # Если изображение найдено, кликаем по нему
-#     if len(yloc) > 0 and len(xloc) > 0:
-#         # Берем координаты первого совпадения
-#         # Добавляем половину ширины и высоты шаблона, чтобы кликнуть в центр
-#         template_height, template_width = template.shape[:2]
-#         click_x = xloc[0] + template_width // 2
-#         click_y = yloc[0] + template_height // 2
-#
-#         # Создаем объект ActionChains
-#         actions = ActionChains(driver)
-#
-#         # Перемещаем курсор и кликаем
-#         actions.move_by_offset(click_x, click_y).click().perform()
-#
-#         # Возвращаем курсор в начальное положение
-#         actions.move_by_offset(-click_x, -click_y).perform()
-#
-#         print(f"Выполнен клик по координатам x={click_x}, y={click_y}")
-#     else:
-#         print("Элемент не найден на странице")
-#
-#     return driver
