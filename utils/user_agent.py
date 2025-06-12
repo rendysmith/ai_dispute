@@ -503,7 +503,8 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
         'window_size': '1920,1080'  # Default window size
     }
 
-    if not headless:
+    if headless:
+        print('- Vertual Display ON')
         display = Display(visible=0, size=(1920, 1080))  # Виртуальный дисплей
         display.start()
 
@@ -745,7 +746,6 @@ async def get_selenium_sap(url=None, headless=True, proxy=True):
         driver.get(url)
 
     return driver
-
 
 def get_selenium_proxy_sync(url=None, headless=True, proxy=True):
         driver_options = {
