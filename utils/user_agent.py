@@ -449,9 +449,6 @@ async def get_seleniumbase_sb(url=None, headless=True, proxy=True):
     driver_options = {
         'uc': True,
         'agent': ua.chrome,
-        'headless': headless,
-        'headless1': headless,
-        'headless2': headless,
         'log_cdp': True,  # Enable Chrome DevTools Protocol logging
         'no_sandbox': True,  # Required for Docker/CI environments
         'disable_gpu': True,  # Better for headless execution

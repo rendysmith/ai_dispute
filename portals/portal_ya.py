@@ -47,7 +47,7 @@ if '176.124.192' in local_ip:
     proxy_on = True
 
 else:
-    headless = False
+    headless = True
     proxy_on = False
 
 async def cut_token(text, pattern):
