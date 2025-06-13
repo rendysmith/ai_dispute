@@ -19,9 +19,11 @@ from sqlalchemy.util import await_only
 
 from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope, read_table_id, append_data_to_sheet_cell
+from utils.tg_module import send_telegram_file
 from utils.user_agent import get_playwright, get_selenium_proxy
 
-dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+core_path = os.path.dirname(os.path.dirname(__file__))
+dotenv_path = os.path.join(core_path, '.env')
 load_dotenv(dotenv_path)
 
 now = datetime.now()
@@ -440,6 +442,24 @@ async def rec_count(service, ss_id, project):
 
     except Exception as Ex:
         print(f'--- Error <{project}> rec_count. {Ex}')
+
+async def take_photo(driver):
+    error_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    screenshot_path = os.path.join(core_path, "downloaded_files", f"error_screenshot_{error_timestamp}.png")
+    html_path = os.path.join(core_path, "downloaded_files", f"error_page_{error_timestamp}.html")
+
+    driver.save_screenshot(screenshot_path)
+    with open(html_path, 'w', encoding='utf-8') as f:
+        f.write(driver.page_source)
+
+    try:
+        await send_telegram_file(screenshot_path, f"YA_screenshot_{error_timestamp}")
+        await send_telegram_file(html_path, f"YA_html_{error_timestamp}")
+    except:
+        pass
+
+    return screenshot_path
 
 
 

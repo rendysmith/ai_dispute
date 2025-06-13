@@ -443,24 +443,45 @@ async def get_selenium_anticloud(url=None, headless=False, proxy=True):
         print(f"Произошла ошибка: {e}")
         return False
 
-async def get_seleniumbase_SB(url=None, headless=True, proxy=True):
+async def get_seleniumbase_sb(url=None, headless=True, proxy=True):
+    from sbvirtualdisplay import Display
+
+    driver_options = {
+        'uc': True,
+        'agent': ua.chrome,
+        'headless': headless,
+        'headless1': headless,
+        'headless2': headless,
+        'log_cdp': True,  # Enable Chrome DevTools Protocol logging
+        'no_sandbox': True,  # Required for Docker/CI environments
+        'disable_gpu': True,  # Better for headless execution
+        'pls': 'eager',  # Page load strategy: 'normal', 'eager', or 'none'
+        'window_size': '1920,1080'  # Default window size
+    }
+
     if proxy:
         print('>>> Selenium PROXY...')
         proxy_host, proxy_port = await get_one_proxy()
         print(f'New One Proxy: {proxy_host}:{proxy_port}')
         proxy_string = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
+        driver_options['proxy'] = proxy_string
 
-    else:
-        print('>>> Selenium NO PROXY...')
-        proxy_string = None
+    # else:
+    #     print('>>> Selenium NO PROXY...')
+    #     proxy_string = None
 
+    if headless:
+        disp = Display(visible=0, size=(1920, 1080))
+        disp.start()
 
-    with SB(proxy=proxy_string, headless=headless, agent=ua.chrome) as sb:
-        #sb.__enter__()  # вручную запускаем контекст
-        if url:
-            sb.driver.get(url)
+    driver = Driver(**driver_options)
+    print('<<< Selenium connect...')
 
-        return sb
+    if url:
+        driver.get(url)
+
+    driver.execute_cdp_cmd('Network.enable', {})
+    return driver
 
 async def get_selenium_win(url=None, headless=True, proxy=True):
 
@@ -793,8 +814,6 @@ async def get_patchright(url):
         input('wait..............')
         #await page.screenshot(path=f'example-{p.chromium.name}.png')
         await browser.close()
-
-
 
 async def tst_proxy():
     from DrissionPage import ChromiumPage
