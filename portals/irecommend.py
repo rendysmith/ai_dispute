@@ -22,8 +22,7 @@ from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, get_table_scope, \
     append_data_to_sheet_cell, write_log_sheet
 from utils.proxy_bridge import get_one_proxy
-from utils.user_agent import extract_main_site, get_selenium_proxy, get_selenium, get_seleniumbase_SB, get_selenium_win, \
-    get_playwright_anticloud
+from utils.user_agent import extract_main_site, get_selenium_win
 
 from threading import Thread
 
