@@ -444,7 +444,8 @@ async def get_selenium_anticloud(url=None, headless=False, proxy=True):
         return False
 
 async def get_seleniumbase_sb(url=None, headless=True, proxy=True):
-    from sbvirtualdisplay import Display
+    from pyvirtualdisplay import Display
+    from seleniumbase import Driver
 
     driver_options = {
         'uc': True,
@@ -453,7 +454,15 @@ async def get_seleniumbase_sb(url=None, headless=True, proxy=True):
         'no_sandbox': True,  # Required for Docker/CI environments
         'disable_gpu': True,  # Better for headless execution
         'pls': 'eager',  # Page load strategy: 'normal', 'eager', or 'none'
-        'window_size': '1920,1080'  # Default window size
+        'window_size': '1920,1080',  # Default window size
+        'chromium_arg': [
+            '--ignore-certificate-errors',
+            '--disable-dev-shm-usage',
+            '--disable-extensions',
+            '--disable-infobars',
+            '--start-maximized',
+            '--disable-web-security'  # Optional: bypass some protections
+        ]
     }
 
     if proxy:
@@ -476,6 +485,16 @@ async def get_seleniumbase_sb(url=None, headless=True, proxy=True):
 
     if url:
         driver.get(url)
+        driver.wait_for_element("body", timeout=10)
+        await asyncio.sleep(5)
+
+    driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+        'source': '''
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined
+            });
+        '''
+    })
 
     driver.execute_cdp_cmd('Network.enable', {})
     return driver
