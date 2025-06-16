@@ -483,11 +483,6 @@ async def get_seleniumbase_sb(url=None, headless=True, proxy=True):
     driver = Driver(**driver_options)
     print('<<< Selenium connect...')
 
-    if url:
-        driver.get(url)
-        driver.wait_for_element("body", timeout=10)
-        await asyncio.sleep(5)
-
     driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
         'source': '''
             Object.defineProperty(navigator, 'webdriver', {
@@ -497,6 +492,12 @@ async def get_seleniumbase_sb(url=None, headless=True, proxy=True):
     })
 
     driver.execute_cdp_cmd('Network.enable', {})
+
+    if url:
+        driver.get(url)
+        driver.wait_for_element("body", timeout=10)
+        await asyncio.sleep(5)
+
     return driver
 
 async def get_selenium_win(url=None, headless=True, proxy=True):
