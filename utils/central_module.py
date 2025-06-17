@@ -75,7 +75,7 @@ async def get_local_ip():
 
 async def get_hpo():
     local_ip = await get_local_ip()
-    if '176.124.192' in local_ip:
+    if '176.124' in local_ip:
         headless = True
         proxy_on = True
         only_text = False

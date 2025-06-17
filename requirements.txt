@@ -29,6 +29,7 @@ youtube-comment-downloader==0.1.76
 curl_cffi==0.7.3
 pyrogram==2.0.106
 tgcrypto==1.2.5
+pyscreeze==1.0.1
 
 
 

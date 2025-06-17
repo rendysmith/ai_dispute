@@ -49,6 +49,10 @@ screenshot_path = os.path.join(corn_folder, "temp", f"{int_time}_screen.png")
 result_after_click = os.path.join(corn_folder, "temp", "result_after_click.png")
 detected_checkboxes = os.path.join(corn_folder, 'temp', "detected_checkboxes.png")
 
+headless, proxy_on, only_text = asyncio.run(get_hpo())
+headless = False
+print("-- HPO:", headless, proxy_on)
+
 async def click_checkbox(driver):
     n = 0
     while n < 20:
@@ -497,9 +501,6 @@ async def find_and_click_cloudflare_checkbox(driver):
         print(f"Произошла ошибка: {e}")
 
 async def get_driver():
-    headless, proxy_on, only_text = await get_hpo()
-    headless = False
-    print("-- HPO:", headless, proxy_on)
     driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
     #driver = await get_seleniumbase_SB(headless=False, proxy=proxy_on)
     return driver
