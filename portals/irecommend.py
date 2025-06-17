@@ -22,7 +22,7 @@ from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, get_table_scope, \
     append_data_to_sheet_cell, write_log_sheet
 from utils.proxy_bridge import get_one_proxy
-from utils.user_agent import extract_main_site, get_selenium_win
+from utils.user_agent import extract_main_site, get_selenium_proxy
 
 from threading import Thread
 
@@ -48,7 +48,6 @@ box_white = os.path.join(corn_folder, 'temp', 'box_white.png')
 screenshot_path = os.path.join(corn_folder, "temp", f"{int_time}_screen.png")
 result_after_click = os.path.join(corn_folder, "temp", "result_after_click.png")
 detected_checkboxes = os.path.join(corn_folder, 'temp', "detected_checkboxes.png")
-
 
 async def click_checkbox(driver):
     n = 0
@@ -501,7 +500,7 @@ async def get_driver():
     headless, proxy_on, only_text = await get_hpo()
     headless = False
     print("-- HPO:", headless, proxy_on)
-    driver = await get_selenium_win(headless=headless, proxy=proxy_on)
+    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
     #driver = await get_seleniumbase_SB(headless=False, proxy=proxy_on)
     return driver
 
@@ -668,7 +667,7 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
                                  pattern=pattern,
                                  criteria=criteria)
 
-        count_records += 1
+        recorded += 1
 
     return 'OK!'
 
@@ -775,8 +774,8 @@ async def main_irecommend():
 
         record = False
 
-        global count_records
-        count_records = 0
+        global recorded
+        recorded = 0
 
         for idx, link in enumerate(df_link_list):
             left = len_df - df_link_list.index(link)
@@ -817,7 +816,7 @@ async def main_irecommend():
                     'count': len_irec,
                     'date': record_date,
                     'time': finish_sec,
-                    'recorded': count_records}
+                    'recorded': recorded}
 
             print('datas', datas)
             await write_log_sheet(service, ss_id, 'logs', datas)
@@ -920,7 +919,7 @@ async def main_starter():
 
 if "__main__" in __name__:
     asyncio.run(main_irecommend())
-    #asyncio.run(main_irecommend())
+
 
     # asyncio.create_task(async_find_and_click())
     #main_irecommend_task = asyncio.create_task(main_irecommend())

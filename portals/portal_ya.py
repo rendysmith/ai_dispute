@@ -43,11 +43,11 @@ ss_id = TABLES_LIST['zoom']
 
 local_ip = asyncio.run(get_local_ip())
 if '176.124.192' in local_ip:
-    headless = True
+    headless = False
     proxy_on = True
 
 else:
-    headless = True
+    headless = False
     proxy_on = False
 
 async def cut_token(text, pattern):
