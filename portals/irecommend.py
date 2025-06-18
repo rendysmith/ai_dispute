@@ -53,6 +53,8 @@ headless, proxy_on, only_text = asyncio.run(get_hpo())
 headless = False
 print("-- HPO:", headless, proxy_on)
 
+recorded = 0
+
 async def click_checkbox(driver):
     n = 0
     while n < 20:
@@ -506,6 +508,7 @@ async def get_driver():
     return driver
 
 async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
+    global recorded
     print(f'\nLink: {link}')
 
     try:
