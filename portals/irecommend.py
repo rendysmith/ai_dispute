@@ -923,8 +923,3 @@ async def main_starter():
 
 if "__main__" in __name__:
     asyncio.run(main_irecommend())
-
-
-    # asyncio.create_task(async_find_and_click())
-    #main_irecommend_task = asyncio.create_task(main_irecommend())
-    #find_and_click_task = asyncio.create_task(async_find_and_click())
