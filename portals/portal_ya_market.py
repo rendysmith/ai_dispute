@@ -215,6 +215,6 @@ async def main():
     #await check_ya_market_new(driver)
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(check_ya_market())
 
 

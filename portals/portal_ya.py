@@ -42,13 +42,15 @@ timeout = 10000
 ss_id = TABLES_LIST['zoom']
 
 local_ip = asyncio.run(get_local_ip())
-if '176.124.192' in local_ip:
+if '176.124' in local_ip:
     headless = False
     proxy_on = True
 
 else:
     headless = False
     proxy_on = False
+
+recorded = 0
 
 async def cut_token(text, pattern):
     match = re.search(pattern, text)
@@ -407,6 +409,7 @@ async def get_json(service, link, ss_id, project, driver, rating_ranking=1):
     return dictionary
 
 async def check_ya(service, link, pattern, criteria, ss_id, project, driver):
+    global recorded
     dictionary = await get_json(service, link, ss_id, project, driver)
 
     if dictionary == 'captcha':
