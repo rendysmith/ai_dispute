@@ -46,13 +46,15 @@ local_ip = asyncio.run(get_local_ip())
 headless = False
 proxy_on = False
 
+recorded = 0
+
 # print(f'- local_ip Otzovik: {local_ip} {headless} {proxy_on}')
 
 async def get_top_link(driver):
     try:
         top_link_content = driver.find_element(By.CSS_SELECTOR, 'h1.product-name')
         top_link = top_link_content.find_element(By.CSS_SELECTOR, 'a')
-        print(top_link.get_attribute('href'))
+        #print(top_link.get_attribute('href'))
         return top_link.get_attribute('href')
 
     except:
@@ -71,9 +73,9 @@ async def sent_captcha(file_link):
     n = 0
     while n < 10:
         result = solver.normal(file_link)
-        print(result)
+        #print(result)
         if result.get('code'):
-            print(result['code'])
+            #print(result['code'])
             return result['code']
 
         await asyncio.sleep(1)
@@ -100,7 +102,7 @@ async def captcha_check(driver):
         try:
             try:
                 tbody = driver.find_element(By.CSS_SELECTOR, 'input[type="text"]')
-                print("--- tbody\n", tbody)
+                #print("--- tbody\n", tbody)
 
             except:
                 print('--- No tbody')
@@ -154,6 +156,8 @@ async def captcha_check(driver):
     return driver
 
 async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver):
+    global recorded
+
     print(f'Link: {link}')
     try:
         print('--- Get 1.0')
