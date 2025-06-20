@@ -14,7 +14,7 @@ from selenium.webdriver.common.keys import Keys
 from twocaptcha import TwoCaptcha
 
 from utils.ai_module import generate_and_white
-from utils.central_module import get_local_ip, wait_for_portal, proxy_status
+from utils.central_module import wait_for_portal, proxy_status, get_hpo
 from utils.constants import TABLES_LIST
 from utils.gs_editor import get_service, pars_url, get_table_scope, write_log_sheet, append_data_to_sheet_scope, \
     append_data_to_sheet_cell
@@ -37,14 +37,10 @@ captcha_key = os.environ.get("CAPTCHA_KEY")
 
 ss_id = TABLES_LIST['zoom']
 
-local_ip = asyncio.run(get_local_ip())
-# if '176.124.192' in local_ip:
-#     headless = False
-#     proxy_on = True
-#
-# else:
+headless, proxy_on, only_text = asyncio.run(get_hpo())
 headless = False
-proxy_on = False
+
+print(f"Headless = {headless}, proxy = {proxy_on}")
 
 recorded = 0
 
@@ -168,17 +164,17 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
         #driver = await get_selenium_proxy(link, headless=headless, proxy=proxy_on)
         driver = await get_selenium_proxy(link, headless=headless, proxy=proxy_on)
 
-    if '176.124' in local_ip:
+    if proxy_on:
         driver = await captcha_check(driver) #обработка капчи
         if not driver:
             print('- Error Driver 1')
             return
 
-    if '46.39.21.228' in local_ip:
-        driver = await captcha_check(driver) #обработка капчи
-        if not driver:
-            print('- Error Driver 2')
-            return
+    # if '46.39.21.228' in local_ip:
+    #     driver = await captcha_check(driver) #обработка капчи
+    #     if not driver:
+    #         print('- Error Driver 2')
+    #         return
 
     await wait_for_portal()  # Время ожидания
 
@@ -304,8 +300,6 @@ async def main_otzovik():
         print('>>> Start Selenium...')
         #driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
         driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-
-    print('local_ip', local_ip)
 
     service = await get_service()
     df = await get_table_scope(service, ss_id, 'zoom')
