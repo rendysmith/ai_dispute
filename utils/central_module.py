@@ -43,7 +43,11 @@ auth_password = os.environ.get("HOST_PASSWORD")
 auth = HTTPBasicAuth(auth_username, auth_password)
 
 async def get_local_ip():
+    """Функция для получения IP адреса текущего сервера"""
+    #http://ip-api.com/json/?fields=61439
+
     try:
+        print(1)
         url = 'https://api.myip.com/'
         r = requests.get(url)
         if r.status_code == 200:
@@ -53,7 +57,11 @@ async def get_local_ip():
             else:
                 return '127.0.0.1'
 
+        else:
+            r.raise_for_status()
+
     except requests.exceptions.ConnectionError as CE:
+        print(2)
         url = 'https://api.ipify.org?format=json'
         r = requests.get(url)
         if r.status_code == 200:
@@ -63,15 +71,26 @@ async def get_local_ip():
             else:
                 return '127.0.0.1'
 
-    except:
+        else:
+            r.raise_for_status()
+
+    except Exception as Ex:
+        print(3, Ex)
         url = 'https://ifconfig.me/all.json'
         r = requests.get(url)
         if r.status_code == 200:
             if r.json().get('ip_addr'):
                 return r.json()['ip_addr']
 
+            else:
+                return '127.0.0.1'
+
         else:
-            return '127.0.0.1'
+            r.raise_for_status()
+
+    else:
+        return '127.0.0.1'
+
 
 async def get_hpo():
     local_ip = await get_local_ip()
@@ -465,6 +484,11 @@ async def take_photo(driver):
 
 
 if "__main__" == __name__:
-    from utils.gs_editor import get_service
-    service = asyncio.run(get_service())
-    asyncio.run(rec_count(service, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "ya_maps_НовикомБанк"))
+    local_ip = asyncio.run(get_local_ip())
+
+    print(local_ip)
+
+
+    #from utils.gs_editor import get_service
+    #service = asyncio.run(get_service())
+    #asyncio.run(rec_count(service, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "ya_maps_НовикомБанк"))

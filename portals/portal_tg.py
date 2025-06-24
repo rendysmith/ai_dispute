@@ -39,7 +39,6 @@ async def check_tg_link(url):
     except:
         return False
 
-
 async def search_sec(message):
     match = re.search(r'of (\d+) seconds', message)
     if match:
@@ -128,11 +127,6 @@ async def analyst_tg(service, datas, prompt_trend_gone):
                         await asyncio.sleep(1)
                         break
 
-            # except Exception as Ex:
-            #     # Получение всех сообщений из группы комментариев
-            #     async for comment in client.search_messages(message_id, query="46109"):
-            #         print(comment.text)
-
             except pyrogram.errors.FloodWait as FW:
                 print(f'Error FW: {FW}')
                 sec = await search_sec(FW)
@@ -150,7 +144,6 @@ async def check_tg(service, url, pattern, criteria, ss_id, project):
             session_string=session_string,
             in_memory=True
     ) as client:
-
 
         try:
             chat = await client.get_chat(channel)
@@ -170,6 +163,9 @@ async def check_tg(service, url, pattern, criteria, ss_id, project):
                                          feedback=message_text,
                                          pattern=pattern,
                                          criteria=criteria)
+
+        except:
+            pass
 
 
 async def main_tg():
