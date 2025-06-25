@@ -151,9 +151,7 @@ async def captcha_check(driver):
 
     return driver
 
-async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver):
-    global recorded
-
+async def blocks_otzovik(driver, link, service):
     print(f'Link: {link}')
     try:
         print('--- Get 1.0')
@@ -169,12 +167,6 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
         if not driver:
             print('- Error Driver 1')
             return
-
-    # if '46.39.21.228' in local_ip:
-    #     driver = await captcha_check(driver) #обработка капчи
-    #     if not driver:
-    #         print('- Error Driver 2')
-    #         return
 
     await wait_for_portal()  # Время ожидания
 
@@ -217,6 +209,7 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
 
     n = 0
     len_b = 0
+    blocks = None
     while n < 10:
         try:
             blocks = driver.find_elements(By.CSS_SELECTOR, 'div[itemprop="review"]')
@@ -236,6 +229,20 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
             if n == 10:
                 print('- n == 10')
                 return None
+
+    return blocks
+
+async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver):
+    global recorded
+
+    blocks = await blocks_otzovik(driver, link, service)
+    if blocks == 'Next...':
+        return 'Next...'
+
+    elif blocks == None:
+        return None
+
+    len_b = len(blocks)
 
     if len_b == 0:
         print('- No blocks')

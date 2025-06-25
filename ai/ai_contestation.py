@@ -19,7 +19,11 @@ from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
 from models.mdl_tables import ForumRules
+
 from portals.portal_ya import main_ya_maps
+from portals.portal_otzovik import check_otzovik
+
+
 from utils.ai_module import get_answer_ai
 from utils.central_module import wait_for_portal, get_hpo
 
@@ -516,6 +520,79 @@ async def main_stroyenergokom():
 
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
+async def main_sberbank():
+    service = await get_service()
+    driver = await get_selenium_proxy(headless=False, proxy=False)
+
+    ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
+    project = 'Sberbank'
+
+    urls = ['https://otzovik.com/reviews/negosudarstvenniy_pensionniy_fond_sberbanka_russia_moscow/',
+            'https://irecommend.ru/content/npf-sberbanka',]
+
+    for url in urls:
+
+        #await asyncio.sleep(5)
+
+        if "otzovik" in url:
+            driver.get(url)
+            await asyncio.sleep(5)
+            pages = driver
+            for page in range(2, 6):
+                blocks =
+
+
+
+
+
+
+        reviews_element = WebDriverWait(driver, 20).until(
+            EC.visibility_of_element_located((By.CSS_SELECTOR, 'h2[class="card-section-header__title _wide"]'))
+        )
+        reviews_text= reviews_element.text
+        number_reviews = int(reviews_text.split(" ")[0])
+        print(number_reviews)
+
+        rating_before = driver.find_element(By.CSS_SELECTOR, 'div[class="business-summary-rating-badge-view__rating"]').text
+
+        while True:
+            blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-reviews-card-view__review"]')
+            len_b = len(blocks)
+            print(len_b)
+            await asyncio.sleep(3)
+
+            if len_b == number_reviews:
+                break
+
+        datas = {
+            "Дата": [],
+            "Текст": [],
+            "Бренд": [project] * len_b,
+            "Источник": ["yandex.ru/maps"] * len_b,
+            "Url": [],
+            "Автор": [],
+            "Оценка": [],
+            "Общий Url": [url] * len_b,
+            "Кол-во отзывов": [number_reviews] * len_b,
+            "Оценка компании до удаления": [rating_before] * len_b
+        }
+
+        for block in blocks:
+            formatted_date = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__date"]').text
+            feedback = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__body-text"]').text
+            url_answer = ""
+            author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
+
+            star_full = block.find_elements(By.CSS_SELECTOR, 'span[class="inline-image _loaded icon business-rating-badge-view__star _full"]')
+            rating = len(star_full)
+
+            datas['Дата'].append(formatted_date)
+            datas['Текст'].append(feedback)
+            datas['Url'].append(url_answer)
+            datas['Автор'].append(author)
+            datas['Оценка'].append(rating)
+
+        await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
 async def review_analysis(tab_name, rating_before):
     '''Функция для анализа отзыва'''
