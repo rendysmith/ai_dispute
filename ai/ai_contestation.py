@@ -556,8 +556,8 @@ async def main_sberbank():
 
             async def get_feedback(driver, url):
                 print(f'- New page: {url}')
-                first_tab = driver.current_window_handle
-                print(f'- First tab = {first_tab}')
+                main_tab = driver.current_window_handle
+                print(f'- Main tab = {main_tab}')
                 # Открываем новую вкладку с помощью JavaScript
                 driver.execute_script("window.open('');")
 
@@ -571,10 +571,12 @@ async def main_sberbank():
                 driver.get(url)
                 await asyncio.sleep(5)
 
+                print("driver.window_handles: ", driver.window_handles)
                 for idx, tab in enumerate(driver.window_handles):
-                    print("-- driver tab", idx)
+                    print("-- driver tab", idx, tab)
+                    print("-- driver current", driver.current_window_handle)
 
-                    if first_tab != driver.current_window_handle:
+                    if main_tab != driver.current_window_handle:
                         break
 
                     else:
@@ -610,7 +612,8 @@ async def main_sberbank():
                     await asyncio.sleep(5)
                     try:
                         driver.close()
-                        driver.switch_to.window(driver.window_handles[tab])  # Вернуться на первую вкладку
+                        driver.switch_to.window(driver.window_handles[idx])  # Вернуться на первую вкладку
+
                     except Exception as e:
                         print(f"- Ошибка при закрытии вкладки: {e}")
 
