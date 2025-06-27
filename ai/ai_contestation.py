@@ -8,6 +8,7 @@ import time
 from datetime import datetime
 from xml.sax.handler import feature_external_ges
 
+import selenium.common.exceptions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -555,26 +556,65 @@ async def main_sberbank():
 
             async def get_feedback(driver, url):
                 print(f'- New page: {url}')
+                first_tab = driver.current_window_handle
+                print(f'- First tab = {first_tab}')
                 # Открываем новую вкладку с помощью JavaScript
                 driver.execute_script("window.open('');")
 
+                print('- Len tabs: ', len(driver.window_handles))
+                print('- Switch to new tab')
                 # Переключаемся на новую вкладку (индекс 1, так как вкладки нумеруются с 0)
                 driver.switch_to.window(driver.window_handles[1])
+                await asyncio.sleep(5)
 
+                print(f'- Driver get: {driver.current_window_handle}')
                 driver.get(url)
                 await asyncio.sleep(5)
 
-                topic = driver.find_element(By.CSS_SELECTOR, 'h1').text
+                for idx, tab in enumerate(driver.window_handles):
+                    print("-- driver tab", idx)
+
+                    if first_tab != driver.current_window_handle:
+                        break
+
+                    else:
+                        driver.switch_to.window(driver.window_handles[idx + 1])
+                        await asyncio.sleep(1)
+
+                print(driver.current_window_handle)
+                print("---- 1")
+                print(driver.current_window_handle)
+
+                topic = ''
+                topics = driver.find_elements(By.CSS_SELECTOR, 'h1')
+                for i, tpc in enumerate(topics):
+                    try:
+                        if i == 1:
+                            topic = tpc.text
+
+                    except:
+                        break
+
+                print('---- 2')
+
                 plus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-plus"]').text
                 minus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-minus"]').text
-                text = driver.find_element(By.CSS_SELECTOR, 'div[class="review-body description"]').text
+                try:
+                    text = driver.find_element(By.CSS_SELECTOR, 'div[class="review-body description"]').text
 
-                # Закрываем текущую вкладку (вторую)
-                driver.close()
+                except selenium.common.exceptions.NoSuchElementException as NSEE:
+                    text = 'NO DATA'
 
-                # Если нужно, переключаемся обратно на первую вкладку
-                driver.switch_to.window(driver.window_handles[0])
+                finally:
+                    print('-- Close Tab')
+                    await asyncio.sleep(5)
+                    try:
+                        driver.close()
+                        driver.switch_to.window(driver.window_handles[tab])  # Вернуться на первую вкладку
+                    except Exception as e:
+                        print(f"- Ошибка при закрытии вкладки: {e}")
 
+                print('-- return Feedback datas')
                 return topic + "\n" + plus + "\n" + minus + "\n" + text
 
             pages = 5
