@@ -519,7 +519,6 @@ async def main_stroyenergokom():
 
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
-
 async def get_feedback_irec(url):
     soup = await get_soup(url, only_text=True, proxy=False)
     feedback = soup.find("a", {"class": "review-summary active"}).text
@@ -617,9 +616,9 @@ async def get_feedback_otz(driver, url):
     #         driver.switch_to.window(driver.window_handles[idx + 1])
     #         await asyncio.sleep(1)
 
-    print(driver.current_window_handle)
+    #print(driver.current_window_handle)
     print("---- 1")
-    print(driver.current_window_handle)
+    #print(driver.current_window_handle)
 
     topic = ''
     topics = driver.find_elements(By.CSS_SELECTOR, 'h1')
@@ -675,7 +674,6 @@ async def main_sberbank():
 
     service = await get_service()
     driver = await get_selenium_proxy(headless=False, proxy=False)
-
     driver2 = await get_selenium_proxy(headless=False, proxy=False)
 
     ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
@@ -799,15 +797,8 @@ async def main_sberbank():
                     await append_data_to_sheet_scopes(service, ss_id, project, datas)
                     await asyncio.sleep(5)
 
-
-
-
-
-
-
-
-
-
+    driver.quit()
+    driver2.quit()
 
 async def review_analysis(tab_name, rating_before):
     '''Функция для анализа отзыва'''
@@ -879,39 +870,18 @@ async def review_analysis(tab_name, rating_before):
         except SyntaxError as SE:
             print(f'ERROR: {SE}')
 
-
-
-
-
-
-
-
-
 async def main():
-    soup = await get_soup("https://otzovik.com/review_1446945.html", only_text=True, proxy=False)
-    print(soup)
-
-    feedback = soup.find("a", {"class": "review-summary active"}).text
-
-    ps = soup.find_all('p')
-
-    for p in ps:
-        #print(p.text)
-        feedback += p.text
-
-    print(textwrap.fill(feedback, width=200))
-
-
-
-
-
-
-
+    await asyncio.gather(review_analysis('Sberbank', 3))
 
 if __name__ == '__main__':
 
-    #asyncio.run(main())
-    asyncio.run(main_sberbank())
 
+    asyncio.run(main())
+    #asyncio.run(main_sberbank())
     #asyncio.run(review_analysis('Sberbank', 3))
+
+
+    print("OK!!!")
+    
+
 
