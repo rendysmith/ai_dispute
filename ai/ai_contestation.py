@@ -519,6 +519,142 @@ async def main_stroyenergokom():
 
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
+
+async def get_feedback_irec(url):
+    soup = await get_soup(url, only_text=True, proxy=False)
+    feedback = soup.find("a", {"class": "review-summary active"}).text
+    ps = soup.find_all('p')
+    for p in ps:
+        feedback += p.text
+    return textwrap.fill(feedback, width=200)
+
+async def get_feedback_otz1(driver, url):
+    print(f'- New page: {url}')
+    main_tab = driver.current_window_handle
+    print(f'- Main tab = {main_tab}')
+    # Открываем новую вкладку с помощью JavaScript
+    driver.execute_script("window.open('');")
+
+    print('- Len tabs: ', len(driver.window_handles))
+    print('- Switch to new tab')
+    # Переключаемся на новую вкладку (индекс 1, так как вкладки нумеруются с 0)
+    #driver.switch_to.window(driver.window_handles[1])
+    await asyncio.sleep(5)
+
+    print(f'- Driver get: {driver.current_window_handle}')
+    driver.get(url)
+    await asyncio.sleep(5)
+
+    #
+    #
+    # print("driver.window_handles: ", driver.window_handles)
+    # for idx, tab in enumerate(driver.window_handles):
+    #     print("-- driver tab", idx, tab)
+    #     print("-- driver current", driver.current_window_handle)
+    #
+    #     if main_tab != driver.current_window_handle:
+    #         break
+    #
+    #     else:
+    #         print('- Переключаем на другую вкладку')
+    #         driver.switch_to.window(driver.window_handles[idx + 1])
+    #         await asyncio.sleep(1)
+
+    print(driver.current_window_handle)
+    print("---- 1")
+    print(driver.current_window_handle)
+
+    topic = ''
+    topics = driver.find_elements(By.CSS_SELECTOR, 'h1')
+    for i, tpc in enumerate(topics):
+        try:
+            if i == 1:
+                topic = tpc.text
+
+        except:
+            break
+
+    print('---- 2')
+
+    plus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-plus"]').text
+    minus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-minus"]').text
+    try:
+        text = driver.find_element(By.CSS_SELECTOR, 'div[class="review-body description"]').text
+
+    except selenium.common.exceptions.NoSuchElementException as NSEE:
+        text = 'NO DATA'
+
+    finally:
+        print('-- Close Tab')
+        await asyncio.sleep(5)
+        try:
+            driver.close()
+            driver.switch_to.window(driver.window_handles[idx])  # Вернуться на первую вкладку
+
+        except Exception as e:
+            print(f"- Ошибка при закрытии вкладки: {e}")
+
+    print('-- return Feedback datas')
+    return topic + "\n" + plus + "\n" + minus + "\n" + text
+
+async def get_feedback_otz(driver, url):
+    #driver = await get_selenium_proxy(url, headless=False, proxy=False)
+    driver.get(url)
+    await asyncio.sleep(5)
+
+    #
+    #
+    # print("driver.window_handles: ", driver.window_handles)
+    # for idx, tab in enumerate(driver.window_handles):
+    #     print("-- driver tab", idx, tab)
+    #     print("-- driver current", driver.current_window_handle)
+    #
+    #     if main_tab != driver.current_window_handle:
+    #         break
+    #
+    #     else:
+    #         print('- Переключаем на другую вкладку')
+    #         driver.switch_to.window(driver.window_handles[idx + 1])
+    #         await asyncio.sleep(1)
+
+    print(driver.current_window_handle)
+    print("---- 1")
+    print(driver.current_window_handle)
+
+    topic = ''
+    topics = driver.find_elements(By.CSS_SELECTOR, 'h1')
+    for i, tpc in enumerate(topics):
+        try:
+            if i == 1:
+                topic = tpc.text
+
+        except:
+            break
+
+    print('---- 2')
+
+    plus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-plus"]').text
+    minus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-minus"]').text
+    try:
+        text = driver.find_element(By.CSS_SELECTOR, 'div[class="review-body description"]').text
+
+    except selenium.common.exceptions.NoSuchElementException as NSEE:
+        text = 'NO DATA'
+
+    finally:
+        print('-- Close Tab')
+        await asyncio.sleep(5)
+        try:
+            #driver.quit()
+            #driver.switch_to.window(driver.window_handles[idx])  # Вернуться на первую вкладку
+            pass
+
+        except Exception as e:
+            print(f"- Ошибка при закрытии вкладки: {e}")
+
+    print('-- return Feedback datas')
+    return topic + "\n" + plus + "\n" + minus + "\n" + text
+
 async def main_sberbank():
     async def empty_data():
         datas = {
@@ -540,6 +676,8 @@ async def main_sberbank():
     service = await get_service()
     driver = await get_selenium_proxy(headless=False, proxy=False)
 
+    driver2 = await get_selenium_proxy(headless=False, proxy=False)
+
     ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
     project = 'Sberbank'
 
@@ -553,72 +691,6 @@ async def main_sberbank():
 
     for url in urls:
         if "otzovik" in url:
-
-            async def get_feedback(driver, url):
-                print(f'- New page: {url}')
-                main_tab = driver.current_window_handle
-                print(f'- Main tab = {main_tab}')
-                # Открываем новую вкладку с помощью JavaScript
-                driver.execute_script("window.open('');")
-
-                print('- Len tabs: ', len(driver.window_handles))
-                print('- Switch to new tab')
-                # Переключаемся на новую вкладку (индекс 1, так как вкладки нумеруются с 0)
-                driver.switch_to.window(driver.window_handles[1])
-                await asyncio.sleep(5)
-
-                print(f'- Driver get: {driver.current_window_handle}')
-                driver.get(url)
-                await asyncio.sleep(5)
-
-                print("driver.window_handles: ", driver.window_handles)
-                for idx, tab in enumerate(driver.window_handles):
-                    print("-- driver tab", idx, tab)
-                    print("-- driver current", driver.current_window_handle)
-
-                    if main_tab != driver.current_window_handle:
-                        break
-
-                    else:
-                        driver.switch_to.window(driver.window_handles[idx + 1])
-                        await asyncio.sleep(1)
-
-                print(driver.current_window_handle)
-                print("---- 1")
-                print(driver.current_window_handle)
-
-                topic = ''
-                topics = driver.find_elements(By.CSS_SELECTOR, 'h1')
-                for i, tpc in enumerate(topics):
-                    try:
-                        if i == 1:
-                            topic = tpc.text
-
-                    except:
-                        break
-
-                print('---- 2')
-
-                plus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-plus"]').text
-                minus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-minus"]').text
-                try:
-                    text = driver.find_element(By.CSS_SELECTOR, 'div[class="review-body description"]').text
-
-                except selenium.common.exceptions.NoSuchElementException as NSEE:
-                    text = 'NO DATA'
-
-                finally:
-                    print('-- Close Tab')
-                    await asyncio.sleep(5)
-                    try:
-                        driver.close()
-                        driver.switch_to.window(driver.window_handles[idx])  # Вернуться на первую вкладку
-
-                    except Exception as e:
-                        print(f"- Ошибка при закрытии вкладки: {e}")
-
-                print('-- return Feedback datas')
-                return topic + "\n" + plus + "\n" + minus + "\n" + text
 
             pages = 5
             url_o = url + "?ratio=N"
@@ -649,7 +721,7 @@ async def main_sberbank():
                     if url_answer in links:
                         continue
 
-                    feedback = await get_feedback(driver, url_answer)
+                    feedback = await get_feedback_otz(driver2, url_answer)
                     #input(feedback)
 
                     datas = await empty_data()
@@ -674,13 +746,6 @@ async def main_sberbank():
                 url_o = url + str(page) + "/?ratio=N"
 
         elif "irecommend.ru" in url:
-            async def get_feedback(url):
-                soup = await get_soup(url, only_text=True, proxy=False)
-                feedback = soup.find("a", {"class": "review-summary active"}).text
-                ps = soup.find_all('p')
-                for p in ps:
-                    feedback += p.text
-                return textwrap.fill(feedback, width=200)
 
             pages = 2
             source = "irecommend.ru"
@@ -710,7 +775,7 @@ async def main_sberbank():
 
                     print("url_feedback:", url_answer)
 
-                    feedback = await get_feedback(url_answer)
+                    feedback = await get_feedback_irec(url_answer)
                     formatted_date = block.find_element(By.CSS_SELECTOR, 'div[class="created"]').text
                     author = block.find_element(By.CSS_SELECTOR, 'div[class="authorName"]').text
 
