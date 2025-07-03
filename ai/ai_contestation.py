@@ -85,6 +85,80 @@ worktable_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
 #worksheet_name_dreamjob = 'reviews_dreamjob'
 #print(worktable_id, worksheet_name)
 
+async def empty_data():
+    datas = {
+        "Дата": [],
+        "Текст": [],
+        "Бренд": [],
+        "Источник": [],
+        "Url": [],
+        "Автор": [],
+        "Оценка": [],
+        "Общий Url": [],
+        "Кол-во отзывов": [],
+        "Оценка компании до удаления": [],
+        "Вероятность удаления": [],
+        "Текст для поддержки": []
+    }
+    return datas
+
+async def otzovik():
+    driver2 = await get_selenium_proxy(headless=False, proxy=False)
+
+    pages = 5
+    url_o = url + "?ratio=N"
+    source = "otzovik.com"
+    number_reviews = 226
+    rating_before = 2.3
+
+    for page in range(2, pages + 1):
+        driver.get(url_o)
+        input(f'\n\nStart: {url_o}')
+        await asyncio.sleep(7)
+
+        print(f"Page {page}")
+        blocks = driver.find_elements(By.CSS_SELECTOR, 'div[itemprop="review"]')
+        len_b = len(blocks)
+        print(f'Len b = {len_b}')
+
+        for block in blocks:
+            formatted_date = block.find_element(By.CSS_SELECTOR, 'div[class="review-postdate"]').text
+            author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
+            rating = int(block.find_element(By.CSS_SELECTOR, 'div[class="rating-score tooltip-right"]').text)
+
+            if rating >= 4:
+                continue
+
+            url_answer = block.find_element(By.CSS_SELECTOR, 'meta[itemprop="discussionUrl"]').get_attribute("content")
+            if url_answer in links:
+                continue
+
+            feedback = await get_feedback_otz(driver2, url_answer)
+            # input(feedback)
+
+            datas = await empty_data()
+
+            datas['Дата'].append(formatted_date)
+            datas['Текст'].append(feedback)
+            datas["Бренд"].append(project)
+            datas["Источник"].append(source)
+
+            datas['Url'].append(url_answer)
+            datas['Автор'].append(author)
+            datas['Оценка'].append(rating)
+
+            datas["Общий Url"].append(url)
+            datas["Кол-во отзывов"].append(number_reviews)
+            datas["Оценка компании до удаления"].append(rating_before)
+
+            # print(datas)
+
+            await append_data_to_sheet_scopes(service, ss_id, project, datas)
+
+        url_o = url + str(page) + "/?ratio=N"
+
+    driver2.quit()
+
 async def extract_link_from_line(url):
     # Шаблон для поиска ссылки от https: до .html
     pattern = r"https:.*?\.html"
@@ -655,26 +729,8 @@ async def get_feedback_otz(driver, url):
     return topic + "\n" + plus + "\n" + minus + "\n" + text
 
 async def main_sberbank():
-    async def empty_data():
-        datas = {
-            "Дата": [],
-            "Текст": [],
-            "Бренд": [],
-            "Источник": [],
-            "Url": [],
-            "Автор": [],
-            "Оценка": [],
-            "Общий Url": [],
-            "Кол-во отзывов": [],
-            "Оценка компании до удаления": [],
-            "Вероятность удаления": [],
-            "Текст для поддержки": []
-        }
-        return datas
-
     service = await get_service()
     driver = await get_selenium_proxy(headless=False, proxy=False)
-    driver2 = await get_selenium_proxy(headless=False, proxy=False)
 
     ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
     project = 'Sberbank'
@@ -689,59 +745,7 @@ async def main_sberbank():
 
     for url in urls:
         if "otzovik" in url:
-
-            pages = 5
-            url_o = url + "?ratio=N"
-            source = "otzovik.com"
-            number_reviews = 226
-            rating_before = 2.3
-
-            for page in range(2, pages + 1):
-
-                driver.get(url_o)
-                input(f'\n\nStart: {url_o}')
-                await asyncio.sleep(7)
-
-                print(f"Page {page}")
-                blocks = driver.find_elements(By.CSS_SELECTOR, 'div[itemprop="review"]')
-                len_b = len(blocks)
-                print(f'Len b = {len_b}')
-
-                for block in blocks:
-                    formatted_date = block.find_element(By.CSS_SELECTOR, 'div[class="review-postdate"]').text
-                    author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
-                    rating = int(block.find_element(By.CSS_SELECTOR, 'div[class="rating-score tooltip-right"]').text)
-
-                    if rating >= 4:
-                        continue
-
-                    url_answer = block.find_element(By.CSS_SELECTOR, 'meta[itemprop="discussionUrl"]').get_attribute("content")
-                    if url_answer in links:
-                        continue
-
-                    feedback = await get_feedback_otz(driver2, url_answer)
-                    #input(feedback)
-
-                    datas = await empty_data()
-
-                    datas['Дата'].append(formatted_date)
-                    datas['Текст'].append(feedback)
-                    datas["Бренд"].append(project)
-                    datas["Источник"].append(source)
-
-                    datas['Url'].append(url_answer)
-                    datas['Автор'].append(author)
-                    datas['Оценка'].append(rating)
-
-                    datas["Общий Url"].append(url)
-                    datas["Кол-во отзывов"].append(number_reviews)
-                    datas["Оценка компании до удаления"].append(rating_before)
-
-                    #print(datas)
-
-                    await append_data_to_sheet_scopes(service, ss_id, project, datas)
-
-                url_o = url + str(page) + "/?ratio=N"
+            await otzovik(service, driver, links)
 
         elif "irecommend.ru" in url:
 
@@ -870,12 +874,14 @@ async def review_analysis(tab_name, rating_before):
         except SyntaxError as SE:
             print(f'ERROR: {SE}')
 
+async def banki_ru():
+
+
 async def main():
-    await asyncio.gather(review_analysis('Sberbank', 3))
+    #await asyncio.gather(review_analysis('Sberbank', 3))
+    await asyncio.gather(banki_ru())
 
 if __name__ == '__main__':
-
-
     asyncio.run(main())
     #asyncio.run(main_sberbank())
     #asyncio.run(review_analysis('Sberbank', 3))
