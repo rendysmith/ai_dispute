@@ -86,6 +86,76 @@ ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
 #worksheet_name_dreamjob = 'reviews_dreamjob'
 #print(worktable_id, worksheet_name)
 
+async def review_analysis(tab_name, rating_before):
+    '''Функция для анализа отзыва'''
+
+    service = await get_service()
+
+    # ws_name = worksheet_name_dreamjob
+    df = await get_table_scope(service, worktable_id, tab_name)
+    print(df)
+    # add_column = 'Текст для поддержки'
+    # df = df[df[add_column]=='']
+
+    columns = ['Вероятность удаления', 'Текст для поддержки']
+    # for column in columns:
+    #     df[column] = ''
+
+    for idx, row in df.iterrows():
+        probably_delete = row[columns[0]]
+        text_support = row[columns[1]]
+
+        if pd.notnull(probably_delete) and pd.notnull(text_support):
+            continue
+
+        print(f'IDX = {idx}')
+
+        brand = row['Бренд']
+        link = row['Url']
+        comment = row['Текст']
+        source = row['Источник']
+        rating = float(row['Оценка'])
+
+        if rating > rating_before: #если рейтинг выше нужного, пропускает отзыв
+            continue
+
+        if 'yandex.ru/maps' in source:
+            project = 'yandex_maps'
+
+        else:
+            project = source.split('.')[0]
+
+        print("project: ", project)
+
+        status, rules_db = await read_data_from_db_filter(ForumRules, forum_name=project)
+        if status:
+            if len(rules_db) > 0:
+                rule = rules_db[0].forum_rule
+
+            else:
+                continue
+
+        else:
+            continue
+
+        prompt = text.format(source=source, comment=comment, rule=rule)
+        result = await get_answer_ai(auth, prompt)
+        print(result)
+
+        try:
+            result = eval(result)
+            if '49' in result[0]:
+                pass
+            else:
+                result[1] = (f"Здравствуйте, "
+                             f"Я представляю интересы компании '{brand}' и хочу обратиться с просьбой удалить отзыв по ссылке {link}. "
+                             f"Отзыв содержит нарушение:\n") + result[1]
+
+            await append_data_to_sheet_cells(service, worktable_id, brand, columns, idx + 2, result)
+
+        except SyntaxError as SE:
+            print(f'ERROR: {SE}')
+
 async def empty_data():
     datas = {
         "Дата": [],
@@ -104,7 +174,7 @@ async def empty_data():
     return datas
 
 async def otzovik(service, driver, driver2, project, links, url):
-    pages = 100
+    pages = 21
     url_o = url + "?ratio=N"
     source = "otzovik.com"
     number_reviews = 1279
@@ -141,15 +211,31 @@ async def otzovik(service, driver, driver2, project, links, url):
 
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
-    for page in range(1, pages + 1):
+    for page in range(18, pages + 1):
         driver.get(url_o)
-        input(f'\n\nStart: {url_o}')
-        await asyncio.sleep(7)
-
+        print(f'\n\nStart: {url_o}')
         print(f"Page {page}")
-        blocks = driver.find_elements(By.CSS_SELECTOR, 'div[itemprop="review"]')
-        len_b = len(blocks)
-        print(f'Len b = {len_b}')
+
+        n = 0
+        while n < 10:
+            try:
+                blocks = driver.find_elements(By.CSS_SELECTOR, 'div[itemprop="review"]')
+                len_b = len(blocks)
+
+                if len_b == 0:
+                    n += 1
+                    print(n)
+                    await asyncio.sleep(2)
+
+                else:
+                    print(f'Len b = {len_b}')
+                    break
+
+            except:
+                n += 1
+                print(n)
+                await asyncio.sleep(2)
+
 
         for block in blocks:
             await blocks_otz(block, service)
@@ -809,81 +895,10 @@ async def main_sberbank():
     driver.quit()
     driver2.quit()
 
-async def review_analysis(tab_name, rating_before):
-    '''Функция для анализа отзыва'''
-
-    service = await get_service()
-
-    # ws_name = worksheet_name_dreamjob
-    df = await get_table_scope(service, worktable_id, tab_name)
-    print(df)
-    # add_column = 'Текст для поддержки'
-    # df = df[df[add_column]=='']
-
-    columns = ['Вероятность удаления', 'Текст для поддержки']
-    # for column in columns:
-    #     df[column] = ''
-
-    for idx, row in df.iterrows():
-        probably_delete = row[columns[0]]
-        text_support = row[columns[1]]
-
-        if pd.notnull(probably_delete) and pd.notnull(text_support):
-            continue
-
-        print(f'IDX = {idx}')
-
-        brand = row['Бренд']
-        link = row['Url']
-        comment = row['Текст']
-        source = row['Источник']
-        rating = float(row['Оценка'])
-
-        if rating > rating_before: #если рейтинг выше нужного, пропускает отзыв
-            continue
-
-        if 'yandex.ru/maps' in source:
-            project = 'yandex_maps'
-
-        else:
-            project = source.split('.')[0]
-
-        print("project: ", project)
-
-        status, rules_db = await read_data_from_db_filter(ForumRules, forum_name=project)
-        if status:
-            if len(rules_db) > 0:
-                rule = rules_db[0].forum_rule
-
-            else:
-                continue
-
-        else:
-            continue
-
-        prompt = text.format(source=source, comment=comment, rule=rule)
-        result = await get_answer_ai(auth, prompt)
-        print(result)
-
-        try:
-            result = eval(result)
-            if '49' in result[0]:
-                pass
-            else:
-                result[1] = (f"Здравствуйте, "
-                             f"Я представляю интересы компании '{brand}' и хочу обратиться с просьбой удалить отзыв по ссылке {link}. "
-                             f"Отзыв содержит нарушение:\n") + result[1]
-
-            await append_data_to_sheet_cells(service, worktable_id, brand, columns, idx + 2, result)
-
-        except SyntaxError as SE:
-            print(f'ERROR: {SE}')
-
 async def banki_ru():
     service = await get_service()
     driver = await get_selenium_proxy(headless=False, proxy=False)
     driver2 = await get_selenium_proxy(headless=False, proxy=False)
-
     project = 'Banki_ru'
 
     try:
@@ -894,13 +909,12 @@ async def banki_ru():
         links = []
 
     url = "https://otzovik.com/reviews/banki_ru-informacionniy_portal_bankovskih_uslug/"
-
     await otzovik(service, driver, driver2, project, links, url)
 
 
 async def main():
-    #await asyncio.gather(review_analysis('Sberbank', 3))
-    await asyncio.gather(banki_ru(), review_analysis('Banki_ru', 2))
+    await asyncio.gather(review_analysis('Banki_ru', 2))
+    #await asyncio.gather(banki_ru(), review_analysis('Banki_ru', 2))
 
 if __name__ == '__main__':
     asyncio.run(main())
