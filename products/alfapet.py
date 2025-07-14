@@ -113,7 +113,13 @@ async def main_alfa():
                 await check_youtube(service, url, df_mini_pattern, df_mini_criteria, ss_id, project, uniq_links)
 
             elif 'otvet.mail' in url:
-                driver.get(url)
+                try:
+                    driver.get(url)
+                except:
+                    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+                    await asyncio.sleep(7)
+                    driver.get(url)
+
                 await asyncio.sleep(5)
                 try:
                     await check_otvet(service, url, df_mini_pattern, df_mini_criteria, ss_id, project, uniq_links)
