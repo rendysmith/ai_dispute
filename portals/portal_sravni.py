@@ -5,7 +5,7 @@ import os
 import random
 import time
 import zlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pprint import pprint
 
 import pandas as pd
@@ -23,7 +23,7 @@ from utils.gs_editor import get_table_scope, append_data_to_sheet_scope, pars_ur
 from utils.user_agent import get_data_with_proxy, get_data_without_proxy, get_selenium_proxy, get_soup_anticloud, \
     get_soup_curl_cffi, get_fetcher_local
 
-current_date = datetime.now()
+current_date = datetime.now(timezone.utc)
 
 record_date = current_date.strftime("%d.%m.%Y")
 
@@ -91,7 +91,7 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project, links=F
     print('Url:', url)
 
     local_ip = await get_local_ip()
-    if '176.124.192' in local_ip:
+    if '176.124' in local_ip:
         print('\n>>> With proxy...')
         print('\n-- curl_cffi >>>')
         json_data = await get_soup_curl_cffi(url)
@@ -196,10 +196,18 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project, links=F
         if i.get('authorLastName'):
             author = f"{author} {i['authorLastName']}"
 
-        date_str = i['createdToMoscow']
-        date_str_cleaned = date_str.split('.')[0] + '+00:00'
+        date_str = i.get('createdToMoscow') or i.get('date')
+
+        # Удаляем "Z" и добавляем "+00:00" для tz-aware
+        date_str = date_str.rstrip('Z')
+        if '.' in date_str:
+            time_part, micro = date_str.split('.')
+            micro = micro.ljust(6, '0')  # дополняем микросекунды до 6 знаков
+            date_str_cleaned = f"{time_part}.{micro}+00:00"
+        else:
+            date_str_cleaned = date_str + '+00:00'
+
         dt = datetime.fromisoformat(date_str_cleaned)
-        dt = dt.replace(tzinfo=None)
 
         if (current_date - dt) > timedelta(days=days_ago):
             print(f'--- Отзыв старше {days_ago} дней. = {dt}')

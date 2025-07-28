@@ -177,6 +177,36 @@ async def read_table_id(service, spreadsheet_id, worksheet_name):
             print(f'!!!Error Ex: {Ex}')
             return pd.DataFrame()
 
+async def read_all_worksheets(service, spreadsheet_id):
+    # Получение метаинформации о таблице (включает листы)
+    metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+    sheets = metadata.get('sheets', [])
+
+    all_data = {}
+
+    for sheet in sheets:
+        title = sheet['properties']['title']
+        print(f'Чтение листа: {title}')
+        try:
+            range_name = f'{title}'
+            result = service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id, range=range_name).execute()
+            values = result.get('values', [])
+
+            if not values:
+                df = pd.DataFrame()
+            else:
+                df = pd.DataFrame(values[1:], columns=values[0])
+                df = df.dropna(axis=0, how="all")
+
+            all_data[title] = df
+
+        except Exception as e:
+            print(f'Ошибка при чтении листа {title}: {e}')
+            all_data[title] = pd.DataFrame()
+
+    return all_data  # словарь: {имя_листа: DataFrame}
+
 async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, data):
     # Подключение к Google Sheets API
     # SCOPES = ['https://www.googleapis.com/auth/spreadsheets']

@@ -14,7 +14,7 @@ from requests.auth import HTTPBasicAuth
 
 from utils.ai_module import get_answer_ai
 from utils.ba_conn import get_cookies, get_ids
-from utils.gs_editor import read_table_id, get_service, append_data_to_sheet_scopes
+from utils.gs_editor import read_table_id, get_service, append_data_to_sheet_scopes, read_all_worksheets
 from utils.user_agent import get_soup, get_soup_bs4
 from utils.bert_moduls import classify_topic
 
@@ -29,7 +29,7 @@ formatted_date = current_date.strftime("%d.%m.%Y")
 
 print("formatted_date", formatted_date)
 
-tsf = int(time.time() - 1 * 1 * 3600)
+tsf = int(time.time() - 1 * 1 * 3600) #взять пока за последний час, нужно будет за последние 3 дня.
 tst = int(time.time())
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -108,12 +108,13 @@ async def main():
 
     df_set = await read_table_id(service, gid_set, 'set')
 
-    #TEST
+    #TEST ------------------------------------------------------------------------------------------
     df_set = pd.DataFrame({'link': ["https://brandanalytics.ru/report/13829032/summary?tsf=1753131600&tst=1753390799&fmsgproc[any]=1&fsource[any]=3&fsource[any]=18&fsource[any]=38475&fsource[any]=59075&fsource[any]=19&fthematic[any]=-9&fsource[not]=21&fsource[not]=14497&fsource[not]=1&fsource[not]=122919&fsource[not]=31225&fsource[not]=583&ft[not]=83&ft[not]=36&ft[not]=91&ft[not]=87&ft[not]=88&ft[not]=93&ft[not]=84&ft[not]=92&ft[not]=90&ft[not]=109&ft[not]=129&ft[not]=107&ft[not]=97&ft[not]=89&ft[not]=96&ft[not]=82&far[any]=1500&far[any]=0"],
                            "gid": ['1uAgMSukxmO0KZLZ-C5mhv7c3IsxvgyD1vxaSPg3TykU'],
                            "gtab": ['ORM (test)']})
 
     print(df_set)
+    #-----------------------------------------------------------------------------------------------
 
     async with aiohttp.ClientSession() as session:
         #cookies = await get_cookies(session, username, password)
@@ -198,14 +199,17 @@ async def main():
                         print(f'-- IS NOT Censor: {text_snippet}')
                         continue
 
+                    #Указать аудиторию
+                    mix_audience = 1.5
                     audience = int(message['counterList']['audience']) / 1000
-                    if audience <= 2:
-                        print('--- Охват меньше 2000')
+                    if audience <= mix_audience:
+                        print(f'--- Охват меньше {mix_audience} тыс.')
                         continue
 
                     fullname = message['author']['fullname']
                     #print(fullname)
 
+                    #имена официалов
                     if any(offrep in fullname for offrep in offreps):
                         print(f'-- IS official: {fullname}')
                         continue
@@ -236,6 +240,7 @@ async def main():
 
                     hub_name  = message['hub_name']
                     #print(hub_name)
+                    #Определение платфоры для комента
                     index_name = (df_platform['hub_name'] == hub_name).idxmax()
                     platform = df_platform.loc[index_name, 'gs_name']
                     #print(platform)
@@ -270,6 +275,7 @@ async def main():
                         datas['Комментарий'].append('')
                         print('+++ Data')
 
+                    #поиск продукта с помощью BERT
                     product, confidence = await classify_topic(text_snippet, topics)
 
                     text_snippet = "'" + text_snippet
@@ -341,6 +347,13 @@ async def main():
 
 async def tst():
     service = await get_service()
+
+    df = await read_all_worksheets(service, gid_set)
+    print(df)
+    input()
+
+
+    input()
     gid = '1uAgMSukxmO0KZLZ-C5mhv7c3IsxvgyD1vxaSPg3TykU'
     gtab = 'ORM (test)'
 
@@ -354,4 +367,3 @@ async def tst():
 if "__main__" == __name__:
     asyncio.run(main())
     #asyncio.run(tst())
-    #
