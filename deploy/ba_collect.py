@@ -1,3 +1,5 @@
+from pprint import pprint
+
 import asyncio
 import os
 import time
@@ -6,6 +8,7 @@ from datetime import datetime
 import aiohttp
 import urllib.parse
 
+import pandas as pd
 from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
@@ -105,6 +108,13 @@ async def main():
 
     df_set = await read_table_id(service, gid_set, 'set')
 
+    #TEST
+    df_set = pd.DataFrame({'link': ["https://brandanalytics.ru/report/13829032/summary?tsf=1753131600&tst=1753390799&fmsgproc[any]=1&fsource[any]=3&fsource[any]=18&fsource[any]=38475&fsource[any]=59075&fsource[any]=19&fthematic[any]=-9&fsource[not]=21&fsource[not]=14497&fsource[not]=1&fsource[not]=122919&fsource[not]=31225&fsource[not]=583&ft[not]=83&ft[not]=36&ft[not]=91&ft[not]=87&ft[not]=88&ft[not]=93&ft[not]=84&ft[not]=92&ft[not]=90&ft[not]=109&ft[not]=129&ft[not]=107&ft[not]=97&ft[not]=89&ft[not]=96&ft[not]=82&far[any]=1500&far[any]=0"],
+                           "gid": ['1uAgMSukxmO0KZLZ-C5mhv7c3IsxvgyD1vxaSPg3TykU'],
+                           "gtab": ['ORM (test)']})
+
+    print(df_set)
+
     async with aiohttp.ClientSession() as session:
         #cookies = await get_cookies(session, username, password)
 
@@ -176,6 +186,7 @@ async def main():
                          }
 
                 for k, message in messages.items():
+                    print(f'-- Page {page}, message #{k}')
                     text_snippet_html = message['text_snippet']
                     text_snippet_content = await get_soup_bs4(text_snippet_html, only_pars=True)
                     text_snippet = str(text_snippet_content.get_text())
