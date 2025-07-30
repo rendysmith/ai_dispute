@@ -14,7 +14,7 @@ from requests.auth import HTTPBasicAuth
 
 from utils.ai_module import get_answer_ai
 from utils.ba_conn import get_cookies, get_ids
-from utils.gs_editor import read_table_id, get_service, append_data_to_sheet_scopes, read_all_worksheets
+from utils.gs_editor import read_table_id, get_service, append_data_to_sheet_scopes, read_all_worksheets, get_spreadsheet_title
 from utils.user_agent import get_soup, get_soup_bs4
 from utils.bert_moduls import classify_topic
 
@@ -46,7 +46,7 @@ url_base = 'https://brandanalytics.ru/theme-data/'
 
 gid_set = '1vxpafRIbjJriSsh9qzK_jk0ZTMJTRAX0jEep2mvBP4g'
 
-size_limit = 200
+size_limit = 100
 
 async def parse_url(url, id_company, page):
     # Разделение базовой ссылки и параметров
@@ -92,8 +92,8 @@ async def main():
     df_wl = await read_table_id(service, gid_set, 'white_list')
     wlist = df_wl['word'].to_list()
 
-    df_topics = await read_table_id(service, gid_set, 'product')
-    topics = df_topics['topic'].to_list()
+    df_products = await read_table_id(service, gid_set, 'product')
+    #topics = df_topics['topic'].to_list()
 
     df_platform = await read_table_id(service, gid_set, 'platform')
 
@@ -112,7 +112,6 @@ async def main():
     df_set = pd.DataFrame({'link': ["https://brandanalytics.ru/report/13829032/summary?tsf=1753131600&tst=1753390799&fmsgproc[any]=1&fsource[any]=3&fsource[any]=18&fsource[any]=38475&fsource[any]=59075&fsource[any]=19&fthematic[any]=-9&fsource[not]=21&fsource[not]=14497&fsource[not]=1&fsource[not]=122919&fsource[not]=31225&fsource[not]=583&ft[not]=83&ft[not]=36&ft[not]=91&ft[not]=87&ft[not]=88&ft[not]=93&ft[not]=84&ft[not]=92&ft[not]=90&ft[not]=109&ft[not]=129&ft[not]=107&ft[not]=97&ft[not]=89&ft[not]=96&ft[not]=82&far[any]=1500&far[any]=0"],
                            "gid": ['1uAgMSukxmO0KZLZ-C5mhv7c3IsxvgyD1vxaSPg3TykU'],
                            "gtab": ['ORM (test)']})
-
     print(df_set)
     #-----------------------------------------------------------------------------------------------
 
@@ -120,9 +119,22 @@ async def main():
         #cookies = await get_cookies(session, username, password)
 
         for k, row in df_set.iterrows():
-            link = row['link']
-            #print(link)
 
+            gid = row['gid']
+            worksheet_names = await get_spreadsheet_title(service, gid)
+
+            clients_name = set(df_products['Имя клиента'].tolist())
+
+            for client_name in clients_name:
+                if client_name in worksheet_names:
+                    df_products_podproducts = df_products[df_products["Имя клиента"] == client_name]
+                    product_list = df_products_podproducts['Продукт'].drop_duplicates().tolist()
+                    break
+
+            print(df_products_podproducts)
+            print(product_list)
+
+            link = row['link']
             link_spl = link.split('/')
             #print(link_spl)
 
@@ -136,8 +148,8 @@ async def main():
             gid = row['gid']
             gtab = row['gtab']
 
-            gid = '1uAgMSukxmO0KZLZ-C5mhv7c3IsxvgyD1vxaSPg3TykU'
-            gtab = 'ORM (test)'
+            # gid = '1uAgMSukxmO0KZLZ-C5mhv7c3IsxvgyD1vxaSPg3TykU'
+            # gtab = 'ORM (test)'
             df = await read_table_id(service, gid, gtab)
             print(df)
 
@@ -179,6 +191,7 @@ async def main():
                 datas = {'Дата': [],
                          'Направление работ': [],
                          'Продукт': [],
+                         'Подпродукт': [],
                          'Площадка': [],
                          'Охват': [],
                          'Ссылка на упоминание': [],
@@ -275,14 +288,31 @@ async def main():
                         datas['Комментарий'].append('')
                         print('+++ Data')
 
+                    print("product_list:", product_list)
+
                     #поиск продукта с помощью BERT
-                    product, confidence = await classify_topic(text_snippet, topics)
+                    product, confidence = await classify_topic(text_snippet, product_list)
+                    print("product:", product)
+
+                    if product == "Неопределено":
+                        podproduct = product
+
+                    else:
+                        podproduct_list = df_products_podproducts['Подпродукт'][df_products_podproducts['Продукт'] == product].drop_duplicates().tolist()
+                        print("podproduct_list:", podproduct_list)
+
+                        if len(podproduct_list) < 2:
+                            podproduct = podproduct_list[0]
+
+                        else:
+                            podproduct, podconfidence = await classify_topic(text_snippet, podproduct_list)
 
                     text_snippet = "'" + text_snippet
 
                     datas['Дата'].append(formatted_date)
                     datas['Направление работ'].append(work_area)
                     datas['Продукт'].append(product)
+                    datas['Подпродукт'].append(podproduct)
                     datas['Площадка'].append(platform)
                     datas['Охват'].append(audience)
                     datas['Ссылка на упоминание'].append(url_comment)
@@ -347,22 +377,28 @@ async def main():
 
 async def tst():
     service = await get_service()
+    df_products = await read_table_id(service, gid_set, 'product')
 
-    df = await read_all_worksheets(service, gid_set)
-    print(df)
+    df_products_podproducts = df_products[df_products["Имя клиента"] == "Ингрид"]
+    print(df_products)
+
+    product_list = df_products_podproducts['Продукт'].drop_duplicates().tolist()
+
+
+    podproduct_list = df_products_podproducts['Подпродукт'][df_products_podproducts['Продукт'] == 'РК "название"'].drop_duplicates().tolist()
+
+    print(podproduct_list)
     input()
 
 
-    input()
-    gid = '1uAgMSukxmO0KZLZ-C5mhv7c3IsxvgyD1vxaSPg3TykU'
-    gtab = 'ORM (test)'
-
-    datas = {'Дата': [formatted_date],
-             'Направление работ': [12],
-             'Продукт': [23],
-             'Площадка': [234]}
-
-    await append_data_to_sheet_scopes(service, gid, gtab, datas)
+    text_snippets = ["...экскурсии в любой уголок Крыма, морские прогулки, рыбалка, поездки в горы и на водопад Джур-Джур... Бронирование номеров по предоплате 10% от общей суммы на карту Тинькофф...",
+                     "Светлана, у меня Тинькофф, я за себя говорю...",
+                     'У меня Тинькоф уже неделю интернет не даёт, хотя у других операторов более-менее нормально)',
+                     'Оленька, Тинькофф мобаил тоже пашет...']
+    product_list = ['Мобайл', 'Путешествия', 'Город', 'Выгода', 'Шоппинг', 'РК "название"']
+    product, confidence = await classify_topic(text_snippet, product_list)
+    print(product)
+    print(confidence)
 
 if "__main__" == __name__:
     asyncio.run(main())

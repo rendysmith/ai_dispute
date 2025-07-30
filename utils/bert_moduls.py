@@ -30,11 +30,11 @@ async def save_model(model_name, save_path):
     # Сохраняем модель на локальный диск
     model.save(save_path)
 
-async def classify_topic(text, topics, threshold=0.5):
-    save_path = os.path.join(abspath_path, 'llm_model/all-MiniLM-L6-v2/')  # Путь для сохранения модели
-    model = SentenceTransformer(save_path)
-
+async def classify_topic(text, topics, threshold=0.4):
+    #save_path = os.path.join(abspath_path, 'llm_model/all-MiniLM-L6-v2/')  # Путь для сохранения модели
+    #model = SentenceTransformer(save_path)
     model = SentenceTransformer('all-MiniLM-L6-v2')
+    #model = SentenceTransformer("all-mpnet-base-v2")
 
     # Преобразуем все входные данные в эмбеддинги
     topic_embeddings = model.encode(topics)

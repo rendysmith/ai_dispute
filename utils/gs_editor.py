@@ -15,7 +15,6 @@ import warnings
 #from gs_update_utils import setup_google_sheets, upload_table_to_google_sheet
 from datetime import datetime
 
-#from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -208,12 +207,6 @@ async def read_all_worksheets(service, spreadsheet_id):
     return all_data  # словарь: {имя_листа: DataFrame}
 
 async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, data):
-    # Подключение к Google Sheets API
-    # SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-    # SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
-    # credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-    # service = build('sheets', 'v4', credentials=credentials)
-
     await create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME)
 
     # Получаем текущие заголовки колонок
@@ -316,12 +309,6 @@ async def append_data_to_sheet_scopes(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RAN
 
 async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_name, row_number, data: str):
     try:
-        # Подключение к Google Sheets API
-        # SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-        # SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
-        # credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-        # service = build('sheets', 'v4', credentials=credentials)
-
         # Получение заголовков таблицы
         header_range = f"{worksheet_name}!1:1"
         header_result = service.spreadsheets().values().get(spreadsheetId=sheet_id, range=header_range).execute()
@@ -428,6 +415,22 @@ async def get_all_sheet_names(service, spreadsheet_id):
     # Извлечение названий листов
     sheet_names = [sheet['properties']['title'] for sheet in spreadsheet['sheets']]
     return sheet_names
+
+
+async def get_spreadsheet_title(service, spreadsheet_id):
+    """Получает название таблицы Google Sheets по её ID"""
+    try:
+        # Получаем метаданные таблицы
+        spreadsheet = service.spreadsheets().get(
+            spreadsheetId=spreadsheet_id
+        ).execute()
+
+        # Извлекаем название таблицы
+        return spreadsheet['properties']['title']
+
+    except Exception as e:
+        print(f'Ошибка при получении названия таблицы: {e}')
+        return None
 
 def get_all_spreadsheets():
     try:
