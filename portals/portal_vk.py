@@ -256,8 +256,15 @@ async def blocks_vk(url, author_name=False):
 
     # Получаем информацию о группе
     if author_name:
-        group_name = data['response']['groups'][0]['name']
-        return group_name
+        if data.get("response"):
+            if data["response"].get("groups"):
+                group_name = data['response']['groups'][0]['name']
+                return group_name
+            else:
+                return
+
+        else:
+            return
 
     # Получаем информацию о комментариях
     items = data['response']['items']

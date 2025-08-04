@@ -48,7 +48,7 @@ url_base = 'https://brandanalytics.ru/theme-data/'
 
 gid_set = '1vxpafRIbjJriSsh9qzK_jk0ZTMJTRAX0jEep2mvBP4g'
 
-size_limit = 100
+size_limit = 20
 
 async def parse_url(url, id_company, page):
     # Разделение базовой ссылки и параметров
@@ -202,17 +202,7 @@ async def main():
                          }
 
                 for k, message in messages.items():
-                    print(f'-- Page {page}, message #{k}')
-                    text_snippet_html = message['text_snippet']
-                    text_snippet_content = await get_soup_bs4(text_snippet_html, only_pars=True)
-                    text_snippet = str(text_snippet_content.get_text())
-
-                    if all(wl not in text_snippet for wl in wlist):
-                        continue
-
-                    if any(censor in text_snippet.lower() for censor in censors):
-                        print(f'-- IS NOT Censor: {text_snippet}')
-                        continue
+                    print(f'\n-- Page {page}, message #{k}')
 
                     #Указать аудиторию
                     mix_audience = 1.5
@@ -221,13 +211,37 @@ async def main():
                         print(f'--- Охват меньше {mix_audience} тыс.')
                         continue
 
+                    text_snippet_html = message['text_highlighted']
+                    text_snippet_content = await get_soup_bs4(text_snippet_html, only_pars=True)
+                    #print(text_snippet_content)
+                    text_snippet = str(text_snippet_content.get_text())
+                    #input(text_snippet)
+
+                    comment = ""
+
+                    if all(wl not in text_snippet for wl in wlist):
+                        print(f'--- NO white list: {text_snippet}')
+                        #continue
+                        comment += "Не берем, нет в белом списке\n"
+
+                    if any(censor in text_snippet.lower() for censor in censors):
+                        print(f'-- IS NOT Censor: {text_snippet}')
+                        #continue
+                        comment += "Не берем, не проходит цензуру\n"
+
+                    if anti_ads(text_snippet):
+                        print(f"--- SPAM: {text_snippet}")
+                        #continue
+                        comment += "Не берем - это спам\n"
+
                     fullname = message['author']['fullname']
                     #print(fullname)
 
                     #имена официалов
                     if any(offrep in fullname.lower() for offrep in offreps):
                         print(f'-- IS official: {fullname}')
-                        continue
+                        #continue
+                        comment += "Не берем - официал\n"
 
                     url_comment = message['url']
                     if url_comment in links:
@@ -236,9 +250,11 @@ async def main():
                     #Если это сообщество официала.
                     if 'vk.com' in url_comment:
                         group_name = await blocks_vk(url_comment, author_name=True)
-                        if any(offrep in group_name.lower() for offrep in offreps):
-                            print(f'-- IS official group name: {group_name}')
-                            continue
+                        if group_name:
+                            if any(offrep in group_name.lower() for offrep in offreps):
+                                print(f'-- IS official group name: {group_name}')
+                                #continue
+                                comment += "Не берем - официальная группа\n"
 
                     #Проверка ссылки на приватность и наличие коментов.
                     status_link = await check_link(url_comment)
@@ -283,11 +299,12 @@ async def main():
 
                     if 'STOP'.lower() in result.lower():
                         #print("--- AI analyst result:\n", result)
-                        datas['Комментарий'].append(result)
+                        #datas['Комментарий'].append(result)
                         #continue
+                        comment += "Не берем - ИИ не подходит\n"
 
                     else:
-                        datas['Комментарий'].append('')
+                        #datas['Комментарий'].append('')
                         print('+++ Data')
 
                     print("product_list:", product_list)
@@ -319,6 +336,7 @@ async def main():
                     datas['Охват'].append(audience)
                     datas['Ссылка на упоминание'].append(url_comment)
                     datas['Текст упоминания'].append(text_snippet)
+                    datas['Комментарий'].append(comment)
 
                 print("datas")
                 print(datas)
@@ -332,7 +350,7 @@ async def main():
                     print('--- NO datas...')
 
                 page += 1
-                input(f'next...page = {page}')
+                #input(f'next...page = {page}')
                 await asyncio.sleep(5)
 
                 if len_m < size_limit:
@@ -382,10 +400,13 @@ async def tst():
     texts = ['...от Т-Банка. Сим-карта уже с двумя номерами. tbank.ru/baf/9vyrRt4IP5W При переносе номера получите 2 000 рублей. Оплати связь на 500 р и они тебе вернутся подарком. В тариф входят безлимитные соцсети и...',
              'Сегодня заработал билайн, Тинькофф пока нет',
              'Т мобайл не работает',
+             '...до 1 000 000 ₽. Для одобрения кредитной карты нужен только паспорт https://www.tbank.ru/baf/5mn7R7gD4xG:// ✍️ Детская дебетовая карта «Тинькофф джуниор» https://www.tbank.ru/baf/415xOU6GNvG:// ✍️ Оформи...',
+             'Ольга, Перешла с Мегафон на Тинькофф 21.04.23. И вот СЕГОДНЯ пришла задолженность, что у меня долг 197₽...',
              'Т-Банк, то есть ни вай фая,ни связи,ни заказ сделать...',
              '...от Т-Банка. Сим-карта уже с двумя номерами. tbank.ru/baf/9vyrRt4IP5W При переносе номера получите 2 000 рублей. Оплати связь на 500 р и они тебе вернутся подарком. В тариф входят безлимитные соцсети и...']
 
     for text in texts:
+        print(text)
         await anti_ads(text)
 
     input()
@@ -440,5 +461,5 @@ async def tst():
     print(confidence)
 
 if "__main__" == __name__:
-    #asyncio.run(main())
-    asyncio.run(tst())
+    asyncio.run(main())
+    #asyncio.run(tst())

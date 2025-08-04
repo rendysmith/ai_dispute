@@ -73,10 +73,11 @@ async def anti_ads(text):
             outputs = model(**inputs)
             logits = outputs.logits
             predicted_class = torch.argmax(logits, dim=1).item()
-        return "Спам" if predicted_class == 1 else "Не спам"
+        return True if predicted_class == 1 else False
 
     result = predict(text)
     print(f"Результат: {result}")
+    return result
 
 
 
