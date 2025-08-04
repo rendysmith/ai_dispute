@@ -19,7 +19,9 @@ from utils.user_agent import get_soup, get_soup_bs4
 from utils.bert_moduls import classify_topic
 
 from portals.portal_ok import blocks_ok
+from portals.portal_vk import blocks_vk
 from portals.portal_tg import check_tg_link
+
 
 # Получаем текущую дату
 current_date = datetime.now()
@@ -70,7 +72,7 @@ async def check_link(link):
         else:
             return True
 
-    elif any(tg_link in link for tg_link in ['telegram.me', 't.me']):
+    elif any(tg_link in link.lower() for tg_link in ['telegram.me', 't.me']):
         print('--- Check link t.me!')
         status_tg = await check_tg_link(link)
         if status_tg:
@@ -208,7 +210,7 @@ async def main():
                     if all(wl not in text_snippet for wl in wlist):
                         continue
 
-                    if any(censor in text_snippet for censor in censors):
+                    if any(censor in text_snippet.lower() for censor in censors):
                         print(f'-- IS NOT Censor: {text_snippet}')
                         continue
 
@@ -223,7 +225,7 @@ async def main():
                     #print(fullname)
 
                     #имена официалов
-                    if any(offrep in fullname for offrep in offreps):
+                    if any(offrep in fullname.lower() for offrep in offreps):
                         print(f'-- IS official: {fullname}')
                         continue
 
@@ -233,8 +235,8 @@ async def main():
 
                     #Если это сообщество официала.
                     if 'vk.com' in url_comment:
-                        group_name = await blocks_ok(url_comment)
-                        if any(offrep in group_name for offrep in offreps):
+                        group_name = await blocks_vk(url_comment, author_name=True)
+                        if any(offrep in group_name.lower() for offrep in offreps):
                             print(f'-- IS official group name: {group_name}')
                             continue
 
@@ -376,6 +378,30 @@ async def main():
 #url = 'https://brandanalytics.ru/theme-data/12551940/?tst=1739825999&tsf=1739566800&requested%5B%5D=feed&sort=time_create&order=desc&page=1&size=50&limit=25&filter%5Bfmsgproc%5D%5Bany%5D%5B%5D=1&filter%5Bft%5D%5Bnot%5D%5B%5D=30008&filter%5Bft%5D%5Bnot%5D%5B%5D=30009&filter%5Bft%5D%5Bnot%5D%5B%5D=15&filter%5Bft%5D%5Bnot%5D%5B%5D=30029&filter%5Bft%5D%5Bnot%5D%5B%5D=30059&filter%5Bft%5D%5Bnot%5D%5B%5D=30025&filter%5Bfsource%5D%5Bnot%5D%5B%5D=14497&filter%5Bfsource%5D%5Bnot%5D%5B%5D=21&filter%5Bfsource%5D%5Bnot%5D%5B%5D=583&filter%5Bfsource%5D%5Bnot%5D%5B%5D=10273&filter%5Bfsource%5D%5Bnot%5D%5B%5D=122919&filter%5Bfsource%5D%5Bnot%5D%5B%5D=150992&filter%5Bfsource%5D%5Bnot%5D%5B%5D=60312'
 
 async def tst():
+
+    service = await get_service()
+    df_censor_content = await read_table_id(service, gid_set, 'censor')
+    censors = df_censor_content['word'].to_list()
+    print(censors)
+
+    text_snippet = '...перенос номера! Мошенники!!! Уже без причины откладывают перенос номера в Т мобайл!! Раньше говорили несовпадение данных, когда данные подправили уже причину не пишут, просто перенос не...'
+
+    if any(censor in text_snippet.lower() for censor in censors):
+        print(f'-- IS NOT Censor: {text_snippet}')
+
+    else:
+        print('Не пропускаем')
+
+
+    # blocks = await blocks_vk("http://vk.com/wall-20225241_1026462?reply=1059663&thread=1029932", author_name=True)
+    # print(blocks)
+    #
+    input('Wait...')
+
+
+
+
+
     service = await get_service()
     df_products = await read_table_id(service, gid_set, 'product')
 
