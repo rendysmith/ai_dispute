@@ -52,9 +52,42 @@ async def classify_topic(text, topics, threshold=0.4):
 
     return topics[most_similar_idx], similarities[0][most_similar_idx]
 
+async def anti_ads2(text):
+    from transformers import pipeline
+
+    classifier = pipeline("text-classification", model="DeepPavlov/rubert-base-cased")
+    result = classifier(text)
+    print(result)  # [{'label': 'SPAM', 'score': 0.99}]
+
+async def anti_ads(text):
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification
+    import torch
+
+    model_path = "RUSpam/spam_deberta_v4"
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    model = AutoModelForSequenceClassification.from_pretrained(model_path)
+
+    def predict(text):
+        inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=256)
+        with torch.no_grad():
+            outputs = model(**inputs)
+            logits = outputs.logits
+            predicted_class = torch.argmax(logits, dim=1).item()
+        return "Спам" if predicted_class == 1 else "Не спам"
+
+    result = predict(text)
+    print(f"Результат: {result}")
+
+
 
 # Пример использования
 if __name__ == "__main__":
+
+    asyncio.run(anti_ads("...от Т-Банка. Сим-карта уже с двумя номерами. tbank.ru/baf/9vyrRt4IP5W При переносе номера получите 2 000 рублей. Оплати связь на 500 р и они тебе вернутся подарком. В тариф входят безлимитные соцсети и..."))
+    asyncio.run(anti_ads("Купите новый iPhone со скидкой 50%!"))
+    asyncio.run(anti_ads("Привет, как дела?"))
+
+    input()
 
     # Задаем список тем
     topics = [

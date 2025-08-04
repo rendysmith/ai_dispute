@@ -16,7 +16,7 @@ from utils.ai_module import get_answer_ai
 from utils.ba_conn import get_cookies, get_ids
 from utils.gs_editor import read_table_id, get_service, append_data_to_sheet_scopes, read_all_worksheets, get_spreadsheet_title
 from utils.user_agent import get_soup, get_soup_bs4
-from utils.bert_moduls import classify_topic
+from utils.bert_moduls import classify_topic, anti_ads
 
 from portals.portal_ok import blocks_ok
 from portals.portal_vk import blocks_vk
@@ -379,6 +379,19 @@ async def main():
 
 async def tst():
 
+    texts = ['...от Т-Банка. Сим-карта уже с двумя номерами. tbank.ru/baf/9vyrRt4IP5W При переносе номера получите 2 000 рублей. Оплати связь на 500 р и они тебе вернутся подарком. В тариф входят безлимитные соцсети и...',
+             'Сегодня заработал билайн, Тинькофф пока нет',
+             'Т мобайл не работает',
+             'Т-Банк, то есть ни вай фая,ни связи,ни заказ сделать...',
+             '...от Т-Банка. Сим-карта уже с двумя номерами. tbank.ru/baf/9vyrRt4IP5W При переносе номера получите 2 000 рублей. Оплати связь на 500 р и они тебе вернутся подарком. В тариф входят безлимитные соцсети и...']
+
+    for text in texts:
+        await anti_ads(text)
+
+    input()
+
+
+
     service = await get_service()
     df_censor_content = await read_table_id(service, gid_set, 'censor')
     censors = df_censor_content['word'].to_list()
@@ -427,5 +440,5 @@ async def tst():
     print(confidence)
 
 if "__main__" == __name__:
-    asyncio.run(main())
-    #asyncio.run(tst())
+    #asyncio.run(main())
+    asyncio.run(tst())
