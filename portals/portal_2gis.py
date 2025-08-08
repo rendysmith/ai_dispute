@@ -256,7 +256,7 @@ async def main_2gis(url):
 if __name__ == '__main__':
 
     url = 'https://2gis.ru/reviews/5348552839673938/review/169016223'
-    url = 'https://2gis.ru/firm/70000001006477930 '
+    url = 'https://2gis.ru/firm/70000001054643108'
 
 
 

@@ -81,8 +81,14 @@ async def get_content(title_div):
 
 async def get_full_feedback(block):
     # title_div_plus = soup.find('div', class_='review__title review__gap')
-    title_div_plus = block.find('div', class_='review__title review__gap')
-    plus_title = title_div_plus.text
+    try:
+        title_div_plus = block.find('div', class_='review__title review__gap')
+        plus_title = title_div_plus.text
+
+    except:
+        title_div_plus = block.find('div', class_='review__title review__title_border review__gap')
+        plus_title = title_div_plus.text
+
     # print(plus_title)
 
     # Находим следующий div
@@ -212,12 +218,7 @@ async def check_dreamjob(service, link, pattern, criteria, ss_id, project, links
 
 async def main():
     service = await get_service()
-
-    url = 'https://yandex.ru/maps/org/artstudio_moskovsky/125846534919/?ll=30.329628%2C59.907103&mode=search&sll=30.301828%2C59.912472&sspn=0.022573%2C0.006756&text=Artstudio%20Moskovsky&z=14.86'
-    url = 'https://dreamjob.ru/employers/41950?review_id=2832885'
-    url = 'https://dreamjob.ru/employers/41950'
     url = 'https://dreamjob.ru/employers/50604'
-    url = 'https://dreamjob.ru/employers/41950'
 
     await check_dreamjob(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 'Петрович')
 
