@@ -61,7 +61,7 @@ async def get_id_obj(url):
             id_obj = url_split[idx + 1]
             break
 
-    return id_obj
+    return id_obj.strip()
 
 async def send_top_url(service, ss_id, project, url):
     id_obj = await get_id_obj(url)
@@ -256,6 +256,7 @@ async def main_2gis(url):
 if __name__ == '__main__':
 
     url = 'https://2gis.ru/reviews/5348552839673938/review/169016223'
+    url = 'https://2gis.ru/firm/70000001006477930 '
 
 
 
