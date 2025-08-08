@@ -46,7 +46,7 @@ async def get_id_obj(url):
 
     for idx, v in enumerate(url_split):
         if v == 'firm':
-            id_obj = url_split[idx+1]
+            id_obj = url_split[idx + 1]
             break
 
         elif v == 'orgs':
@@ -54,6 +54,10 @@ async def get_id_obj(url):
             break
 
         elif v == 'geo':
+            id_obj = url_split[idx + 1]
+            break
+
+        elif v == "reviews":
             id_obj = url_split[idx + 1]
             break
 
@@ -251,8 +255,10 @@ async def main_2gis(url):
 
 if __name__ == '__main__':
 
-    url = 'https://2gis.ru/irkutsk/geo/1548773796872222/104.211407%2C52.355866?m=104.209969%2C52.352144%2F16'
-    url = 'https://2gis.ru/firm/70000001006477930'
+    url = 'https://2gis.ru/reviews/5348552839673938/review/169016223'
+
+
+
 
     asyncio.run(main_2gis(url))
     print('OK!')
