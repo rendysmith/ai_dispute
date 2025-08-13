@@ -33,7 +33,7 @@ from utils.gs_editor import get_service, write_log_sheet, get_table_scope, appen
     append_data_to_sheet_cells, append_data_to_sheet_scopes, read_table_id
 
 from portals.portal_otzovik import get_top_link
-from portals.portal_ya import get_json
+from portals.portal_ya import get_json, get_id_org
 
 
 from utils.user_agent import get_soup, get_selenium_proxy
@@ -911,10 +911,122 @@ async def banki_ru():
     url = "https://otzovik.com/reviews/banki_ru-informacionniy_portal_bankovskih_uslug/"
     await otzovik(service, driver, driver2, project, links, url)
 
+async def nlmk(project, fix_rating):
+    service = await get_service()
+    df = await read_table_id(service, ss_id, project)
+    texts = df['Текст'].tolist()
+
+    driver = await get_selenium_proxy(headless=False, proxy=False)
+
+
+    urls = ['https://yandex.md/maps/org/novolipetskiy_metallurgicheskiy_kombinat/1037025051/reviews/?ll=39.622478%2C52.571667&z=16']
+
+    for url in urls:
+        driver.get(url)
+
+        await asyncio.sleep(5)
+
+        org_id = await get_id_org(url)
+
+        while True:
+            try:
+                reviews_element = driver.find_element(By.CSS_SELECTOR, 'h2[class="card-section-header__title _wide"]')
+                reviews_text = reviews_element.text
+                number_reviews = int(reviews_text.split(" ")[0])
+                print(1, number_reviews)
+                break
+
+            except:
+                try:
+                    reviews_element = driver.find_element(By.CSS_SELECTOR,
+                                                          'h2[class="card-section-header__title"]')
+                    reviews_text = reviews_element.text
+                    number_reviews = int(reviews_text.split(" ")[0])
+                    print(2, number_reviews)
+                    break
+
+                except:
+                    await asyncio.sleep(2)
+
+        rating_before = driver.find_element(By.CSS_SELECTOR,
+                                            'div[class="business-summary-rating-badge-view__rating"]').text
+
+        #number_reviews = 50
+
+        while True:
+            blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-reviews-card-view__review"]')
+            len_b = len(blocks)
+            print("Скрол вниз:", len_b)
+            await asyncio.sleep(3)
+
+            if len_b == number_reviews:
+                break
+
+        datas = {
+            "Дата": [],
+            "Текст": [],
+            "Бренд": [],
+            "Источник": [],
+            "Url": [],
+            "Автор": [],
+            "Оценка": [],
+            "Общий Url": [],
+            "Кол-во отзывов": [],
+            "Оценка компании до удаления": [],
+            'Вероятность удаления': [],
+            'Текст для поддержки': []
+        }
+
+        for k, block in enumerate(blocks):
+            print(k)
+            formatted_date = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__date"]').text
+            feedback = block.find_element(By.CSS_SELECTOR, 'span[class=" spoiler-view__text-container"]').text
+
+            if feedback in texts:
+                continue
+
+            try:
+                url_author = block.find_element(By.CSS_SELECTOR, 'a[class="business-review-view__user-icon"]').get_attribute("href")
+                url_author_split = url_author.split('/')[-1]
+                url_answer = f'https://yandex.md/maps/org/{org_id}/reviews?reviews%5BpublicId%5D={url_author_split}&utm_source=review'
+
+            except:
+                url_answer = ''
+
+            author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
+
+            star_full = block.find_elements(By.CSS_SELECTOR,
+                                            'span[class="inline-image _loaded icon business-rating-badge-view__star _full"]')
+            rating = len(star_full)
+
+            if rating > fix_rating:
+                continue
+
+            datas['Дата'].append(formatted_date)
+            datas['Текст'].append(feedback)
+            datas['Бренд'].append(project)
+            datas['Источник'].append("yandex.ru/maps")
+            datas['Url'].append(url_answer)
+            datas['Автор'].append(author)
+            datas['Оценка'].append(rating)
+            datas['Общий Url'].append(url)
+            datas['Кол-во отзывов'].append(number_reviews)
+            datas['Оценка компании до удаления'].append(rating_before)
+
+        await append_data_to_sheet_scopes(service, ss_id, project, datas)
+
+
+
 
 async def main():
-    await asyncio.gather(review_analysis('Banki_ru', 2))
-    #await asyncio.gather(banki_ru(), review_analysis('Banki_ru', 2))
+    href = "https://yandex.md/maps/user/3drxz2wvyv2fmnf2yqjztfppfm"
+    href = 'https://yandex.md/maps/org/1037025051/reviews?reviews%5BpublicId%5D=3drxz2wvyv2fmnf2yqjztfppfm&utm_source=review'
+    urls = 'https://yandex.md/maps/org/novolipetskiy_metallurgicheskiy_kombinat/1037025051/reviews/?ll=39.622478%2C52.571667&z=16'
+
+
+    project = 'NLMK'
+
+    await asyncio.gather(review_analysis(project, 3), nlmk(project, 3))
 
 if __name__ == '__main__':
     asyncio.run(main())
