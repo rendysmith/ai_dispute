@@ -174,11 +174,11 @@ async def empty_data():
     return datas
 
 async def otzovik(service, driver, driver2, project, links, url):
-    pages = 21
+    pages = 83
     url_o = url + "?ratio=N"
     source = "otzovik.com"
-    number_reviews = 1279
-    rating_before = 2.6
+    number_reviews = 3283
+    rating_before = 2.4
 
     async def blocks_otz(block, service):
         formatted_date = block.find_element(By.CSS_SELECTOR, 'div[class="review-postdate"]').text
@@ -211,7 +211,7 @@ async def otzovik(service, driver, driver2, project, links, url):
 
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
-    for page in range(18, pages + 1):
+    for page in range(1, pages + 1):
         driver.get(url_o)
         print(f'\n\nStart: {url_o}')
         print(f"Page {page}")
@@ -1015,7 +1015,22 @@ async def nlmk(project, fix_rating):
 
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
+async def tk_kit():
+    service = await get_service()
+    project = "tk_kit"
+    ss_id = ''
 
+    df_links = await read_table_id(service, ss_id, project)
+    links = df_links['Url'].tolist()
+
+    driver = await get_selenium_proxy(headless=False, proxy=False)
+    driver2 = await get_selenium_proxy(headless=False, proxy=False)
+
+    url = 'https://otzovik.com/reviews/transportnaya_kompaniya_kit_russia/?order=date_desc'
+    await otzovik(service, driver, driver2, project, links, url)
+
+
+    url = 'https://irecommend.ru/content/transportnaya-kompaniya-kit'
 
 
 async def main():
