@@ -88,33 +88,36 @@ ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
 
 async def move_mouse():
     import pyautogui
-    import sys
 
     print("Скрипт запущен. Мышь будет двигаться каждые 5 минут, чтобы предотвратить засыпание экрана.")
     print("Чтобы остановить, нажмите CTRL+C.")
 
     try:
         while True:
-            # Получаем текущие координаты мыши
-            x, y = pyautogui.position()
+            # Получаем текущие координаты мыши в отдельном потоке
+            x, y = await asyncio.to_thread(pyautogui.position)
 
-            # Перемещаем мышь на 1 пиксель вправо
-            pyautogui.moveTo(x + 1, y, duration=0.25)
-            print(f"Мышь перемещена на 1 пиксель вправо. Новые координаты: ({x + 1}, {y})")
+            # Перемещаем мышь на 1 пиксель вправо в отдельном потоке
+            await asyncio.to_thread(pyautogui.moveTo, x + 10, y, duration=0.25)
+            print(f"Мышь перемещена на 1 пиксель вправо. Новые координаты: ({x}, {y})")
 
-            # Ждем 1 секунду
-            time.sleep(1)
+            # Асинхронно ждем 30 секунд. Это не блокирует другие задачи.
+            await asyncio.sleep(30)
+            # Получаем текущие координаты мыши в отдельном потоке
+            x, y = await asyncio.to_thread(pyautogui.position)
 
-            # Перемещаем мышь обратно на 1 пиксель влево
-            pyautogui.moveTo(x, y, duration=0.25)
-            print(f"Мышь возвращена. Новые координаты: ({x}, {y})")
+            # Перемещаем мышь обратно в отдельном потоке
+            await asyncio.to_thread(pyautogui.moveTo, x - 10 , y, duration=0.25)
+            print(f"Мышь перемещена на 1 пиксель влево. Новые координаты: ({x}, {y})")
 
-            # Ждем 5 минут перед следующим циклом
-            time.sleep(60)
+            # Асинхронно ждем 30 секунд перед следующим циклом
+            await asyncio.sleep(30)
 
     except KeyboardInterrupt:
         print("\nСкрипт остановлен пользователем.")
-        sys.exit()
+        # sys.exit() не рекомендуется в асинхронном коде. Лучше обработать
+        # исключение в main() или вернуть управление.
+        pass # Просто выходим из цикла
 
 async def review_analysis(worktable_id, tab_name, rating_before):
     '''Функция для анализа отзыва'''
@@ -261,8 +264,7 @@ async def otzovik(service, driver, driver2, ss_id, project, links, ratio):
         print('-- White datas - OK!\n')
         #input('Next...')
 
-
-    for page in range(25, pages + 1):
+    for page in range(43, pages + 1):
         url = f"https://otzovik.com/reviews/transportnaya_kompaniya_kit_russia/{page}/?ratio={str(ratio)}"
         driver.get(url)
         print(f'\n\nStart: {url}')
@@ -1107,7 +1109,6 @@ async def tk_kit(ss_id, project):
     for i in range(1,3):
         #url = f'https://otzovik.com/reviews/transportnaya_kompaniya_kit_russia/1/?ratio={str(i)}'
         await otzovik(service, driver, driver2, ss_id, project, links, i)
-
 
     url = 'https://irecommend.ru/content/transportnaya-kompaniya-kit'
 
