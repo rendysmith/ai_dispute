@@ -86,7 +86,7 @@ ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
 #worksheet_name_dreamjob = 'reviews_dreamjob'
 #print(worktable_id, worksheet_name)
 
-async def review_analysis(tab_name, rating_before):
+async def review_analysis(worktable_id, tab_name, rating_before):
     '''Функция для анализа отзыва'''
 
     service = await get_service()
@@ -173,24 +173,41 @@ async def empty_data():
     }
     return datas
 
-async def otzovik(service, driver, driver2, project, links, url):
-    pages = 83
-    url_o = url + "?ratio=N"
+async def otzovik(service, driver, driver2, ss_id, project, links, ratio):
+    pages = 1000
     source = "otzovik.com"
     number_reviews = 3283
     rating_before = 2.4
 
+    list_temp = []
+
     async def blocks_otz(block, service):
-        formatted_date = block.find_element(By.CSS_SELECTOR, 'div[class="review-postdate"]').text
+        try:
+            formatted_date = block.find_element(By.CSS_SELECTOR, 'div[class="review-postdate"]').text
+        except:
+            await asyncio.sleep(2)
+            formatted_date = block.find_element(By.CSS_SELECTOR, 'div[itemprop="datePublished"]').text
+
         author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
         rating = int(block.find_element(By.CSS_SELECTOR, 'div[class="rating-score tooltip-right"]').text)
 
+        #print("- Rating:", rating)
         if rating >= 3:
+            print()
+            print(f'- Next, Rating {rating} >= 3')
             return
 
         url_answer = block.find_element(By.CSS_SELECTOR, 'meta[itemprop="discussionUrl"]').get_attribute("content")
         if url_answer in links:
+            #print(url_answer)
+            #print('- Url in links')
             return
+
+        if url_answer in list_temp:
+            return
+
+        else:
+            list_temp.append(url_answer)
 
         feedback = await get_feedback_otz(driver2, url_answer)
 
@@ -205,15 +222,20 @@ async def otzovik(service, driver, driver2, project, links, url):
         datas['Автор'].append(author)
         datas['Оценка'].append(rating)
 
-        datas["Общий Url"].append(url)
+        datas["Общий Url"].append('https://otzovik.com/reviews/transportnaya_kompaniya_kit_russia')
         datas["Кол-во отзывов"].append(number_reviews)
         datas["Оценка компании до удаления"].append(rating_before)
 
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
+        print(url_answer)
+        print('-- White datas - OK!')
+        #input('Next...')
+
 
     for page in range(1, pages + 1):
-        driver.get(url_o)
-        print(f'\n\nStart: {url_o}')
+        url = f"https://otzovik.com/reviews/transportnaya_kompaniya_kit_russia/{page}/?ratio={str(ratio)}"
+        driver.get(url)
+        print(f'\n\nStart: {url}')
         print(f"Page {page}")
 
         n = 0
@@ -236,13 +258,17 @@ async def otzovik(service, driver, driver2, project, links, url):
                 print(n)
                 await asyncio.sleep(2)
 
-
         for block in blocks:
             await blocks_otz(block, service)
+            await asyncio.sleep(2)
 
+        try:
+            next_page = driver.find_element(By.CSS_SELECTOR, 'a[class][title="Следующая страница"]').text
+            await asyncio.sleep(3)
+        except:
+            break
 
-
-        url_o = url + str(page) + "/?ratio=N"
+        #url_o = url + str(page) + "/?ratio=N"
 
 async def extract_link_from_line(url):
     # Шаблон для поиска ссылки от https: до .html
@@ -765,7 +791,7 @@ async def get_feedback_otz(driver, url):
 
         except:
             n += 1
-            print(n)
+            print(n, 'Plus')
             await asyncio.sleep(1)
 
     # print("driver.window_handles: ", driver.window_handles)
@@ -797,8 +823,22 @@ async def get_feedback_otz(driver, url):
 
     print('---- 2')
 
-    plus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-plus"]').text
-    minus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-minus"]').text
+    # try:
+    #     plus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-plus"]').text
+    # except:
+    #     return
+
+    n = 0
+    while n < 10:
+        try:
+            minus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-minus"]').text
+            break
+
+        except:
+            n += 1
+            print(n, 'Minus')
+            await asyncio.sleep(1)
+
     try:
         text = driver.find_element(By.CSS_SELECTOR, 'div[class="review-body description"]').text
 
@@ -845,7 +885,7 @@ async def main_sberbank():
             number_reviews = 54
             rating_before = 3.3
 
-            for page in range(0, pages + 1):
+            for page in range(8, pages + 1):
                 url_o = url + f"?page={page}"
                 driver.get(url_o)
                 print(f'\n\nStart: {url_o}')
@@ -1015,33 +1055,39 @@ async def nlmk(project, fix_rating):
 
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
-async def tk_kit():
+async def tk_kit(ss_id, project):
     service = await get_service()
-    project = "tk_kit"
-    ss_id = ''
 
-    df_links = await read_table_id(service, ss_id, project)
-    links = df_links['Url'].tolist()
-
+    try:
+        df_links = await read_table_id(service, ss_id, project)
+        links = df_links['Url'].tolist()
+    except:
+        links = []
+    #---------------------------Otzovik------------------------------
     driver = await get_selenium_proxy(headless=False, proxy=False)
     driver2 = await get_selenium_proxy(headless=False, proxy=False)
 
-    url = 'https://otzovik.com/reviews/transportnaya_kompaniya_kit_russia/?order=date_desc'
-    await otzovik(service, driver, driver2, project, links, url)
+    for i in range(1,3):
+        #url = f'https://otzovik.com/reviews/transportnaya_kompaniya_kit_russia/1/?ratio={str(i)}'
+        await otzovik(service, driver, driver2, ss_id, project, links, i)
 
 
     url = 'https://irecommend.ru/content/transportnaya-kompaniya-kit'
 
 
 async def main():
-    href = "https://yandex.md/maps/user/3drxz2wvyv2fmnf2yqjztfppfm"
-    href = 'https://yandex.md/maps/org/1037025051/reviews?reviews%5BpublicId%5D=3drxz2wvyv2fmnf2yqjztfppfm&utm_source=review'
-    urls = 'https://yandex.md/maps/org/novolipetskiy_metallurgicheskiy_kombinat/1037025051/reviews/?ll=39.622478%2C52.571667&z=16'
+    # href = "https://yandex.md/maps/user/3drxz2wvyv2fmnf2yqjztfppfm"
+    # href = 'https://yandex.md/maps/org/1037025051/reviews?reviews%5BpublicId%5D=3drxz2wvyv2fmnf2yqjztfppfm&utm_source=review'
+    # urls = 'https://yandex.md/maps/org/novolipetskiy_metallurgicheskiy_kombinat/1037025051/reviews/?ll=39.622478%2C52.571667&z=16'
+    #
+    #
+    # project = 'NLMK'
 
+    project = "tk_kit"
+    ss_id = '1-Cn4UAvTKkpSesgKda8VvINJeKu5HafW67rbLNoR7Ug'
 
-    project = 'NLMK'
-
-    await asyncio.gather(review_analysis(project, 3), nlmk(project, 3))
+    await asyncio.gather(review_analysis(ss_id, project, 3),
+                         tk_kit(ss_id, project))
 
 if __name__ == '__main__':
     asyncio.run(main())
