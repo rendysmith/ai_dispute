@@ -206,7 +206,7 @@ async def empty_data():
     }
     return datas
 
-async def otzovik(service, driver, driver2, ss_id, project, links, ratio):
+async def otzovik(service, driver, driver2, ss_id, project, links, ratio, start_page):
     pages = 1000
     source = "otzovik.com"
     number_reviews = 3283
@@ -264,7 +264,7 @@ async def otzovik(service, driver, driver2, ss_id, project, links, ratio):
         print('-- White datas - OK!\n')
         #input('Next...')
 
-    for page in range(43, pages + 1):
+    for page in range(start_page, pages + 1):
         url = f"https://otzovik.com/reviews/transportnaya_kompaniya_kit_russia/{page}/?ratio={str(ratio)}"
         driver.get(url)
         print(f'\n\nStart: {url}')
@@ -1106,9 +1106,10 @@ async def tk_kit(ss_id, project):
     driver = await get_selenium_proxy(headless=False, proxy=False)
     driver2 = await get_selenium_proxy(headless=False, proxy=False)
 
-    for i in range(1,3):
+    start_page = 1
+    for i in range(2,3):
         #url = f'https://otzovik.com/reviews/transportnaya_kompaniya_kit_russia/1/?ratio={str(i)}'
-        await otzovik(service, driver, driver2, ss_id, project, links, i)
+        await otzovik(service, driver, driver2, ss_id, project, links, i, start_page)
 
     url = 'https://irecommend.ru/content/transportnaya-kompaniya-kit'
 
