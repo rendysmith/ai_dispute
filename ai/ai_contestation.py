@@ -86,6 +86,36 @@ ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
 #worksheet_name_dreamjob = 'reviews_dreamjob'
 #print(worktable_id, worksheet_name)
 
+async def move_mouse():
+    import pyautogui
+    import sys
+
+    print("Скрипт запущен. Мышь будет двигаться каждые 5 минут, чтобы предотвратить засыпание экрана.")
+    print("Чтобы остановить, нажмите CTRL+C.")
+
+    try:
+        while True:
+            # Получаем текущие координаты мыши
+            x, y = pyautogui.position()
+
+            # Перемещаем мышь на 1 пиксель вправо
+            pyautogui.moveTo(x + 1, y, duration=0.25)
+            print(f"Мышь перемещена на 1 пиксель вправо. Новые координаты: ({x + 1}, {y})")
+
+            # Ждем 1 секунду
+            time.sleep(1)
+
+            # Перемещаем мышь обратно на 1 пиксель влево
+            pyautogui.moveTo(x, y, duration=0.25)
+            print(f"Мышь возвращена. Новые координаты: ({x}, {y})")
+
+            # Ждем 5 минут перед следующим циклом
+            time.sleep(60)
+
+    except KeyboardInterrupt:
+        print("\nСкрипт остановлен пользователем.")
+        sys.exit()
+
 async def review_analysis(worktable_id, tab_name, rating_before):
     '''Функция для анализа отзыва'''
 
@@ -185,7 +215,7 @@ async def otzovik(service, driver, driver2, ss_id, project, links, ratio):
         try:
             formatted_date = block.find_element(By.CSS_SELECTOR, 'div[class="review-postdate"]').text
         except:
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)
             formatted_date = block.find_element(By.CSS_SELECTOR, 'div[itemprop="datePublished"]').text
 
         author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
@@ -228,11 +258,11 @@ async def otzovik(service, driver, driver2, ss_id, project, links, ratio):
 
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
         print(url_answer)
-        print('-- White datas - OK!')
+        print('-- White datas - OK!\n')
         #input('Next...')
 
 
-    for page in range(1, pages + 1):
+    for page in range(25, pages + 1):
         url = f"https://otzovik.com/reviews/transportnaya_kompaniya_kit_russia/{page}/?ratio={str(ratio)}"
         driver.get(url)
         print(f'\n\nStart: {url}')
@@ -247,7 +277,7 @@ async def otzovik(service, driver, driver2, ss_id, project, links, ratio):
                 if len_b == 0:
                     n += 1
                     print(n)
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(1)
 
                 else:
                     print(f'Len b = {len_b}')
@@ -256,15 +286,15 @@ async def otzovik(service, driver, driver2, ss_id, project, links, ratio):
             except:
                 n += 1
                 print(n)
-                await asyncio.sleep(2)
+                await asyncio.sleep(1)
 
         for block in blocks:
             await blocks_otz(block, service)
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)
 
         try:
             next_page = driver.find_element(By.CSS_SELECTOR, 'a[class][title="Следующая страница"]').text
-            await asyncio.sleep(3)
+            await asyncio.sleep(1)
         except:
             break
 
@@ -340,8 +370,9 @@ async def main_vkusvill():
     data = {'service_name': market, 'date': time.ctime()}
     await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
-async def grade_analysis():
+async def grade_analysis(worktable_id, worksheet_name):
     service = await get_service()
+
     df = await get_table_scope(service, worktable_id, worksheet_name)
     not_null = 'Текст'
     is_null = 'Общий Url'
@@ -381,7 +412,6 @@ async def grade_analysis():
                     await append_data_to_sheet_cells(service, worktable_id, worksheet_name, columns, idx + 2, result)
                     await asyncio.sleep(5)
                     continue
-
 
             overall_grade = soup.find('div', class_='rating-score-2 big').text.strip()
             number_grades = soup.find('span', class_='votes').text.strip()
@@ -792,7 +822,10 @@ async def get_feedback_otz(driver, url):
         except:
             n += 1
             print(n, 'Plus')
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
+
+            if n == 5:
+                driver.refresh()
 
     # print("driver.window_handles: ", driver.window_handles)
     # for idx, tab in enumerate(driver.window_handles):
@@ -837,7 +870,11 @@ async def get_feedback_otz(driver, url):
         except:
             n += 1
             print(n, 'Minus')
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
+
+            if n == 5:
+                driver.refresh()
+
 
     try:
         text = driver.find_element(By.CSS_SELECTOR, 'div[class="review-body description"]').text
@@ -847,7 +884,7 @@ async def get_feedback_otz(driver, url):
 
     finally:
         print('-- Close Tab')
-        await asyncio.sleep(5)
+        await asyncio.sleep(1)
         try:
             #driver.quit()
             #driver.switch_to.window(driver.window_handles[idx])  # Вернуться на первую вкладку
@@ -1087,7 +1124,10 @@ async def main():
     ss_id = '1-Cn4UAvTKkpSesgKda8VvINJeKu5HafW67rbLNoR7Ug'
 
     await asyncio.gather(review_analysis(ss_id, project, 3),
-                         tk_kit(ss_id, project))
+                         tk_kit(ss_id, project),
+                         move_mouse())
+
+    #await tk_kit(ss_id, project)
 
 if __name__ == '__main__':
     asyncio.run(main())
