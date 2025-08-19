@@ -86,6 +86,8 @@ ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
 #worksheet_name_dreamjob = 'reviews_dreamjob'
 #print(worktable_id, worksheet_name)
 
+headless, proxy_on, only_text = asyncio.run(get_hpo())
+
 async def move_mouse():
     import pyautogui
 
@@ -735,7 +737,7 @@ async def main_stroyenergokom():
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
 async def get_feedback_irec(url):
-    soup = await get_soup(url, only_text=True, proxy=False)
+    soup = await get_soup(url, only_text=True, proxy=proxy_on)
     feedback = soup.find("a", {"class": "review-summary active"}).text
     ps = soup.find_all('p')
     for p in ps:
@@ -898,13 +900,13 @@ async def get_feedback_otz(driver, url):
     print('-- return Feedback datas')
     return topic + "\n" + plus + "\n" + minus + "\n" + text
 
-async def get_irec(service, ss_id, project, driver, links, url):
+async def get_irec(service, ss_id, project, driver, links, url, start_page):
     pages = 11
     source = "irecommend.ru"
     number_reviews = 536
     rating_before = 1.8
 
-    for page in range(1, pages + 1):
+    for page in range(start_page, pages + 1):
         url_o = url + f"?page={page}"
         driver.get(url_o)
         print(f'\n\nStart: {url_o}')
@@ -1157,14 +1159,15 @@ async def tk_kit(ss_id, project):
     except:
         links = []
     #---------------------------Otzovik------------------------------
-    driver = await get_selenium_proxy(headless=False, proxy=False)
-    driver2 = await get_selenium_proxy(headless=False, proxy=False)
+    driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
+    #driver2 = await get_selenium_proxy(headless=False, proxy=False)
 
-    start_page = 1
+    start_page = 3
     # for i in range(1,4): #вторая цифра до скольки не включительно т.е. собрать данные по 1-3 звезд
     #     await otzovik(service, driver, driver2, ss_id, project, links, i, start_page)
 
     url = 'https://irecommend.ru/content/transportnaya-kompaniya-kit'
+    await get_irec(service, ss_id, project, driver, links, url, start_page)
 
 
 
