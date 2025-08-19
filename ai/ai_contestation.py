@@ -1172,13 +1172,6 @@ async def tk_kit(ss_id, project):
 
 
 async def main():
-    # href = "https://yandex.md/maps/user/3drxz2wvyv2fmnf2yqjztfppfm"
-    # href = 'https://yandex.md/maps/org/1037025051/reviews?reviews%5BpublicId%5D=3drxz2wvyv2fmnf2yqjztfppfm&utm_source=review'
-    # urls = 'https://yandex.md/maps/org/novolipetskiy_metallurgicheskiy_kombinat/1037025051/reviews/?ll=39.622478%2C52.571667&z=16'
-    #
-    #
-    # project = 'NLMK'
-
     project = "tk_kit"
     ss_id = '1-Cn4UAvTKkpSesgKda8VvINJeKu5HafW67rbLNoR7Ug'
 
