@@ -225,7 +225,7 @@ async def otzovik(service, driver, driver2, ss_id, project, links, ratio, start_
         rating = int(block.find_element(By.CSS_SELECTOR, 'div[class="rating-score tooltip-right"]').text)
 
         #print("- Rating:", rating)
-        if rating >= 3:
+        if rating > 3:
             print()
             print(f'- Next, Rating {rating} >= 3')
             return
@@ -898,6 +898,60 @@ async def get_feedback_otz(driver, url):
     print('-- return Feedback datas')
     return topic + "\n" + plus + "\n" + minus + "\n" + text
 
+async def get_irec(service, ss_id, project, driver, links, url):
+    pages = 11
+    source = "irecommend.ru"
+    number_reviews = 536
+    rating_before = 1.8
+
+    for page in range(1, pages + 1):
+        url_o = url + f"?page={page}"
+        driver.get(url_o)
+        print(f'\n\nStart: {url_o}')
+        await asyncio.sleep(7)
+
+        blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-type="1"]')
+        # print('- 2')
+        len_b = len(blocks)
+
+        for block in blocks:
+            rating_content = block.find_elements(By.CSS_SELECTOR, 'div[class="on"]')
+            rating = len(rating_content)
+
+            if rating > 3:
+                continue
+
+            url_answer = block.find_element(By.CSS_SELECTOR, 'a[class="reviewTextSnippet"]').get_attribute("href")
+            if url_answer in links:
+                continue
+
+            print("url_feedback:", url_answer)
+
+            feedback = await get_feedback_irec(url_answer)
+            formatted_date = block.find_element(By.CSS_SELECTOR, 'div[class="created"]').text
+            author = block.find_element(By.CSS_SELECTOR, 'div[class="authorName"]').text
+
+            datas = await empty_data()
+
+            datas['Дата'].append(formatted_date)
+            datas['Текст'].append(feedback)
+            datas["Бренд"].append(project)
+            datas["Источник"].append(source)
+
+            datas['Url'].append(url_answer)
+            datas['Автор'].append(author)
+            datas['Оценка'].append(rating)
+
+            datas["Общий Url"].append(url)
+            datas["Кол-во отзывов"].append(number_reviews)
+            datas["Оценка компании до удаления"].append(rating_before)
+
+            # print(datas)
+
+            await append_data_to_sheet_scopes(service, ss_id, project, datas)
+            await asyncio.sleep(5)
+
+
 async def main_sberbank():
     service = await get_service()
     driver = await get_selenium_proxy(headless=False, proxy=False)
@@ -1107,11 +1161,11 @@ async def tk_kit(ss_id, project):
     driver2 = await get_selenium_proxy(headless=False, proxy=False)
 
     start_page = 1
-    for i in range(2,3):
-        #url = f'https://otzovik.com/reviews/transportnaya_kompaniya_kit_russia/1/?ratio={str(i)}'
-        await otzovik(service, driver, driver2, ss_id, project, links, i, start_page)
+    # for i in range(1,4): #вторая цифра до скольки не включительно т.е. собрать данные по 1-3 звезд
+    #     await otzovik(service, driver, driver2, ss_id, project, links, i, start_page)
 
     url = 'https://irecommend.ru/content/transportnaya-kompaniya-kit'
+
 
 
 async def main():
