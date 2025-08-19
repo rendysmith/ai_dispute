@@ -46,6 +46,30 @@ pass_proxy = os.environ.get("PASS_PROXY")
 
 ua = UserAgent()
 
+async def get_soup_tor(url, error=False):
+    from aiohttp import ClientSession
+    from aiohttp_socks import ProxyConnector
+    from stem.control import Controller
+    from stem import Signal
+
+    TOR_PROXY = "socks5://127.0.0.1:9050"
+    TOR_PORT = 9051  # ControlPort
+    TOR_PASSWORD = "mypassword"  # твой пароль (а не hash!)
+
+    if error:
+        print('--- Change tor IP')
+        with Controller.from_port(port=TOR_PORT) as controller:
+            controller.authenticate(password=TOR_PASSWORD)
+            controller.signal(Signal.NEWNYM)
+
+    print('--- Start get data tor')
+    connector = ProxyConnector.from_url(TOR_PROXY)
+    async with ClientSession(connector=connector) as session:
+        async with session.get(url, timeout=60) as resp:
+            html = await resp.text()
+            print('--- Return data')
+            return BeautifulSoup(html, "html.parser")
+
 async def get_fetcher_local(api_url, flare_bypasser_url="http://localhost:8080/v1"):
     """
     Fetches JSON data from a sravni.ru API endpoint using FlareBypasser.
@@ -711,10 +735,12 @@ async def get_data_with_proxy(url, text_format=True):
 
 async def get_data_without_proxy(url, text_format=True):
     trying = 3
+    headers = await gen_ua(url)
+
     for i in range(trying):
         print(f'- Without Proxy try {i}')
         timeout = aiohttp.ClientTimeout(total=10)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
             print('--1--')
             try:
                 async with session.get(url) as response:
@@ -874,4 +900,6 @@ async def main():
     #input('Wait..')
 
 if "__main__" in __name__:
-    asyncio.run(main())
+    #asyncio.run(main())
+    soup = asyncio.run(get_soup('https://irecommend.ru/content/uzhasnei-kompanii-ya-ne-vstrechal', proxy=False))
+    print(soup.title)

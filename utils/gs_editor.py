@@ -532,8 +532,13 @@ async def main():
     # ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
     # await write_log_sheet(service, ss_id, 'logs', data)
 
-    df = await read_table_id(service, '1uAgMSukxmO0KZLZ-C5mhv7c3IsxvgyD1vxaSPg3TykU', 'ORM (test)')
-    print(df)
+    ss_id = '1-Cn4UAvTKkpSesgKda8VvINJeKu5HafW67rbLNoR7Ug'
+    table_name = 'tk_kit'
+    datas = {'Общий Url': ['asdfasdf', '11111111111111111']}
+    await append_data_to_sheet_scopes(service, ss_id, table_name, datas)
+
+    # df = await read_table_id(service, '1uAgMSukxmO0KZLZ-C5mhv7c3IsxvgyD1vxaSPg3TykU', 'ORM (test)')
+    # print(df)
 
 if "__main__" == __name__:
     asyncio.run(main())

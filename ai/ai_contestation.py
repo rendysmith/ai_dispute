@@ -36,7 +36,7 @@ from portals.portal_otzovik import get_top_link
 from portals.portal_ya import get_json, get_id_org
 
 
-from utils.user_agent import get_soup, get_selenium_proxy
+from utils.user_agent import get_soup, get_selenium_proxy, get_soup_tor
 
 from utils.constants import months
 
@@ -737,8 +737,18 @@ async def main_stroyenergokom():
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
 async def get_feedback_irec(url):
-    soup = await get_soup(url, only_text=True, proxy=proxy_on)
-    feedback = soup.find("a", {"class": "review-summary active"}).text
+
+    while True:
+        try:
+            #soup = await get_soup_tor(url)
+            soup = await get_soup(url, proxy=proxy_on)
+            feedback = soup.find("a", {"class": "review-summary active"}).text
+            break
+
+        except Exception as Ex:
+            print(f'- Error Ex: {Ex}')
+            await asyncio.sleep(5)
+
     ps = soup.find_all('p')
     for p in ps:
         feedback += p.text
@@ -906,7 +916,7 @@ async def get_irec(service, ss_id, project, driver, links, url, start_page):
     number_reviews = 536
     rating_before = 1.8
 
-    for page in range(start_page, pages + 1):
+    for page in range(start_page, pages + 1): #начинается со страницы 0
         url_o = url + f"?page={page}"
         driver.get(url_o)
         print(f'\n\nStart: {url_o}')
@@ -927,9 +937,9 @@ async def get_irec(service, ss_id, project, driver, links, url, start_page):
             if url_answer in links:
                 continue
 
-            print("url_feedback:", url_answer)
-
+            print("- url_feedback:", url_answer)
             feedback = await get_feedback_irec(url_answer)
+
             formatted_date = block.find_element(By.CSS_SELECTOR, 'div[class="created"]').text
             author = block.find_element(By.CSS_SELECTOR, 'div[class="authorName"]').text
 
@@ -948,11 +958,9 @@ async def get_irec(service, ss_id, project, driver, links, url, start_page):
             datas["Кол-во отзывов"].append(number_reviews)
             datas["Оценка компании до удаления"].append(rating_before)
 
-            # print(datas)
-
             await append_data_to_sheet_scopes(service, ss_id, project, datas)
             await asyncio.sleep(5)
-
+            print(f'--- append {author}')
 
 async def main_sberbank():
     service = await get_service()
@@ -1162,7 +1170,7 @@ async def tk_kit(ss_id, project):
     driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
     #driver2 = await get_selenium_proxy(headless=False, proxy=False)
 
-    start_page = 3
+    start_page = 10
     # for i in range(1,4): #вторая цифра до скольки не включительно т.е. собрать данные по 1-3 звезд
     #     await otzovik(service, driver, driver2, ss_id, project, links, i, start_page)
 
@@ -1175,10 +1183,10 @@ async def main():
     project = "tk_kit"
     ss_id = '1-Cn4UAvTKkpSesgKda8VvINJeKu5HafW67rbLNoR7Ug'
 
-    await asyncio.gather(review_analysis(ss_id, project, 3),
-                         tk_kit(ss_id, project),
-                         move_mouse())
-
+    # await asyncio.gather(review_analysis(ss_id, project, 3),
+    #                      tk_kit(ss_id, project),
+    #                      move_mouse())
+    await review_analysis(ss_id, project, 3)
     #await tk_kit(ss_id, project)
 
 if __name__ == '__main__':
