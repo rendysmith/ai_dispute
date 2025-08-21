@@ -962,6 +962,116 @@ async def get_irec(service, ss_id, project, driver, links, url, start_page):
             await asyncio.sleep(5)
             print(f'--- append {author}')
 
+async def get_ya_maps(service, url, ss_id, project, links):
+    driver = await get_selenium_proxy(headless=False, proxy=False)
+    driver.get(url)
+
+    await asyncio.sleep(5)
+
+    org_id = await get_id_org(url)
+
+    while True:
+        try:
+            reviews_element = driver.find_element(By.CSS_SELECTOR, 'h2[class="card-section-header__title _wide"]')
+            reviews_text = reviews_element.text
+            number_reviews = int(reviews_text.split(" ")[0])
+            print(1, number_reviews)
+            break
+
+        except:
+            try:
+                reviews_element = driver.find_element(By.CSS_SELECTOR,
+                                                      'h2[class="card-section-header__title"]')
+                reviews_text = reviews_element.text
+                number_reviews = int(reviews_text.split(" ")[0])
+                print(2, number_reviews)
+                break
+
+            except:
+                await asyncio.sleep(2)
+
+    rating_before = driver.find_element(By.CSS_SELECTOR,
+                                        'div[class="business-summary-rating-badge-view__rating"]').text
+
+    number_reviews = 200
+
+    while True:
+        blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-reviews-card-view__review"]')
+        len_b = len(blocks)
+        print("Скрол вниз:", len_b)
+        await asyncio.sleep(3)
+
+        if len_b == number_reviews:
+            break
+
+    datas = {
+        "Дата": [],
+        "Текст": [],
+        "Бренд": [],
+        "Источник": [],
+        "Url": [],
+        "Автор": [],
+        "Оценка": [],
+        "Общий Url": [],
+        "Кол-во отзывов": [],
+        "Оценка компании до удаления": [],
+        'Вероятность удаления': [],
+        'Текст для поддержки': []
+    }
+
+
+    for k, block in enumerate(blocks):
+        print(k)
+        formatted_date = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__date"]').text
+
+        try:
+            spoiler = block.find_element(By.CSS_SELECTOR, 'span[class="spoiler-view__button"]')
+            spoiler.click()
+            print('-> Click spoiler')
+            await asyncio.sleep(2)
+
+        except Exception as Ex:
+            feedback = block.find_element(By.CSS_SELECTOR, 'span[class=" spoiler-view__text-container"]').text
+            print(f'- Нет спойлера\n{feedback}')
+
+        feedback = block.find_element(By.CSS_SELECTOR, 'span[class=" spoiler-view__text-container"]').text
+
+        # if feedback in texts:
+        #     continue
+
+        try:
+            url_author = block.find_element(By.CSS_SELECTOR,
+                                            'a[class="business-review-view__user-icon"]').get_attribute("href")
+            url_author_split = url_author.split('/')[-1]
+            url_answer = f'https://yandex.md/maps/org/{org_id}/reviews?reviews%5BpublicId%5D={url_author_split}&utm_source=review'
+
+            if url_answer in links:
+                continue
+        except:
+            url_answer = ''
+
+        author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
+
+        star_full = block.find_elements(By.CSS_SELECTOR,
+                                        'span[class="inline-image _loaded icon business-rating-badge-view__star _full"]')
+        rating = len(star_full)
+
+        if rating > 3:
+            continue
+
+        datas['Дата'].append(formatted_date)
+        datas['Текст'].append(feedback)
+        datas['Бренд'].append(project)
+        datas['Источник'].append("yandex.ru/maps")
+        datas['Url'].append(url_answer)
+        datas['Автор'].append(author)
+        datas['Оценка'].append(rating)
+        datas['Общий Url'].append(url)
+        datas['Кол-во отзывов'].append(number_reviews)
+        datas['Оценка компании до удаления'].append(rating_before)
+
+    await append_data_to_sheet_scopes(service, ss_id, project, datas)
+
 async def main_sberbank():
     service = await get_service()
     driver = await get_selenium_proxy(headless=False, proxy=False)
@@ -1159,7 +1269,6 @@ async def nlmk(project, fix_rating):
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
 async def tk_kit(ss_id, project):
-    service = await get_service()
 
     try:
         df_links = await read_table_id(service, ss_id, project)
@@ -1177,15 +1286,30 @@ async def tk_kit(ss_id, project):
     url = 'https://irecommend.ru/content/transportnaya-kompaniya-kit'
     await get_irec(service, ss_id, project, driver, links, url, start_page)
 
+async def molcom(ss_id, project):
+    service = await get_service()
+
+    url = 'https://yandex.kz/maps/org/molkom/1363951847/reviews/?ll=37.853102%2C55.981127&z=14'
+
+    try:
+        df_links = await read_table_id(service, ss_id, project)
+        links = df_links['Url'].tolist()
+    except:
+        links = []
+
+    await get_ya_maps(service, url, ss_id, project, links)
+
+
+
+
 
 
 async def main():
-    project = "tk_kit"
-    ss_id = '1-Cn4UAvTKkpSesgKda8VvINJeKu5HafW67rbLNoR7Ug'
 
-    # await asyncio.gather(review_analysis(ss_id, project, 3),
-    #                      tk_kit(ss_id, project),
-    #                      move_mouse())
+    ss_id = '1WFn2lexzlboLbywtUFuRU3CVbqDxOsbJqEJ1OQszw8U'
+    project = 'molcom'
+
+    #await asyncio.gather(review_analysis(ss_id, project, 3),molcom(ss_id, project))
     await review_analysis(ss_id, project, 3)
     #await tk_kit(ss_id, project)
 
