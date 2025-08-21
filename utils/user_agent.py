@@ -879,7 +879,6 @@ async def tst_proxy():
 
     input('Wait ...')
 
-
 async def main():
     #soup = await get_soup_anticloud(url)
     #soup = await get_soup(url, only_text=False)
