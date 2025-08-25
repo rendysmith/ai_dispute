@@ -1315,10 +1315,6 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
-    #asyncio.run(main_sberbank())
-    #asyncio.run(review_analysis('Sberbank', 3))
-
-
     print("OK!!!")
     
 
