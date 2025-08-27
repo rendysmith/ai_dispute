@@ -1174,7 +1174,7 @@ async def banki_ru(ss_id, project):
     # await otzovik(service, driver, driver2, project, links, url)
 
     url = 'https://irecommend.ru/content/bankiru'
-    start_page = 0
+    start_page = 6
     await get_irec(service, ss_id, project, driver, links, url, start_page, 2)
 
 async def nlmk(project, fix_rating):
@@ -1322,10 +1322,10 @@ async def main():
     ss_id = '1n5u8bLnlSzZhP_oK4yAlrovI7i6a0RXAUCzTt7pKZlc'
     project = 'banki_ru'
 
-    await asyncio.gather(
-        review_analysis(ss_id, project, 2),
-        banki_ru(ss_id, project))
-    #await review_analysis(ss_id, project, 3)
+    #await asyncio.gather(
+     #   review_analysis(ss_id, project, 2),
+     #   banki_ru(ss_id, project))
+    await review_analysis(ss_id, project, 3)
     #await banki_ru(ss_id, project)
 
 if __name__ == '__main__':
