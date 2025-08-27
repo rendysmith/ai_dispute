@@ -88,6 +88,15 @@ ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
 
 headless, proxy_on, only_text = asyncio.run(get_hpo())
 
+async def get_links(service, ss_id, project):
+    try:
+        df_links = await read_table_id(service, ss_id, project)
+        links = df_links['Url'].tolist()
+    except:
+        links = []
+
+    return links
+
 async def move_mouse():
     import pyautogui
 
@@ -910,11 +919,11 @@ async def get_feedback_otz(driver, url):
     print('-- return Feedback datas')
     return topic + "\n" + plus + "\n" + minus + "\n" + text
 
-async def get_irec(service, ss_id, project, driver, links, url, start_page):
-    pages = 11
+async def get_irec(service, ss_id, project, driver, links, url, start_page, rating_max):
+    pages = 7
     source = "irecommend.ru"
-    number_reviews = 536
-    rating_before = 1.8
+    number_reviews = 341
+    rating_before = 3.7
 
     for page in range(start_page, pages + 1): #начинается со страницы 0
         url_o = url + f"?page={page}"
@@ -930,7 +939,7 @@ async def get_irec(service, ss_id, project, driver, links, url, start_page):
             rating_content = block.find_elements(By.CSS_SELECTOR, 'div[class="on"]')
             rating = len(rating_content)
 
-            if rating > 3:
+            if rating > rating_max:
                 continue
 
             url_answer = block.find_element(By.CSS_SELECTOR, 'a[class="reviewTextSnippet"]').get_attribute("href")
@@ -1148,21 +1157,25 @@ async def main_sberbank():
     driver.quit()
     driver2.quit()
 
-async def banki_ru():
+async def banki_ru(ss_id, project):
     service = await get_service()
+    links = await get_links(service, ss_id, project)
     driver = await get_selenium_proxy(headless=False, proxy=False)
-    driver2 = await get_selenium_proxy(headless=False, proxy=False)
-    project = 'Banki_ru'
+    # driver2 = await get_selenium_proxy(headless=False, proxy=False)
+    #
+    # try:
+    #     df = await read_table_id(service, ss_id, project)
+    #     links = df['Url'].tolist()
+    #
+    # except:
+    #     links = []
+    #
+    # url = "https://otzovik.com/reviews/banki_ru-informacionniy_portal_bankovskih_uslug/"
+    # await otzovik(service, driver, driver2, project, links, url)
 
-    try:
-        df = await read_table_id(service, ss_id, project)
-        links = df['Url'].tolist()
-
-    except:
-        links = []
-
-    url = "https://otzovik.com/reviews/banki_ru-informacionniy_portal_bankovskih_uslug/"
-    await otzovik(service, driver, driver2, project, links, url)
+    url = 'https://irecommend.ru/content/bankiru'
+    start_page = 0
+    await get_irec(service, ss_id, project, driver, links, url, start_page, 2)
 
 async def nlmk(project, fix_rating):
     service = await get_service()
@@ -1306,12 +1319,14 @@ async def molcom(ss_id, project):
 
 async def main():
 
-    ss_id = '1WFn2lexzlboLbywtUFuRU3CVbqDxOsbJqEJ1OQszw8U'
-    project = 'molcom'
+    ss_id = '1n5u8bLnlSzZhP_oK4yAlrovI7i6a0RXAUCzTt7pKZlc'
+    project = 'banki_ru'
 
-    #await asyncio.gather(review_analysis(ss_id, project, 3),molcom(ss_id, project))
-    await review_analysis(ss_id, project, 3)
-    #await tk_kit(ss_id, project)
+    await asyncio.gather(
+        review_analysis(ss_id, project, 2),
+        banki_ru(ss_id, project))
+    #await review_analysis(ss_id, project, 3)
+    #await banki_ru(ss_id, project)
 
 if __name__ == '__main__':
     asyncio.run(main())
