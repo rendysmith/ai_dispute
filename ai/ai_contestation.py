@@ -920,10 +920,12 @@ async def get_feedback_otz(driver, url):
     return topic + "\n" + plus + "\n" + minus + "\n" + text
 
 async def get_irec(service, ss_id, project, driver, links, url, start_page, rating_max):
-    pages = 7
+    pages = 8
     source = "irecommend.ru"
-    number_reviews = 341
-    rating_before = 3.7
+    number_reviews = 379
+    rating_before = 3.3
+
+    temp_lists = []
 
     for page in range(start_page, pages + 1): #начинается со страницы 0
         url_o = url + f"?page={page}"
@@ -945,6 +947,11 @@ async def get_irec(service, ss_id, project, driver, links, url, start_page, rati
             url_answer = block.find_element(By.CSS_SELECTOR, 'a[class="reviewTextSnippet"]').get_attribute("href")
             if url_answer in links:
                 continue
+
+            if url_answer in temp_lists:
+                continue
+            else:
+                temp_lists.append(url_answer)
 
             print("- url_feedback:", url_answer)
             feedback = await get_feedback_irec(url_answer)
@@ -1312,6 +1319,22 @@ async def molcom(ss_id, project):
 
     await get_ya_maps(service, url, ss_id, project, links)
 
+async def t_insurance(ss_id, project):
+    service = await get_service()
+
+    url = 'https://irecommend.ru/content/tinkoff-onlain-strakhovanie'
+
+    try:
+        df_links = await read_table_id(service, ss_id, project)
+        links = df_links['Url'].tolist()
+    except:
+        links = []
+
+    start_page = 0
+    rating_max = 2
+    driver = await get_selenium_proxy(headless=False, proxy=False)
+    await get_irec(service, ss_id, project, driver, links, url, start_page, rating_max)
+
 
 
 
@@ -1319,13 +1342,15 @@ async def molcom(ss_id, project):
 
 async def main():
 
-    ss_id = '1n5u8bLnlSzZhP_oK4yAlrovI7i6a0RXAUCzTt7pKZlc'
-    project = 'banki_ru'
+    ss_id = '1cnP_Pv41HeSO4m2T57cG7ljSwkbBVTv3qeziRU_H10I'
+    project = 't_insurance'
 
-    #await asyncio.gather(
-     #   review_analysis(ss_id, project, 2),
-     #   banki_ru(ss_id, project))
-    await review_analysis(ss_id, project, 3)
+    #await t_insurance(ss_id, project)
+
+    await asyncio.gather(
+       review_analysis(ss_id, project, 2),
+       t_insurance(ss_id, project))
+    #await review_analysis(ss_id, project, 3)
     #await banki_ru(ss_id, project)
 
 if __name__ == '__main__':
