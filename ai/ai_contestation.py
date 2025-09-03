@@ -802,7 +802,7 @@ async def pars_otzovik(service, driver, url, driver2, ss_id, project, links, rat
         rating = int(block.find_element(By.CSS_SELECTOR, 'div[class="rating-score tooltip-right"]').text)
 
         #print("- Rating:", rating)
-        if rating > 3:
+        if rating > ratio:
             print()
             print(f'- Next, Rating {rating} >= 3')
             return
@@ -841,41 +841,42 @@ async def pars_otzovik(service, driver, url, driver2, ss_id, project, links, rat
         print('-- White datas - OK!\n')
         #input('Next...')
 
-    for page in range(start_page, pages + 1):
-        url_com = f"{url}/{page}/?ratio={str(ratio)}"
-        driver.get(url_com)
-        print(f'\n\nStart: {url_com}')
-        print(f"Page {page}")
+    for rt in range(1, ratio + 1):
+        for page in range(start_page, pages + 1):
+            url_com = f"{url}/{page}/?ratio={str(rt)}"
+            driver.get(url_com)
+            print(f'\n\nStart: {url_com}')
+            print(f"Page {page}")
 
-        n = 0
-        while n < 10:
-            try:
-                blocks = driver.find_elements(By.CSS_SELECTOR, 'div[itemprop="review"]')
-                len_b = len(blocks)
+            n = 0
+            while n < 10:
+                try:
+                    blocks = driver.find_elements(By.CSS_SELECTOR, 'div[itemprop="review"]')
+                    len_b = len(blocks)
 
-                if len_b == 0:
+                    if len_b == 0:
+                        n += 1
+                        print(n)
+                        await asyncio.sleep(1)
+
+                    else:
+                        print(f'Len b = {len_b}')
+                        break
+
+                except:
                     n += 1
                     print(n)
                     await asyncio.sleep(1)
 
-                else:
-                    print(f'Len b = {len_b}')
-                    break
-
-            except:
-                n += 1
-                print(n)
+            for block in blocks:
+                await blocks_otz(block, service)
                 await asyncio.sleep(1)
 
-        for block in blocks:
-            await blocks_otz(block, service)
-            await asyncio.sleep(1)
-
-        try:
-            next_page = driver.find_element(By.CSS_SELECTOR, 'a[class][title="Следующая страница"]').text
-            await asyncio.sleep(1)
-        except:
-            break
+            try:
+                next_page = driver.find_element(By.CSS_SELECTOR, 'a[class][title="Следующая страница"]').text
+                await asyncio.sleep(1)
+            except:
+                break
 
         #url_o = url + str(page) + "/?ratio=N"
 
@@ -1136,7 +1137,7 @@ async def main_sberbank():
             number_reviews = 54
             rating_before = 3.3
 
-            for page in range(8, pages + 1):
+            for page in range(0, pages + 1):
                 url_o = url + f"?page={page}"
                 driver.get(url_o)
                 print(f'\n\nStart: {url_o}')
@@ -1364,12 +1365,12 @@ async def sberlising(ss_id, project):
     start_page = 0
     rating_max = 3
 
-
     url = 'https://otzovik.com/reviews/lizing_v_sberbanke'
-    driver = await get_selenium_proxy(headless=False, proxy=False)
-    driver2 = await get_selenium_proxy(headless=False, proxy=False)
+    # driver = await get_selenium_proxy(headless=False, proxy=False)
+    # driver2 = await get_selenium_proxy(headless=False, proxy=False)
+    # await pars_otzovik(service, driver, url, driver2, ss_id, project, links, rating_max, start_page)
 
-    await pars_otzovik(service, driver, url, driver2, ss_id, project, links, rating_max, start_page)
+    url = "https://2gis.ru/search/СберЛизинг"
 
 
 
