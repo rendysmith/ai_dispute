@@ -683,68 +683,6 @@ async def main_grade():
     #asyncio.run(grade_analysis())
     #await total_grade_analysis(service, 'reviews')
 
-async def main_stroyenergokom():
-    service = await get_service()
-    driver = await get_selenium_proxy(headless=False, proxy=False)
-    project = 'СтройЭнергоКом'
-
-    urls = ['https://yandex.kz/maps/org/stroyenergokom/200448132769/reviews/?ll=37.625540%2C55.706822&z=16',
-            'https://yandex.kz/maps/org/stroyenergokom/157241800880/reviews/?ll=57.075250%2C56.146695&z=3',
-          ]
-
-    for url in urls:
-        driver.get(url)
-
-        await asyncio.sleep(5)
-
-        reviews_element = WebDriverWait(driver, 20).until(
-            EC.visibility_of_element_located((By.CSS_SELECTOR, 'h2[class="card-section-header__title _wide"]'))
-        )
-        reviews_text= reviews_element.text
-        number_reviews = int(reviews_text.split(" ")[0])
-        print(number_reviews)
-
-        rating_before = driver.find_element(By.CSS_SELECTOR, 'div[class="business-summary-rating-badge-view__rating"]').text
-
-        while True:
-            blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-reviews-card-view__review"]')
-            len_b = len(blocks)
-            print(len_b)
-            await asyncio.sleep(3)
-
-            if len_b == number_reviews:
-                break
-
-        datas = {
-            "Дата": [],
-            "Текст": [],
-            "Бренд": [project] * len_b,
-            "Источник": ["yandex.ru/maps"] * len_b,
-            "Url": [],
-            "Автор": [],
-            "Оценка": [],
-            "Общий Url": [url] * len_b,
-            "Кол-во отзывов": [number_reviews] * len_b,
-            "Оценка компании до удаления": [rating_before] * len_b
-        }
-
-        for block in blocks:
-            formatted_date = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__date"]').text
-            feedback = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__body-text"]').text
-            url_answer = ""
-            author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
-
-            star_full = block.find_elements(By.CSS_SELECTOR, 'span[class="inline-image _loaded icon business-rating-badge-view__star _full"]')
-            rating = len(star_full)
-
-            datas['Дата'].append(formatted_date)
-            datas['Текст'].append(feedback)
-            datas['Url'].append(url_answer)
-            datas['Автор'].append(author)
-            datas['Оценка'].append(rating)
-
-        await append_data_to_sheet_scopes(service, ss_id, project, datas)
-
 async def get_feedback_irec(url):
 
     while True:
@@ -1088,6 +1026,68 @@ async def get_ya_maps(service, url, ss_id, project, links):
 
     await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
+async def main_stroyenergokom():
+    service = await get_service()
+    driver = await get_selenium_proxy(headless=False, proxy=False)
+    project = 'СтройЭнергоКом'
+
+    urls = ['https://yandex.kz/maps/org/stroyenergokom/200448132769/reviews/?ll=37.625540%2C55.706822&z=16',
+            'https://yandex.kz/maps/org/stroyenergokom/157241800880/reviews/?ll=57.075250%2C56.146695&z=3',
+          ]
+
+    for url in urls:
+        driver.get(url)
+
+        await asyncio.sleep(5)
+
+        reviews_element = WebDriverWait(driver, 20).until(
+            EC.visibility_of_element_located((By.CSS_SELECTOR, 'h2[class="card-section-header__title _wide"]'))
+        )
+        reviews_text= reviews_element.text
+        number_reviews = int(reviews_text.split(" ")[0])
+        print(number_reviews)
+
+        rating_before = driver.find_element(By.CSS_SELECTOR, 'div[class="business-summary-rating-badge-view__rating"]').text
+
+        while True:
+            blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-reviews-card-view__review"]')
+            len_b = len(blocks)
+            print(len_b)
+            await asyncio.sleep(3)
+
+            if len_b == number_reviews:
+                break
+
+        datas = {
+            "Дата": [],
+            "Текст": [],
+            "Бренд": [project] * len_b,
+            "Источник": ["yandex.ru/maps"] * len_b,
+            "Url": [],
+            "Автор": [],
+            "Оценка": [],
+            "Общий Url": [url] * len_b,
+            "Кол-во отзывов": [number_reviews] * len_b,
+            "Оценка компании до удаления": [rating_before] * len_b
+        }
+
+        for block in blocks:
+            formatted_date = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__date"]').text
+            feedback = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__body-text"]').text
+            url_answer = ""
+            author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
+
+            star_full = block.find_elements(By.CSS_SELECTOR, 'span[class="inline-image _loaded icon business-rating-badge-view__star _full"]')
+            rating = len(star_full)
+
+            datas['Дата'].append(formatted_date)
+            datas['Текст'].append(feedback)
+            datas['Url'].append(url_answer)
+            datas['Автор'].append(author)
+            datas['Оценка'].append(rating)
+
+        await append_data_to_sheet_scopes(service, ss_id, project, datas)
+
 async def main_sberbank():
     service = await get_service()
     driver = await get_selenium_proxy(headless=False, proxy=False)
@@ -1335,6 +1335,23 @@ async def t_insurance(ss_id, project):
     driver = await get_selenium_proxy(headless=False, proxy=False)
     await get_irec(service, ss_id, project, driver, links, url, start_page, rating_max)
 
+async def sberlising(ss_id, project):
+    service = await get_service()
+    links = await get_links(service, ss_id, project)
+
+
+    url = 'https://otzovik.com/reviews/lizing_v_sberbanke/'
+
+    await otzovik()
+
+
+
+    start_page = 0
+    rating_max = 2
+
+    driver = await get_selenium_proxy(headless=False, proxy=False)
+    await get_irec(service, ss_id, project, driver, links, url, start_page, rating_max)
+
 
 
 
@@ -1342,8 +1359,8 @@ async def t_insurance(ss_id, project):
 
 async def main():
 
-    ss_id = '1cnP_Pv41HeSO4m2T57cG7ljSwkbBVTv3qeziRU_H10I'
-    project = 't_insurance'
+    ss_id = '1cUT1YG9mh_KnW4QmY-pnH5ERoRrSPATfZcOB2wZnphI'
+    project = 'sberlising'
 
     #await t_insurance(ss_id, project)
 
