@@ -136,8 +136,14 @@ async def review_analysis(worktable_id, tab_name, rating_before):
     service = await get_service()
 
     # ws_name = worksheet_name_dreamjob
-    df = await get_table_scope(service, worktable_id, tab_name)
-    print(df)
+
+    try:
+        df = await get_table_scope(service, worktable_id, tab_name)
+        print(df)
+
+    except Exception as Ex:
+        print(f"Error: {Ex}")
+        return
     # add_column = 'Текст для поддержки'
     # df = df[df[add_column]=='']
 
@@ -216,102 +222,6 @@ async def empty_data():
         "Текст для поддержки": []
     }
     return datas
-
-async def otzovik(service, driver, driver2, ss_id, project, links, ratio, start_page):
-    pages = 1000
-    source = "otzovik.com"
-    number_reviews = 3283
-    rating_before = 2.4
-
-    list_temp = []
-
-    async def blocks_otz(block, service):
-        try:
-            formatted_date = block.find_element(By.CSS_SELECTOR, 'div[class="review-postdate"]').text
-        except:
-            await asyncio.sleep(1)
-            formatted_date = block.find_element(By.CSS_SELECTOR, 'div[itemprop="datePublished"]').text
-
-        author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
-        rating = int(block.find_element(By.CSS_SELECTOR, 'div[class="rating-score tooltip-right"]').text)
-
-        #print("- Rating:", rating)
-        if rating > 3:
-            print()
-            print(f'- Next, Rating {rating} >= 3')
-            return
-
-        url_answer = block.find_element(By.CSS_SELECTOR, 'meta[itemprop="discussionUrl"]').get_attribute("content")
-        if url_answer in links:
-            #print(url_answer)
-            #print('- Url in links')
-            return
-
-        if url_answer in list_temp:
-            return
-
-        else:
-            list_temp.append(url_answer)
-
-        feedback = await get_feedback_otz(driver2, url_answer)
-
-        datas = await empty_data()
-
-        datas['Дата'].append(formatted_date)
-        datas['Текст'].append(feedback)
-        datas["Бренд"].append(project)
-        datas["Источник"].append(source)
-
-        datas['Url'].append(url_answer)
-        datas['Автор'].append(author)
-        datas['Оценка'].append(rating)
-
-        datas["Общий Url"].append('https://otzovik.com/reviews/transportnaya_kompaniya_kit_russia')
-        datas["Кол-во отзывов"].append(number_reviews)
-        datas["Оценка компании до удаления"].append(rating_before)
-
-        await append_data_to_sheet_scopes(service, ss_id, project, datas)
-        print(url_answer)
-        print('-- White datas - OK!\n')
-        #input('Next...')
-
-    for page in range(start_page, pages + 1):
-        url = f"https://otzovik.com/reviews/transportnaya_kompaniya_kit_russia/{page}/?ratio={str(ratio)}"
-        driver.get(url)
-        print(f'\n\nStart: {url}')
-        print(f"Page {page}")
-
-        n = 0
-        while n < 10:
-            try:
-                blocks = driver.find_elements(By.CSS_SELECTOR, 'div[itemprop="review"]')
-                len_b = len(blocks)
-
-                if len_b == 0:
-                    n += 1
-                    print(n)
-                    await asyncio.sleep(1)
-
-                else:
-                    print(f'Len b = {len_b}')
-                    break
-
-            except:
-                n += 1
-                print(n)
-                await asyncio.sleep(1)
-
-        for block in blocks:
-            await blocks_otz(block, service)
-            await asyncio.sleep(1)
-
-        try:
-            next_page = driver.find_element(By.CSS_SELECTOR, 'a[class][title="Следующая страница"]').text
-            await asyncio.sleep(1)
-        except:
-            break
-
-        #url_o = url + str(page) + "/?ratio=N"
 
 async def extract_link_from_line(url):
     # Шаблон для поиска ссылки от https: до .html
@@ -857,7 +767,119 @@ async def get_feedback_otz(driver, url):
     print('-- return Feedback datas')
     return topic + "\n" + plus + "\n" + minus + "\n" + text
 
-async def get_irec(service, ss_id, project, driver, links, url, start_page, rating_max):
+async def pars_otzovik(service, driver, url, driver2, ss_id, project, links, ratio, start_page):
+    driver.get(url)
+    await asyncio.sleep(10)
+
+    pages = 1000
+    source = "otzovik.com"
+
+    # rating_box = driver.find_element(By.CSS_SELECTOR, 'div[class="rating-score-wrap"]')
+    # rating_box = rating_box.text.split('\n')[0]
+    # rating_before = float(rating_box)
+    #
+    # number_box = driver.find_element(By.CSS_SELECTOR, 'span[class="reviews-counter"]')
+    # print(number_box.text)
+    # number_box2 = number_box.text.strip(':')
+    # print(number_box2)
+    # number_reviews = int(number_box)
+    # print(number_reviews)
+    # input()
+
+    rating_before = 2.9
+    number_reviews = 41
+
+    list_temp = []
+
+    async def blocks_otz(block, service):
+        try:
+            formatted_date = block.find_element(By.CSS_SELECTOR, 'div[class="review-postdate"]').text
+        except:
+            await asyncio.sleep(1)
+            formatted_date = block.find_element(By.CSS_SELECTOR, 'div[itemprop="datePublished"]').text
+
+        author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
+        rating = int(block.find_element(By.CSS_SELECTOR, 'div[class="rating-score tooltip-right"]').text)
+
+        #print("- Rating:", rating)
+        if rating > 3:
+            print()
+            print(f'- Next, Rating {rating} >= 3')
+            return
+
+        url_answer = block.find_element(By.CSS_SELECTOR, 'meta[itemprop="discussionUrl"]').get_attribute("content")
+        if url_answer in links:
+            #print(url_answer)
+            #print('- Url in links')
+            return
+
+        if url_answer in list_temp:
+            return
+
+        else:
+            list_temp.append(url_answer)
+
+        feedback = await get_feedback_otz(driver2, url_answer)
+
+        datas = await empty_data()
+
+        datas['Дата'].append(formatted_date)
+        datas['Текст'].append(feedback)
+        datas["Бренд"].append(project)
+        datas["Источник"].append(source)
+
+        datas['Url'].append(url_answer)
+        datas['Автор'].append(author)
+        datas['Оценка'].append(rating)
+
+        datas["Общий Url"].append(url)
+        datas["Кол-во отзывов"].append(number_reviews)
+        datas["Оценка компании до удаления"].append(rating_before)
+
+        await append_data_to_sheet_scopes(service, ss_id, project, datas)
+        print(url_answer)
+        print('-- White datas - OK!\n')
+        #input('Next...')
+
+    for page in range(start_page, pages + 1):
+        url_com = f"{url}/{page}/?ratio={str(ratio)}"
+        driver.get(url_com)
+        print(f'\n\nStart: {url_com}')
+        print(f"Page {page}")
+
+        n = 0
+        while n < 10:
+            try:
+                blocks = driver.find_elements(By.CSS_SELECTOR, 'div[itemprop="review"]')
+                len_b = len(blocks)
+
+                if len_b == 0:
+                    n += 1
+                    print(n)
+                    await asyncio.sleep(1)
+
+                else:
+                    print(f'Len b = {len_b}')
+                    break
+
+            except:
+                n += 1
+                print(n)
+                await asyncio.sleep(1)
+
+        for block in blocks:
+            await blocks_otz(block, service)
+            await asyncio.sleep(1)
+
+        try:
+            next_page = driver.find_element(By.CSS_SELECTOR, 'a[class][title="Следующая страница"]').text
+            await asyncio.sleep(1)
+        except:
+            break
+
+        #url_o = url + str(page) + "/?ratio=N"
+
+async def pars_irec(service, ss_id, project, driver, links, url, start_page, rating_max):
     pages = 8
     source = "irecommend.ru"
     number_reviews = 379
@@ -916,7 +938,7 @@ async def get_irec(service, ss_id, project, driver, links, url, start_page, rati
             await asyncio.sleep(5)
             print(f'--- append {author}')
 
-async def get_ya_maps(service, url, ss_id, project, links):
+async def pars_ya_maps(service, url, ss_id, project, links):
     driver = await get_selenium_proxy(headless=False, proxy=False)
     driver.get(url)
 
@@ -1339,18 +1361,21 @@ async def sberlising(ss_id, project):
     service = await get_service()
     links = await get_links(service, ss_id, project)
 
-
-    url = 'https://otzovik.com/reviews/lizing_v_sberbanke/'
-
-    await otzovik()
-
-
-
     start_page = 0
-    rating_max = 2
+    rating_max = 3
 
+
+    url = 'https://otzovik.com/reviews/lizing_v_sberbanke'
     driver = await get_selenium_proxy(headless=False, proxy=False)
-    await get_irec(service, ss_id, project, driver, links, url, start_page, rating_max)
+    driver2 = await get_selenium_proxy(headless=False, proxy=False)
+
+    await pars_otzovik(service, driver, url, driver2, ss_id, project, links, rating_max, start_page)
+
+
+
+    #
+    # driver = await get_selenium_proxy(headless=False, proxy=False)
+    # await get_irec(service, ss_id, project, driver, links, url, start_page, rating_max)
 
 
 
@@ -1366,7 +1391,7 @@ async def main():
 
     await asyncio.gather(
        review_analysis(ss_id, project, 2),
-       t_insurance(ss_id, project))
+       sberlising(ss_id, project))
     #await review_analysis(ss_id, project, 3)
     #await banki_ru(ss_id, project)
 
