@@ -63,6 +63,46 @@ async def get_id_obj(url):
 
     return id_obj.strip()
 
+async def blocks_2gis_sel(url):
+    top_url = url + '/tab/reviews'
+
+    headless, proxy_on, only_text = await get_hpo()
+    driver = await get_selenium_proxy(top_url, headless=headless, proxy=proxy_on)
+    await wait_for_portal() #Время ожидания
+    json_data_content = driver.find_elements(By.CSS_SELECTOR, 'script')
+
+    data_dict = None
+    for script in json_data_content:
+        script_text = script.get_attribute('innerHTML')
+        if 'initialState =' in script_text:
+            data_dict = await pars_json_data(script_text)
+            pprint(data_dict)
+            break
+
+    if not data_dict:
+        return {}
+
+    if not isinstance(data_dict, dict):
+        return {}
+
+    blocks = data_dict['review']
+    return blocks
+
+async def blocks_2gis_bs4(url):
+    id_obj = await get_id_obj(url)
+    api_url = f'https://public-api.reviews.2gis.com/2.0/branches/{id_obj}/reviews?limit=50&is_advertiser=true&fields=meta.providers,meta.branch_rating,meta.branch_reviews_count,meta.total_count,reviews.hiding_reason,reviews.is_verified&without_my_first_review=false&rated=true&sort_by=date_created&key=b0209295-ae15-48b2-acb2-58309b333c37&locale=ru_RU'
+    print(api_url)
+
+    headless, proxy_on, only_text = await get_hpo()
+    r_json = await get_soup(api_url, only_text=False, proxy=proxy_on)
+
+    blocks = r_json['reviews']
+    branch_rating = r_json['meta']['branch_rating']
+    branch_reviews_count = r_json['meta']['branch_reviews_count']
+
+    print(f'Len_B = {len(blocks)}')
+    return blocks, branch_rating, branch_reviews_count
+
 async def send_top_url(service, ss_id, project, url):
     id_obj = await get_id_obj(url)
     top_url = f'https://2gis.ru/firm/{id_obj}'
@@ -75,15 +115,8 @@ async def send_top_url(service, ss_id, project, url):
     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
     return id_obj, top_url
 
-async def soup_pars(service, links, id_org, pattern, criteria, ss_id, project):
-    url = f'https://public-api.reviews.2gis.com/2.0/branches/{id_org}/reviews?limit=50&is_advertiser=true&fields=meta.providers,meta.branch_rating,meta.branch_reviews_count,meta.total_count,reviews.hiding_reason,reviews.is_verified&without_my_first_review=false&rated=true&sort_by=date_created&key=b0209295-ae15-48b2-acb2-58309b333c37&locale=ru_RU'
-    print(url)
-
-    headless, proxy_on, only_text = await get_hpo()
-    r_json = await get_soup(url, only_text=False, proxy=proxy_on)
-
-    blocks = r_json['reviews']
-    print(f'Len_B = {len(blocks)}')
+async def soup_pars(service, links, pattern, criteria, ss_id, project):
+    blocks = await blocks_2gis_bs4(url)
 
     for block in blocks:
         date_content = block['date_created']
@@ -172,28 +205,7 @@ async def pars_json_data(script_text):
     return data_dict
 
 async def selen_pars(service, links, top_url, pattern, criteria, ss_id, project):
-    top_url = top_url + '/tab/reviews'
-
-    headless, proxy_on, only_text = await get_hpo()
-    driver = await get_selenium_proxy(top_url, headless=headless, proxy=proxy_on)
-    await wait_for_portal() #Время ожидания
-    json_data_content = driver.find_elements(By.CSS_SELECTOR, 'script')
-
-    data_dict = None
-    for script in json_data_content:
-        script_text = script.get_attribute('innerHTML')
-        if 'initialState =' in script_text:
-            data_dict = await pars_json_data(script_text)
-            pprint(data_dict)
-            break
-
-    if not data_dict:
-        return
-
-    if not isinstance(data_dict, dict):
-        return
-
-    blocks = data_dict['review']
+    blocks = await blocks_2gis()
 
     for k, block in blocks.items():
         date_content = block['data']['date_created']
@@ -243,7 +255,7 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project, links=Fals
     id_org, top_url = await send_top_url(service, ss_id, project, url)
 
     if any(fo in url for fo in ['firm', 'orgs']):
-        await soup_pars(service, links, id_org, pattern, criteria, ss_id, project)
+        await soup_pars(service, links, pattern, criteria, ss_id, project)
 
     elif 'geo' in url:
         await selen_pars(service, links, top_url, pattern, criteria, ss_id, project)

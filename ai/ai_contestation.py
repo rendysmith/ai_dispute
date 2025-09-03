@@ -22,6 +22,7 @@ from requests.auth import HTTPBasicAuth
 from models.mdl_tables import ForumRules
 
 from portals.portal_ya import main_ya_maps
+from portals.portal_2gis import blocks_2gis_bs4
 
 from utils.ai_module import get_answer_ai
 from utils.central_module import wait_for_portal, get_hpo
@@ -87,6 +88,23 @@ ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
 #print(worktable_id, worksheet_name)
 
 headless, proxy_on, only_text = asyncio.run(get_hpo())
+
+async def empty_data():
+    datas = {
+        "Дата": [],
+        "Текст": [],
+        "Бренд": [],
+        "Источник": [],
+        "Url": [],
+        "Автор": [],
+        "Оценка": [],
+        "Общий Url": [],
+        "Кол-во отзывов": [],
+        "Оценка компании до удаления": [],
+        "Вероятность удаления": [],
+        "Текст для поддержки": []
+    }
+    return datas
 
 async def get_links(service, ss_id, project):
     try:
@@ -205,23 +223,6 @@ async def review_analysis(worktable_id, tab_name, rating_before):
 
         except SyntaxError as SE:
             print(f'ERROR: {SE}')
-
-async def empty_data():
-    datas = {
-        "Дата": [],
-        "Текст": [],
-        "Бренд": [],
-        "Источник": [],
-        "Url": [],
-        "Автор": [],
-        "Оценка": [],
-        "Общий Url": [],
-        "Кол-во отзывов": [],
-        "Оценка компании до удаления": [],
-        "Вероятность удаления": [],
-        "Текст для поддержки": []
-    }
-    return datas
 
 async def extract_link_from_line(url):
     # Шаблон для поиска ссылки от https: до .html
@@ -571,6 +572,45 @@ async def pars_dreamjob(service, top_url, proxy_on):
         await append_data_to_sheet_scopes(service, worktable_id, brand, datas)
         print('White datas - OK!')
         await asyncio.sleep(5)
+
+async def pars_2gis(service, url, ss_id, project, links, rating_max):
+    source = '2gis.ru'
+    blocks, branch_rating, branch_reviews_count = await blocks_2gis_bs4(url)
+
+    for block in blocks:
+        url_answer = block['id']
+        if url_answer in links:
+            print('Такой комментарий уже есть в списке')
+            continue
+
+        rating = block['rating']
+
+        if rating > rating_max:
+            continue
+
+        date_content = block['date_created']
+        date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%f%z")
+        formatted_date = date.strftime("%d.%m.%Y")
+
+        feedback = block['text']
+        author = block['user']['name']
+
+        datas = await empty_data()
+
+        datas['Дата'].append(formatted_date)
+        datas['Текст'].append(feedback)
+        datas["Бренд"].append(project)
+        datas["Источник"].append(source)
+
+        datas['Url'].append(url_answer)
+        datas['Автор'].append(author)
+        datas['Оценка'].append(rating)
+
+        datas["Общий Url"].append(url)
+        datas["Кол-во отзывов"].append(branch_reviews_count)
+        datas["Оценка компании до удаления"].append(branch_rating)
+
+        await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
 async def main_grade():
     headless, proxy_on, only_text = await get_hpo()
@@ -1370,7 +1410,12 @@ async def sberlising(ss_id, project):
     # driver2 = await get_selenium_proxy(headless=False, proxy=False)
     # await pars_otzovik(service, driver, url, driver2, ss_id, project, links, rating_max, start_page)
 
-    url = "https://2gis.ru/search/СберЛизинг"
+    urls = ["https://2gis.ru/firm/70000001023635418"]
+
+    for url in urls:
+        await pars_2gis(service, url, ss_id, project, links, rating_max)
+
+
 
 
 
