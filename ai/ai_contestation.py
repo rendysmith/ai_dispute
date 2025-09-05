@@ -671,7 +671,6 @@ async def pars_zoon(service, driver, url, ss_id, project, links, rating_max):
 
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
-
 async def main_grade():
     headless, proxy_on, only_text = await get_hpo()
     service = await get_service()
@@ -868,35 +867,44 @@ async def get_feedback_otz(driver, url):
     return topic + "\n" + plus + "\n" + minus + "\n" + text
 
 async def pars_otzovik(service, driver, url, driver2, ss_id, project, links, ratio, start_page):
+    import locale
+    locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
+
     driver.get(url)
     await asyncio.sleep(10)
 
     pages = 1000
     source = "otzovik.com"
 
-    # rating_box = driver.find_element(By.CSS_SELECTOR, 'div[class="rating-score-wrap"]')
-    # rating_box = rating_box.text.split('\n')[0]
-    # rating_before = float(rating_box)
-    #
-    # number_box = driver.find_element(By.CSS_SELECTOR, 'span[class="reviews-counter"]')
-    # print(number_box.text)
-    # number_box2 = number_box.text.strip(':')
-    # print(number_box2)
-    # number_reviews = int(number_box)
-    # print(number_reviews)
-    # input()
+    rating_box = driver.find_element(By.CSS_SELECTOR, 'div[class="rating-score-wrap"]')
+    rating_box = rating_box.text.split('\n')[0]
+    rating_before = float(rating_box)
+    print(rating_before)
 
-    rating_before = 2.9
-    number_reviews = 41
+    number_box = driver.find_element(By.CSS_SELECTOR, 'span[class="reviews-counter"]')
+    print(number_box.text)
+    number_box2 = number_box.text.split(':')[1]
+    print(number_box2)
+    number_reviews = int(number_box2)
+    print(number_reviews)
+    #input()
+
+    #rating_before = 2.9
+    #number_reviews = 41
 
     list_temp = []
 
     async def blocks_otz(block, service):
         try:
-            formatted_date = block.find_element(By.CSS_SELECTOR, 'div[class="review-postdate"]').text
+            date_string = block.find_element(By.CSS_SELECTOR, 'div[class="review-postdate"]').text
         except:
             await asyncio.sleep(1)
-            formatted_date = block.find_element(By.CSS_SELECTOR, 'div[itemprop="datePublished"]').text
+            date_string = block.find_element(By.CSS_SELECTOR, 'div[itemprop="datePublished"]').text
+
+        # Преобразуем строку в объект datetime
+        date_object = datetime.strptime(date_string, '%d %b %Y')
+        # Форматируем объект datetime в нужную строку
+        formatted_date = date_object.strftime('%d.%m.%Y')
 
         author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
         rating = int(block.find_element(By.CSS_SELECTOR, 'div[class="rating-score tooltip-right"]').text)
@@ -980,15 +988,24 @@ async def pars_otzovik(service, driver, url, driver2, ss_id, project, links, rat
 
         #url_o = url + str(page) + "/?ratio=N"
 
-async def pars_irec(service, ss_id, project, driver, links, url, start_page, rating_max):
-    pages = 8
+async def pars_irec(service, driver, url, ss_id, project, links, rating_max):
+    driver.get(url)
+    await asyncio.sleep(5)
+
     source = "irecommend.ru"
-    number_reviews = 379
-    rating_before = 3.3
+
+    pages = int(driver.find_element(By.CSS_SELECTOR, 'li[class="pager-last last"]').text)
+    print(pages)
+
+    number_reviews = int(driver.find_element(By.CSS_SELECTOR, 'span[itemprop="reviewCount"]').text)
+    print(number_reviews)
+
+    rating_before = float(driver.find_element(By.CSS_SELECTOR, 'span[itemprop="ratingValue"]').text)
+    print(rating_before)
 
     temp_lists = []
 
-    for page in range(start_page, pages + 1): #начинается со страницы 0
+    for page in range(0, pages + 1): #начинается со страницы 0
         url_o = url + f"?page={page}"
         driver.get(url_o)
         print(f'\n\nStart: {url_o}')
@@ -1461,15 +1478,18 @@ async def t_insurance(ss_id, project):
     driver = await get_selenium_proxy(headless=False, proxy=False)
     await get_irec(service, ss_id, project, driver, links, url, start_page, rating_max)
 
-async def sberlising(ss_id, project):
+async def multi_pars(ss_id, project):
     service = await get_service()
 
     df = await read_table_id(service, ss_id, 'links')
+    print(df)
+
+    if df.empty:
+        pass
 
     links = await get_links(service, ss_id, project)
 
     start_page = 0
-    rating_max = 3
 
     driver = await get_selenium_proxy(headless=False, proxy=False)
     driver2 = await get_selenium_proxy(headless=False, proxy=False)
@@ -1481,6 +1501,7 @@ async def sberlising(ss_id, project):
 
         url = row['link']
         print(f'\n{url}')
+        rating_max = int(row['max_raiting'])
 
         if 'otzovik' in url:
             await pars_otzovik(service, driver, url, driver2, ss_id, project, links, rating_max, start_page)
@@ -1498,6 +1519,11 @@ async def sberlising(ss_id, project):
 
         elif 'zoon' in url:
             await pars_zoon(service, driver, url, ss_id, project, links, rating_max)
+            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
+            await asyncio.sleep(3)
+
+        elif 'irecommend' in url:
+            await pars_irec(service, driver, url, ss_id, project, links, rating_max)
             await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
             await asyncio.sleep(3)
 
@@ -1520,14 +1546,14 @@ async def sberlising(ss_id, project):
 
 async def main():
 
-    ss_id = '1cUT1YG9mh_KnW4QmY-pnH5ERoRrSPATfZcOB2wZnphI'
-    project = 'sberlising'
+    ss_id = '1KFJ4jFk4DhQT8_ONaZSgqZZ_h-oHqFaaFZWrFsrw_ps'
+    project = 'moscvarioum'
 
     #await sberlising(ss_id, project)
 
     await asyncio.gather(
        review_analysis(ss_id, project),
-       sberlising(ss_id, project))
+       multi_pars(ss_id, project))
 
     #await review_analysis(ss_id, project, 3)
     #await banki_ru(ss_id, project)

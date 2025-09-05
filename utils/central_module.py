@@ -183,7 +183,13 @@ async def get_api_service():
 
 async def proxy_status():
     proxy_action = await get_api_service()
-    return proxy_action['status']
+    print("***", proxy_action)
+
+    if proxy_action.get('status'):
+        return proxy_action['status']
+
+    elif proxy_action.get('message'):
+        return proxy_action['message']
 
 async def wait_for_portal():
     """
@@ -484,7 +490,7 @@ async def take_photo(driver):
 
 
 if "__main__" == __name__:
-    local_ip = asyncio.run(get_local_ip())
+    local_ip = asyncio.run(get_api_service())
 
     print(local_ip)
 
