@@ -46,6 +46,13 @@ pass_proxy = os.environ.get("PASS_PROXY")
 
 ua = UserAgent()
 
+async def clean_html(raw: str) -> str:
+    import html
+    # убираем теги
+    text = BeautifulSoup(raw, "html.parser").get_text(separator="\n")
+    # декодируем символы
+    return html.unescape(text).strip()
+
 async def get_soup_tor(url, error=False):
     from aiohttp import ClientSession
     from aiohttp_socks import ProxyConnector
@@ -175,6 +182,7 @@ async def extract_main_site(url):
 
 async def gen_ua(url):
     headers = {
+        "Content-Type": "application/json",
         'User-Agent': ua.random,
         'Accept-Language': 'en-US,en;q=0.9',
         'Accept-Encoding': 'gzip, deflate, br',

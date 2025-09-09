@@ -1,21 +1,22 @@
-from pprint import pprint
+import sys
+sys.excepthook = sys.__excepthook__
+
 
 import asyncio
 import os
-import random
+
 import re
 import time
 from datetime import datetime
-from xml.sax.handler import feature_external_ges
 
 import selenium.common.exceptions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-import numpy as np
+
 import pandas as pd
-from asyncpg.compat import wait_for
+
 from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
@@ -36,9 +37,10 @@ from utils.gs_editor import get_service, write_log_sheet, get_table_scope, appen
 
 from portals.portal_otzovik import get_top_link
 from portals.portal_ya import get_json, get_id_org
+from portals.portal_tripadvisor import blocks_tripadvisor_sel
 
 
-from utils.user_agent import get_soup, get_selenium_proxy, get_soup_tor
+from utils.user_agent import get_soup, get_selenium_proxy, get_soup_tor, get_soup_bs4, clean_html
 
 from utils.constants import months
 
@@ -692,6 +694,29 @@ async def main_grade():
     #asyncio.run(grade_analysis())
     #await total_grade_analysis(service, 'reviews')
 
+async def get_feedback_irec_sel(driver2, url):
+
+    while True:
+        try:
+            driver2.get(url)
+            await asyncio.sleep(5)
+
+            feedback = driver2.find_element(By.CSS_SELECTOR, 'a[class="review-summary active"]').text
+            break
+
+        except Exception as Ex:
+            print(f'- Error Ex: {Ex}')
+            await asyncio.sleep(5)
+
+    description_content = driver2.find_element(By.CSS_SELECTOR, 'div[class="description hasinlineimage"]').text
+    description = await clean_html(description_content)
+    #input(description)
+
+    # ps = driver2.find_elements(By.CSS_SELECTOR, 'p')
+    # for p in ps:
+    feedback += f"\n{description}"
+    return textwrap.fill(feedback, width=200)
+
 async def get_feedback_irec(url):
 
     while True:
@@ -988,14 +1013,23 @@ async def pars_otzovik(service, driver, url, driver2, ss_id, project, links, rat
 
         #url_o = url + str(page) + "/?ratio=N"
 
-async def pars_irec(service, driver, url, ss_id, project, links, rating_max):
+async def pars_irec(service, driver, driver2, url, ss_id, project, links, rating_max):
     driver.get(url)
     await asyncio.sleep(5)
 
     source = "irecommend.ru"
 
-    pages = int(driver.find_element(By.CSS_SELECTOR, 'li[class="pager-last last"]').text)
-    print(pages)
+    n = 0
+    while n < 3:
+        try:
+            #Кол-во страницы для парсинга на портале
+            pages = int(driver.find_element(By.CSS_SELECTOR, 'li[class="pager-last last"]').text)
+            print(pages)
+            break
+
+        except:
+            n += 1
+            await asyncio.sleep(2)
 
     number_reviews = int(driver.find_element(By.CSS_SELECTOR, 'span[itemprop="reviewCount"]').text)
     print(number_reviews)
@@ -1005,7 +1039,9 @@ async def pars_irec(service, driver, url, ss_id, project, links, rating_max):
 
     temp_lists = []
 
-    for page in range(0, pages + 1): #начинается со страницы 0
+    start_page = 7 #
+
+    for page in range(start_page, pages + 1): #начинается со страницы 0
         url_o = url + f"?page={page}"
         driver.get(url_o)
         print(f'\n\nStart: {url_o}')
@@ -1032,7 +1068,7 @@ async def pars_irec(service, driver, url, ss_id, project, links, rating_max):
                 temp_lists.append(url_answer)
 
             print("- url_feedback:", url_answer)
-            feedback = await get_feedback_irec(url_answer)
+            feedback = await get_feedback_irec_sel(driver2, url_answer)
 
             formatted_date = block.find_element(By.CSS_SELECTOR, 'div[class="created"]').text
             author = block.find_element(By.CSS_SELECTOR, 'div[class="authorName"]').text
@@ -1168,6 +1204,55 @@ async def pars_ya_maps(service, driver, url, ss_id, project, links, rating_max):
         datas['Оценка компании до удаления'].append(rating_before)
 
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
+
+async def pars_tripadvisor(service, driver, url, ss_id, project, links, rating_max):
+    source = 'tripadvisor.ru'
+    number_reviews = 1839
+    rating_before = 3.9
+
+    driver.get(url)
+
+    for i in range(1, 55):
+        print(f"----------------page-{i}----------------------")
+
+        # offset = f'r{str((i - 1) * 10)}'
+        # url = f'https://www.tripadvisor.ru/Attraction_Review-g298484-d8514577-Reviews-o{offset}-Moskvarium-Moscow_Central_Russia.html'
+
+        blocks = await blocks_tripadvisor_sel(driver, url)
+
+        print(blocks)
+        print(len(blocks))
+        #await asyncio.sleep(10)
+
+        datas = await  empty_data()
+
+        for block in blocks:
+            url_answer = block['url_answer']
+            if url_answer in links:
+                continue
+
+            formatted_date = block['formatted_date']
+            feedback = block['feedback']
+
+            author = block['author']
+            rating = block['rating']
+
+            datas['Дата'].append(formatted_date)
+            datas['Текст'].append(feedback)
+            datas['Бренд'].append(project)
+            datas['Источник'].append(source)
+            datas['Url'].append(url_answer)
+            datas['Автор'].append(author)
+            datas['Оценка'].append(rating)
+            datas['Общий Url'].append(url)
+            datas['Кол-во отзывов'].append(number_reviews)
+            datas['Оценка компании до удаления'].append(rating_before)
+
+            #await asyncio.sleep(1)
+
+        await append_data_to_sheet_scopes(service, ss_id, project, datas)
+        await asyncio.sleep(3)
+
 
 async def main_stroyenergokom():
     service = await get_service()
@@ -1492,7 +1577,7 @@ async def multi_pars(ss_id, project):
     start_page = 0
 
     driver = await get_selenium_proxy(headless=False, proxy=False)
-    driver2 = await get_selenium_proxy(headless=False, proxy=False)
+    #driver2 = await get_selenium_proxy(headless=False, proxy=False)
 
     for k, row in df.iterrows():
         status = row['status']
@@ -1523,7 +1608,12 @@ async def multi_pars(ss_id, project):
             await asyncio.sleep(3)
 
         elif 'irecommend' in url:
-            await pars_irec(service, driver, url, ss_id, project, links, rating_max)
+            await pars_irec(service, driver, driver2, url, ss_id, project, links, rating_max)
+            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
+            await asyncio.sleep(3)
+
+        elif 'tripadvisor' in url:
+            await pars_tripadvisor(service, driver, url, ss_id, project, links, rating_max)
             await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
             await asyncio.sleep(3)
 
@@ -1538,11 +1628,6 @@ async def multi_pars(ss_id, project):
 
     except:
         pass
-
-
-
-
-
 
 async def main():
 
