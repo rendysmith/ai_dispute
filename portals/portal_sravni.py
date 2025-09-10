@@ -271,8 +271,9 @@ async def main_sravni():
             idx_logs = filtered_logs.index[0]
 
             if proxy_active != 'Active':
-                await append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2, f'Proxy {proxy_active}')
-                break
+                await append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2,
+                                                f'Proxy {proxy_active}: {record_date}')
+                return
 
             else:
                 await append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2,

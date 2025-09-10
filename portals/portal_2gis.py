@@ -115,7 +115,7 @@ async def send_top_url(service, ss_id, project, url):
     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
     return id_obj, top_url
 
-async def soup_pars(service, links, pattern, criteria, ss_id, project):
+async def soup_pars(service, url, links, pattern, criteria, ss_id, project):
     blocks = await blocks_2gis_bs4(url)
 
     for block in blocks:
@@ -255,7 +255,7 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project, links=Fals
     id_org, top_url = await send_top_url(service, ss_id, project, url)
 
     if any(fo in url for fo in ['firm', 'orgs']):
-        await soup_pars(service, links, pattern, criteria, ss_id, project)
+        await soup_pars(service, url, links, pattern, criteria, ss_id, project)
 
     elif 'geo' in url:
         await selen_pars(service, links, top_url, pattern, criteria, ss_id, project)
