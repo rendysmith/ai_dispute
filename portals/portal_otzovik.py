@@ -342,8 +342,8 @@ async def main_otzovik():
 
             if proxy_active != 'Active':
                 await append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2,
-                                                f'Proxy {proxy_active}')
-                break
+                                                f'Proxy {proxy_active}: {record_date}')
+                return
 
             else:
                 await append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2,
