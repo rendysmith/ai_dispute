@@ -116,7 +116,7 @@ async def send_top_url(service, ss_id, project, url):
     return id_obj, top_url
 
 async def soup_pars(service, url, links, pattern, criteria, ss_id, project):
-    blocks = await blocks_2gis_bs4(url)
+    blocks, branch_rating, branch_reviews_count = await blocks_2gis_bs4(url)
 
     for block in blocks:
         date_content = block['date_created']
@@ -268,7 +268,7 @@ async def main_2gis(url):
 if __name__ == '__main__':
 
     url = 'https://2gis.ru/reviews/5348552839673938/review/169016223'
-    url = 'https://2gis.ru/firm/70000001054643108'
+    url = 'https://2gis.ru/ulanude/firm/70000001054643108'
 
 
 
