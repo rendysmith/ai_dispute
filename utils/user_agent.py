@@ -16,7 +16,7 @@ import os
 from dotenv import load_dotenv
 
 from utils.constants import status_codes
-from utils.proxy_bridge import get_one_proxy
+from utils.proxy_module import get_one_proxy
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -182,13 +182,12 @@ async def extract_main_site(url):
 
 async def gen_ua(url):
     headers = {
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
         "Content-Type": "application/json",
         'User-Agent': ua.random,
         'Accept-Language': 'en-US,en;q=0.9',
         'Accept-Encoding': 'gzip, deflate, br',
         'Connection': 'keep-alive',
-        'accept': 'application/json, text/javascript, */*; q=0.01',
-        'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
         'origin': url}
 
     return headers
@@ -908,6 +907,6 @@ async def main():
     #input('Wait..')
 
 if "__main__" in __name__:
-    #asyncio.run(main())
-    soup = asyncio.run(get_soup('https://irecommend.ru/content/uzhasnei-kompanii-ya-ne-vstrechal', proxy=False))
-    print(soup.title)
+    asyncio.run(tst_proxy())
+    #soup = asyncio.run(get_soup('https://irecommend.ru/content/uzhasnei-kompanii-ya-ne-vstrechal', proxy=False))
+    #print(soup.title)

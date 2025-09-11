@@ -21,7 +21,7 @@ from utils.central_module import wait_for_portal, proxy_status, get_local_ip, ge
 from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, get_table_scope, \
     append_data_to_sheet_cell, write_log_sheet
-from utils.proxy_bridge import get_one_proxy
+
 from utils.user_agent import extract_main_site, get_selenium_proxy
 
 from threading import Thread
@@ -832,6 +832,7 @@ async def main_tst():
     import scrapy
     from scrapy.crawler import CrawlerProcess
 
+    from utils.proxy_module import get_one_proxy
     from utils.user_agent import ua
 
     dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
