@@ -141,35 +141,29 @@ async def get_one_proxy():
 
     url = f'https://proxy5.net/api/getproxy/?r=1&format=json&type=https_auth&login={login_proxy}&password={pass_proxy}&hideloginpass=1'
 
-    # headers = {
-    #     "Host": "proxy5.net",
-    #     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:142.0) Gecko/20100101 Firefox/142.0",
-    #     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    #     "Accept-Language": "en-US,en;q=0.5",
-    #     "Accept-Encoding": "gzip, deflate, br, zstd",
-    #     "Referer": "https://proxy5.net/user/clientarea.php?action=productdetails&id=13068",
-    #     "DNT": "1",
-    #     "Connection": "keep-alive",
-    #     "Cookie": "cf_clearance=WceWuaY7Ctc32iN1Q_pWnufGohrGxrmPMUM2FtJ_RcA-1757498832-1.2.1.1-SMSbKeSXVhNe82_qrkF6r1B_ysjIlF0AkRuEKdPrw_PcOYkHf2hIeb8KeyCgnHkcEO6ZjDs500VpvQgcEZ5lzjyIBSM8yVkPyG8AFmx2yHDbOMpzptAXUDWpa35ovzqWLhx0v_7BHKKFstkheZ6QdweZqswwnpPVqlrmEwHRZ5ylwhU3lTWUpfbqHLv.hwQArn_FW.AbzshDOPosIR1QJQSht779rjNaIrPFNEib__2Kz0.O_eooJGPFugq3yFNK; WHMCSlogin_auth_tk=WVZLS3g5UjBKYmoyOVhON1hpSzhIcnY2U2tjQzdIelB0Y0JabTJ2NmhTTEdtdEQ4Z1FTc2tFVXpJdVBNcXJ3T3JJbnFvNXZhRXovWkRjeVJKZjVqNlZsMndzTFh2Sk1JTGxRNFdzRUFEaWNDdWE1ajUxM2IxcW8xNjVrdCtKNHY3NDlMNm55bTIrZW80MHA3eWpnUDA1V2F5Z1FCVjRCc0FPczFSQ1p6V3B6U1lxNnVTOERUTVpWRmR2YjExcGhsVHJvb0txVkJPNEh2S3owUUZzTkhmUWlyZUdETlRLZTQxVnpUb3FWeUtwR0NCbEtTbXVtZWVjT002YnlIUFV2L2pvVWkvclhVZFBob21OcE5FQnR2ajcwakZrSDUrVlhFSnd0VGwrZkhQaDdNRHhFVEQ1TVB3MExzQ056aENSZWRzOFFmNjVVYTVHaFhsNksxb0JWdTJNK1ZXUDY1YU0yUFdNazhIZmVEYXRPNnBkUkkrWXNMYmlEeHg0c3NaN3BFd29iUnFwQXA3aTlja3ZvSXAwQ1hvM0pMRVVuSVREbXNqUT09; _ga_2ZGKN4M0P5=GS2.1.s1757498793$o4$g1$t1757499582$j21$l0$h0; _ga=GA1.1.400365736.1750062339; _gcl_au=1.1.115641565.1750062339.440583196.1757485779.1757485779; _ym_uid=1750062358756211370; _ym_d=1750062358; WHMCSy551iLvnhYt7=vbuifureped0gco4ima766eao0; _ym_isad=2; _ym_visorc=w",
-    #     "Upgrade-Insecure-Requests": "1",
-    #     "Sec-Fetch-Dest": "document",
-    #     "Sec-Fetch-Mode": "navigate",
-    #     "Sec-Fetch-Site": "same-origin",
-    #     "Sec-Fetch-User": "?1",
-    #     "Priority": "u=0, i",
-    #     "TE": "trailers",
-    # }
-    #
-    # # from utils.user_agent import gen_ua
-    # # headers = await gen_ua(url)
-    # # headers["Cookie"] = "cf_clearance=WceWuaY7Ctc32iN1Q_pWnufGohrGxrmPMUM2FtJ_RcA-1757498832-1.2.1.1-SMSbKeSXVhNe82_qrkF6r1B_ysjIlF0AkRuEKdPrw_PcOYkHf2hIeb8KeyCgnHkcEO6ZjDs500VpvQgcEZ5lzjyIBSM8yVkPyG8AFmx2yHDbOMpzptAXUDWpa35ovzqWLhx0v_7BHKKFstkheZ6QdweZqswwnpPVqlrmEwHRZ5ylwhU3lTWUpfbqHLv.hwQArn_FW.AbzshDOPosIR1QJQSht779rjNaIrPFNEib__2Kz0.O_eooJGPFugq3yFNK; WHMCSlogin_auth_tk=WVZLS3g5UjBKYmoyOVhON1hpSzhIcnY2U2tjQzdIelB0Y0JabTJ2NmhTTEdtdEQ4Z1FTc2tFVXpJdVBNcXJ3T3JJbnFvNXZhRXovWkRjeVJKZjVqNlZsMndzTFh2Sk1JTGxRNFdzRUFEaWNDdWE1ajUxM2IxcW8xNjVrdCtKNHY3NDlMNm55bTIrZW80MHA3eWpnUDA1V2F5Z1FCVjRCc0FPczFSQ1p6V3B6U1lxNnVTOERUTVpWRmR2YjExcGhsVHJvb0txVkJPNEh2S3owUUZzTkhmUWlyZUdETlRLZTQxVnpUb3FWeUtwR0NCbEtTbXVtZWVjT002YnlIUFV2L2pvVWkvclhVZFBob21OcE5FQnR2ajcwakZrSDUrVlhFSnd0VGwrZkhQaDdNRHhFVEQ1TVB3MExzQ056aENSZWRzOFFmNjVVYTVHaFhsNksxb0JWdTJNK1ZXUDY1YU0yUFdNazhIZmVEYXRPNnBkUkkrWXNMYmlEeHg0c3NaN3BFd29iUnFwQXA3aTlja3ZvSXAwQ1hvM0pMRVVuSVREbXNqUT09; _ga_2ZGKN4M0P5=GS2.1.s1757498793$o4$g1$t1757499582$j21$l0$h0; _ga=GA1.1.400365736.1750062339; _gcl_au=1.1.115641565.1750062339.440583196.1757485779.1757485779; _ym_uid=1750062358756211370; _ym_d=1750062358; WHMCSy551iLvnhYt7=vbuifureped0gco4ima766eao0; _ym_isad=2; _ym_visorc=w",
-    #
-
+    headers = {
+        "Host": "proxy5.net",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:142.0) Gecko/20100101 Firefox/142.0",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Referer": "https://proxy5.net/user/clientarea.php?action=productdetails&id=13068",
+        "DNT": "1",
+        "Connection": "keep-alive",
+        "Cookie": "cf_clearance=WceWuaY7Ctc32iN1Q_pWnufGohrGxrmPMUM2FtJ_RcA-1757498832-1.2.1.1-SMSbKeSXVhNe82_qrkF6r1B_ysjIlF0AkRuEKdPrw_PcOYkHf2hIeb8KeyCgnHkcEO6ZjDs500VpvQgcEZ5lzjyIBSM8yVkPyG8AFmx2yHDbOMpzptAXUDWpa35ovzqWLhx0v_7BHKKFstkheZ6QdweZqswwnpPVqlrmEwHRZ5ylwhU3lTWUpfbqHLv.hwQArn_FW.AbzshDOPosIR1QJQSht779rjNaIrPFNEib__2Kz0.O_eooJGPFugq3yFNK; WHMCSlogin_auth_tk=WVZLS3g5UjBKYmoyOVhON1hpSzhIcnY2U2tjQzdIelB0Y0JabTJ2NmhTTEdtdEQ4Z1FTc2tFVXpJdVBNcXJ3T3JJbnFvNXZhRXovWkRjeVJKZjVqNlZsMndzTFh2Sk1JTGxRNFdzRUFEaWNDdWE1ajUxM2IxcW8xNjVrdCtKNHY3NDlMNm55bTIrZW80MHA3eWpnUDA1V2F5Z1FCVjRCc0FPczFSQ1p6V3B6U1lxNnVTOERUTVpWRmR2YjExcGhsVHJvb0txVkJPNEh2S3owUUZzTkhmUWlyZUdETlRLZTQxVnpUb3FWeUtwR0NCbEtTbXVtZWVjT002YnlIUFV2L2pvVWkvclhVZFBob21OcE5FQnR2ajcwakZrSDUrVlhFSnd0VGwrZkhQaDdNRHhFVEQ1TVB3MExzQ056aENSZWRzOFFmNjVVYTVHaFhsNksxb0JWdTJNK1ZXUDY1YU0yUFdNazhIZmVEYXRPNnBkUkkrWXNMYmlEeHg0c3NaN3BFd29iUnFwQXA3aTlja3ZvSXAwQ1hvM0pMRVVuSVREbXNqUT09; _ga_2ZGKN4M0P5=GS2.1.s1757498793$o4$g1$t1757499582$j21$l0$h0; _ga=GA1.1.400365736.1750062339; _gcl_au=1.1.115641565.1750062339.440583196.1757485779.1757485779; _ym_uid=1750062358756211370; _ym_d=1750062358; WHMCSy551iLvnhYt7=vbuifureped0gco4ima766eao0; _ym_isad=2; _ym_visorc=w",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-User": "?1",
+        "Priority": "u=0, i",
+        "TE": "trailers",
+    }
 
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             one_json = await response.json()
-            print(one_json)
+            #print(one_json)
             # one_json = json.loads(one_text)
             # print(type(one_json))
             # print(one_json)
@@ -182,7 +176,6 @@ async def change_setip(ip):
         async with session.get(url) as response:
             text = response.text
             #print(text)
-
 
 async def get_iplist():
     """ typel  string
