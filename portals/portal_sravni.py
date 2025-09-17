@@ -40,7 +40,6 @@ formatted_7date = seven_days_ago.strftime('%Y-%m-%d')
 companies = {'strakhovaja-kompanija/sberbank-strah': '147351',
              'bank/novikombank': '5bb4f769245bc22a520a62b1'}
 
-
 async def get_top_url(link):
     pattern = r'https://www\.sravni\.ru/(.*?)/otzyvy/'
     link_company = await extract_company_name(pattern, link)
@@ -273,7 +272,6 @@ async def main_sravni():
             if proxy_active != 'Active':
                 await append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2,
                                                 f'Proxy {proxy_active}: {record_date}')
-                return
 
             else:
                 await append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2,

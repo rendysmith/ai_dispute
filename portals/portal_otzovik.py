@@ -298,15 +298,7 @@ async def main_otzovik():
     proxy_active = await proxy_status()
     print(f'Proxy status: {proxy_active}')
 
-    driver = None
-    if proxy_active == 'Active':
-        # print(">>> Start WinProxy...")
-        # await set_windows_proxy()
-        # await asyncio.sleep(5)
-
-        print('>>> Start Selenium...')
-        #driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
     service = await get_service()
     df = await get_table_scope(service, ss_id, 'zoom')
@@ -343,7 +335,6 @@ async def main_otzovik():
             if proxy_active != 'Active':
                 await append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2,
                                                 f'Proxy {proxy_active}: {record_date}')
-                return
 
             else:
                 await append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2,
@@ -440,9 +431,10 @@ async def main_otzovik():
                     print(f"An unexpected error occurred: {e}")
 
                 if not status:
-                    driver.quit()
-                    #driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-                    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+                    # driver.quit()
+                    # #driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+                    # driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+                    pass
 
         if record:
             finish_sec = time.time() - start_time

@@ -18,7 +18,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from dotenv import load_dotenv
 import re
 
-from utils.central_module import wait_for_portal, get_local_ip, proxy_status, fix_error, rec_count, take_photo
+from utils.central_module import wait_for_portal, get_local_ip, proxy_status, fix_error, rec_count, take_photo, get_hpo
 from utils.constants import months, TABLES_LIST
 from utils.ai_module import generate_and_white
 from utils.gs_editor import get_service, pars_url, append_data_to_sheet_scope, get_table_scope, write_log_sheet, \
@@ -40,15 +40,6 @@ days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 timeout = 10000
 ss_id = TABLES_LIST['zoom']
-
-local_ip = asyncio.run(get_local_ip())
-if '176.124' in local_ip:
-    headless = False
-    proxy_on = True
-
-else:
-    headless = False
-    proxy_on = False
 
 recorded = 0
 
@@ -480,12 +471,13 @@ async def get_id_org(url):
             return v
 
 async def main_ya_maps():
+    global headless, proxy_on, only_text
+    headless, proxy_on, only_text = await get_hpo()
+
     proxy_active = await proxy_status()
     print(f'Proxy status: {proxy_active}')
 
-    driver = None
-    if proxy_active == 'Active':
-        driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
     local_ip = await get_local_ip()
     print('local_ip', local_ip)
@@ -525,7 +517,6 @@ async def main_ya_maps():
             if proxy_active != 'Active':
                 await append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2,
                                                 f'Proxy {proxy_active}: {record_date}')
-                return
 
             else:
                 await append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2,
