@@ -7,6 +7,8 @@ import asyncio
 from bs4 import BeautifulSoup
 
 from dotenv import load_dotenv
+from utils.db_loader import read_from_postgres
+import random
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -94,7 +96,6 @@ async def get_proxy_list():
                 print("JSONDecodeError:", e)
                 print("Formatted text that caused the error:", formatted_text)
 
-
 async def parse_data():
     url = f'https://proxy5.net/api/getproxy/?format=json&type=http_auth&login={login_proxy}&password={pass_proxy}'
     async with aiohttp.ClientSession() as session:
@@ -131,37 +132,21 @@ async def parse_data():
 
             return result
 
-
 async def get_one_proxy():
-    url = f'https://proxy5.net/api/getproxy/?r=1&format=json&type=https_auth&login={login_proxy}&password={pass_proxy}&hideloginpass=1'
+    status, df = await read_from_postgres('proxies')
+    print(df)
+    if status:
+        len_df = len(df)
+        r_idx = random.randint(0, len_df - 1)
 
-    headers = {
-        "Host": "proxy5.net",
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:142.0) Gecko/20100101 Firefox/142.0",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Accept-Encoding": "gzip, deflate, br, zstd",
-        "Referer": "https://proxy5.net/user/clientarea.php?action=productdetails&id=24422",
-        "DNT": "1",
-        "Connection": "keep-alive",
-        "Cookie": "cf_clearance=Zo3Xxj9MN.YR2paOH_v5nbnFTXD3A9A6SIhcVWNHg1g-1758169460-1.2.1.1-hNuPNp6_s0fLv52E1qxPpZCAIiidZmscob0sSvCHFIxlTkgLtE2tldQkN7j8TECoGbRsar2SQdY5wGfufzrYAVtlYxfAD7B9iyaTOvcoUaMl8DBbrQSZT.zrc3MgkZty9zoP7jxz3l8yD0NWTmJ5rs3SsURctWJNAdIMzwywX4BJekzkL7k.vDgnusGiCbmZ2rYRDPSm9ktXoOD5tYV.sM0hmYqWEUGlxAjCK1eAYoys9egcCavRif62FoDm6KAM; _ga_2ZGKN4M0P5=GS2.1.s1758169460$o20$g1$t1758169995$j60$l0$h0; _ga=GA1.1.400365736.1750062339; _ym_uid=1750062358756211370; _ym_d=1750062358; WHMCSlogin_auth_tk=b2gvbHo5UU92MDU5QmcxTTZmV055Tk9leXcvQm9SUEh0YnJEYmVBSit4VnhUZUVxNldBdDJMR0QyRmVsdFFoTEUyUW1DWnhESk4zT21HbitUN0tVWEllakVwbDdETkpIRzBwbzd4MmF0TTRueEgzakIxeTM0WDk4aEdINk9BSWlxRHVMOThIUjVpelBXVTZ5MW1MdVc4UDRoM2FxMXBGcXpFWUJ6MVAySDM3VWFlWnNjM0Z5WTdGMWIvZFdicDVIQkZYV0hBVzJqWGdJWGl0bVgvZXQwTXBtK2NpQ1owZFRjb0tHSENkdEt4SDJtQ2g0VWFvdCsvYlFDQ1pHMmUvbWJQRTBxLytCb2gwSjdXa0xncHhrdGRFZ3hiZ0ZrMEFod1FKQXFLakhmREI0d24zMURkREhld2Nwa0dTcHh1YVVGVUljTTFXejBuY0kwdDVGM25SdzZrRmdNYU5sY3FRU3hINTVBQWswRDNjZVJBczdKMlBMTm1xMEtXY253LzM0bWxFbGpsSHZ5UWJWYjc5OFBPVVJzdGp4UExiWjlyOVVQWUdlU1E9PQ%3D%3D; _gcl_au=1.1.647490963.1757908712.772562712.1758104130.1758104131; _ym_isad=2; _ym_visorc=w; WHMCSy551iLvnhYt7=cot4s44n6t6lm3cpg1l2tuj88d",
-        "Upgrade-Insecure-Requests": "1",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "same-origin",
-        "Sec-Fetch-User": "?1",
-        "Priority": "u=0, i",
-        "TE": "trailers",
-    }
+        host = df.loc[r_idx, 'host']
+        port = df.loc[r_idx, 'port']
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=headers) as response:
-            one_json = await response.text()
-            print(one_json)
-            # one_json = json.loads(one_text)
-            # print(type(one_json))
-            # print(one_json)
-            #return one_json['host'], one_json['port']
+        print(host, port)
+        return host, port
+
+    else:
+        return None, None
 
 async def change_setip(ip):
     print('Change action IP')

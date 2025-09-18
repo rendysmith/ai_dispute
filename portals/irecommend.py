@@ -678,10 +678,10 @@ async def check_irecommend(service, link, pattern, criteria, ss_id, project, dri
 async def main_irecommend():
     proxy_active = await proxy_status()
     print(f'+ Proxy status: {proxy_active}')
-
-    driver = None
-    if proxy_active == 'Active':
-        driver = await get_driver()
+    #
+    # driver = None
+    # if proxy_active == 'Active':
+    driver = await get_driver()
 
     local_ip = await get_local_ip()
     print('- local_ip Irec', local_ip)
@@ -711,41 +711,6 @@ async def main_irecommend():
         if 'Проект' in project:
             continue
 
-        #Если дата не совпадает с сегодняшней
-        host_logs = ''
-        project_irecommend = f'irecommend_{project}'
-        filtered_logs = df_logs[df_logs['service_name'] == project_irecommend]
-        if not filtered_logs.empty:
-            idx_logs = filtered_logs.index[0]
-
-            if proxy_active != 'Active':
-                await append_data_to_sheet_cell(service, ss_id, 'logs', 'status',
-                                                idx_logs + 2,
-                                                f'Proxy {proxy_active}: {record_date}')
-                return
-
-            else:
-                await append_data_to_sheet_cell(service, ss_id, 'logs', 'status',
-                                                idx_logs + 2,
-                                                f'Proxy {proxy_active}')
-
-            #Пропуск по дате
-            date_logs = df_logs.loc[idx_logs, 'date']
-            if date_logs == record_date:
-                #print()
-                continue
-
-        #
-        #     #Пропуск по IP
-        #     host_logs = df_logs.loc[idx_logs, 'reserve']
-        #     if host_logs != local_ip:
-        #         print('Skip:', host_logs, local_ip)
-        #         continue
-        #
-        # else:
-        #     print(f"No logs found for service: {project}")
-
-
         df_mini = df[project]
         #print(len(df_mini))
 
@@ -772,6 +737,29 @@ async def main_irecommend():
 
         len_df = len(df_link_list)
         print(f'\n========================= Project = {project} = Len ({len_df})==============================')
+
+        #Если дата не совпадает с сегодняшней
+        host_logs = ''
+        project_irecommend = f'irecommend_{project}'
+        filtered_logs = df_logs[df_logs['service_name'] == project_irecommend]
+        if not filtered_logs.empty:
+            idx_logs = filtered_logs.index[0]
+
+            if proxy_active != 'Active':
+                await append_data_to_sheet_cell(service, ss_id, 'logs', 'status',
+                                                idx_logs + 2,
+                                                f'Proxy {proxy_active}: {record_date}')
+
+            else:
+                await append_data_to_sheet_cell(service, ss_id, 'logs', 'status',
+                                                idx_logs + 2,
+                                                f'Proxy {proxy_active}')
+
+            #Пропуск по дате
+            date_logs = df_logs.loc[idx_logs, 'date']
+            if date_logs == record_date:
+                #print()
+                continue
 
         start_time = time.time()
         list_links = []

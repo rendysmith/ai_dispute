@@ -3,7 +3,7 @@ from venv import logger
 import pandas as pd
 from datetime import datetime
 
-from sqlalchemy import text, update
+from sqlalchemy import text, update, insert
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -68,7 +68,6 @@ async def get_api_tokens():
             logger.error(f"SQL Error Ex: {Ex}")
             return False
 
-
 async def get_hosts():
     async with SessionLocal() as session:
         try:
@@ -92,7 +91,6 @@ async def get_hosts():
             logger.error(f"SQL Error Ex: {Ex}")
             return False
 
-
 async def get_user_bt24(email):
     async with SessionLocal() as session:
         try:
@@ -109,7 +107,6 @@ async def get_user_bt24(email):
         except Exception as Ex:
             logger.error(f"SQL Error Ex: {Ex}")
             return False, False
-
 
 async def get_pass(username):
     async with SessionLocal() as session:
@@ -159,7 +156,6 @@ async def get_group_guid(group_name):
             logger.error(f"SQL Error Ex: {Ex}")
             return False
 
-
 async def get_role_access(user_guid, group_guid):
     async with SessionLocal() as session:
         try:
@@ -208,16 +204,17 @@ async def add_data_to_db(datas):
 
 async def add_datas_to_db(table_data, mappings):
     async with SessionLocal() as session:
-        async with session.begin():
-            try:
-                await session.execute(table_data.__table__.delete())
-                await session.bulk_insert_mappings(table_data, mappings)
-                await session.commit()
-                return True
+        try:
+            # Создаем оператор INSERT для массовой вставки
+            stmt = insert(table_data).values(mappings)
 
-            except Exception as Ex:
-                await session.rollback()
-                return Ex
+            # Выполняем асинхронно
+            await session.execute(stmt)
+            await session.commit()
+            return True
+        except Exception as Ex:
+            await session.rollback()
+            return Ex
 
 async def add_data_to_db_by_filter(table_data, where_data, value_data, datas):
     async with SessionLocal() as session:
@@ -247,7 +244,6 @@ async def add_data_to_db_by_filter(table_data, where_data, value_data, datas):
             except Exception as Ex:
                 await session.rollback()
                 return False, Ex
-
 
 async def read_data_from_db(table_data, limit, page):
     async with SessionLocal() as session:
@@ -281,7 +277,6 @@ async def read_data_from_db_filter_limit(table_data, limit, page, **filter):
         except Exception as Ex:
             return False, Ex
 
-
 async def write_to_postgres(df, table_name: str):
     try:
         # Записываем новые данные в таблицу
@@ -314,7 +309,6 @@ async def append_to_postgres_results(df, table_name: str):
 
     except Exception as Ex:
         return False, f"Ошибка подключения к PostgreSQL: {Ex}"
-
 
 async def read_from_postgres(table_name: str):
     async with SessionLocal() as session:
