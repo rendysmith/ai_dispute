@@ -36,7 +36,6 @@ async def func_1():
 
     input(1)
 
-
 async def get_selenium_win(url=None, headless=True, proxy=True):
     proxy = "username:password@proxy_address:proxy_port"
     proxy_host, proxy_port = await get_one_proxy()

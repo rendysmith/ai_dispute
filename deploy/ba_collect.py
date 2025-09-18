@@ -219,12 +219,12 @@ async def main():
 
                     comment = ""
 
-                    if all(wl not in text_snippet for wl in wlist):
+                    if any(wl.lower() not in text_snippet.lower() for wl in wlist):
                         print(f'--- NO white list: {text_snippet}')
-                        #continue
                         comment += "Не берем, нет в белом списке\n"
+                        #continue
 
-                    if any(censor in text_snippet.lower() for censor in censors):
+                    if any(censor.lower() in text_snippet.lower() for censor in censors):
                         print(f'-- IS NOT Censor: {text_snippet}')
                         #continue
                         comment += "Не берем, не проходит цензуру\n"
@@ -238,7 +238,7 @@ async def main():
                     #print(fullname)
 
                     #имена официалов
-                    if any(offrep in fullname.lower() for offrep in offreps):
+                    if any(offrep.lower() in fullname.lower() for offrep in offreps):
                         print(f'-- IS official: {fullname}')
                         #continue
                         comment += "Не берем - официал\n"
@@ -251,7 +251,7 @@ async def main():
                     if 'vk.com' in url_comment:
                         group_name = await blocks_vk(url_comment, author_name=True)
                         if group_name:
-                            if any(offrep in group_name.lower() for offrep in offreps):
+                            if any(offrep.lower() in group_name.lower() for offrep in offreps):
                                 print(f'-- IS official group name: {group_name}')
                                 #continue
                                 comment += "Не берем - официальная группа\n"
