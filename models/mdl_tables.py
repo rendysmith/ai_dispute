@@ -235,6 +235,18 @@ class Prompt(Base):
     project_name = Column(String, nullable=False, index=True)
     prompt = Column(String, nullable=False, index=True)
 
+class Proxies(Base):
+    """
+    host_id: Integer\n
+    host: String\n
+    port: String\n
+    """
+    __tablename__ = 'proxies'
+
+    host_id = Column(Integer, primary_key=True, autoincrement=True)
+    host = Column(String, nullable=False, index=True)
+    port = Column(String, nullable=False, index=True)
+
 
 
 

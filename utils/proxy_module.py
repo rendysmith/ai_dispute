@@ -14,8 +14,6 @@ load_dotenv(dotenv_path)
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
 
-
-
 async def get_cookies_proxy5():
     login_url = "https://proxy5.net/user/index.php?rp=/login"
 
@@ -63,7 +61,6 @@ async def get_cookies_proxy5():
         r.raise_for_status()
         return s.cookies.get_dict()  # словарь cookies
 
-
 async def get_client_list():
     url = 'https://api.proxy5.net/api/clients'
     headers = {
@@ -75,8 +72,6 @@ async def get_client_list():
     response = requests.request('GET', url, headers=headers)
     r_json = response.json()
     #print(r_json)
-
-
 
 async def get_proxy_list():
     #url = f'https://proxy5.net/api/getproxy/?format=json&type=http_auth&login={login_proxy}&password={pass_proxy}'
@@ -138,7 +133,6 @@ async def parse_data():
 
 
 async def get_one_proxy():
-
     url = f'https://proxy5.net/api/getproxy/?r=1&format=json&type=https_auth&login={login_proxy}&password={pass_proxy}&hideloginpass=1'
 
     headers = {
@@ -147,10 +141,10 @@ async def get_one_proxy():
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.5",
         "Accept-Encoding": "gzip, deflate, br, zstd",
-        "Referer": "https://proxy5.net/user/clientarea.php?action=productdetails&id=13068",
+        "Referer": "https://proxy5.net/user/clientarea.php?action=productdetails&id=24422",
         "DNT": "1",
         "Connection": "keep-alive",
-        "Cookie": "cf_clearance=WceWuaY7Ctc32iN1Q_pWnufGohrGxrmPMUM2FtJ_RcA-1757498832-1.2.1.1-SMSbKeSXVhNe82_qrkF6r1B_ysjIlF0AkRuEKdPrw_PcOYkHf2hIeb8KeyCgnHkcEO6ZjDs500VpvQgcEZ5lzjyIBSM8yVkPyG8AFmx2yHDbOMpzptAXUDWpa35ovzqWLhx0v_7BHKKFstkheZ6QdweZqswwnpPVqlrmEwHRZ5ylwhU3lTWUpfbqHLv.hwQArn_FW.AbzshDOPosIR1QJQSht779rjNaIrPFNEib__2Kz0.O_eooJGPFugq3yFNK; WHMCSlogin_auth_tk=WVZLS3g5UjBKYmoyOVhON1hpSzhIcnY2U2tjQzdIelB0Y0JabTJ2NmhTTEdtdEQ4Z1FTc2tFVXpJdVBNcXJ3T3JJbnFvNXZhRXovWkRjeVJKZjVqNlZsMndzTFh2Sk1JTGxRNFdzRUFEaWNDdWE1ajUxM2IxcW8xNjVrdCtKNHY3NDlMNm55bTIrZW80MHA3eWpnUDA1V2F5Z1FCVjRCc0FPczFSQ1p6V3B6U1lxNnVTOERUTVpWRmR2YjExcGhsVHJvb0txVkJPNEh2S3owUUZzTkhmUWlyZUdETlRLZTQxVnpUb3FWeUtwR0NCbEtTbXVtZWVjT002YnlIUFV2L2pvVWkvclhVZFBob21OcE5FQnR2ajcwakZrSDUrVlhFSnd0VGwrZkhQaDdNRHhFVEQ1TVB3MExzQ056aENSZWRzOFFmNjVVYTVHaFhsNksxb0JWdTJNK1ZXUDY1YU0yUFdNazhIZmVEYXRPNnBkUkkrWXNMYmlEeHg0c3NaN3BFd29iUnFwQXA3aTlja3ZvSXAwQ1hvM0pMRVVuSVREbXNqUT09; _ga_2ZGKN4M0P5=GS2.1.s1757498793$o4$g1$t1757499582$j21$l0$h0; _ga=GA1.1.400365736.1750062339; _gcl_au=1.1.115641565.1750062339.440583196.1757485779.1757485779; _ym_uid=1750062358756211370; _ym_d=1750062358; WHMCSy551iLvnhYt7=vbuifureped0gco4ima766eao0; _ym_isad=2; _ym_visorc=w",
+        "Cookie": "cf_clearance=Zo3Xxj9MN.YR2paOH_v5nbnFTXD3A9A6SIhcVWNHg1g-1758169460-1.2.1.1-hNuPNp6_s0fLv52E1qxPpZCAIiidZmscob0sSvCHFIxlTkgLtE2tldQkN7j8TECoGbRsar2SQdY5wGfufzrYAVtlYxfAD7B9iyaTOvcoUaMl8DBbrQSZT.zrc3MgkZty9zoP7jxz3l8yD0NWTmJ5rs3SsURctWJNAdIMzwywX4BJekzkL7k.vDgnusGiCbmZ2rYRDPSm9ktXoOD5tYV.sM0hmYqWEUGlxAjCK1eAYoys9egcCavRif62FoDm6KAM; _ga_2ZGKN4M0P5=GS2.1.s1758169460$o20$g1$t1758169995$j60$l0$h0; _ga=GA1.1.400365736.1750062339; _ym_uid=1750062358756211370; _ym_d=1750062358; WHMCSlogin_auth_tk=b2gvbHo5UU92MDU5QmcxTTZmV055Tk9leXcvQm9SUEh0YnJEYmVBSit4VnhUZUVxNldBdDJMR0QyRmVsdFFoTEUyUW1DWnhESk4zT21HbitUN0tVWEllakVwbDdETkpIRzBwbzd4MmF0TTRueEgzakIxeTM0WDk4aEdINk9BSWlxRHVMOThIUjVpelBXVTZ5MW1MdVc4UDRoM2FxMXBGcXpFWUJ6MVAySDM3VWFlWnNjM0Z5WTdGMWIvZFdicDVIQkZYV0hBVzJqWGdJWGl0bVgvZXQwTXBtK2NpQ1owZFRjb0tHSENkdEt4SDJtQ2g0VWFvdCsvYlFDQ1pHMmUvbWJQRTBxLytCb2gwSjdXa0xncHhrdGRFZ3hiZ0ZrMEFod1FKQXFLakhmREI0d24zMURkREhld2Nwa0dTcHh1YVVGVUljTTFXejBuY0kwdDVGM25SdzZrRmdNYU5sY3FRU3hINTVBQWswRDNjZVJBczdKMlBMTm1xMEtXY253LzM0bWxFbGpsSHZ5UWJWYjc5OFBPVVJzdGp4UExiWjlyOVVQWUdlU1E9PQ%3D%3D; _gcl_au=1.1.647490963.1757908712.772562712.1758104130.1758104131; _ym_isad=2; _ym_visorc=w; WHMCSy551iLvnhYt7=cot4s44n6t6lm3cpg1l2tuj88d",
         "Upgrade-Insecure-Requests": "1",
         "Sec-Fetch-Dest": "document",
         "Sec-Fetch-Mode": "navigate",
@@ -161,13 +155,13 @@ async def get_one_proxy():
     }
 
     async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            one_json = await response.json()
-            #print(one_json)
+        async with session.get(url, headers=headers) as response:
+            one_json = await response.text()
+            print(one_json)
             # one_json = json.loads(one_text)
             # print(type(one_json))
             # print(one_json)
-            return one_json['host'], one_json['port']
+            #return one_json['host'], one_json['port']
 
 async def change_setip(ip):
     print('Change action IP')
