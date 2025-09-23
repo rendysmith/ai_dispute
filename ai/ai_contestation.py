@@ -38,6 +38,8 @@ from utils.gs_editor import get_service, write_log_sheet, get_table_scope, appen
 from portals.portal_otzovik import get_top_link
 from portals.portal_ya import get_json, get_id_org
 from portals.portal_tripadvisor import blocks_tripadvisor_sel
+from portals.pravda_sotrudnikov import blocks_pravda
+from portals.otzovru import blocks_otzovru
 
 
 from utils.user_agent import get_soup, get_selenium_proxy, get_soup_tor, get_soup_bs4, clean_html
@@ -185,7 +187,7 @@ async def review_analysis(worktable_id, tab_name):
         link = row['Url']
         comment = row['Текст']
         source = row['Источник']
-        rating = float(row['Оценка'])
+        #rating = float(row['Оценка'])
         #
         # if rating > rating_before: #если рейтинг выше нужного, пропускает отзыв
         #     continue
@@ -632,7 +634,6 @@ async def pars_zoon(service, driver, url, ss_id, project, links, rating_max):
         number_reviews = int(number_reviewss.split(' ')[0])
         print("number_reviewss:", number_reviews)
 
-
     if number_reviews == 0:
         return
 
@@ -641,8 +642,10 @@ async def pars_zoon(service, driver, url, ss_id, project, links, rating_max):
 
     print(number_reviews, rating_before)
 
-    content = await zoon_blocks(driver, url)
+    content = await zoon_blocks(driver, url, rating_max)
     df = pd.DataFrame(content)
+
+    datas = await empty_data()
 
     for k, row in df.iterrows():
         url_answer = row['Url']
@@ -658,8 +661,6 @@ async def pars_zoon(service, driver, url, ss_id, project, links, rating_max):
         feedback = row['Текст']
         author = row['Автор']
 
-        datas = await empty_data()
-
         datas['Дата'].append(formatted_date)
         datas['Текст'].append(feedback)
         datas['Бренд'].append(project)
@@ -671,7 +672,88 @@ async def pars_zoon(service, driver, url, ss_id, project, links, rating_max):
         datas['Кол-во отзывов'].append(number_reviews)
         datas['Оценка компании до удаления'].append(rating_before)
 
-        await append_data_to_sheet_scopes(service, ss_id, project, datas)
+    await append_data_to_sheet_scopes(service, ss_id, project, datas)
+
+async def pars_otzyvru(service, driver, url, ss_id, project, links, rating_max):
+    source = 'otzyvru.com'
+
+    page = 1
+    while True:
+        link = f"https://www.otzyvru.com/servis-poiska-vrachey-docdoc?sort=rating_asc&page={page}"
+        blocks = await blocks_otzovru(driver, link)
+
+        if len(blocks) == 0:
+            return
+
+        btn_blue = driver.find_element(By.CSS_SELECTOR, 'a[class="btn blue"]')
+        print(btn_blue == True)
+
+        for block in blocks:
+            url_answer = block.find_element(By.CSS_SELECTOR, 'h2').find_element(By.CSS_SELECTOR, 'a[href]').get_attribute('href')
+            print(url_answer)
+
+            if url_answer in links:
+                continue
+
+            rating_content = block.find_element(By.CSS_SELECTOR, 'span[style]').get_attribute('style')
+            print(rating_content)
+            rating_json = {'width:13px;': 1,
+                           'width: 13px;': 1,
+                            'width:26px;': 2,
+                            'width:39px;': 3,
+                            'width:52px;': 4,
+                            'width:65px;': 5}
+
+            rating = rating_json[rating_content]
+            print(rating)
+
+            if rating > rating_max:
+                return
+
+            author = block.find_element(By.CSS_SELECTOR, 'span[class="reviewer"][itemprop="name"]').text
+            print(author)
+
+            date_content = block.find_element(By.CSS_SELECTOR, 'span[class="value-title"][title]').get_attribute('title')
+            date = datetime.strptime(date_content, "%Y-%m-%d")
+            formatted_date = date.strftime("%d.%m.%Y")
+            print(formatted_date)
+
+            comment_description = block.find_element(By.CSS_SELECTOR, 'span[class="comment description"]')
+
+            try:
+                text = comment_description.find_element(By.CSS_SELECTOR, 'span[class="review-full-text none"]').text
+
+            except:
+
+                text = comment_description.find_element(By.CSS_SELECTOR, 'span[class="review-snippet"]').text
+
+            advantages = comment_description.find_element(By.CSS_SELECTOR, 'span[class="advantages"]').text
+            disadvantages = comment_description.find_element(By.CSS_SELECTOR, 'span[class="disadvantages"]').text
+
+
+            feedback = f"{text}\n"
+
+
+            datas = await empty_data()
+
+            datas['Дата'].append(formatted_date)
+            datas['Текст'].append(feedback)
+            datas['Бренд'].append(project)
+            datas['Источник'].append(source)
+            datas['Url'].append(url_answer)
+            datas['Автор'].append(author)
+            datas['Оценка'].append(rating)
+            datas['Общий Url'].append(url)
+            datas['Кол-во отзывов'].append(number_reviews)
+            datas['Оценка компании до удаления'].append(rating_before)
+
+            await append_data_to_sheet_scopes(service, ss_id, project, datas)
+
+
+
+
+
+
 
 async def main_grade():
     headless, proxy_on, only_text = await get_hpo()
@@ -1022,13 +1104,23 @@ async def pars_irec(service, driver, driver2, url, ss_id, project, links, rating
     n = 0
     while n < 3:
         try:
+            selectors = ['li[class="pager-last last"]', 'li[class="pager-last"]']
             #Кол-во страницы для парсинга на портале
-            pages = int(driver.find_element(By.CSS_SELECTOR, 'li[class="pager-last last"]').text)
-            print(pages)
-            break
+            for selector in selectors:
+                try:
+                    pages = int(driver.find_element(By.CSS_SELECTOR, selector).text)
+                    print("Pages: ", pages)
+                    await asyncio.sleep(1)
+
+                except:
+                    continue
+
+            if pages:
+                break
 
         except:
             n += 1
+            print(f'Error: {n}')
             await asyncio.sleep(2)
 
     number_reviews = int(driver.find_element(By.CSS_SELECTOR, 'span[itemprop="reviewCount"]').text)
@@ -1039,12 +1131,10 @@ async def pars_irec(service, driver, driver2, url, ss_id, project, links, rating
 
     temp_lists = []
 
-    start_page = 7 #
-
-    for page in range(start_page, pages + 1): #начинается со страницы 0
+    for page in range(0, pages + 1): #начинается со страницы 0
         url_o = url + f"?page={page}"
-        driver.get(url_o)
         print(f'\n\nStart: {url_o}')
+        driver.get(url_o)
         await asyncio.sleep(7)
 
         blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-type="1"]')
@@ -1252,6 +1342,72 @@ async def pars_tripadvisor(service, driver, url, ss_id, project, links, rating_m
 
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
         await asyncio.sleep(3)
+
+async def pars_pravda(service, url, ss_id, project, links):
+    source = 'pravda-sotrudnikov.ru'
+    rating = None
+
+    soup = await get_soup(url, proxy=False)
+
+    number_reviews = soup.find('span', {'class': 'company-reviews-title-quantity'}).text
+    print(number_reviews)
+
+    rating_before = soup.find('div', {'class': 'company-info-contacts-row'}).find('span', {'class': "rating-autostars"}).get('data-rating')
+    print(rating_before)
+
+    last_page = 1
+    li = soup.find_all('li')
+    for l in li:
+        txt = l.text
+        if txt.isdigit():
+            last_page = int(txt)
+
+    print(f'Last page: {last_page}')
+
+    for i in range(last_page):
+        url_page = url + f'?page={i+1}'
+        print(url_page)
+
+        blocks = await blocks_pravda(url_page)
+        print(f'LenB: {len(blocks)}')
+
+        if len(blocks) > 0:
+            for block in blocks:
+
+                yellow_button = block.find('a', class_='btn btn-yellow show-answers-button')
+                url_answer = 'https://pravda-sotrudnikov.ru' + yellow_button.get('href')
+                if url_answer in links:
+                    continue
+
+                date_str = block.find('div', class_='company-reviews-list-item-date').text.strip()
+                date = datetime.strptime(date_str, "%H:%M %d.%m.%Y")
+                formatted_date = date.strftime("%d.%m.%Y")
+
+                author = block.find('div', class_='company-reviews-list-item-name').text
+                #author = "\n".join(line.strip() for line in author.splitlines() if line.strip())
+                author = " ".join(author.split())
+
+                text = block.find('div', {'class': 'row'}).text
+                feedback = "\n".join(line.strip() for line in text.splitlines() if line.strip())
+
+                datas = await  empty_data()
+
+                datas['Дата'].append(formatted_date)
+                datas['Текст'].append(feedback)
+                datas['Бренд'].append(project)
+                datas['Источник'].append(source)
+                datas['Url'].append(url_answer)
+                datas['Автор'].append(author)
+                datas['Оценка'].append(rating)
+                datas['Общий Url'].append(url)
+                datas['Кол-во отзывов'].append(number_reviews)
+                datas['Оценка компании до удаления'].append(rating_before)
+
+                await append_data_to_sheet_scopes(service, ss_id, project, datas)
+                await asyncio.sleep(1)
+
+
+
 
 
 async def main_stroyenergokom():
@@ -1577,7 +1733,7 @@ async def multi_pars(ss_id, project):
     start_page = 0
 
     driver = await get_selenium_proxy(headless=False, proxy=False)
-    #driver2 = await get_selenium_proxy(headless=False, proxy=False)
+    driver2 = await get_selenium_proxy(headless=False, proxy=False)
 
     for k, row in df.iterrows():
         status = row['status']
@@ -1591,6 +1747,7 @@ async def multi_pars(ss_id, project):
         if 'otzovik' in url:
             await pars_otzovik(service, driver, url, driver2, ss_id, project, links, rating_max, start_page)
             await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
+            await asyncio.sleep(3)
 
         elif '2gis' in url:
             await pars_2gis(service, url, ss_id, project, links, rating_max)
@@ -1617,6 +1774,17 @@ async def multi_pars(ss_id, project):
             await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
             await asyncio.sleep(3)
 
+        elif 'pravda-sotrudnikov' in url:
+            await pars_pravda(service, url, ss_id, project, links)
+            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
+            await asyncio.sleep(3)
+
+        elif 'otzyvru' in url:
+            await pars_otzyvru(service, driver, url, ss_id, project, links, rating_max)
+            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
+            await asyncio.sleep(3)
+
+
 
 
 
@@ -1631,8 +1799,8 @@ async def multi_pars(ss_id, project):
 
 async def main():
 
-    ss_id = '1KFJ4jFk4DhQT8_ONaZSgqZZ_h-oHqFaaFZWrFsrw_ps'
-    project = 'moscvarioum'
+    ss_id = '1Gq-veXg2d97GPwh-2MuqmUI4Af5LDoZGhdhCDJUDR-k'
+    project = 'SberMedic'
 
     #await sberlising(ss_id, project)
 

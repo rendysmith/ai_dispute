@@ -6,9 +6,12 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import time
 
+
 from utils.gs_editor import get_table_scope, pars_url
 from utils.ai_module import generate_and_white
 import textwrap
+
+from utils.user_agent import get_soup
 
 current_date = datetime.now()
 
@@ -18,6 +21,13 @@ dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
+
+async def blocks_pravda(url):
+    soup = await get_soup(url, proxy=False)
+    blocks = soup.find_all('div', {'id':True, 'class': 'company-reviews-list-item'})
+    return blocks
+
+
 
 async def check_pravda(service, link, pattern, criteria, ss_id, project, links=False):
     url = f'https://pravda-sotrudnikov.ru/company/{link}?sort=date'
