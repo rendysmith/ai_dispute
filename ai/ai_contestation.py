@@ -39,7 +39,7 @@ from portals.portal_otzovik import get_top_link
 from portals.portal_ya import get_json, get_id_org
 from portals.portal_tripadvisor import blocks_tripadvisor_sel
 from portals.pravda_sotrudnikov import blocks_pravda
-from portals.otzovru import blocks_otzovru
+from portals.otzovru import blocks_otzovru, get_feedback_otzovru
 
 
 from utils.user_agent import get_soup, get_selenium_proxy, get_soup_tor, get_soup_bs4, clean_html
@@ -677,6 +677,9 @@ async def pars_zoon(service, driver, url, ss_id, project, links, rating_max):
 async def pars_otzyvru(service, driver, url, ss_id, project, links, rating_max):
     source = 'otzyvru.com'
 
+    number_reviews = 74
+    rating_before = 3.9
+
     page = 1
     while True:
         link = f"https://www.otzyvru.com/servis-poiska-vrachey-docdoc?sort=rating_asc&page={page}"
@@ -686,53 +689,36 @@ async def pars_otzyvru(service, driver, url, ss_id, project, links, rating_max):
             return
 
         btn_blue = driver.find_element(By.CSS_SELECTOR, 'a[class="btn blue"]')
-        print(btn_blue == True)
+        print("Blue button:", btn_blue == True)
 
         for block in blocks:
-            url_answer = block.find_element(By.CSS_SELECTOR, 'h2').find_element(By.CSS_SELECTOR, 'a[href]').get_attribute('href')
-            print(url_answer)
+            try:
+                url_answers = block.find_element(By.CSS_SELECTOR, 'h2')
+                url_answer = url_answers.find_element(By.CSS_SELECTOR, 'a[href]').get_attribute('href')
 
+            except:
+                url_answer = block.find_element(By.CSS_SELECTOR, 'a[href][target="_blank"]').get_attribute('href')
+
+            print(url_answer)
             if url_answer in links:
                 continue
 
-            rating_content = block.find_element(By.CSS_SELECTOR, 'span[style]').get_attribute('style')
-            print(rating_content)
-            rating_json = {'width:13px;': 1,
-                           'width: 13px;': 1,
-                            'width:26px;': 2,
-                            'width:39px;': 3,
-                            'width:52px;': 4,
-                            'width:65px;': 5}
-
-            rating = rating_json[rating_content]
-            print(rating)
+            #--------------------------------------
+            rating_content = block.find_element(By.CSS_SELECTOR, 'div[class="comment_stats"]').find_element(By.CSS_SELECTOR, 'span[class="value-title"]').get_attribute('title')
+            rating = int(rating_content)
+            print('rating:', rating)
 
             if rating > rating_max:
+                print('Rating is END!')
                 return
 
             author = block.find_element(By.CSS_SELECTOR, 'span[class="reviewer"][itemprop="name"]').text
-            print(author)
 
             date_content = block.find_element(By.CSS_SELECTOR, 'span[class="value-title"][title]').get_attribute('title')
             date = datetime.strptime(date_content, "%Y-%m-%d")
             formatted_date = date.strftime("%d.%m.%Y")
-            print(formatted_date)
 
-            comment_description = block.find_element(By.CSS_SELECTOR, 'span[class="comment description"]')
-
-            try:
-                text = comment_description.find_element(By.CSS_SELECTOR, 'span[class="review-full-text none"]').text
-
-            except:
-
-                text = comment_description.find_element(By.CSS_SELECTOR, 'span[class="review-snippet"]').text
-
-            advantages = comment_description.find_element(By.CSS_SELECTOR, 'span[class="advantages"]').text
-            disadvantages = comment_description.find_element(By.CSS_SELECTOR, 'span[class="disadvantages"]').text
-
-
-            feedback = f"{text}\n"
-
+            feedback = await get_feedback_otzovru(url_answer)
 
             datas = await empty_data()
 
@@ -748,12 +734,7 @@ async def pars_otzyvru(service, driver, url, ss_id, project, links, rating_max):
             datas['Оценка компании до удаления'].append(rating_before)
 
             await append_data_to_sheet_scopes(service, ss_id, project, datas)
-
-
-
-
-
-
+            await asyncio.sleep(1)
 
 async def main_grade():
     headless, proxy_on, only_text = await get_hpo()
@@ -1802,7 +1783,7 @@ async def main():
     ss_id = '1Gq-veXg2d97GPwh-2MuqmUI4Af5LDoZGhdhCDJUDR-k'
     project = 'SberMedic'
 
-    #await sberlising(ss_id, project)
+    #await multi_pars(ss_id, project)
 
     await asyncio.gather(
        review_analysis(ss_id, project),
