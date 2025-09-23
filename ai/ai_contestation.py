@@ -1789,9 +1789,6 @@ async def main():
        review_analysis(ss_id, project),
        multi_pars(ss_id, project))
 
-    #await review_analysis(ss_id, project, 3)
-    #await banki_ru(ss_id, project)
-
 if __name__ == '__main__':
     asyncio.run(main())
     print("OK!!!")
