@@ -1780,14 +1780,15 @@ async def multi_pars(ss_id, project):
 
 async def main():
 
-    ss_id = '1Gq-veXg2d97GPwh-2MuqmUI4Af5LDoZGhdhCDJUDR-k'
-    project = 'SberMedic'
+    ss_id = '19h6lpJy8R8Bo3eIQrHySbnlpZJzFq3_BbGKMvGlf_LE'
+    project = 'MyHectare'
 
     #await multi_pars(ss_id, project)
+    await review_analysis(ss_id, project)
 
-    await asyncio.gather(
-       review_analysis(ss_id, project),
-       multi_pars(ss_id, project))
+    # await asyncio.gather(
+    #    review_analysis(ss_id, project),
+    #    multi_pars(ss_id, project))
 
 if __name__ == '__main__':
     asyncio.run(main())
