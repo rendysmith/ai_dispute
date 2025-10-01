@@ -51,222 +51,222 @@ def extract_main_site(url):
     match = re.match(r'(https?://[^/]+)', url)
     return match.group(0) if match else None
 
-def get_service():
-    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-    SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
-    credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-    service = build('sheets', 'v4', credentials=credentials) #.spreadsheets().values()
-    return service
-
-def get_table_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
-    """
-    :param service:
-    :param SAMPLE_SPREADSHEET_ID:
-    :param SAMPLE_RANGE_NAME:
-    :return:
-    """
-
-    # Retrieve values from the spreadsheet
-    service = service.spreadsheets().values()
-    result = service.get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=SAMPLE_RANGE_NAME).execute()
-    values = result.get('values', [])
-    #print(values)
-
-    if not values:
-        raise ValueError("No data found in the specified range.")
-
-    #df = pd.DataFrame(values[1:], columns=values[0])  # Assuming headers in the first row
-    #print(df)
-
-    n = 0
-    VE = None
-
-    while n <= 10:
-        try:
-            # Create a pandas DataFrame from the retrieved values
-            df = pd.DataFrame(values[1:], columns=values[0])  # Assuming headers in the first row
-            #print(df)
-            return df
-
-        except ValueError as VE:
-            print('Get_table_scope ValueError VE:', VE)
-
-            for idx, row in enumerate(values):
-                row_0 = values[0]
-                if len(row_0) < len(row):
-                    rz_0 = abs(len(row) - len(row_0))
-                    for i in range(rz_0):
-                        numb = int(time.time())
-                        values[0].append(f'New_Col_{numb}')
-                    break
-
-                elif len(row_0) > len(row):
-                    rz_1 = abs(len(row) - len(row_0))
-                    for i in range(rz_1):
-                        row.append(None)
-
-            time.sleep(5)
-            n += 1
-
-    return str(VE) if VE else "Unknown Error"
-
-def pars_url(service, SS_ID, R_N):
-    try:
-        df = get_table_scope(service, SS_ID, R_N)
-        links = df['Link'].to_list()
-    except:
-        links = []
-    return links
-
-def create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
-    # Проверяем существование вкладки
-    try:
-        response = service.spreadsheets().get(spreadsheetId=SAMPLE_SPREADSHEET_ID).execute()
-        sheet_exists = any(sheet['properties']['title'] == SAMPLE_RANGE_NAME for sheet in response['sheets'])
-    except HttpError as e:
-        print(f"CNR An error occurred: {e}")
-        return
-
-    # Если вкладка не существует, создаем её
-    if not sheet_exists:
-        batch_update_body = {
-            'requests': [{
-                'addSheet': {
-                    'properties': {
-                        'title': SAMPLE_RANGE_NAME
-                    }
-                }
-            }]
-        }
-        try:
-            service.spreadsheets().batchUpdate(spreadsheetId=SAMPLE_SPREADSHEET_ID, body=batch_update_body).execute()
-        except HttpError as e:
-            print(f"An error occurred while creating the sheet: {e}")
-            return
-
-def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, data):
-    create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME)
-
-    # Получаем текущие заголовки колонок
-    result = service.spreadsheets().values().get(
-        spreadsheetId=SAMPLE_SPREADSHEET_ID,
-        range=SAMPLE_RANGE_NAME
-    ).execute()
-
-    current_columns = result.get('values', [])[0] if result.get('values', []) else []
-    col_now = current_columns.copy()
-
-    # Проверяем наличие всех ожидаемых колонок в текущих заголовках
-    expected_columns = [k for k, v in data.items()]
-    for column_name in expected_columns:
-        if column_name not in current_columns:
-            # Если колонка отсутствует, добавляем её в таблицу
-            #print(column_name)
-            current_columns.append(column_name)
-
-    # Подготовка данных для записи
-    values = []
-    for column_name in current_columns:
-        values.append(data.get(column_name, ''))  # Получаем значение из словаря или пустую строку, если ключ отсутствует
-
-    # Запись данных в таблицу
-    body = {
-        'values': [values]
-    }
-
-    #input()
-    if col_now != expected_columns:
-        values_2 = []
-        for k, v in enumerate(col_now):
-            if v not in expected_columns:
-                values_2.append('')
-
-            else:
-                values_2.append(values[k])
-
-        if all(element == '' for element in values_2):
-            body['values'].insert(0, expected_columns)
-
-    result = service.spreadsheets().values().append(
-        spreadsheetId=SAMPLE_SPREADSHEET_ID,
-        range=SAMPLE_RANGE_NAME,
-        valueInputOption=value_input_option,
-        insertDataOption='INSERT_ROWS',  # Вставляем данные в новые строки
-        body=body
-    ).execute()
-
-    print('GS: {0} cells appended.'.format(result.get('updates').get('updatedCells')))
-    return 'OK!'
-
-def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_name, row_number, data: str):
-    try:
-        # Получение заголовков таблицы
-        header_range = f"{worksheet_name}!1:1"
-        header_result = service.spreadsheets().values().get(spreadsheetId=sheet_id, range=header_range).execute()
-        headers = header_result.get('values', [])[0]
-
-        # Поиск индекса нужного столбца
-        column_index = headers.index(column_name)
-        column_letter = chr(65 + column_index)  # Преобразование индекса в букву (A, B, C и т.д.)
-
-        range_name = f"{worksheet_name}!{column_letter}{row_number}"
-
-        value_range_body = {
-            'values': [[data]]  # Обернем данные в список для корректной передачи
-        }
-
-        # Выполнение запроса на обновление
-        request = service.spreadsheets().values().update(
-            spreadsheetId=sheet_id,
-            range=range_name,
-            valueInputOption=value_input_option,    #Было RAW
-            body=value_range_body
-        )
-        response = request.execute()  # Асинхронный вызов
-        return response
-
-    except Exception as e:
-        print(f"ADSC An error occurred: {e}")
-        return None
-
-def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_names: list, row_number, datas: list):
-    # Получение заголовков таблицы
-    header_range = f"{worksheet_name}!1:1"
-    header_result = service.spreadsheets().values().get(spreadsheetId=sheet_id, range=header_range).execute()
-    headers = header_result.get('values', [])[0]
-
-    column_index = headers.index(column_names[0])
-    column_letter = chr(65 + column_index)  # Преобразование индекса в букву (A, B, C и т.д.)
-
-    values = [datas]
-
-    body = {
-        'values': values
-    }
-
-    range_name = f"{worksheet_name}!{column_letter}{row_number}"
-
-    service.spreadsheets().values().update(
-        spreadsheetId=sheet_id, range=range_name,
-        valueInputOption=value_input_option, body=body
-    ).execute()
-
-def write_log_sheet(service, sheet_id, worksheet_name, datas):
-    df = get_table_scope(service, sheet_id, worksheet_name)
-    service_name = datas['service_name']
-    index = df.index[df['service_name'] == service_name].tolist()
-    print(index)
-
-    if index == []:
-        print('Logs: Не найден элемент вводим на новую строку')
-        append_data_to_sheet_scope(service, sheet_id, worksheet_name, datas)
-
-    else:
-        print(f'Logs: {service_name} - есть в таблице, изменяем дату')
-        idx = index[0] + 2
-        columns = list(datas.keys())
-        values = list(datas.values())
-        append_data_to_sheet_cells(service, sheet_id, worksheet_name, columns, idx, values)
+# def get_service():
+#     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+#     SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
+#     credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+#     service = build('sheets', 'v4', credentials=credentials) #.spreadsheets().values()
+#     return service
+#
+# def get_table_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
+#     """
+#     :param service:
+#     :param SAMPLE_SPREADSHEET_ID:
+#     :param SAMPLE_RANGE_NAME:
+#     :return:
+#     """
+#
+#     # Retrieve values from the spreadsheet
+#     service = service.spreadsheets().values()
+#     result = service.get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=SAMPLE_RANGE_NAME).execute()
+#     values = result.get('values', [])
+#     #print(values)
+#
+#     if not values:
+#         raise ValueError("No data found in the specified range.")
+#
+#     #df = pd.DataFrame(values[1:], columns=values[0])  # Assuming headers in the first row
+#     #print(df)
+#
+#     n = 0
+#     VE = None
+#
+#     while n <= 10:
+#         try:
+#             # Create a pandas DataFrame from the retrieved values
+#             df = pd.DataFrame(values[1:], columns=values[0])  # Assuming headers in the first row
+#             #print(df)
+#             return df
+#
+#         except ValueError as VE:
+#             print('Get_table_scope ValueError VE:', VE)
+#
+#             for idx, row in enumerate(values):
+#                 row_0 = values[0]
+#                 if len(row_0) < len(row):
+#                     rz_0 = abs(len(row) - len(row_0))
+#                     for i in range(rz_0):
+#                         numb = int(time.time())
+#                         values[0].append(f'New_Col_{numb}')
+#                     break
+#
+#                 elif len(row_0) > len(row):
+#                     rz_1 = abs(len(row) - len(row_0))
+#                     for i in range(rz_1):
+#                         row.append(None)
+#
+#             time.sleep(5)
+#             n += 1
+#
+#     return str(VE) if VE else "Unknown Error"
+#
+# def pars_url(service, SS_ID, R_N):
+#     try:
+#         df = get_table_scope(service, SS_ID, R_N)
+#         links = df['Link'].to_list()
+#     except:
+#         links = []
+#     return links
+#
+# def create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
+#     # Проверяем существование вкладки
+#     try:
+#         response = service.spreadsheets().get(spreadsheetId=SAMPLE_SPREADSHEET_ID).execute()
+#         sheet_exists = any(sheet['properties']['title'] == SAMPLE_RANGE_NAME for sheet in response['sheets'])
+#     except HttpError as e:
+#         print(f"CNR An error occurred: {e}")
+#         return
+#
+#     # Если вкладка не существует, создаем её
+#     if not sheet_exists:
+#         batch_update_body = {
+#             'requests': [{
+#                 'addSheet': {
+#                     'properties': {
+#                         'title': SAMPLE_RANGE_NAME
+#                     }
+#                 }
+#             }]
+#         }
+#         try:
+#             service.spreadsheets().batchUpdate(spreadsheetId=SAMPLE_SPREADSHEET_ID, body=batch_update_body).execute()
+#         except HttpError as e:
+#             print(f"An error occurred while creating the sheet: {e}")
+#             return
+#
+# def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, data):
+#     create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME)
+#
+#     # Получаем текущие заголовки колонок
+#     result = service.spreadsheets().values().get(
+#         spreadsheetId=SAMPLE_SPREADSHEET_ID,
+#         range=SAMPLE_RANGE_NAME
+#     ).execute()
+#
+#     current_columns = result.get('values', [])[0] if result.get('values', []) else []
+#     col_now = current_columns.copy()
+#
+#     # Проверяем наличие всех ожидаемых колонок в текущих заголовках
+#     expected_columns = [k for k, v in data.items()]
+#     for column_name in expected_columns:
+#         if column_name not in current_columns:
+#             # Если колонка отсутствует, добавляем её в таблицу
+#             #print(column_name)
+#             current_columns.append(column_name)
+#
+#     # Подготовка данных для записи
+#     values = []
+#     for column_name in current_columns:
+#         values.append(data.get(column_name, ''))  # Получаем значение из словаря или пустую строку, если ключ отсутствует
+#
+#     # Запись данных в таблицу
+#     body = {
+#         'values': [values]
+#     }
+#
+#     #input()
+#     if col_now != expected_columns:
+#         values_2 = []
+#         for k, v in enumerate(col_now):
+#             if v not in expected_columns:
+#                 values_2.append('')
+#
+#             else:
+#                 values_2.append(values[k])
+#
+#         if all(element == '' for element in values_2):
+#             body['values'].insert(0, expected_columns)
+#
+#     result = service.spreadsheets().values().append(
+#         spreadsheetId=SAMPLE_SPREADSHEET_ID,
+#         range=SAMPLE_RANGE_NAME,
+#         valueInputOption=value_input_option,
+#         insertDataOption='INSERT_ROWS',  # Вставляем данные в новые строки
+#         body=body
+#     ).execute()
+#
+#     print('GS: {0} cells appended.'.format(result.get('updates').get('updatedCells')))
+#     return 'OK!'
+#
+# def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_name, row_number, data: str):
+#     try:
+#         # Получение заголовков таблицы
+#         header_range = f"{worksheet_name}!1:1"
+#         header_result = service.spreadsheets().values().get(spreadsheetId=sheet_id, range=header_range).execute()
+#         headers = header_result.get('values', [])[0]
+#
+#         # Поиск индекса нужного столбца
+#         column_index = headers.index(column_name)
+#         column_letter = chr(65 + column_index)  # Преобразование индекса в букву (A, B, C и т.д.)
+#
+#         range_name = f"{worksheet_name}!{column_letter}{row_number}"
+#
+#         value_range_body = {
+#             'values': [[data]]  # Обернем данные в список для корректной передачи
+#         }
+#
+#         # Выполнение запроса на обновление
+#         request = service.spreadsheets().values().update(
+#             spreadsheetId=sheet_id,
+#             range=range_name,
+#             valueInputOption=value_input_option,    #Было RAW
+#             body=value_range_body
+#         )
+#         response = request.execute()  # Асинхронный вызов
+#         return response
+#
+#     except Exception as e:
+#         print(f"ADSC An error occurred: {e}")
+#         return None
+#
+# def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_names: list, row_number, datas: list):
+#     # Получение заголовков таблицы
+#     header_range = f"{worksheet_name}!1:1"
+#     header_result = service.spreadsheets().values().get(spreadsheetId=sheet_id, range=header_range).execute()
+#     headers = header_result.get('values', [])[0]
+#
+#     column_index = headers.index(column_names[0])
+#     column_letter = chr(65 + column_index)  # Преобразование индекса в букву (A, B, C и т.д.)
+#
+#     values = [datas]
+#
+#     body = {
+#         'values': values
+#     }
+#
+#     range_name = f"{worksheet_name}!{column_letter}{row_number}"
+#
+#     service.spreadsheets().values().update(
+#         spreadsheetId=sheet_id, range=range_name,
+#         valueInputOption=value_input_option, body=body
+#     ).execute()
+#
+# def write_log_sheet(service, sheet_id, worksheet_name, datas):
+#     df = get_table_scope(service, sheet_id, worksheet_name)
+#     service_name = datas['service_name']
+#     index = df.index[df['service_name'] == service_name].tolist()
+#     print(index)
+#
+#     if index == []:
+#         print('Logs: Не найден элемент вводим на новую строку')
+#         append_data_to_sheet_scope(service, sheet_id, worksheet_name, datas)
+#
+#     else:
+#         print(f'Logs: {service_name} - есть в таблице, изменяем дату')
+#         idx = index[0] + 2
+#         columns = list(datas.keys())
+#         values = list(datas.values())
+#         append_data_to_sheet_cells(service, sheet_id, worksheet_name, columns, idx, values)
 
 def clicker_pyautogui():
     # Загрузка изображения искомого элемента

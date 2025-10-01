@@ -1,4 +1,6 @@
 import json
+import re
+import time
 from pprint import pprint
 
 import asyncio
@@ -11,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from utils.central_module import get_local_ip, wait_for_portal, get_hpo
 from utils.compressor import compress_string
 from utils.gs_editor import pars_url, get_service, append_data_to_sheet_scope, read_table_id, \
-    append_data_to_sheet_scopes, append_data_to_sheet_cell
+    append_data_to_sheet_scopes, append_data_to_sheet_cell, append_data_to_sheet_cells
 from utils.ai_module import generate_and_white
 from utils.user_agent import get_soup, get_selenium_proxy
 
@@ -28,6 +30,15 @@ load_dotenv(dotenv_path)
 
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
+
+async def data_empty():
+    datas = {'Date': [],
+             'Feedback':[],
+             'Link':[],
+             'Author': [],
+             'Rating': []}
+
+    return datas
 
 async def get_id_obj(url):
     url_split = url.split('/')
@@ -53,21 +64,18 @@ async def get_id_obj(url):
 
     return id_obj.strip()
 
-async def blocks_2gis_sel(url):
+async def blocks_2gis_sel(driver, url):
     top_url = url + '/tab/reviews'
+    print(top_url)
+    driver.get(top_url)
 
     headless, proxy_on, only_text = await get_hpo()
-    driver = await get_selenium_proxy(top_url, headless=headless, proxy=proxy_on)
     await wait_for_portal() #Время ожидания
-    json_data_content = driver.find_elements(By.CSS_SELECTOR, 'script')
 
-    data_dict = None
-    for script in json_data_content:
-        script_text = script.get_attribute('innerHTML')
-        if 'initialState =' in script_text:
-            data_dict = await pars_json_data(script_text)
-            pprint(data_dict)
-            break
+    script_element = driver.find_element(By.XPATH, "//script[contains(., 'var __customcfg')]")
+    script_text = script_element.get_attribute("innerHTML")
+    #print(script_text)
+    data_dict = await pars_json_data(script_text)
 
     if not data_dict:
         return {}
@@ -75,8 +83,7 @@ async def blocks_2gis_sel(url):
     if not isinstance(data_dict, dict):
         return {}
 
-    blocks = data_dict['review']
-    return blocks
+    return data_dict['review']
 
 async def blocks_2gis_bs4(url):
     id_obj = await get_id_obj(url)
@@ -111,13 +118,15 @@ async def soup_pars(service, url, links, pattern, criteria, ss_id, project, zoom
     except:
         return
 
-    datas = {'Date': [],
-             'Feedback':[],
-             'Link':[],
-             'Author': [],
-             'Rating': []}
+    datas = await data_empty()
 
     for block in blocks:
+        if zoom:
+            official_answer = block['official_answer']
+            if not official_answer and zoom:
+                print("Уже есть ответ компании.")
+                continue
+
         date_content = block['date_created']
         date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%f%z")
 
@@ -125,15 +134,14 @@ async def soup_pars(service, url, links, pattern, criteria, ss_id, project, zoom
             if (current_date - date) > timedelta(days=days_ago):
                 print(f'--- Отзыв старше {days_ago} дней. = {date}')
                 return
+        else:
+            if (current_date - date) > timedelta(days=35):
+                print(f'--- Отзыв старше 35 дней. = {date}')
+                return
 
         url_answer = block['id']
         if url_answer in links:
-            print('Такой комментарий уже есть в списке')
-            continue
-
-        official_answer = block['official_answer']
-        if not official_answer and zoom:
-            print("Уже есть ответ компании.")
+            print('- Такой комментарий уже есть в списке')
             continue
 
         formatted_date = date.strftime("%d.%m.%Y")
@@ -166,102 +174,92 @@ async def soup_pars(service, url, links, pattern, criteria, ss_id, project, zoom
     if zoom == False:
         await append_data_to_sheet_scopes(service, ss_id, '2gis', datas)
 
-
-
-
 async def pars_json_data(script_text):
-    script_text = script_text.replace('\\"', '')
-    script_text = script_text.replace('\\', '')
-    # Найти начало JSON
-    json_start = script_text.find('"review":')
+    #print(script_text)
+    json_start = script_text.find('"review":{')
     #print(json_start)
     if json_start == -1:
         raise ValueError("Начало JSON не найдено")
 
-    # Баланс скобок
-    balance = 0
-    json_end = None
-    turn_off = False
+    #print(json_start)
+    #print(script_text[json_start:json_start+10])
 
-    # Ищем конец JSON-объекта
-    len_s = len(script_text)
+    json_end = script_text.find('}', json_start + 1)
 
-    for i in range(json_start, len_s - json_start):
+    while True:
+        try:
+            json_content = script_text[json_start:json_end]
+            json_str = "{" + json_content + "}"  # Предварительный JSON словарь
+            data_dict = json.loads(json_str)
+            return data_dict
 
-        char = script_text[i]
-        if char == '{':
-            balance += 1
-            turn_off = True
-
-        elif char == '}':
-            balance -= 1
-
-        # Если баланс = 0, это конец JSON
-        if balance == 0 and turn_off:
-            json_end = i
-            print(f'Break {i}')
-            break
-
-    #print(json_end)
-    if json_end is None:
-        raise ValueError("Конец JSON не найден")
-
-    # Извлекаем JSON-строку
-    json_str = script_text[json_start:json_end + 1]
+        except:
+            json_end = script_text.find('}', json_end + 1)
+            #print(f'--{json_end}--')
 
 
-    #print("Извлечённый JSON:", json_str)
-    json_str = "{" + json_str + "}"  # Предварительный JSON словарь
-    #print(json_str)
 
-    data_dict = json.loads(json_str)
-    #pprint(data_dict)
+async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, project, id_org, zoom=True):
+    blocks = await blocks_2gis_sel(driver, top_url)
 
-    return data_dict
-
-async def selen_pars(service, links, top_url, pattern, criteria, ss_id, project):
-    blocks = await blocks_2gis()
+    datas = await data_empty()
 
     for k, block in blocks.items():
         date_content = block['data']['date_created']
         date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%f%z")
 
-        if (current_date - date) > timedelta(days=days_ago):
-            print(f'--- Отзыв старше {days_ago} дней. = {date}')
-            continue
+        if zoom:
+            if (current_date - date) > timedelta(days=days_ago):
+                print(f'--- Отзыв старше {days_ago} дней. = {date}')
+                continue
 
-        url_answer = block['data']['id']
+            official_answer = block['data']['official_answer']
+            if not official_answer:
+                print("Уже есть ответ компании.")
+                continue
+
+        else:
+            if (current_date - date) > timedelta(days=35):
+                print(f'--- Отзыв старше 35 дней. = {date}')
+                continue
+
+
+        user_id = block['data']['id']
+        url_answer = f'https://2gis.ru/firm/{id_org}/tab/reviews/review/{user_id}'
+
         if url_answer in links:
             print('Такой комментарий уже есть в списке')
             continue
 
-        official_answer = block['data']['official_answer']
-        if not official_answer:
-            print("Уже есть ответ компании.")
-            continue
-
         formatted_date = date.strftime("%d.%m.%Y")
-        print(formatted_date)
 
         feedback = block['data']['text']
 
         author = block['data']['user']['name']
-        author = f"{author}\n{url}"
 
-        await generate_and_white(service=service,
-                                 url_answer=url_answer,
-                                 author=author,
-                                 formatted_date=formatted_date,
-                                 ss_id=ss_id,
-                                 project=project,
-                                 feedback=feedback,
-                                 pattern=pattern,
-                                 criteria=criteria)
+        rating = block['data']['rating']
 
-    try:
-        driver.quit()
-    except:
-        pass
+        if zoom:
+            await generate_and_white(service=service,
+                                     url_answer=url_answer,
+                                     author=author,
+                                     formatted_date=formatted_date,
+                                     ss_id=ss_id,
+                                     project=project,
+                                     feedback=feedback,
+                                     pattern=pattern,
+                                     criteria=criteria)
+
+        else:
+            datas['Date'].append(formatted_date)
+            datas['Feedback'].append(feedback)
+            datas['Link'].append(url_answer)
+            datas['Author'].append(author)
+            datas['Rating'].append(rating)
+
+    if zoom == False:
+        await append_data_to_sheet_scopes(service, ss_id, '2gis', datas)
+
 
 async def check_2gis(service, url, pattern, criteria, ss_id, project, links=False, zoom=True):
     if not links:
@@ -273,24 +271,62 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project, links=Fals
         await soup_pars(service, url, links, pattern, criteria, ss_id, project, zoom)
 
     elif 'geo' in url:
-        await selen_pars(service, links, top_url, pattern, criteria, ss_id, project)
+        await selen_pars(service, links, top_url, pattern, criteria, ss_id, project, id_org, zoom)
 
 async def main_2gis_sberstrem():
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
     service = await get_service()
     datas_ss_id = '1k00OxnK8MekEVu2dmL2IqT1uxTQxWEzd0Aur5a8ILEE'
     zoom_ss_id = "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w"
+    project = '2gis'
 
-    df_links = await read_table_id(service, datas_ss_id, '2gis')
+    df_links = await read_table_id(service, datas_ss_id, project)
     print(df_links)
 
-    for k, row in df_links.iterrows():
-        link = row['link']
-        date = row['date']
-        if date == rec_data:
-            continue
+    links = await pars_url(service, zoom_ss_id, project)
+    driver = await get_selenium_proxy(headless=True, proxy=False)
+    driver_1 = await get_selenium_proxy(headless=True, proxy=False)
+    driver_2 = await get_selenium_proxy(headless=True, proxy=False)
+    driver_3 = await get_selenium_proxy(headless=True, proxy=False)
 
-        await check_2gis(service, link, 1, 1, zoom_ss_id, "2gis", zoom=False)
-        await append_data_to_sheet_cell(service, datas_ss_id, '2gis', 'date', k + 2, rec_data)
+    drivers = {"driver_1": driver_1.session_id,
+               "driver_2": driver_2.session_id,
+               "driver_3": driver_3.session_id}
+
+    print(drivers)
+
+    async def rec_datas(driver, link):
+        start_time = time.time()
+
+        id_obj = await get_id_obj(link)
+        top_url = f'https://2gis.ru/firm/{id_obj}'
+
+        await selen_pars(service, driver, links, top_url, 1, 1, zoom_ss_id, project, id_obj, zoom=False)
+
+        total_time = int(time.time() - start_time)
+        await append_data_to_sheet_cells(service, datas_ss_id, '2gis', ['date', 'time'], k + 2, [rec_data, total_time])
+
+    def get_datas(driver, row):
+        link = row['link']
+        print(f'\n----------------------------------------------------------\n{link}')
+        date = row['date']
+
+        if date == rec_data:
+            return
+
+        asyncio.run(rec_datas(driver, link))
+        return driver.session_id
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        for k, row in df_links.iterrows():
+
+            executor.submit(get_datas, driver, row)
+            print("status:", status)
+
+
+    driver.quit()
 
 
 if __name__ == '__main__':
