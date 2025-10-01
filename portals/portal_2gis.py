@@ -10,7 +10,8 @@ from datetime import datetime, timedelta, timezone
 
 from utils.central_module import get_local_ip, wait_for_portal, get_hpo
 from utils.compressor import compress_string
-from utils.gs_editor import pars_url, get_service, append_data_to_sheet_scope
+from utils.gs_editor import pars_url, get_service, append_data_to_sheet_scope, read_table_id, \
+    append_data_to_sheet_scopes, append_data_to_sheet_cell
 from utils.ai_module import generate_and_white
 from utils.user_agent import get_soup, get_selenium_proxy
 
@@ -20,24 +21,13 @@ import os
 from dotenv import load_dotenv
 
 current_date = datetime.now(timezone.utc)
+rec_data = current_date.strftime("%d.%m.%Y")
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
-
-# local_ip = asyncio.run(get_local_ip())
-# if '176.124.192' in local_ip:
-#     headless = True
-#     proxy_on = True
-#     only_text = False
-#
-# else:
-#     print(f'local_ip 2Gis: {local_ip}')
-#     headless = True
-#     proxy_on = False
-#     only_text = False
 
 async def get_id_obj(url):
     url_split = url.split('/')
@@ -115,16 +105,26 @@ async def send_top_url(service, ss_id, project, url):
     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
     return id_obj, top_url
 
-async def soup_pars(service, url, links, pattern, criteria, ss_id, project):
-    blocks, branch_rating, branch_reviews_count = await blocks_2gis_bs4(url)
+async def soup_pars(service, url, links, pattern, criteria, ss_id, project, zoom=True):
+    try:
+        blocks, branch_rating, branch_reviews_count = await blocks_2gis_bs4(url)
+    except:
+        return
+
+    datas = {'Date': [],
+             'Feedback':[],
+             'Link':[],
+             'Author': [],
+             'Rating': []}
 
     for block in blocks:
         date_content = block['date_created']
         date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%f%z")
 
-        if (current_date - date) > timedelta(days=days_ago):
-            print(f'--- Отзыв старше {days_ago} дней. = {date}')
-            return
+        if zoom:
+            if (current_date - date) > timedelta(days=days_ago):
+                print(f'--- Отзыв старше {days_ago} дней. = {date}')
+                return
 
         url_answer = block['id']
         if url_answer in links:
@@ -132,27 +132,42 @@ async def soup_pars(service, url, links, pattern, criteria, ss_id, project):
             continue
 
         official_answer = block['official_answer']
-        if not official_answer:
+        if not official_answer and zoom:
             print("Уже есть ответ компании.")
             continue
 
         formatted_date = date.strftime("%d.%m.%Y")
-        print(formatted_date)
 
         feedback = block['text']
 
-        author = block['user']['name']
-        author = f"{author}\n{url}"
+        author_content = block['user']['name']
+        author = f"{author_content}\n{url}"
 
-        await generate_and_white(service=service,
-                                 url_answer=url_answer,
-                                 author=author,
-                                 formatted_date=formatted_date,
-                                 ss_id=ss_id,
-                                 project=project,
-                                 feedback=feedback,
-                                 pattern=pattern,
-                                 criteria=criteria)
+        rating = block['rating']
+
+        if zoom:
+            await generate_and_white(service=service,
+                                     url_answer=url_answer,
+                                     author=author,
+                                     formatted_date=formatted_date,
+                                     ss_id=ss_id,
+                                     project=project,
+                                     feedback=feedback,
+                                     pattern=pattern,
+                                     criteria=criteria)
+
+        else:
+            datas['Date'].append(formatted_date)
+            datas['Feedback'].append(feedback)
+            datas['Link'].append(url_answer)
+            datas['Author'].append(author_content)
+            datas['Rating'].append(rating)
+
+    if zoom == False:
+        await append_data_to_sheet_scopes(service, ss_id, '2gis', datas)
+
+
+
 
 async def pars_json_data(script_text):
     script_text = script_text.replace('\\"', '')
@@ -248,31 +263,37 @@ async def selen_pars(service, links, top_url, pattern, criteria, ss_id, project)
     except:
         pass
 
-async def check_2gis(service, url, pattern, criteria, ss_id, project, links=False):
+async def check_2gis(service, url, pattern, criteria, ss_id, project, links=False, zoom=True):
     if not links:
         links = await pars_url(service, ss_id, project)
 
     id_org, top_url = await send_top_url(service, ss_id, project, url)
 
     if any(fo in url for fo in ['firm', 'orgs']):
-        await soup_pars(service, url, links, pattern, criteria, ss_id, project)
+        await soup_pars(service, url, links, pattern, criteria, ss_id, project, zoom)
 
     elif 'geo' in url:
         await selen_pars(service, links, top_url, pattern, criteria, ss_id, project)
 
-async def main_2gis(url):
+async def main_2gis_sberstrem():
     service = await get_service()
-    #playwright, browser, page = await get_playwright(url)
-    await check_2gis(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", "НовикомБанк")
+    datas_ss_id = '1k00OxnK8MekEVu2dmL2IqT1uxTQxWEzd0Aur5a8ILEE'
+    zoom_ss_id = "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w"
+
+    df_links = await read_table_id(service, datas_ss_id, '2gis')
+    print(df_links)
+
+    for k, row in df_links.iterrows():
+        link = row['link']
+        date = row['date']
+        if date == rec_data:
+            continue
+
+        await check_2gis(service, link, 1, 1, zoom_ss_id, "2gis", zoom=False)
+        await append_data_to_sheet_cell(service, datas_ss_id, '2gis', 'date', k + 2, rec_data)
+
 
 if __name__ == '__main__':
-
-    url = 'https://2gis.ru/reviews/5348552839673938/review/169016223'
-    url = 'https://2gis.ru/ulanude/firm/70000001054643108'
-
-
-
-
-    asyncio.run(main_2gis(url))
+    asyncio.run(main_2gis_sberstrem())
     print('OK!')
 
