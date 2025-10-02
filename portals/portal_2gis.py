@@ -197,8 +197,6 @@ async def pars_json_data(script_text):
             json_end = script_text.find('}', json_end + 1)
             #print(f'--{json_end}--')
 
-
-
 async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, project, id_org, zoom=True):
     blocks = await blocks_2gis_sel(driver, top_url)
 
@@ -260,7 +258,6 @@ async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, 
     if zoom == False:
         await append_data_to_sheet_scopes(service, ss_id, '2gis', datas)
 
-
 async def check_2gis(service, url, pattern, criteria, ss_id, project, links=False, zoom=True):
     if not links:
         links = await pars_url(service, ss_id, project)
@@ -274,9 +271,6 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project, links=Fals
         await selen_pars(service, links, top_url, pattern, criteria, ss_id, project, id_org, zoom)
 
 async def main_2gis_sberstrem():
-    import threading
-    from concurrent.futures import ThreadPoolExecutor
-
     service = await get_service()
     datas_ss_id = '1k00OxnK8MekEVu2dmL2IqT1uxTQxWEzd0Aur5a8ILEE'
     zoom_ss_id = "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w"
@@ -287,15 +281,15 @@ async def main_2gis_sberstrem():
 
     links = await pars_url(service, zoom_ss_id, project)
     driver = await get_selenium_proxy(headless=True, proxy=False)
-    driver_1 = await get_selenium_proxy(headless=True, proxy=False)
-    driver_2 = await get_selenium_proxy(headless=True, proxy=False)
-    driver_3 = await get_selenium_proxy(headless=True, proxy=False)
+    # driver_1 = await get_selenium_proxy(headless=True, proxy=False)
+    # driver_2 = await get_selenium_proxy(headless=True, proxy=False)
+    # driver_3 = await get_selenium_proxy(headless=True, proxy=False)
 
-    drivers = {"driver_1": driver_1.session_id,
-               "driver_2": driver_2.session_id,
-               "driver_3": driver_3.session_id}
-
-    print(drivers)
+    # drivers = {"driver_1": driver_1.session_id,
+    #            "driver_2": driver_2.session_id,
+    #            "driver_3": driver_3.session_id}
+    #
+    # print(drivers)
 
     async def rec_datas(driver, link):
         start_time = time.time()
@@ -308,22 +302,29 @@ async def main_2gis_sberstrem():
         total_time = int(time.time() - start_time)
         await append_data_to_sheet_cells(service, datas_ss_id, '2gis', ['date', 'time'], k + 2, [rec_data, total_time])
 
-    def get_datas(driver, row):
+    async def get_datas(driver, row):
         link = row['link']
         print(f'\n----------------------------------------------------------\n{link}')
         date = row['date']
+        time = row['time']
 
-        if date == rec_data:
+        if date == rec_data or time != None:
             return
 
-        asyncio.run(rec_datas(driver, link))
-        return driver.session_id
+        await rec_datas(driver, link)
+        #return driver.session_id
 
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        for k, row in df_links.iterrows():
+    for k, row in df_links.iterrows():
+        await get_datas(driver, row)
 
-            executor.submit(get_datas, driver, row)
-            print("status:", status)
+
+
+
+    # with ThreadPoolExecutor(max_workers=3) as executor:
+    #     for k, row in df_links.iterrows():
+    #
+    #         executor.submit(get_datas, driver_temp, row)
+    #         print("status:")
 
 
     driver.quit()
