@@ -31,6 +31,9 @@ load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
+async def get_driver():
+    return await get_selenium_proxy(headless=True, proxy=False)
+
 async def data_empty():
     datas = {'Date': [],
              'Feedback':[],
@@ -198,7 +201,18 @@ async def pars_json_data(script_text):
             #print(f'--{json_end}--')
 
 async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, project, id_org, zoom=True):
-    blocks = await blocks_2gis_sel(driver, top_url)
+    while True:
+        try:
+            blocks = await blocks_2gis_sel(driver, top_url)
+            break
+
+        except:
+            print(driver == True)
+            await asyncio.sleep(60)
+
+            driver = await get_driver()
+            blocks = await blocks_2gis_sel(driver, top_url)
+            break
 
     datas = await data_empty()
 
@@ -220,7 +234,6 @@ async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, 
             if (current_date - date) > timedelta(days=35):
                 print(f'--- Отзыв старше 35 дней. = {date}')
                 continue
-
 
         user_id = block['data']['id']
         url_answer = f'https://2gis.ru/firm/{id_org}/tab/reviews/review/{user_id}'
@@ -276,20 +289,16 @@ async def main_2gis_sberstrem():
     zoom_ss_id = "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w"
     project = '2gis'
 
+    headless, proxy_on, only_text = await get_hpo()
+    if headless and proxy_on:
+        local_ip = await get_local_ip()
+        await append_data_to_sheet_scope(service, datas_ss_id, 'hosts', local_ip)
+
     df_links = await read_table_id(service, datas_ss_id, project)
     print(df_links)
 
     links = await pars_url(service, zoom_ss_id, project)
-    driver = await get_selenium_proxy(headless=True, proxy=False)
-    # driver_1 = await get_selenium_proxy(headless=True, proxy=False)
-    # driver_2 = await get_selenium_proxy(headless=True, proxy=False)
-    # driver_3 = await get_selenium_proxy(headless=True, proxy=False)
-
-    # drivers = {"driver_1": driver_1.session_id,
-    #            "driver_2": driver_2.session_id,
-    #            "driver_3": driver_3.session_id}
-    #
-    # print(drivers)
+    driver = await get_driver()
 
     async def rec_datas(driver, link):
         start_time = time.time()
@@ -328,7 +337,6 @@ async def main_2gis_sberstrem():
 
 
     driver.quit()
-
 
 if __name__ == '__main__':
     asyncio.run(main_2gis_sberstrem())
