@@ -25,11 +25,10 @@ RUN apt-get update --fix-missing -y && \
     && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-# Установка chromedriver по-новому (через JSON эндпоинты Chrome for Testing)
+# Установка chromedriver (через JSON эндпоинты Chrome for Testing)
 RUN CHROMEDRIVER_URL=$(wget -qO- https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | jq -r '.channels.Stable.downloads.chromedriver[] | select(.platform=="linux64") | .url') && \
     wget -O /tmp/chromedriver.zip "$CHROMEDRIVER_URL" && \
     unzip /tmp/chromedriver.zip -d /tmp/ && \
-    # Новые архивы chromedriver содержат папку, например, chromedriver-linux64
     mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
     rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64 && \
     chmod +x /usr/local/bin/chromedriver
@@ -38,13 +37,13 @@ WORKDIR /app
 
 # Копирование и установка Python-зависимостей
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
 # Копирование остальных файлов проекта
 COPY . .
 
-# Установка правильных прав для Xvfb (не обязательно, но оставим на всякий случай)
+# Установка правильных прав для Xvfb
 RUN chmod 777 /tmp
 
 # Команда запуска с виртуальным дисплеем
