@@ -291,17 +291,8 @@ async def main_2gis_sberstrem():
     local_ip = await get_local_ip()
     print(local_ip)
     if '176.124' in local_ip:
-        headless = True
-        proxy_on = True
-
-    else:
-        headless = True
-        proxy_on = True
-
-    if headless and proxy_on:
         local_data = {'host': local_ip}
         await append_data_to_sheet_scope(service, datas_ss_id, 'hosts', local_data)
-
 
     async def rec_datas(driver, link, links):
         start_time = time.time()
