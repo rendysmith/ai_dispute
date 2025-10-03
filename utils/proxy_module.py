@@ -186,7 +186,7 @@ async def get_iplist():
 
 if "__main__" in __name__:
     srv = asyncio.run(get_one_proxy())
-    input(srv)
+
 
     # srv = asyncio.run(get_cookies_proxy5())
     # print(srv)

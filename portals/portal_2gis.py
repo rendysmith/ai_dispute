@@ -10,7 +10,7 @@ from selenium.webdriver.common.by import By
 
 from datetime import datetime, timedelta, timezone
 
-from utils.central_module import get_local_ip, wait_for_portal, get_hpo
+from utils.central_module import get_local_ip, wait_for_portal
 from utils.compressor import compress_string
 from utils.gs_editor import pars_url, get_service, append_data_to_sheet_scope, read_table_id, \
     append_data_to_sheet_scopes, append_data_to_sheet_cell, append_data_to_sheet_cells
@@ -72,7 +72,6 @@ async def blocks_2gis_sel(driver, url):
     print(top_url)
     driver.get(top_url)
 
-    headless, proxy_on, only_text = await get_hpo()
     await wait_for_portal() #Время ожидания
 
     script_element = driver.find_element(By.XPATH, "//script[contains(., 'var __customcfg')]")
@@ -206,9 +205,9 @@ async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, 
             blocks = await blocks_2gis_sel(driver, top_url)
             break
 
-        except:
-            print(driver == True)
-            await asyncio.sleep(60)
+        except Exception as Ex:
+            print(driver == True, Ex)
+            await asyncio.sleep(300)
 
             driver = await get_driver()
             blocks = await blocks_2gis_sel(driver, top_url)
@@ -289,12 +288,21 @@ async def main_2gis_sberstrem():
     zoom_ss_id = "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w"
     project = '2gis'
 
-    headless, proxy_on, only_text = await get_hpo()
+    local_ip = await get_local_ip()
+    print(local_ip)
+    if '176.124' in local_ip:
+        headless = True
+        proxy_on = True
+
+    else:
+        headless = True
+        proxy_on = False
+
     if headless and proxy_on:
-        local_ip = await get_local_ip()
         await append_data_to_sheet_scope(service, datas_ss_id, 'hosts', local_ip)
 
     df_links = await read_table_id(service, datas_ss_id, project)
+    df_links = df_links[df_links['host'] == local_ip]
     print(df_links)
 
     links = await pars_url(service, zoom_ss_id, project)

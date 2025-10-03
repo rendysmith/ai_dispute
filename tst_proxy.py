@@ -15,13 +15,13 @@ load_dotenv(dotenv_path)
 login_proxy = os.environ.get("LOGIN_PROXY")
 pass_proxy = os.environ.get("PASS_PROXY")
 
+proxy_host, proxy_port = asyncio.run(get_one_proxy())
 
 async def get_data_with_proxy(url):
     r = requests.get(url)
     print(r.text)
 
 
-    proxy_host, proxy_port = await get_one_proxy()
     connector = ProxyConnector(proxy_type=ProxyType.HTTP,
                                host=proxy_host,
                                port=proxy_port,
@@ -36,8 +36,17 @@ async def get_data_with_proxy(url):
             print("--- Status:", status_code)
             print(response.text())
 
+async def get_ip(url):
+    proxies = {
+        "http": f"http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}",
+        "https": f"http://{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}",
+    }
 
+    print(proxies)
 
+    response = requests.get(url, proxies=proxies, timeout=10)
+    print(response.json())
 
 if "__main__" in __name__:
-    asyncio.run(get_data_with_proxy('https://api.2ip.io'))
+    a = asyncio.run(get_ip('https://api.2ip.io'))
+    print(a['city'], a['ip'])
