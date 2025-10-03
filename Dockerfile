@@ -1,60 +1,53 @@
-# Шаг 1: Используйте официальный Python образ (рекомендуется для стабильности)
 FROM python:3.12-slim
 
-# Шаг 2: Установка системных зависимостей
-# Добавлены пакеты для сборки (build-essential, libssl-dev),
-# а также зависимости для asyncpg (libpq-dev) и pyscreeze/Pillow (libjpeg-dev, zlib1g-dev).
+# Установка системных зависимостей, включая инструменты сборки
 RUN apt-get update --fix-missing -y && \
     apt-get install -y --no-install-recommends \
-    # Основные утилиты
     python3-pip \
     wget \
     unzip \
-    jq \
     gnupg \
-    # Зависимости для Chrome/Selenium/PyVirtualDisplay
     xvfb \
+    jq \
+    # Зависимости для Chrome
     libglib2.0-0 \
     libnss3 \
-    # СИСТЕМНЫЕ ЗАВИСИМОСТИ ДЛЯ PYTHON-ПАКЕТОВ
+    libfontconfig1 \
+    libxrender1 \
+    libxtst6 \
+    libxi6 \
+    fonts-liberation \
+    libappindicator3-1 \
+    xdg-utils \
+    # Зависимости для компиляции C-расширений Python
     build-essential \
-    libpq-dev \
-    libssl-dev \
-    libjpeg-dev \
-    zlib1g-dev \
-    # Очистка кэша apt
-    && apt-get clean \
+    python3-dev \
+    && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/googlechrome-linux-keyring.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update -y \
+    && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-# Шаг 3: Установка и настройка Chrome/Chromedriver (оставлено как было)
-# Этот блок отвечает за установку браузера и драйвера для Selenium
-RUN CHROMEDRIVER_URL=$(wget -qO- https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | jq -r '.channels.Stable.downloads.chrome[] | select(.platform=="linux64") | .url') && \
-    CHROME_URL=$(wget -qO- https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | jq -r '.channels.Stable.downloads.chromedriver[] | select(.platform=="linux64") | .url') && \
-    wget -qO chrome-linux.zip "$CHROMEDRIVER_URL" && \
-    wget -qO chromedriver-linux.zip "$CHROME_URL" && \
-    unzip chrome-linux.zip && \
-    unzip chromedriver-linux.zip && \
-    mv chrome-linux/chrome /usr/bin/google-chrome && \
-    mv chromedriver-linux/chromedriver /usr/bin/chromedriver && \
-    chmod +x /usr/bin/google-chrome /usr/bin/chromedriver && \
-    rm chrome-linux.zip chromedriver-linux.zip chrome-linux chromedriver-linux
+# Установка chromedriver (через JSON эндпоинты Chrome for Testing)
+RUN CHROMEDRIVER_URL=$(wget -qO- https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | jq -r '.channels.Stable.downloads.chromedriver[] | select(.platform=="linux64") | .url') && \
+    wget -O /tmp/chromedriver.zip "$CHROMEDRIVER_URL" && \
+    unzip /tmp/chromedriver.zip -d /tmp/ && \
+    mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
+    rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64 && \
+    chmod +x /usr/local/bin/chromedriver
 
-# Шаг 4: Установка рабочей директории
 WORKDIR /app
 
-# Шаг 5: Копирование файла с зависимостями
+# Копирование и установка Python-зависимостей
 COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Шаг 6: Установка Python-зависимостей
-# Сначала обновляем инструменты установки
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
-
-# Устанавливаем все зависимости из файла
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Шаг 7: Копирование остального кода
+# Копирование остальных файлов проекта
 COPY . .
 
-# Шаг 8: Запуск приложения
-# Замените эту строку на вашу реальную команду запуска
-CMD ["python", "main.py"]
+# Установка правильных прав для Xvfb (опционально, но часто требуется)
+RUN chmod 777 /tmp
+
+# Команда запуска с виртуальным дисплеем
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset & export DISPLAY=:99 && python3 -u main"]
