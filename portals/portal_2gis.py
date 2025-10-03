@@ -296,20 +296,14 @@ async def main_2gis_sberstrem():
 
     else:
         headless = True
-        proxy_on = False
+        proxy_on = True
 
     if headless and proxy_on:
         local_data = {'host': local_ip}
         await append_data_to_sheet_scope(service, datas_ss_id, 'hosts', local_data)
 
-    df_links = await read_table_id(service, datas_ss_id, project)
-    df_links = df_links[df_links['host'] == local_ip]
-    print(df_links)
 
-    links = await pars_url(service, zoom_ss_id, project)
-    driver = await get_driver()
-
-    async def rec_datas(driver, link):
+    async def rec_datas(driver, link, links):
         start_time = time.time()
 
         id_obj = await get_id_obj(link)
@@ -320,7 +314,7 @@ async def main_2gis_sberstrem():
         total_time = int(time.time() - start_time)
         await append_data_to_sheet_cells(service, datas_ss_id, '2gis', ['date', 'time'], k + 2, [rec_data, total_time])
 
-    async def get_datas(driver, row):
+    async def get_datas(driver, row, links):
         link = row['link']
         print(f'\n----------------------------------------------------------\n{link}')
         date = row['date']
@@ -329,21 +323,22 @@ async def main_2gis_sberstrem():
         if date == rec_data or time != None:
             return
 
-        await rec_datas(driver, link)
+        await rec_datas(driver, link, links)
         #return driver.session_id
 
+    df_links = await read_table_id(service, datas_ss_id, project)
+    df_links = df_links[df_links['host'] == local_ip]
+    print(df_links)
+
+    links = await pars_url(service, zoom_ss_id, project)
+
+    driver = await get_driver()
+
     for k, row in df_links.iterrows():
-        await get_datas(driver, row)
+        if k // 10 == 0:
+            links = await pars_url(service, zoom_ss_id, project)
 
-
-
-
-    # with ThreadPoolExecutor(max_workers=3) as executor:
-    #     for k, row in df_links.iterrows():
-    #
-    #         executor.submit(get_datas, driver_temp, row)
-    #         print("status:")
-
+        await get_datas(driver, row, links)
 
     driver.quit()
 
