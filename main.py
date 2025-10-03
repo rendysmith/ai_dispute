@@ -43,5 +43,6 @@ async def main_total():
         pass
 
 if __name__ == '__main__':
-    asyncio.run(main_distribution())
+    asyncio.run(main_2gis_sberstrem())
+
     print('OK!')

@@ -299,7 +299,8 @@ async def main_2gis_sberstrem():
         proxy_on = False
 
     if headless and proxy_on:
-        await append_data_to_sheet_scope(service, datas_ss_id, 'hosts', local_ip)
+        local_data = {'host': local_ip}
+        await append_data_to_sheet_scope(service, datas_ss_id, 'hosts', local_data)
 
     df_links = await read_table_id(service, datas_ss_id, project)
     df_links = df_links[df_links['host'] == local_ip]
