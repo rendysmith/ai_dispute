@@ -183,7 +183,6 @@ async def get_iplist():
     #print(host_port)
     return f"{host_port_dict['host']}:{host_port_dict['port']}"
 
-
 if "__main__" in __name__:
     srv = asyncio.run(get_one_proxy())
 

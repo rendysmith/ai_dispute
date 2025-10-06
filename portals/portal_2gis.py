@@ -10,7 +10,7 @@ from selenium.webdriver.common.by import By
 
 from datetime import datetime, timedelta, timezone
 
-from utils.central_module import get_local_ip, wait_for_portal
+from utils.central_module import get_local_ip, wait_for_portal, get_hpo
 from utils.compressor import compress_string
 from utils.gs_editor import pars_url, get_service, append_data_to_sheet_scope, read_table_id, \
     append_data_to_sheet_scopes, append_data_to_sheet_cell, append_data_to_sheet_cells
@@ -30,6 +30,18 @@ load_dotenv(dotenv_path)
 
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
+
+async def get_key(driver, url):
+    driver.get(url)
+    await asyncio.sleep(5)
+    devtools = driver.get_devtools_session()
+    devtools.send("Network.enable", {})
+    for method, params in devtools.iter_command_result():
+        if method == "Network.requestWillBeSent":
+            req_url = params.get('request', {}).get('url', '')
+            if '?key=' in req_url:
+                print(f"Найден поток с ?key=: {req_url}")
+
 
 async def get_driver():
     return await get_selenium_proxy(headless=True, proxy=False)
@@ -87,20 +99,24 @@ async def blocks_2gis_sel(driver, url):
 
     return data_dict['review']
 
-async def blocks_2gis_bs4(url):
+async def blocks_2gis_bs4(url, key):
     id_obj = await get_id_obj(url)
-    api_url = f'https://public-api.reviews.2gis.com/2.0/branches/{id_obj}/reviews?limit=50&is_advertiser=true&fields=meta.providers,meta.branch_rating,meta.branch_reviews_count,meta.total_count,reviews.hiding_reason,reviews.is_verified&without_my_first_review=false&rated=true&sort_by=date_created&key=b0209295-ae15-48b2-acb2-58309b333c37&locale=ru_RU'
+
+    #api_url = f'https://public-api.reviews.2gis.com/2.0/branches/{id_obj}/reviews?limit=50&is_advertiser=true&fields=meta.providers,meta.branch_rating,meta.branch_reviews_count,meta.total_count,reviews.hiding_reason,reviews.is_verified&without_my_first_review=false&rated=true&sort_by=date_created&key=b0209295-ae15-48b2-acb2-58309b333c37&locale=ru_RU'
+    #api_url = f'https://public-api.reviews.2gis.com/3.0/orgs/{id_obj}/reviews?limit=50&fields=meta.org_rating,meta.org_reviews_count,meta.total_count,reviews.object.address,reviews.hiding_reason&without_my_first_review=false&rated=true&sort_by=date_created&key=6e7e1929-4ea9-4a5d-8c05-d601860389bd&locale=ru_RU'
+    #api_url = f'https://public-api.reviews.2gis.com/3.0/orgs/{id_obj}/reviews?limit=50&fields=meta.org_rating,meta.org_reviews_count,meta.total_count,reviews.object.address,reviews.hiding_reason&without_my_first_review=false&rated=true&sort_by=date_created&key=6e7e1929-4ea9-4a5d-8c05-d601860389bd&locale=ru_RU'
+    api_url = f'https://public-api.reviews.2gis.com/3.0/orgs/{id_obj}/reviews?limit=50&fields=meta.org_rating,meta.org_reviews_count,meta.total_count,reviews.object.address,reviews.hiding_reason&without_my_first_review=false&rated=true&sort_by=date_created&key={key}&locale=ru_RU'
     print(api_url)
 
     headless, proxy_on, only_text = await get_hpo()
     r_json = await get_soup(api_url, only_text=False, proxy=proxy_on)
 
     blocks = r_json['reviews']
-    branch_rating = r_json['meta']['branch_rating']
-    branch_reviews_count = r_json['meta']['branch_reviews_count']
+    org_rating = r_json['meta']['org_rating']
+    org_reviews_count = r_json['meta']['org_reviews_count']
 
     print(f'Len_B = {len(blocks)}')
-    return blocks, branch_rating, branch_reviews_count
+    return blocks, org_rating, org_reviews_count
 
 async def send_top_url(service, ss_id, project, url):
     id_obj = await get_id_obj(url)
@@ -116,7 +132,7 @@ async def send_top_url(service, ss_id, project, url):
 
 async def soup_pars(service, url, links, pattern, criteria, ss_id, project, zoom=True):
     try:
-        blocks, branch_rating, branch_reviews_count = await blocks_2gis_bs4(url)
+        blocks, branch_rating, branch_reviews_count = await blocks_2gis_bs4(url, key)
     except:
         return
 
@@ -199,19 +215,37 @@ async def pars_json_data(script_text):
             json_end = script_text.find('}', json_end + 1)
             #print(f'--{json_end}--')
 
-async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, project, id_org, zoom=True):
-    while True:
-        try:
-            blocks = await blocks_2gis_sel(driver, top_url)
-            break
+async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, project, id_org, key="", zoom=True):
+    # while True:
+    #     try:
+    #         blocks = await blocks_2gis_sel(driver, top_url)
+    #         break
+    #
+    #     except Exception as Ex:
+    #         print(driver == True, Ex)
+    #         await asyncio.sleep(300)
+    #
+    #         driver = await get_driver()
+    #         blocks = await blocks_2gis_sel(driver, top_url)
+    #         break
 
-        except Exception as Ex:
-            print(driver == True, Ex)
-            await asyncio.sleep(300)
+    if key == "":
+        driver.get(top_url + "/tab/reviews")
+        await asyncio.sleep(5)
 
-            driver = await get_driver()
-            blocks = await blocks_2gis_sel(driver, top_url)
-            break
+        devtools = driver.get_devtools_session()
+        devtools.send("Network.enable", {})
+        for method, params in devtools.iter_command_result():
+            if method == "Network.requestWillBeSent":
+                req_url = params.get('request', {}).get('url', '')
+                if '?key=' in req_url:
+                    print(f"Найден поток с ?key=: {req_url}")
+                    key = 1
+
+
+
+
+    blocks, org_rating, org_reviews_count = await blocks_2gis_bs4(top_url, key)
 
     datas = await data_empty()
 
@@ -230,8 +264,8 @@ async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, 
                 continue
 
         else:
-            if (current_date - date) > timedelta(days=35):
-                print(f'--- Отзыв старше 35 дней. = {date}')
+            if (current_date - date) > timedelta(days=40):
+                print(f'--- Отзыв старше 40 дней. = {date}')
                 continue
 
         user_id = block['data']['id']
@@ -244,9 +278,7 @@ async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, 
         formatted_date = date.strftime("%d.%m.%Y")
 
         feedback = block['data']['text']
-
         author = block['data']['user']['name']
-
         rating = block['data']['rating']
 
         if zoom:
@@ -294,13 +326,13 @@ async def main_2gis_sberstrem():
         local_data = {'host': local_ip}
         await append_data_to_sheet_scope(service, datas_ss_id, 'hosts', local_data)
 
-    async def rec_datas(driver, link, links):
+    async def rec_datas(driver, link, links, key):
         start_time = time.time()
 
         id_obj = await get_id_obj(link)
         top_url = f'https://2gis.ru/firm/{id_obj}'
 
-        await selen_pars(service, driver, links, top_url, 1, 1, zoom_ss_id, project, id_obj, zoom=False)
+        await selen_pars(service, driver, links, top_url, 1, 1, zoom_ss_id, project, id_obj, key="", zoom=False)
 
         total_time = int(time.time() - start_time)
         await append_data_to_sheet_cells(service, datas_ss_id, '2gis', ['date', 'time'], k + 2, [rec_data, total_time])
@@ -308,13 +340,14 @@ async def main_2gis_sberstrem():
     async def get_datas(driver, row, links):
         link = row['link']
         print(f'\n----------------------------------------------------------\n{link}')
+        key = row['key']
         date = row['date']
         time = row['time']
 
-        if date == rec_data or time != None:
+        if date == rec_data:
             return
 
-        await rec_datas(driver, link, links)
+        await rec_datas(driver, link, links, key)
         #return driver.session_id
 
     df_links = await read_table_id(service, datas_ss_id, project)
@@ -334,6 +367,14 @@ async def main_2gis_sberstrem():
     driver.quit()
 
 if __name__ == '__main__':
-    asyncio.run(main_2gis_sberstrem())
-    print('OK!')
+    #a = asyncio.run(blocks_2gis_bs4('https://2gis.ru/firm/70000001046160191'))
+    #print(a)
+
+    #asyncio.run(main_2gis_sberstrem())
+    #print('OK!')
+    driver = asyncio.run(get_driver())
+    url = 'https://2gis.ru/firm/70000001046160191/tab/reviews'
+
+    asyncio.run(get_key(driver, url))
+
 

@@ -399,22 +399,22 @@ async def total_grade_analysis(service, tn_name):
                 print(f'{idx_mini} Add info...')
                 data_rows.append(idx_mini)
 
-async def pars_dreamjob(service, top_url, proxy_on):
+async def pars_dreamjob(service, url, ss_id, project, links, rating_max):
     """Функция для получения негативных отзывовов и записьм их в таблицу"""
     unix_time = str(int(time.time() * 1000))
 
     #https://dreamjob.ru/employers/56859?employerId=56859&erfrp%5BlastParam%5D=&erfrp%5Bfrom_vacancy%5D=&sort=-total_rating&page=1&_=1730535359347
     #https://dreamjob.ru/employers/56859?employerId=56859&erfrp%5BlastParam%5D=ratings&erfrp%5Bfrom_vacancy%5D=&sort=-total_rating&erfrp%5Bratings%5D%5B%5D=1&page=1&_=1730535359348
 
-    soup = await get_soup(top_url, proxy=proxy_on)
+    soup = await get_soup(url, proxy=False)
     if not soup:
         return
 
-    brand = soup.find('div', {'class': 'company__name line-clamp-2', 'data-js': 'companyName'}).text.strip()
-    print(brand)
-
-    df = await get_table_scope(service, worktable_id, brand)
-    df_urls = df['Url'].to_list()
+    # brand = soup.find('div', {'class': 'company__name line-clamp-2', 'data-js': 'companyName'}).text.strip()
+    # print(brand)
+    #
+    # df = await get_table_scope(service, worktable_id, brand)
+    # df_urls = df['Url'].to_list()
 
     total_rating = soup.find('div', {"class": 'dashboard__grade-total'}).text
     print(total_rating)
@@ -434,7 +434,7 @@ async def pars_dreamjob(service, top_url, proxy_on):
         total_reviews = int(total_reviews_split.replace(' ', ''))
         print(total_reviews)
 
-    employerId = top_url.split('/')[-1]
+    employerId = url.split('/')[-1]
 
     # pages = ['1',
     #          '2.2',
@@ -443,22 +443,31 @@ async def pars_dreamjob(service, top_url, proxy_on):
     #          '5.7',
     #          '6.866666666666666']
 
+    "https://dreamjob.ru/employers/25466?employerId=25466&sort=total_rating&erfrp%5Bratings%5D%5B0%5D=2&erfrp%5Bratings%5D%5B1%5D=1"
+    "https://dreamjob.ru/employers/25466?nrs%5Bsort%5D=&nrs%5Bcities%5D=%5B%5D&nrs%5Bvacancies%5D=%5B%5D&nrs%5Bdepartments%5D=%5B%5D&nrs%5Bratings%5D=%5B%221%22%5D&nrs%5Bfirst_selected%5D=ratings&nrs%5Btopics%5D%5B0%5D=%5B%5D&nrs%5Btopics%5D%5B1%5D=%5B%5D"
+
+
     #for page in pages:
-    page_int = 30
+    page_int = 1
+
     while True:
         page_int += 1
         page = str(page_int)
         print(f'\nPage: {page}')
 
-        url = (f'{top_url}?'
+        url = (f'{url}?'
                f'employerId={employerId}&'
                f'sort=total_rating&'
                f'erfrp%5Bratings%5D%5B%5D=2&'
                f'erfrp%5Bratings%5D%5B%5D=1&'
                f'page={page}&'
+               f'ratings=1&'
                f'_={unix_time}')
 
-        soup = await get_soup(url, proxy=proxy_on)
+        url = f'https://dreamjob.ru/employers/{employerId}?nrs[sort]=&nrs[cities]=[]&nrs[vacancies]=[]&nrs[departments]=[]&nrs[ratings]=["1"]&nrs[first_selected]=ratings&nrs[topics][0]=[]&nrs[topics][1]=[]&_pjax=#data_pjax&page=2'
+
+        print(url)
+        soup = await get_soup(url, proxy=False)
         if not soup:
             continue
 
@@ -491,7 +500,10 @@ async def pars_dreamjob(service, top_url, proxy_on):
                 date = data_split.strip()
 
             title = block.find_next('h2', {'class': 'review__header-title'}).text.strip()
-            #print(title)
+
+            feedback = block.find('div', {'id': True, 'class': 'review', 'data-partly': "short"}).text
+            input(feedback)
+
 
             title_div_plus = block.find('div', class_='review__title review__gap')
             plus_title = title_div_plus.text
@@ -543,7 +555,7 @@ async def pars_dreamjob(service, top_url, proxy_on):
                 url_answer = block.find('a', tabindex='0').get('href')
             #print(url_answer)
 
-            if url_answer in df_urls:
+            if url_answer in links:
                 continue
 
             author = block.find('h2', {'class': 'review__header-title'}).text.strip()
@@ -554,7 +566,7 @@ async def pars_dreamjob(service, top_url, proxy_on):
             rating = float(rating.replace(',', '.'))
             #print(rating)
 
-            if rating >= 3:
+            if rating >= rating_max:
                 return
 
             #top_url = 'https://dreamjob.ru/employers/56859'
@@ -564,17 +576,17 @@ async def pars_dreamjob(service, top_url, proxy_on):
             datas['Дата'].append(date)
             datas['Заголовок'].append(title)
             datas['Текст'].append(feedback)
-            datas['Бренд'].append(brand)
+            datas['Бренд'].append(project)
             datas['Источник'].append(portal)
             datas['Url'].append(url_answer)
             datas['Автор'].append(author)
             datas['Оценка'].append(rating)
-            datas['Общий Url'].append(top_url)
+            datas['Общий Url'].append(url)
             datas['Ссылка Url'].append(url_answer)
             datas['Кол-во отзывов'].append(total_reviews)
             datas['Оценка компании до удаления'].append(total_rating)
 
-        await append_data_to_sheet_scopes(service, worktable_id, brand, datas)
+        await append_data_to_sheet_scopes(service, ss_id, project, datas)
         print('White datas - OK!')
         await asyncio.sleep(5)
 
@@ -1765,6 +1777,11 @@ async def multi_pars(ss_id, project):
             await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
             await asyncio.sleep(3)
 
+        elif 'dreamjob' in url:
+            await pars_dreamjob(service, url, ss_id, project, links, rating_max)
+            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
+            await asyncio.sleep(3)
+
 
 
 
@@ -1780,15 +1797,15 @@ async def multi_pars(ss_id, project):
 
 async def main():
 
-    ss_id = '19h6lpJy8R8Bo3eIQrHySbnlpZJzFq3_BbGKMvGlf_LE'
-    project = 'MyHectare'
+    ss_id = '1qnpJ83Pl0DCu3ngX9bB_r7bnjEgCFFeNR_5IervdS8s'
+    project = 'H&H'
 
     #await multi_pars(ss_id, project)
-    await review_analysis(ss_id, project)
+    #await review_analysis(ss_id, project)
 
-    # await asyncio.gather(
-    #    review_analysis(ss_id, project),
-    #    multi_pars(ss_id, project))
+    await asyncio.gather(
+       review_analysis(ss_id, project),
+       multi_pars(ss_id, project))
 
 if __name__ == '__main__':
     asyncio.run(main())
