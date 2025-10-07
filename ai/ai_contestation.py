@@ -1,5 +1,4 @@
 import sys
-sys.excepthook = sys.__excepthook__
 
 
 import asyncio
@@ -10,6 +9,7 @@ import time
 from datetime import datetime
 
 import selenium.common.exceptions
+from bs4.element import NavigableString
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -399,22 +399,13 @@ async def total_grade_analysis(service, tn_name):
                 print(f'{idx_mini} Add info...')
                 data_rows.append(idx_mini)
 
-async def pars_dreamjob(service, url, ss_id, project, links, rating_max):
+async def pars_dreamjob(service, url_top, ss_id, project, links, rating_max):
     """Функция для получения негативных отзывовов и записьм их в таблицу"""
     unix_time = str(int(time.time() * 1000))
 
-    #https://dreamjob.ru/employers/56859?employerId=56859&erfrp%5BlastParam%5D=&erfrp%5Bfrom_vacancy%5D=&sort=-total_rating&page=1&_=1730535359347
-    #https://dreamjob.ru/employers/56859?employerId=56859&erfrp%5BlastParam%5D=ratings&erfrp%5Bfrom_vacancy%5D=&sort=-total_rating&erfrp%5Bratings%5D%5B%5D=1&page=1&_=1730535359348
-
-    soup = await get_soup(url, proxy=False)
+    soup = await get_soup(url_top, proxy=False)
     if not soup:
         return
-
-    # brand = soup.find('div', {'class': 'company__name line-clamp-2', 'data-js': 'companyName'}).text.strip()
-    # print(brand)
-    #
-    # df = await get_table_scope(service, worktable_id, brand)
-    # df_urls = df['Url'].to_list()
 
     total_rating = soup.find('div', {"class": 'dashboard__grade-total'}).text
     print(total_rating)
@@ -434,38 +425,17 @@ async def pars_dreamjob(service, url, ss_id, project, links, rating_max):
         total_reviews = int(total_reviews_split.replace(' ', ''))
         print(total_reviews)
 
-    employerId = url.split('/')[-1]
+    employerId = url_top.split('/')[-1]
 
-    # pages = ['1',
-    #          '2.2',
-    #          '3.3666666666666667',
-    #          '4.533333333333333',
-    #          '5.7',
-    #          '6.866666666666666']
+    pages = soup.find('li', {'class': 'last'})
+    print(pages)
+    input('OK!')
 
-    "https://dreamjob.ru/employers/25466?employerId=25466&sort=total_rating&erfrp%5Bratings%5D%5B0%5D=2&erfrp%5Bratings%5D%5B1%5D=1"
-    "https://dreamjob.ru/employers/25466?nrs%5Bsort%5D=&nrs%5Bcities%5D=%5B%5D&nrs%5Bvacancies%5D=%5B%5D&nrs%5Bdepartments%5D=%5B%5D&nrs%5Bratings%5D=%5B%221%22%5D&nrs%5Bfirst_selected%5D=ratings&nrs%5Btopics%5D%5B0%5D=%5B%5D&nrs%5Btopics%5D%5B1%5D=%5B%5D"
-
-
-    #for page in pages:
-    page_int = 1
-
-    while True:
-        page_int += 1
-        page = str(page_int)
+    for i in range(pages):
+        page = str(i + 1)
         print(f'\nPage: {page}')
 
-        url = (f'{url}?'
-               f'employerId={employerId}&'
-               f'sort=total_rating&'
-               f'erfrp%5Bratings%5D%5B%5D=2&'
-               f'erfrp%5Bratings%5D%5B%5D=1&'
-               f'page={page}&'
-               f'ratings=1&'
-               f'_={unix_time}')
-
-        url = f'https://dreamjob.ru/employers/{employerId}?nrs[sort]=&nrs[cities]=[]&nrs[vacancies]=[]&nrs[departments]=[]&nrs[ratings]=["1"]&nrs[first_selected]=ratings&nrs[topics][0]=[]&nrs[topics][1]=[]&_pjax=#data_pjax&page=2'
-
+        url = f'https://dreamjob.ru/employers/{employerId}?nrs%5Bsort%5D=&nrs%5Bcities%5D=%5B%5D&nrs%5Bvacancies%5D=%5B%5D&nrs%5Bdepartments%5D=%5B%5D&nrs%5Bratings%5D=%5B%222%22%2C%221%22%5D&nrs%5Bfirst_selected%5D=ratings&nrs%5Btopics%5D%5B0%5D=%5B%5D&nrs%5Btopics%5D%5B1%5D=%5B%5D&page={page}&_pjax=%23data_pjax'
         print(url)
         soup = await get_soup(url, proxy=False)
         if not soup:
@@ -476,19 +446,21 @@ async def pars_dreamjob(service, url, ss_id, project, links, rating_max):
         if len(blocks) == 0:
             return None
 
-        datas = {'Дата': [],
-                 'Заголовок': [],
-                 'Текст': [],
-                 'Бренд': [],
-                 'Источник': [],
-                 'Url': [],
-                 'Автор': [],
-                 'Оценка': [],
-                 'Общий Url': [],
-                 'Ссылка Url': [],
-                 'Кол-во отзывов': [],
-                 'Оценка компании до удаления': []
-                 }
+        datas = await empty_data()
+
+        async def get_text_after_title(soup_element, title_text):
+            title_tag = soup_element.find('div', class_='review__title', string=lambda t: t and title_text in t)
+            if not title_tag:
+                return None
+            # Идём по следующим элементам, пока не найдём непустой текст
+            next_sib = title_tag.next_sibling
+            while next_sib:
+                if isinstance(next_sib, NavigableString):
+                    stripped = next_sib.strip()
+                    if stripped:
+                        return stripped
+                next_sib = next_sib.next_sibling
+            return None
 
         for block in blocks:
             #print('\n*******************************************')
@@ -499,46 +471,24 @@ async def pars_dreamjob(service, url, ss_id, project, links, rating_max):
                 data_split = date_content.split(',')[-1]
                 date = data_split.strip()
 
-            title = block.find_next('h2', {'class': 'review__header-title'}).text.strip()
+            date_content = date.split(' ')
+            year = date_content[-1]
+            month = months[date_content[-2]]
 
-            feedback = block.find('div', {'id': True, 'class': 'review', 'data-partly': "short"}).text
-            input(feedback)
+            if month < 10:
+                month = f"0{month}"
+            else:
+                month = str(month)
 
+            formatted_date = f"01.{month}.{year}"
+            print(formatted_date)
 
-            title_div_plus = block.find('div', class_='review__title review__gap')
-            plus_title = title_div_plus.text
-            # print(plus_title)
+            plus = await get_text_after_title(block, "Что нравится?")
+            minus = await get_text_after_title(block, "Что можно улучшить?")
 
-            # Находим следующий div
-            next_div = title_div_plus.find_next('div', class_='review__title')
-
-            # Получаем весь текст между двумя div
-            full_text = ''
-            for sibling in title_div_plus.next_siblings:
-                if sibling == next_div:
-                    break
-
-                if isinstance(sibling, str):
-                    full_text += sibling
-                elif sibling.name == 'br':
-                    full_text += '\n'
-
-            # Очищаем текст от лишних пробелов и переносов строк
-            plus = ' '.join(full_text.split())
-            # print(plus)
-
-            title_div_minus = block.select_one('div.review__title:not(.review__gap)')
-            # print(title_div_minus)
-            minus_title = title_div_minus.text
-            # print(minus_title)
-
-            if title_div_minus:
-                minus = title_div_minus.find_next_sibling(text=True).strip()
-                # print(minus)
-
-            feedback = f"""{plus_title}:
+            feedback = f"""Что нравится?:
 {plus}
-{minus_title}:
+Что можно улучшить?:
 {minus}
 """
 
@@ -573,22 +523,23 @@ async def pars_dreamjob(service, url, ss_id, project, links, rating_max):
 
             #print(date)
 
-            datas['Дата'].append(date)
-            datas['Заголовок'].append(title)
+            datas['Дата'].append(formatted_date)
             datas['Текст'].append(feedback)
             datas['Бренд'].append(project)
             datas['Источник'].append(portal)
             datas['Url'].append(url_answer)
             datas['Автор'].append(author)
             datas['Оценка'].append(rating)
-            datas['Общий Url'].append(url)
-            datas['Ссылка Url'].append(url_answer)
+            datas['Общий Url'].append(url_top)
             datas['Кол-во отзывов'].append(total_reviews)
             datas['Оценка компании до удаления'].append(total_rating)
 
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
         print('White datas - OK!')
         await asyncio.sleep(5)
+
+        #await append_data_to_sheet_cell(service, ss_id, "links", idx_last_page, last_page)
+
 
 async def pars_2gis(service, url, ss_id, project, links, rating_max):
     source = '2gis.ru'
@@ -1399,10 +1350,6 @@ async def pars_pravda(service, url, ss_id, project, links):
                 await append_data_to_sheet_scopes(service, ss_id, project, datas)
                 await asyncio.sleep(1)
 
-
-
-
-
 async def main_stroyenergokom():
     service = await get_service()
     driver = await get_selenium_proxy(headless=False, proxy=False)
@@ -1796,7 +1743,6 @@ async def multi_pars(ss_id, project):
         pass
 
 async def main():
-
     ss_id = '1qnpJ83Pl0DCu3ngX9bB_r7bnjEgCFFeNR_5IervdS8s'
     project = 'H&H'
 

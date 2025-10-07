@@ -3,6 +3,8 @@ import re
 import time
 from pprint import pprint
 
+from urllib.parse import urlparse, parse_qs
+
 import asyncio
 import random
 
@@ -32,15 +34,44 @@ days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
 async def get_key(driver, url):
+    print(url)
     driver.get(url)
     await asyncio.sleep(5)
-    devtools = driver.get_devtools_session()
-    devtools.send("Network.enable", {})
-    for method, params in devtools.iter_command_result():
-        if method == "Network.requestWillBeSent":
-            req_url = params.get('request', {}).get('url', '')
-            if '?key=' in req_url:
-                print(f"Найден поток с ?key=: {req_url}")
+
+    logs = driver.get_log('performance')
+    for obj in logs:
+        if 'key=' in str(obj):
+            i = json.loads(obj)
+
+
+
+            pprint(i)
+            print(type(i))
+
+            print(i['message'])
+            print(list(i['message']))
+            input(1)
+
+            json_date = i['message']['message']
+            input(2)
+            print(i['message']['message']['params'])
+            input(2)
+
+            if i.get('message'):
+                if i['message'].get('params'):
+                    if i['message']['params'].get('request'):
+                        if i['message']['headers']['request'].get('url'):
+                            url = i['message']['headers']['request']['url']
+                            parsed_url = urlparse(url)
+                            print(parsed_url)
+                            query_params = parse_qs(parsed_url.query)
+                            print(query_params)
+
+            input('Next')
+
+
+
+
 
 
 async def get_driver():
