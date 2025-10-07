@@ -34,45 +34,30 @@ days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
 async def get_key(driver, url):
-    print(url)
+    print(f'*******************{url}*********************')
     driver.get(url)
     await asyncio.sleep(5)
 
     logs = driver.get_log('performance')
     for obj in logs:
         if 'key=' in str(obj):
-            i = json.loads(obj)
+            print(obj)
+            js = json.loads(obj['message'])
+            if js['message']['params'].get('request'):
+                url = js['message']['params']['request']['url']
+                parsed_url = urlparse(url)
+                print("\n--------------parsed_url------------------\n", parsed_url)
 
+                path = parsed_url.path
+                print(path)
+                api_org_id = await get_id_obj(path)
+                print(api_org_id)
 
-
-            pprint(i)
-            print(type(i))
-
-            print(i['message'])
-            print(list(i['message']))
-            input(1)
-
-            json_date = i['message']['message']
-            input(2)
-            print(i['message']['message']['params'])
-            input(2)
-
-            if i.get('message'):
-                if i['message'].get('params'):
-                    if i['message']['params'].get('request'):
-                        if i['message']['headers']['request'].get('url'):
-                            url = i['message']['headers']['request']['url']
-                            parsed_url = urlparse(url)
-                            print(parsed_url)
-                            query_params = parse_qs(parsed_url.query)
-                            print(query_params)
-
-            input('Next')
-
-
-
-
-
+                query_params = parse_qs(parsed_url.query)
+                print("\n--------------query_params------------------\n", query_params)
+                key = query_params['key'][0]
+                print('****************************************')
+                return api_org_id, key
 
 async def get_driver():
     return await get_selenium_proxy(headless=True, proxy=False)
@@ -130,13 +115,13 @@ async def blocks_2gis_sel(driver, url):
 
     return data_dict['review']
 
-async def blocks_2gis_bs4(url, key):
-    id_obj = await get_id_obj(url)
+async def blocks_2gis_bs4(url, org_id, key):
+    #id_obj = await get_id_obj(url)
 
     #api_url = f'https://public-api.reviews.2gis.com/2.0/branches/{id_obj}/reviews?limit=50&is_advertiser=true&fields=meta.providers,meta.branch_rating,meta.branch_reviews_count,meta.total_count,reviews.hiding_reason,reviews.is_verified&without_my_first_review=false&rated=true&sort_by=date_created&key=b0209295-ae15-48b2-acb2-58309b333c37&locale=ru_RU'
     #api_url = f'https://public-api.reviews.2gis.com/3.0/orgs/{id_obj}/reviews?limit=50&fields=meta.org_rating,meta.org_reviews_count,meta.total_count,reviews.object.address,reviews.hiding_reason&without_my_first_review=false&rated=true&sort_by=date_created&key=6e7e1929-4ea9-4a5d-8c05-d601860389bd&locale=ru_RU'
     #api_url = f'https://public-api.reviews.2gis.com/3.0/orgs/{id_obj}/reviews?limit=50&fields=meta.org_rating,meta.org_reviews_count,meta.total_count,reviews.object.address,reviews.hiding_reason&without_my_first_review=false&rated=true&sort_by=date_created&key=6e7e1929-4ea9-4a5d-8c05-d601860389bd&locale=ru_RU'
-    api_url = f'https://public-api.reviews.2gis.com/3.0/orgs/{id_obj}/reviews?limit=50&fields=meta.org_rating,meta.org_reviews_count,meta.total_count,reviews.object.address,reviews.hiding_reason&without_my_first_review=false&rated=true&sort_by=date_created&key={key}&locale=ru_RU'
+    api_url = f'https://public-api.reviews.2gis.com/3.0/orgs/{org_id}/reviews?limit=50&fields=meta.org_rating,meta.org_reviews_count,meta.total_count,reviews.object.address,reviews.hiding_reason&without_my_first_review=false&rated=true&sort_by=date_created&key={key}&locale=ru_RU'
     print(api_url)
 
     headless, proxy_on, only_text = await get_hpo()
@@ -246,37 +231,19 @@ async def pars_json_data(script_text):
             json_end = script_text.find('}', json_end + 1)
             #print(f'--{json_end}--')
 
-async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, project, id_org, key="", zoom=True):
-    # while True:
-    #     try:
-    #         blocks = await blocks_2gis_sel(driver, top_url)
-    #         break
-    #
-    #     except Exception as Ex:
-    #         print(driver == True, Ex)
-    #         await asyncio.sleep(300)
-    #
-    #         driver = await get_driver()
-    #         blocks = await blocks_2gis_sel(driver, top_url)
-    #         break
+async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, project, id_org, row, zoom=True):
+    print(row)
+    org_id = row['org_id']
+    key = row['key']
+    key_idx = row.name
 
-    if key == "":
-        driver.get(top_url + "/tab/reviews")
-        await asyncio.sleep(5)
+    if org_id == "" or key == "":
+        full_url = top_url + "/tab/reviews"
+        org_id, key = await get_key(driver, full_url)
 
-        devtools = driver.get_devtools_session()
-        devtools.send("Network.enable", {})
-        for method, params in devtools.iter_command_result():
-            if method == "Network.requestWillBeSent":
-                req_url = params.get('request', {}).get('url', '')
-                if '?key=' in req_url:
-                    print(f"Найден поток с ?key=: {req_url}")
-                    key = 1
+        await append_data_to_sheet_cells(service, '1k00OxnK8MekEVu2dmL2IqT1uxTQxWEzd0Aur5a8ILEE', '2gis', ['org_id', 'key'], key_idx + 2, [org_id, key])
 
-
-
-
-    blocks, org_rating, org_reviews_count = await blocks_2gis_bs4(top_url, key)
+    blocks, org_rating, org_reviews_count = await blocks_2gis_bs4(top_url, org_id, row)
 
     datas = await data_empty()
 
@@ -357,30 +324,6 @@ async def main_2gis_sberstrem():
         local_data = {'host': local_ip}
         await append_data_to_sheet_scope(service, datas_ss_id, 'hosts', local_data)
 
-    async def rec_datas(driver, link, links, key):
-        start_time = time.time()
-
-        id_obj = await get_id_obj(link)
-        top_url = f'https://2gis.ru/firm/{id_obj}'
-
-        await selen_pars(service, driver, links, top_url, 1, 1, zoom_ss_id, project, id_obj, key="", zoom=False)
-
-        total_time = int(time.time() - start_time)
-        await append_data_to_sheet_cells(service, datas_ss_id, '2gis', ['date', 'time'], k + 2, [rec_data, total_time])
-
-    async def get_datas(driver, row, links):
-        link = row['link']
-        print(f'\n----------------------------------------------------------\n{link}')
-        key = row['key']
-        date = row['date']
-        time = row['time']
-
-        if date == rec_data:
-            return
-
-        await rec_datas(driver, link, links, key)
-        #return driver.session_id
-
     df_links = await read_table_id(service, datas_ss_id, project)
     df_links = df_links[df_links['host'] == local_ip]
     print(df_links)
@@ -389,23 +332,46 @@ async def main_2gis_sberstrem():
 
     driver = await get_driver()
 
+    async def rec_datas(driver, row, links):
+        link = row['link']
+
+        start_time = time.time()
+
+        id_obj = await get_id_obj(link)
+        top_url = f'https://2gis.ru/firm/{id_obj}'
+
+        await selen_pars(service, driver, links, top_url, 1, 1, zoom_ss_id, project, id_obj, row)
+
+        total_time = int(time.time() - start_time)
+        await append_data_to_sheet_cells(service, datas_ss_id, '2gis', ['date', 'time'], k + 2, [rec_data, total_time])
+
     for k, row in df_links.iterrows():
+        link = row['link']
+        print(f'\n----------------------------------------------------------\n{link}')
+
         if k // 10 == 0:
             links = await pars_url(service, zoom_ss_id, project)
 
-        await get_datas(driver, row, links)
+        date = row['date']
+        #time = row['time']
+
+        if date == rec_data:
+            return
+
+        await rec_datas(driver, row, links)
 
     driver.quit()
 
 if __name__ == '__main__':
-    #a = asyncio.run(blocks_2gis_bs4('https://2gis.ru/firm/70000001046160191'))
-    #print(a)
+    # driver = asyncio.run(get_driver())
+    # url = 'https://2gis.ru/firm/70000001046153619/tab/reviews'
+    #
+    # key = asyncio.run(get_key(driver, url))
+    # print('--------------------------------------------')
+    # print(key)
 
-    #asyncio.run(main_2gis_sberstrem())
-    #print('OK!')
-    driver = asyncio.run(get_driver())
-    url = 'https://2gis.ru/firm/70000001046160191/tab/reviews'
+    asyncio.run(main_2gis_sberstrem())
 
-    asyncio.run(get_key(driver, url))
+
 
 
