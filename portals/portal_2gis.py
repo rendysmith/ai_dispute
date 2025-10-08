@@ -1,25 +1,18 @@
 import json
 import re
 import time
-from pprint import pprint
-
-from urllib.parse import urlparse, parse_qs
-
 import asyncio
-import random
 
 from selenium.webdriver.common.by import By
 
 from datetime import datetime, timedelta, timezone
 
 from utils.central_module import get_local_ip, wait_for_portal, get_hpo
-from utils.compressor import compress_string
+
 from utils.gs_editor import pars_url, get_service, append_data_to_sheet_scope, read_table_id, \
     append_data_to_sheet_scopes, append_data_to_sheet_cell, append_data_to_sheet_cells
 from utils.ai_module import generate_and_white
 from utils.user_agent import get_soup, get_selenium_proxy
-
-from utils.constants import months
 
 import os
 from dotenv import load_dotenv
@@ -53,7 +46,6 @@ async def text_to_json(script_text, start_word):
         except:
             json_end = script_text.find('}', json_end + 1)
 
-
 async def get_key(driver, url):
     print(f'******************* {url} *********************')
     driver.get(url)
@@ -70,10 +62,8 @@ async def get_key(driver, url):
 
     return api_org_id, key
 
-
-
 async def get_driver():
-    return await get_selenium_proxy(headless=True, proxy=False)
+    return await get_selenium_proxy(headless=True, proxy=proxy_on)
 
 async def data_empty():
     datas = {'Date': [],
@@ -233,7 +223,6 @@ async def pars_json_data(script_text):
             json_end = script_text.find('}', json_end + 1)
 
 async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, project, id_org, row, zoom=True):
-    #print(row)
     org_id = row['org_id']
     key = row['key']
     key_idx = row.name
@@ -247,7 +236,6 @@ async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, 
             return
 
         await append_data_to_sheet_cells(service, '1k00OxnK8MekEVu2dmL2IqT1uxTQxWEzd0Aur5a8ILEE', '2gis', ['org_id', 'key'], key_idx + 2, [org_id, key])
-
 
     blocks, org_rating, org_reviews_count = await blocks_2gis_bs4(org_id, key)
 
