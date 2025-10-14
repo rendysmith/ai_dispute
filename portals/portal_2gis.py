@@ -63,7 +63,7 @@ async def get_key(driver, url):
     return api_org_id, key
 
 async def get_driver():
-    return await get_selenium_proxy(headless=True, proxy=proxy_on)
+    return await get_selenium_proxy(headless=headless, proxy=proxy_on)
 
 async def data_empty():
     datas = {'Date': [],
@@ -294,6 +294,8 @@ async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, 
     if zoom == False:
         await append_data_to_sheet_scopes(service, ss_id, '2gis', datas)
 
+    return org_id
+
 async def check_2gis(service, url, pattern, criteria, ss_id, project, links=False, zoom=True):
     if not links:
         links = await pars_url(service, ss_id, project)
@@ -307,6 +309,21 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project, links=Fals
         await selen_pars(service, links, top_url, pattern, criteria, ss_id, project, id_org, zoom)
 
 async def main_2gis_sberstrem():
+    async def rec_datas(driver, row, links):
+        link = row['link']
+
+        start_time = time.time()
+
+        id_obj = await get_id_obj(link)
+        top_url = f'https://2gis.ru/firm/{id_obj}'
+
+        org_id = await selen_pars(service, driver, links, top_url, 1, 1, zoom_ss_id, project, id_obj, row, zoom=False)
+
+        total_time = int(time.time() - start_time)
+        await append_data_to_sheet_cells(service, datas_ss_id, '2gis', ['date', 'time'], k + 2, [rec_data, total_time])
+
+        return org_id
+
     service = await get_service()
     datas_ss_id = '1k00OxnK8MekEVu2dmL2IqT1uxTQxWEzd0Aur5a8ILEE'
     zoom_ss_id = "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w"
@@ -326,29 +343,23 @@ async def main_2gis_sberstrem():
 
     driver = await get_driver()
 
-    async def rec_datas(driver, row, links):
-        link = row['link']
-
-        start_time = time.time()
-
-        id_obj = await get_id_obj(link)
-        top_url = f'https://2gis.ru/firm/{id_obj}'
-
-        await selen_pars(service, driver, links, top_url, 1, 1, zoom_ss_id, project, id_obj, row, zoom=False)
-
-        total_time = int(time.time() - start_time)
-        await append_data_to_sheet_cells(service, datas_ss_id, '2gis', ['date', 'time'], k + 2, [rec_data, total_time])
+    org_ids = []
 
     for k, row in df_links.iterrows():
         link = row['link']
         print(f'\n----------------------------------------------------------\n{link}')
+
+        org_id = row['org_id']
+        if org_id in org_ids:
+            continue
 
         date = row['date']
 
         if date == rec_data:
             continue
 
-        await rec_datas(driver, row, links)
+        org_id = await rec_datas(driver, row, links)
+        org_ids.append(org_id)
 
         if k // 10 == 0:
             links = await pars_url(service, zoom_ss_id, project)
