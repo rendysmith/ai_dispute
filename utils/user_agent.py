@@ -781,7 +781,7 @@ async def get_data_without_proxy(url, text_format=True):
 
             except Exception as Ex:
                 print(f"- {i} Error without Proxy Ex: {Ex}")
-                print(await response.text())
+                #print(await response.text())
                 await asyncio.sleep(5)
     return None
 
