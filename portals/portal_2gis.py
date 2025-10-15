@@ -55,6 +55,7 @@ async def get_key(driver, url):
 
     pattern = r'"reviewApiKey":"([^"]*)"'
     match = re.search(pattern, page_source)
+    print("--- match:", match)
     key = match.group(1)
 
     org_content = await text_to_json(page_source, '"org":{"')
