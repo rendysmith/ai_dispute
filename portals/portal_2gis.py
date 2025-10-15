@@ -376,7 +376,6 @@ if __name__ == '__main__':
     #
     # input()
 
-
     asyncio.run(main_2gis_sberstrem())
 
 
