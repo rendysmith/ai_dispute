@@ -121,7 +121,7 @@ async def blocks_2gis_sel(driver, url):
 
 async def blocks_2gis_bs4(org_id, key):
     api_url = f'https://public-api.reviews.2gis.com/3.0/orgs/{org_id}/reviews?limit=50&fields=meta.org_rating,meta.org_reviews_count,meta.total_count,reviews.object.address,reviews.hiding_reason&without_my_first_review=false&rated=true&sort_by=date_created&key={key}&locale=ru_RU'
-    print("ApiKey: ", api_url)
+    print("ApiKeyURL: ", api_url)
 
     r_json = await get_soup(api_url, only_text=False, proxy=proxy_on)
 
