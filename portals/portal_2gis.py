@@ -27,7 +27,7 @@ days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
 headless, proxy_on, only_text = asyncio.run(get_hpo())
-proxy_on = False #Убрать когда будет нормальный прокси
+#proxy_on = False #Убрать когда будет нормальный прокси
 
 async def text_to_json(script_text, start_word):
     json_start = script_text.find(start_word)
