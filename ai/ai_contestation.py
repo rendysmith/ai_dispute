@@ -917,7 +917,7 @@ async def get_feedback_otz(driver, url):
     print('-- return Feedback datas')
     return topic + "\n" + plus + "\n" + minus + "\n" + text
 
-async def pars_otzovik(service, driver, url, driver2, ss_id, project, links, ratio, start_page):
+async def pars_otzovik(service, driver, url, driver2, ss_id, project, links, ratio, start_page=1):
     import locale
     locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 
@@ -1045,8 +1045,11 @@ async def pars_irec(service, driver, driver2, url, ss_id, project, links, rating
 
     source = "irecommend.ru"
 
+    pages = 0
+
     n = 0
     while n < 3:
+        print(f'-- {n}')
         try:
             selectors = ['li[class="pager-last last"]', 'li[class="pager-last"]']
             #Кол-во страницы для парсинга на портале
@@ -1057,6 +1060,9 @@ async def pars_irec(service, driver, driver2, url, ss_id, project, links, rating
                     await asyncio.sleep(1)
 
                 except:
+                    n += 1
+                    print(f'Error 1: {n}')
+                    await asyncio.sleep(2)
                     continue
 
             if pages:
@@ -1064,7 +1070,7 @@ async def pars_irec(service, driver, driver2, url, ss_id, project, links, rating
 
         except:
             n += 1
-            print(f'Error: {n}')
+            print(f'Error 2: {n}')
             await asyncio.sleep(2)
 
     number_reviews = int(driver.find_element(By.CSS_SELECTOR, 'span[itemprop="reviewCount"]').text)
@@ -1685,7 +1691,7 @@ async def multi_pars(ss_id, project):
         rating_max = int(row['max_raiting'])
 
         if 'otzovik' in url:
-            await pars_otzovik(service, driver, url, driver2, ss_id, project, links, rating_max, start_page)
+            await pars_otzovik(service, driver, url, driver2, ss_id, project, links, rating_max)
             await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
             await asyncio.sleep(3)
 
@@ -1743,11 +1749,11 @@ async def multi_pars(ss_id, project):
         pass
 
 async def main():
-    ss_id = '1qnpJ83Pl0DCu3ngX9bB_r7bnjEgCFFeNR_5IervdS8s'
-    project = 'H&H'
+    ss_id = '1dNQeEr_OkyRp7xSnE5Nb8Cjoswb4YkIBYeUcTnPDEO4'
+    project = 'Autoteka'
 
-    #await multi_pars(ss_id, project)
-    #await review_analysis(ss_id, project)
+    # await multi_pars(ss_id, project)
+    # #await review_analysis(ss_id, project)
 
     await asyncio.gather(
        review_analysis(ss_id, project),
