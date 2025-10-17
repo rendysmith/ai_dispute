@@ -69,7 +69,7 @@ async def get_id_key(driver, url):
         return api_org_id, key
 
     driver.get(url)
-    await asyncio.sleep(5)
+    await asyncio.sleep(15)
     driver.execute_cdp_cmd("Network.enable", {})
 
     logs = driver.get_log('performance')
@@ -109,7 +109,7 @@ async def get_id_key(driver, url):
 async def get_key(driver, url):
     print('--- get key 2')
     driver.get(url)
-    await asyncio.sleep(5)
+    await asyncio.sleep(15)
 
     page_source = driver.page_source
 
