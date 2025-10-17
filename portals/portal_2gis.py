@@ -399,11 +399,12 @@ async def main_2gis_sberstrem():
     project = '2gis'
 
     local_ip = await get_local_ip()
-    print(local_ip)
+    print("- local_ip", local_ip)
     if '176.124' in local_ip:
         local_data = {'host': local_ip}
         await append_data_to_sheet_scope(service, datas_ss_id, 'hosts', local_data)
 
+    print('************DF***************')
     df_links = await read_table_id(service, datas_ss_id, project)
     df_links = df_links[df_links['host'] == local_ip]
     print(df_links)
@@ -438,8 +439,8 @@ async def main_2gis_sberstrem():
     driver.quit()
 
 if __name__ == '__main__':
-    driver = asyncio.run(get_driver())
-    url = 'https://2gis.ru/yaroslavl/firm/70000001045733822/tab/reviews'
+    #driver = asyncio.run(get_driver())
+    #url = 'https://2gis.ru/yaroslavl/firm/70000001045733822/tab/reviews'
 
     # ord_id, key = asyncio.run(get_key(driver, url))
     # print('--------------------------------------------')

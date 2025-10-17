@@ -11,7 +11,11 @@ async def main():
 
     driver = await get_selenium_proxy(url)
     await asyncio.sleep(15)
-    print(driver.page_source)
+    print('\n****************\n', driver.page_source)
+
+    driver = await get_selenium_proxy(url)
+    await asyncio.sleep(30)
+    print('\n****************\n', driver.page_source)
 
 if "__main__" in __name__:
     asyncio.run(main())

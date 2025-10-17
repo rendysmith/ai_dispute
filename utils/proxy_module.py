@@ -143,11 +143,11 @@ async def get_one_proxy():
         login = df.loc[r_idx, 'login']
         password = df.loc[r_idx, 'password']
 
-        print(host, port)
+        print('--- Proxy data:', host, port)
         return host, port, login, password
 
     else:
-        return None, None
+        return None, None, None, None
 
 async def change_setip(ip):
     print('Change action IP')
