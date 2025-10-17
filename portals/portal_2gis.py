@@ -57,7 +57,10 @@ async def get_key(driver, url):
     pattern = r'"reviewApiKey":"([^"]*)"'
     match = re.search(pattern, page_source)
     print("--- match:", match)
-    key = match.group(1)
+    try:
+        key = match.group(1)
+    except:
+        print(page_source)
 
     org_content = await text_to_json(page_source, '"org":{"')
     api_org_id = org_content['org']['id']
@@ -369,14 +372,14 @@ async def main_2gis_sberstrem():
     driver.quit()
 
 if __name__ == '__main__':
-    # driver = asyncio.run(get_driver())
-    # url = 'https://2gis.ru/firm/70000001046157406/tab/reviews'
-    #
-    # ord_id, key = asyncio.run(get_key(driver, url))
-    # print('--------------------------------------------')
-    # print(ord_id, key)
-    #
-    # input()
+    driver = asyncio.run(get_driver())
+    url = 'https://2gis.ru/yaroslavl/firm/70000001045733822/tab/reviews'
+
+    ord_id, key = asyncio.run(get_key(driver, url))
+    print('--------------------------------------------')
+    print(ord_id, key)
+
+    input()
     asyncio.run(main_2gis_sberstrem())
 
 
