@@ -1,9 +1,14 @@
 import json
 import re
 import time
+from pprint import pprint
+
 import asyncio
 
+from urllib.parse import urlparse, parse_qs
+
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 from datetime import datetime, timedelta, timezone
 
@@ -27,7 +32,7 @@ days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
 headless, proxy_on, only_text = asyncio.run(get_hpo())
-#proxy_on = False #Убрать когда будет нормальный прокси
+headless = True
 
 async def text_to_json(script_text, start_word):
     json_start = script_text.find(start_word)
@@ -47,10 +52,64 @@ async def text_to_json(script_text, start_word):
         except:
             json_end = script_text.find('}', json_end + 1)
 
-async def get_key(driver, url):
-    print(f'******************* {url} *********************')
+async def get_id_key(driver, url):
+    print('--- get key 1')
+    async def get_query(url):
+        #print(url)
+        #print('-----------org_id-key-----------')
+        parsed_url = urlparse(url)
+        query_params = parse_qs(parsed_url.query)
+        if query_params.get('key'):
+            key = query_params['key'][0]
+            #print(key)
+
+        api_org_id = await get_id_obj(url)
+        #print(api_org_id)
+
+        return api_org_id, key
+
     driver.get(url)
-    await asyncio.sleep(7)
+    await asyncio.sleep(5)
+    driver.execute_cdp_cmd("Network.enable", {})
+
+    logs = driver.get_log('performance')
+    for entry in logs:
+        if all(i in str(entry) for i in ['key=', 'public-api']):
+            print('\n--------------------------------\n')
+            if entry.get('message'):
+                flow = json.loads(entry['message'])
+                #pprint(flow)
+                if flow.get('message'):
+                    if flow['message'].get('params'):
+                        if flow['message']['params'].get('request') or flow['message']['params'].get('response'):
+                            if flow['message']['params'].get('request'):
+                                url = flow['message']['params']['request']['url']
+                                print(url)
+                                api_org_id, key = await get_query(url)
+                                if api_org_id and key:
+                                    return api_org_id, key
+
+                            elif flow['message']['params'].get('response'):
+                                url = flow['message']['params']['response']['url']
+                                print(url)
+                                api_org_id, key = await get_query(url)
+                                if api_org_id and key:
+                                    return api_org_id, key
+
+                        elif flow['message']['params'].get('headers'):
+                            if flow['message']['params']['headers'].get('path'):
+                                url = flow['message']['params']['headers']['path']
+                                print(url)
+                                api_org_id, key = await get_query(url)
+                                if api_org_id and key:
+                                    return api_org_id, key
+
+    return None, None
+
+async def get_key(driver, url):
+    print('--- get key 2')
+    driver.get(url)
+    await asyncio.sleep(5)
 
     page_source = driver.page_source
 
@@ -83,6 +142,7 @@ async def get_id_obj(url):
     url_split = url.split('/')
     #city_company = url_split[3]
 
+    id_obj = ''
     for idx, v in enumerate(url_split):
         if v == 'firm':
             id_obj = url_split[idx + 1]
@@ -235,10 +295,14 @@ async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, 
 
     if org_id == None or key == None or org_id == "" or key == "":
         full_url = top_url + "/tab/reviews"
-        org_id, key = await get_key(driver, full_url)
+
+        org_id, key = await get_id_key(driver, full_url)
 
         if org_id == None or key == None:
-            return
+            org_id, key = await get_key(driver, full_url)
+
+        if org_id == None or key == None:
+            return int(time.time())
 
         await append_data_to_sheet_cells(service, '1k00OxnK8MekEVu2dmL2IqT1uxTQxWEzd0Aur5a8ILEE', '2gis', ['org_id', 'key'], key_idx + 2, [org_id, key])
 
@@ -253,7 +317,7 @@ async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, 
         if zoom:
             if (current_date - date) > timedelta(days=days_ago):
                 print(f'--- Отзыв старше {days_ago} дней. = {date}')
-                return
+                return org_id
 
             official_answer = block['data']['official_answer']
             if not official_answer:
@@ -263,7 +327,7 @@ async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, 
         else:
             if (current_date - date) > timedelta(days=days_ago):
                 print(f'--- Отзыв старше {days_ago} дней. = {date}')
-                return
+                return org_id
 
         user_id = block['id']
         url_answer = f'https://2gis.ru/firm/{id_org}/tab/reviews/review/{user_id}'
@@ -352,15 +416,17 @@ async def main_2gis_sberstrem():
 
     for k, row in df_links.iterrows():
         link = row['link']
-        print(f'\n----------------------------------------------------------\n{link}')
+        print(f'\n-------------------------------------\n{link}')
 
         org_id = row['org_id']
         if org_id in org_ids:
+            print('Next...', org_id, org_ids)
             continue
 
         date = row['date']
 
         if date == rec_data:
+            print('date == rec_data')
             continue
 
         org_id = await rec_datas(driver, row, links)
@@ -375,11 +441,15 @@ if __name__ == '__main__':
     driver = asyncio.run(get_driver())
     url = 'https://2gis.ru/yaroslavl/firm/70000001045733822/tab/reviews'
 
-    ord_id, key = asyncio.run(get_key(driver, url))
-    print('--------------------------------------------')
-    print(ord_id, key)
+    # ord_id, key = asyncio.run(get_key(driver, url))
+    # print('--------------------------------------------')
+    # print(ord_id, key)
 
-    input()
+    # org_id, key = asyncio.run(get_id_key(driver, url))
+    # print('--------------------FINISH------------------------')
+    # print(org_id, key)
+    # input()
+
     asyncio.run(main_2gis_sberstrem())
 
 
