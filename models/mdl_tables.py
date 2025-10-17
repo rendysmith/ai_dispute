@@ -246,6 +246,8 @@ class Proxies(Base):
     host_id = Column(Integer, primary_key=True, autoincrement=True)
     host = Column(String, nullable=False, index=True)
     port = Column(String, nullable=False, index=True)
+    login = Column(String, nullable=False, index=True)
+    password = Column(String, nullable=False, index=True)
 
 
 

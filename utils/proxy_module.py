@@ -134,16 +134,17 @@ async def parse_data():
 
 async def get_one_proxy():
     status, df = await read_from_postgres('proxies')
-    print(df)
     if status:
         len_df = len(df)
         r_idx = random.randint(0, len_df - 1)
 
         host = df.loc[r_idx, 'host']
         port = df.loc[r_idx, 'port']
+        login = df.loc[r_idx, 'login']
+        password = df.loc[r_idx, 'password']
 
         print(host, port)
-        return host, port
+        return host, port, login, password
 
     else:
         return None, None

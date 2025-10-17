@@ -41,8 +41,8 @@ config.DISABLE_COLORS = True
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
-login_proxy = os.environ.get("LOGIN_PROXY")
-pass_proxy = os.environ.get("PASS_PROXY")
+# login_proxy = os.environ.get("LOGIN_PROXY")
+# pass_proxy = os.environ.get("PASS_PROXY")
 
 ua = UserAgent()
 
@@ -498,7 +498,7 @@ async def get_seleniumbase_sb(url=None, headless=True, proxy=True):
 
     if proxy:
         print('>>> Selenium PROXY...')
-        proxy_host, proxy_port = await get_one_proxy()
+        proxy_host, proxy_port, login_proxy, proxy_port = await get_one_proxy()
         print(f'New One Proxy: {proxy_host}:{proxy_port}')
         proxy_string = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
         driver_options['proxy'] = proxy_string
@@ -579,9 +579,10 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
 
     if proxy:
         print('>>> Selenium PROXY...')
-        proxy_host, proxy_port = await get_one_proxy()
+        proxy_host, proxy_port, proxy_login, proxy_pass = await get_one_proxy()
+
         print(f'New One Proxy: {proxy_host}:{proxy_port}')
-        proxy_string = f"{login_proxy}:{pass_proxy}@{proxy_host}:{proxy_port}"
+        proxy_string = f"{proxy_login}:{proxy_pass}@{proxy_host}:{proxy_port}"
         driver_options['proxy'] = proxy_string
 
     else:
@@ -698,12 +699,12 @@ async def get_data_with_proxy(url, text_format=True):
     trying = 3
     for i in range(trying):
         print(f'--- Proxy try {i}')
-        proxy_host, proxy_port = await get_one_proxy()
+        proxy_host, proxy_port, proxy_login, proxy_pass = await get_one_proxy()
         connector = ProxyConnector(proxy_type=ProxyType.HTTP,
                                    host=proxy_host,
                                    port=proxy_port,
-                                   username=login_proxy,
-                                   password=pass_proxy)
+                                   username=proxy_login,
+                                   password=proxy_pass)
 
         timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
@@ -867,46 +868,36 @@ async def get_patchright(url):
         await browser.close()
 
 async def tst_proxy():
-    from DrissionPage import ChromiumPage
+    proxy_host = '166.1.161.16'
+    proxy_port = "20225"
+    login_proxy = 'CAjuNdnZYnyj'
+    pass_proxy = 'kostik777.08'
 
-    page = ChromiumPage()
-    page.get('https://irecommend.ru/content/rezina-dlya-legkogo-i-ne-ochen-bezdorozhya')
-    while True:
-        await asyncio.sleep(7)
-        html_code = page.html
-        print(html_code)
+    url = "https://2gis.ru/firm/70000001045736119"
 
-        # Находим чекбокс по тегу и типу или любому другому локатору
-        checkbox = page.ele("tag:input@@type=checkbox")
-        checkbox.wait.enabled(timeout=10)
+    connector = ProxyConnector(proxy_type=ProxyType.HTTP,
+                               host=proxy_host,
+                               port=proxy_port,
+                               username=login_proxy,
+                               password=pass_proxy)
 
-        # Кликаем по найденному чекбоксу
-        checkbox.click()
+    timeout = aiohttp.ClientTimeout(total=10)
+    async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
 
-
-
-    input('Wait ...')
+        async with session.get(url) as response:
+            status_code = response.status
+            print("--- Status:", status_code)
+            print(await response.text())
 
 async def main():
-    #soup = await get_soup_anticloud(url)
-    #soup = await get_soup(url, only_text=False)
+    url = "https://2gis.ru/firm/70000001045736119"
 
-    #playwright, browser, page = await get_playwright(url, headless=False)
-    headless = False
-    #driver = await get_selenium_proxy(headless=headless, proxy=False)
+    driver = await get_selenium_proxy(url, headless=False, proxy=True)
 
-    url = 'https://irecommend.ru/content/vozmeshchenie-ubytkov-posle-krazhi-instrumenta'
+    print(driver.page_source)
 
-    await get_selenium_win(url)
-    input('Wait...')
-
-    page = await get_playwright_anticloud(url, headless=headless)
-    input('Wait')
-
-
-    #input('Wait..')
 
 if "__main__" in __name__:
-    asyncio.run(tst_proxy())
+    asyncio.run(main())
     #soup = asyncio.run(get_soup('https://irecommend.ru/content/uzhasnei-kompanii-ya-ne-vstrechal', proxy=False))
     #print(soup.title)
