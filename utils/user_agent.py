@@ -602,9 +602,19 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
     return driver
 
 async def get_playwright(url=False, headless=True, proxy=True):
+    if proxy:
+        host, port, login, password = await get_one_proxy()
+
+        proxy = {
+            "server": f"http://{host}:{port}",
+            "username": login,  # можно опустить
+            "password": password  # можно опустить
+        }
+
     p = await async_playwright().start()   # <-- вместо async with
     browser = await p.chromium.launch(
         headless=headless,
+        proxy=proxy,
         args=["--no-sandbox", "--disable-blink-features=AutomationControlled"]
     )
     context = await browser.new_context(

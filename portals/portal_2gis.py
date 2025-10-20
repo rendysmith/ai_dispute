@@ -417,7 +417,7 @@ async def main_2gis_sberstrem():
     links = await pars_url(service, zoom_ss_id, project)
 
     #driver = await get_driver()
-    browser, context, page = await get_playwright(headless=headless, proxy=proxy_on)
+    browser, context, page = await get_playwright()
 
     org_ids = []
 
