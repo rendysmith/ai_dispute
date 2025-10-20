@@ -41,7 +41,8 @@ WORKDIR /app
 # Копирование и установка Python-зависимостей
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install playwright && playwright install --with-deps
 
 # Копирование остальных файлов проекта
 COPY . .
