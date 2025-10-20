@@ -17,7 +17,7 @@ from utils.central_module import get_local_ip, wait_for_portal, get_hpo
 from utils.gs_editor import pars_url, get_service, append_data_to_sheet_scope, read_table_id, \
     append_data_to_sheet_scopes, append_data_to_sheet_cell, append_data_to_sheet_cells
 from utils.ai_module import generate_and_white
-from utils.user_agent import get_soup, get_selenium_proxy
+from utils.user_agent import get_soup, get_selenium_proxy, get_playwright
 
 import os
 from dotenv import load_dotenv
@@ -106,25 +106,25 @@ async def get_id_key(driver, url):
 
     return None, None
 
-async def get_key(driver, url):
+async def get_key(page_source: str):
     print('--- get key 2')
-    driver.get(url)
-    await asyncio.sleep(15)
-
-    page_source = driver.page_source
+    # driver.get(url)
+    # await asyncio.sleep(15)
+    #
+    # page_source = driver.page_source
 
     pattern = r'"reviewApiKey":"([^"]*)"'
     match = re.search(pattern, page_source)
     print("--- match:", match)
     try:
-        key = match.group(1)
+        key_id = match.group(1)
     except:
         print(page_source)
 
     org_content = await text_to_json(page_source, '"org":{"')
     api_org_id = org_content['org']['id']
 
-    return api_org_id, key
+    return api_org_id, key_id
 
 async def get_driver():
     return await get_selenium_proxy(headless=headless, proxy=proxy_on)
@@ -287,7 +287,7 @@ async def pars_json_data(script_text):
         except:
             json_end = script_text.find('}', json_end + 1)
 
-async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, project, id_org, row, zoom=True):
+async def selen_pars(service, page, links, top_url, pattern, criteria, ss_id, project, id_org, row, zoom=True):
     org_id = row['org_id']
     key = row['key']
     key_idx = row.name
@@ -296,10 +296,15 @@ async def selen_pars(service, driver, links, top_url, pattern, criteria, ss_id, 
     if org_id == None or key == None or org_id == "" or key == "":
         full_url = top_url + "/tab/reviews"
 
-        org_id, key = await get_id_key(driver, full_url)
+        await page.goto(full_url)
+        #await asyncio.sleep(5000)
+        await page.wait_for_timeout(5000)
 
-        if org_id == None or key == None:
-            org_id, key = await get_key(driver, full_url)
+        page_content = await page.content()
+        org_id, key = await get_key(page_content)
+
+        # if org_id == None or key == None:
+        #     org_id, key = await get_id_key(driver, full_url)
 
         if org_id == None or key == None:
             return int(time.time())
@@ -378,7 +383,7 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project, links=Fals
         await selen_pars(service, links, top_url, pattern, criteria, ss_id, project, id_org, zoom)
 
 async def main_2gis_sberstrem():
-    async def rec_datas(driver, row, links):
+    async def rec_datas(page, row, links):
         link = row['link']
 
         start_time = time.time()
@@ -386,7 +391,7 @@ async def main_2gis_sberstrem():
         id_obj = await get_id_obj(link)
         top_url = f'https://2gis.ru/firm/{id_obj}'
 
-        org_id = await selen_pars(service, driver, links, top_url, 1, 1, zoom_ss_id, project, id_obj, row, zoom=False)
+        org_id = await selen_pars(service, page, links, top_url, 1, 1, zoom_ss_id, project, id_obj, row, zoom=False)
 
         total_time = int(time.time() - start_time)
         await append_data_to_sheet_cells(service, datas_ss_id, '2gis', ['date', 'time'], k + 2, [rec_data, total_time])
@@ -411,7 +416,8 @@ async def main_2gis_sberstrem():
 
     links = await pars_url(service, zoom_ss_id, project)
 
-    driver = await get_driver()
+    #driver = await get_driver()
+    browser, context, page = await get_playwright(headless=headless, proxy=proxy_on)
 
     org_ids = []
 
@@ -430,13 +436,13 @@ async def main_2gis_sberstrem():
             print('date == rec_data')
             continue
 
-        org_id = await rec_datas(driver, row, links)
+        org_id = await rec_datas(page, row, links)
         org_ids.append(org_id)
 
         if k // 10 == 0:
             links = await pars_url(service, zoom_ss_id, project)
 
-    driver.quit()
+    await browser.close()
 
 if __name__ == '__main__':
     #driver = asyncio.run(get_driver())

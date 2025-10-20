@@ -15,8 +15,6 @@ from fake_useragent import UserAgent
 import os
 from dotenv import load_dotenv
 
-from utils.constants import status_codes
-from utils.proxy_module import get_one_proxy
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -31,6 +29,11 @@ from webdriver_manager.chrome import ChromeDriverManager
 from seleniumbase import Driver
 from seleniumbase import config
 from seleniumbase import SB
+
+from playwright.async_api import async_playwright
+
+from utils.constants import status_codes
+from utils.proxy_module import get_one_proxy
 
 os.environ['DISABLE_COLIED_TRACEBACK'] = '1'
 os.environ["DISABLE_COLORAMA"] = "1"
@@ -598,7 +601,29 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
     driver.execute_cdp_cmd('Network.enable', {})
     return driver
 
-async def get_playwright(url, headless=True):
+async def get_playwright(url=False, headless=True, proxy=True):
+    p = await async_playwright().start()   # <-- вместо async with
+    browser = await p.chromium.launch(
+        headless=headless,
+        args=["--no-sandbox", "--disable-blink-features=AutomationControlled"]
+    )
+    context = await browser.new_context(
+        user_agent=str(ua),
+        viewport={"width":1366,"height":768},
+        locale="en-US"
+    )
+    await context.add_init_script(
+        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+    )
+
+    page = await context.new_page()
+    if url:
+        await page.goto(url)
+        await page.wait_for_timeout(5000)  # имитация паузы
+
+    return browser, context, page
+
+async def get_playwright_old(url, headless=True):
     print('>>> start PW')
     """
      :param url: url
