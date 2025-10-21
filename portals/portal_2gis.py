@@ -411,7 +411,7 @@ async def main_2gis_sberstrem():
 
     print('************DF***************')
     df_links = await read_table_id(service, datas_ss_id, project)
-    df_links = df_links[df_links['host'] == local_ip]
+    df_links = df_links[(df_links['host'] == local_ip) & (df_links['date'] != rec_data)]
     print(df_links)
 
     links = await pars_url(service, zoom_ss_id, project)
@@ -428,6 +428,12 @@ async def main_2gis_sberstrem():
         org_id = row['org_id']
         if org_id in org_ids:
             print('Next...', org_id, org_ids)
+            await append_data_to_sheet_cells(service,
+                                             datas_ss_id,
+                                             '2gis',
+                                             ['date', 'time'],
+                                             k + 2,
+                                             [rec_data, -1])
             continue
 
         date = row['date']

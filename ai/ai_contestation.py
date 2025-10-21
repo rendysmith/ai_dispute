@@ -1183,14 +1183,22 @@ async def pars_ya_maps(service, driver, url, ss_id, project, links, rating_max):
         blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-reviews-card-view__review"]')
         len_b = len(blocks)
         print("Скрол вниз:", len_b)
+
+        driver.execute_script("window.scrollBy(0, 500);")
+
         await asyncio.sleep(3)
 
-        if len_b == number_reviews:
+        if len_b >= number_reviews:
             break
+
+
 
     for k, block in enumerate(blocks):
         print(k)
-        formatted_date = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__date"]').text
+        date_content = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__date"]').find_element(By.CSS_SELECTOR, 'meta[itemprop="datePublished"]').get_attribute('content')
+        dt_object = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%f%z")
+        formatted_date = dt_object.strftime("%d.%m.%Y")
+        print(formatted_date)
 
         try:
             spoiler = block.find_element(By.CSS_SELECTOR, 'span[class="spoiler-view__button"]')
@@ -1514,109 +1522,6 @@ async def banki_ru(ss_id, project):
     start_page = 6
     await get_irec(service, ss_id, project, driver, links, url, start_page, 2)
 
-async def nlmk(project, fix_rating):
-    service = await get_service()
-    df = await read_table_id(service, ss_id, project)
-    texts = df['Текст'].tolist()
-
-    driver = await get_selenium_proxy(headless=False, proxy=False)
-
-
-    urls = ['https://yandex.md/maps/org/novolipetskiy_metallurgicheskiy_kombinat/1037025051/reviews/?ll=39.622478%2C52.571667&z=16']
-
-    for url in urls:
-        driver.get(url)
-
-        await asyncio.sleep(5)
-
-        org_id = await get_id_org(url)
-
-        while True:
-            try:
-                reviews_element = driver.find_element(By.CSS_SELECTOR, 'h2[class="card-section-header__title _wide"]')
-                reviews_text = reviews_element.text
-                number_reviews = int(reviews_text.split(" ")[0])
-                print(1, number_reviews)
-                break
-
-            except:
-                try:
-                    reviews_element = driver.find_element(By.CSS_SELECTOR,
-                                                          'h2[class="card-section-header__title"]')
-                    reviews_text = reviews_element.text
-                    number_reviews = int(reviews_text.split(" ")[0])
-                    print(2, number_reviews)
-                    break
-
-                except:
-                    await asyncio.sleep(2)
-
-        rating_before = driver.find_element(By.CSS_SELECTOR,
-                                            'div[class="business-summary-rating-badge-view__rating"]').text
-
-        #number_reviews = 50
-
-        while True:
-            blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-reviews-card-view__review"]')
-            len_b = len(blocks)
-            print("Скрол вниз:", len_b)
-            await asyncio.sleep(3)
-
-            if len_b == number_reviews:
-                break
-
-        datas = {
-            "Дата": [],
-            "Текст": [],
-            "Бренд": [],
-            "Источник": [],
-            "Url": [],
-            "Автор": [],
-            "Оценка": [],
-            "Общий Url": [],
-            "Кол-во отзывов": [],
-            "Оценка компании до удаления": [],
-            'Вероятность удаления': [],
-            'Текст для поддержки': []
-        }
-
-        for k, block in enumerate(blocks):
-            print(k)
-            formatted_date = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__date"]').text
-            feedback = block.find_element(By.CSS_SELECTOR, 'span[class=" spoiler-view__text-container"]').text
-
-            if feedback in texts:
-                continue
-
-            try:
-                url_author = block.find_element(By.CSS_SELECTOR, 'a[class="business-review-view__user-icon"]').get_attribute("href")
-                url_author_split = url_author.split('/')[-1]
-                url_answer = f'https://yandex.md/maps/org/{org_id}/reviews?reviews%5BpublicId%5D={url_author_split}&utm_source=review'
-
-            except:
-                url_answer = ''
-
-            author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
-
-            star_full = block.find_elements(By.CSS_SELECTOR,
-                                            'span[class="inline-image _loaded icon business-rating-badge-view__star _full"]')
-            rating = len(star_full)
-
-            if rating > fix_rating:
-                continue
-
-            datas['Дата'].append(formatted_date)
-            datas['Текст'].append(feedback)
-            datas['Бренд'].append(project)
-            datas['Источник'].append("yandex.ru/maps")
-            datas['Url'].append(url_answer)
-            datas['Автор'].append(author)
-            datas['Оценка'].append(rating)
-            datas['Общий Url'].append(url)
-            datas['Кол-во отзывов'].append(number_reviews)
-            datas['Оценка компании до удаления'].append(rating_before)
-
-        await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
 async def tk_kit(ss_id, project):
 
@@ -1749,8 +1654,8 @@ async def multi_pars(ss_id, project):
         pass
 
 async def main():
-    ss_id = '1dNQeEr_OkyRp7xSnE5Nb8Cjoswb4YkIBYeUcTnPDEO4'
-    project = 'Autoteka'
+    ss_id = '17Pl8Fb4MTEJfLaUHTHalcndz1DfU2b-v-HU8sdsfzQ0'
+    project = 'SidorinLab'
 
     # await multi_pars(ss_id, project)
     # #await review_analysis(ss_id, project)
@@ -1762,6 +1667,114 @@ async def main():
 if __name__ == '__main__':
     asyncio.run(main())
     print("OK!!!")
+
+
+
+
+
+# async def nlmk(project, fix_rating):
+#     service = await get_service()
+#     df = await read_table_id(service, ss_id, project)
+#     texts = df['Текст'].tolist()
+#
+#     driver = await get_selenium_proxy(headless=False, proxy=False)
+#
+#
+#     urls = ['https://yandex.md/maps/org/novolipetskiy_metallurgicheskiy_kombinat/1037025051/reviews/?ll=39.622478%2C52.571667&z=16']
+#
+#     for url in urls:
+#         driver.get(url)
+#
+#         await asyncio.sleep(5)
+#
+#         org_id = await get_id_org(url)
+#
+#         while True:
+#             try:
+#                 reviews_element = driver.find_element(By.CSS_SELECTOR, 'h2[class="card-section-header__title _wide"]')
+#                 reviews_text = reviews_element.text
+#                 number_reviews = int(reviews_text.split(" ")[0])
+#                 print(1, number_reviews)
+#                 break
+#
+#             except:
+#                 try:
+#                     reviews_element = driver.find_element(By.CSS_SELECTOR,
+#                                                           'h2[class="card-section-header__title"]')
+#                     reviews_text = reviews_element.text
+#                     number_reviews = int(reviews_text.split(" ")[0])
+#                     print(2, number_reviews)
+#                     break
+#
+#                 except:
+#                     await asyncio.sleep(2)
+#
+#         rating_before = driver.find_element(By.CSS_SELECTOR,
+#                                             'div[class="business-summary-rating-badge-view__rating"]').text
+#
+#         #number_reviews = 50
+#
+#         while True:
+#             blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-reviews-card-view__review"]')
+#             len_b = len(blocks)
+#             print("Скрол вниз:", len_b)
+#             await asyncio.sleep(3)
+#
+#             if len_b == number_reviews:
+#                 break
+#
+#         datas = {
+#             "Дата": [],
+#             "Текст": [],
+#             "Бренд": [],
+#             "Источник": [],
+#             "Url": [],
+#             "Автор": [],
+#             "Оценка": [],
+#             "Общий Url": [],
+#             "Кол-во отзывов": [],
+#             "Оценка компании до удаления": [],
+#             'Вероятность удаления': [],
+#             'Текст для поддержки': []
+#         }
+#
+#         for k, block in enumerate(blocks):
+#             print(k)
+#             formatted_date = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__date"]').text
+#             feedback = block.find_element(By.CSS_SELECTOR, 'span[class=" spoiler-view__text-container"]').text
+#
+#             if feedback in texts:
+#                 continue
+#
+#             try:
+#                 url_author = block.find_element(By.CSS_SELECTOR, 'a[class="business-review-view__user-icon"]').get_attribute("href")
+#                 url_author_split = url_author.split('/')[-1]
+#                 url_answer = f'https://yandex.md/maps/org/{org_id}/reviews?reviews%5BpublicId%5D={url_author_split}&utm_source=review'
+#
+#             except:
+#                 url_answer = ''
+#
+#             author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
+#
+#             star_full = block.find_elements(By.CSS_SELECTOR,
+#                                             'span[class="inline-image _loaded icon business-rating-badge-view__star _full"]')
+#             rating = len(star_full)
+#
+#             if rating > fix_rating:
+#                 continue
+#
+#             datas['Дата'].append(formatted_date)
+#             datas['Текст'].append(feedback)
+#             datas['Бренд'].append(project)
+#             datas['Источник'].append("yandex.ru/maps")
+#             datas['Url'].append(url_answer)
+#             datas['Автор'].append(author)
+#             datas['Оценка'].append(rating)
+#             datas['Общий Url'].append(url)
+#             datas['Кол-во отзывов'].append(number_reviews)
+#             datas['Оценка компании до удаления'].append(rating_before)
+#
+#         await append_data_to_sheet_scopes(service, ss_id, project, datas)
     
 
 
