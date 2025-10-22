@@ -7,8 +7,8 @@ import asyncio
 
 from urllib.parse import urlparse, parse_qs
 
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+#from selenium.webdriver.common.by import By
+#from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 from datetime import datetime, timedelta, timezone
 
@@ -205,6 +205,7 @@ async def send_top_url(service, ss_id, project, url):
              'top_url': top_url}
 
     await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
+    await asyncio.sleep(3)
     return id_obj, top_url
 
 async def soup_pars(service, url, links, pattern, criteria, ss_id, project, zoom=True):
@@ -268,6 +269,7 @@ async def soup_pars(service, url, links, pattern, criteria, ss_id, project, zoom
 
     if zoom == False:
         await append_data_to_sheet_scopes(service, ss_id, '2gis', datas)
+        await asyncio.sleep(3)
 
 async def pars_json_data(script_text):
     json_start = script_text.find('"review":{')
@@ -287,7 +289,7 @@ async def pars_json_data(script_text):
         except:
             json_end = script_text.find('}', json_end + 1)
 
-async def selen_pars(service, page, links, top_url, pattern, criteria, ss_id, project, id_org, row, zoom=True):
+async def play_pars(service, page, links, top_url, pattern, criteria, ss_id, project, id_org, row, zoom=True):
     org_id = row['org_id']
     key = row['key']
     key_idx = row.name
@@ -296,7 +298,11 @@ async def selen_pars(service, page, links, top_url, pattern, criteria, ss_id, pr
     if org_id == None or key == None or org_id == "" or key == "":
         full_url = top_url + "/tab/reviews"
 
-        await page.goto(full_url)
+        try:
+            await page.goto(full_url)
+        except Exception as ex:
+            print(f'-Error Playwrigh: {ex}')
+            return
         #await asyncio.sleep(5000)
         await page.wait_for_timeout(5000)
 
@@ -310,8 +316,12 @@ async def selen_pars(service, page, links, top_url, pattern, criteria, ss_id, pr
             return int(time.time())
 
         await append_data_to_sheet_cells(service, '1k00OxnK8MekEVu2dmL2IqT1uxTQxWEzd0Aur5a8ILEE', '2gis', ['org_id', 'key'], key_idx + 2, [org_id, key])
-
+        await asyncio.sleep(3)
+        
     blocks, org_rating, org_reviews_count = await blocks_2gis_bs4(org_id, key)
+    if len(blocks) == 0:
+        print('Len B = 0')
+        return org_id
 
     datas = await data_empty()
 
@@ -367,6 +377,7 @@ async def selen_pars(service, page, links, top_url, pattern, criteria, ss_id, pr
 
     if zoom == False:
         await append_data_to_sheet_scopes(service, ss_id, '2gis', datas)
+        await asyncio.sleep(3)
 
     return org_id
 
@@ -380,7 +391,7 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project, links=Fals
         await soup_pars(service, url, links, pattern, criteria, ss_id, project, zoom)
 
     elif 'geo' in url:
-        await selen_pars(service, links, top_url, pattern, criteria, ss_id, project, id_org, zoom)
+        await play_pars(service, links, top_url, pattern, criteria, ss_id, project, id_org, zoom)
 
 async def main_2gis_sberstrem():
     async def rec_datas(page, row, links):
@@ -391,10 +402,11 @@ async def main_2gis_sberstrem():
         id_obj = await get_id_obj(link)
         top_url = f'https://2gis.ru/firm/{id_obj}'
 
-        org_id = await selen_pars(service, page, links, top_url, 1, 1, zoom_ss_id, project, id_obj, row, zoom=False)
+        org_id = await play_pars(service, page, links, top_url, 1, 1, zoom_ss_id, project, id_obj, row, zoom=False)
 
         total_time = int(time.time() - start_time)
         await append_data_to_sheet_cells(service, datas_ss_id, '2gis', ['date', 'time'], k + 2, [rec_data, total_time])
+        await asyncio.sleep(3)
 
         return org_id
 
@@ -408,10 +420,16 @@ async def main_2gis_sberstrem():
     if '176.124' in local_ip:
         local_data = {'host': local_ip}
         await append_data_to_sheet_scope(service, datas_ss_id, 'hosts', local_data)
+        await asyncio.sleep(3)
 
     print('************DF***************')
     df_links = await read_table_id(service, datas_ss_id, project)
     df_links = df_links[(df_links['host'] == local_ip) & (df_links['date'] != rec_data)]
+
+    if df_links.empty:
+        print("Df Len:", len(df_links))
+        return
+
     print(df_links)
 
     links = await pars_url(service, zoom_ss_id, project)
@@ -434,6 +452,7 @@ async def main_2gis_sberstrem():
                                              ['date', 'time'],
                                              k + 2,
                                              [rec_data, -1])
+            await asyncio.sleep(3)
             continue
 
         date = row['date']

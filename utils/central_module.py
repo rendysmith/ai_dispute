@@ -47,7 +47,6 @@ async def get_local_ip():
     #http://ip-api.com/json/?fields=61439
 
     try:
-        print(1)
         url = 'https://api.myip.com/'
         r = requests.get(url)
         if r.status_code == 200:
@@ -61,7 +60,6 @@ async def get_local_ip():
             r.raise_for_status()
 
     except requests.exceptions.ConnectionError as CE:
-        print(2)
         url = 'https://api.ipify.org?format=json'
         r = requests.get(url)
         if r.status_code == 200:
@@ -75,7 +73,6 @@ async def get_local_ip():
             r.raise_for_status()
 
     except Exception as Ex:
-        print(3, Ex)
         url = 'https://ifconfig.me/all.json'
         r = requests.get(url)
         if r.status_code == 200:

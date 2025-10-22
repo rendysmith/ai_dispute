@@ -7,7 +7,7 @@ from aiohttp_proxy import ProxyConnector, ProxyType
 
 import requests
 from bs4 import BeautifulSoup
-import cloudscraper
+
 import re
 
 from fake_useragent import UserAgent
@@ -26,9 +26,10 @@ from selenium.common.exceptions import TimeoutException
 
 from webdriver_manager.chrome import ChromeDriverManager
 
-from seleniumbase import Driver
-from seleniumbase import config
-from seleniumbase import SB
+#import cloudscraper
+# from seleniumbase import Driver
+# from seleniumbase import config
+# from seleniumbase import SB
 
 from playwright.async_api import async_playwright
 
@@ -39,7 +40,7 @@ os.environ['DISABLE_COLIED_TRACEBACK'] = '1'
 os.environ["DISABLE_COLORAMA"] = "1"
 os.environ["SELENIUMBASE_COLOR"] = "0"
 
-config.DISABLE_COLORS = True
+#config.DISABLE_COLORS = True
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
