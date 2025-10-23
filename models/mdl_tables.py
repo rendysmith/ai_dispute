@@ -249,6 +249,19 @@ class Proxies(Base):
     login = Column(String, nullable=False, index=True)
     password = Column(String, nullable=False, index=True)
 
+class OrgLink(Base):
+    """
+
+    """
+    __tablename__ = "org_links"
+    __table_args__ = {"schema": "double_gis"}
+
+    link_id = Column(Integer, primary_key=True, autoincrement=True)
+    link = Column(String, nullable=False, index=True)
+    org_link = Column(String, nullable=False, index=True)
+    key = Column(String, nullable=False, index=True)
+    date = Column(DateTime, nullable=False, index=True)
+
 
 
 

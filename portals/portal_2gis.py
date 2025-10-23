@@ -10,9 +10,13 @@ from urllib.parse import urlparse, parse_qs
 #from selenium.webdriver.common.by import By
 #from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
-from datetime import datetime, timedelta, timezone
+from sqlalchemy import or_, func
 
+from datetime import datetime, timedelta, timezone, date
+
+from models.mdl_tables import OrgLink
 from utils.central_module import get_local_ip, wait_for_portal, get_hpo
+from utils.db_loader import get_and_lock_row, read_data_from_db_filter_limit_universal
 
 from utils.gs_editor import pars_url, get_service, append_data_to_sheet_scope, read_table_id, \
     append_data_to_sheet_scopes, append_data_to_sheet_cell, append_data_to_sheet_cells
@@ -393,22 +397,8 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project, links=Fals
     elif 'geo' in url:
         await play_pars(service, links, top_url, pattern, criteria, ss_id, project, id_org, zoom)
 
-async def main_2gis_sberstrem():
-    async def rec_datas(page, row, links):
-        link = row['link']
+async def main_2gis_sberstrem_old():
 
-        start_time = time.time()
-
-        id_obj = await get_id_obj(link)
-        top_url = f'https://2gis.ru/firm/{id_obj}'
-
-        org_id = await play_pars(service, page, links, top_url, 1, 1, zoom_ss_id, project, id_obj, row, zoom=False)
-
-        total_time = int(time.time() - start_time)
-        await append_data_to_sheet_cells(service, datas_ss_id, '2gis', ['date', 'time'], k + 2, [rec_data, total_time])
-        await asyncio.sleep(3)
-
-        return org_id
 
     service = await get_service()
     datas_ss_id = '1k00OxnK8MekEVu2dmL2IqT1uxTQxWEzd0Aur5a8ILEE'
@@ -468,6 +458,64 @@ async def main_2gis_sberstrem():
             links = await pars_url(service, zoom_ss_id, project)
 
     await browser.close()
+
+ async def rec_datas(page, row, links):
+        link = row['link']
+
+        start_time = time.time()
+
+        id_obj = await get_id_obj(link)
+        top_url = f'https://2gis.ru/firm/{id_obj}'
+
+        org_id = await play_pars(service, page, links, top_url, 1, 1, zoom_ss_id, project, id_obj, row, zoom=False)
+
+        total_time = int(time.time() - start_time)
+        await append_data_to_sheet_cells(service, datas_ss_id, '2gis', ['date', 'time'], k + 2, [rec_data, total_time])
+        await asyncio.sleep(3)
+
+        return org_id
+
+async def main_2gis_sberstrem():
+    browser, context, page = await get_playwright()
+
+    today = date.today()
+    print(today)
+    filter = func.date(OrgLink.date) != today
+    status, result  = await read_data_from_db_filter_limit_universal('org_links', 5000, 1, filters=filter)
+
+    if not status:
+        return
+
+    # for r in result[:5]:
+    #     print(r.link_id, r.date)
+
+    len_r = len(result)
+    print(len_r)
+
+
+    filters = or_(
+        OrgLink.date.is_(None),
+        func.date(OrgLink.date) != today
+    )
+
+    for i in range(3):
+        row = await get_and_lock_row(OrgLink, filters)
+        org_id = await rec_datas(page, row, links)
+
+        print(row.link_id, row.date, )
+
+
+
+
+
+
+
+
+
+
+
+    #await browser.close()
+
 
 if __name__ == '__main__':
     #driver = asyncio.run(get_driver())
