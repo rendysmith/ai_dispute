@@ -10,7 +10,7 @@ from urllib.parse import urlparse, parse_qs
 #from selenium.webdriver.common.by import By
 #from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
-from sqlalchemy import or_, func, update, select
+from sqlalchemy import or_, func, update, select, and_
 
 from datetime import datetime, timedelta, timezone, date
 
@@ -196,9 +196,12 @@ async def blocks_2gis_bs4(org_id, key):
 
     r_json = await get_soup(api_url, only_text=False, proxy=proxy_on)
 
-    blocks = r_json['reviews']
-    org_rating = r_json['meta']['org_rating']
-    org_reviews_count = r_json['meta']['org_reviews_count']
+    try:
+        blocks = r_json['reviews']
+        org_rating = r_json['meta']['org_rating']
+        org_reviews_count = r_json['meta']['org_reviews_count']
+    except:
+        blocks, org_rating, org_reviews_count = [], 0, 0
 
     print(f'Len_B = {len(blocks)}')
     return blocks, org_rating, org_reviews_count
@@ -494,6 +497,22 @@ async def rec_datas(service, ss_id, df_links, page, session, row):
 
         await update_universal(session, query)
 
+    filter = and_(
+        func.date(OrgLink.date) == today,
+        OrgLink.org_link == org_link
+    )
+    query = select(OrgLink).where(filter)
+    result = await read_universal(session, query)
+    if len(result) > 0:
+        query = (
+            update(OrgLink)
+            .where(OrgLink.link == top_url)
+            .values(date=today)
+        )
+        await update_universal(session, query)
+        print('-- Double')
+        return
+
     blocks, org_rating, org_reviews_count = await blocks_2gis_bs4(org_link, key)
     if len(blocks) == 0:
         print('Len B = 0')
@@ -504,7 +523,6 @@ async def rec_datas(service, ss_id, df_links, page, session, row):
             .values(date=today)
         )
         await update_universal(session, query)
-
         return
 
     for k, block in enumerate(blocks):
@@ -602,12 +620,12 @@ async def main_2gis_sberstrem():
         for i in range(len_fl):
             row = await get_and_lock_row(session, OrgLink, filters)
             if row is None:
-                print("Нет доступных строк для обработки.")
-                return
+                print("- Нет доступных строк для обработки.")
+                break
 
             print(f"\n***************{row.link_id}****************\n", row.date, row.link)
             await rec_datas(service, ss_id, df_links, page, session, row)
-            await asyncio.sleep(1)
+            #await asyncio.sleep(1)
 
     await browser.close()
     await context.close()

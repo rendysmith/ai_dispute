@@ -1641,11 +1641,6 @@ async def multi_pars(ss_id, project):
             await asyncio.sleep(3)
 
 
-
-
-
-
-
     try:
         driver.quit()
         driver2.quit()
@@ -1654,15 +1649,15 @@ async def multi_pars(ss_id, project):
         pass
 
 async def main():
-    ss_id = '17Pl8Fb4MTEJfLaUHTHalcndz1DfU2b-v-HU8sdsfzQ0'
-    project = 'SidorinLab'
+    ss_id = '1GXdXTqbtwDEZhKS7HawqNUvaqHSGWbVnWe-zE7k0q3g'
+    project = 'MkKlinik'
 
     # await multi_pars(ss_id, project)
-    # #await review_analysis(ss_id, project)
+    await review_analysis(ss_id, project)
 
-    await asyncio.gather(
-       review_analysis(ss_id, project),
-       multi_pars(ss_id, project))
+    # await asyncio.gather(
+    #    review_analysis(ss_id, project),
+    #    multi_pars(ss_id, project))
 
 if __name__ == '__main__':
     asyncio.run(main())
