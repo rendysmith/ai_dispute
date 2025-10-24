@@ -10,13 +10,14 @@ from urllib.parse import urlparse, parse_qs
 #from selenium.webdriver.common.by import By
 #from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, update, select
 
 from datetime import datetime, timedelta, timezone, date
 
 from models.mdl_tables import OrgLink
 from utils.central_module import get_local_ip, wait_for_portal, get_hpo
-from utils.db_loader import get_and_lock_row, read_data_from_db_filter_limit_universal
+from utils.db_loader import get_and_lock_row, read_data_from_db_filter_limit_universal, update_universal, \
+    read_universal, SessionLocal
 
 from utils.gs_editor import pars_url, get_service, append_data_to_sheet_scope, read_table_id, \
     append_data_to_sheet_scopes, append_data_to_sheet_cell, append_data_to_sheet_cells
@@ -37,6 +38,9 @@ max_sec = int(os.environ.get("MAX_SEC"))
 
 headless, proxy_on, only_text = asyncio.run(get_hpo())
 headless = True
+
+today = date.today()
+print(today)
 
 async def text_to_json(script_text, start_word):
     json_start = script_text.find(start_word)
@@ -459,62 +463,155 @@ async def main_2gis_sberstrem_old():
 
     await browser.close()
 
- async def rec_datas(page, row, links):
-        link = row['link']
+async def rec_datas(service, ss_id, df_links, page, session, row):
+    top_url = row.link
+    org_link = row.org_link
+    key = row.key
 
-        start_time = time.time()
+    if org_link is None or key is None:
+        full_url = top_url + "/tab/reviews"
 
-        id_obj = await get_id_obj(link)
-        top_url = f'https://2gis.ru/firm/{id_obj}'
+        try:
+            await page.goto(full_url)
 
-        org_id = await play_pars(service, page, links, top_url, 1, 1, zoom_ss_id, project, id_obj, row, zoom=False)
+        except Exception as ex:
+            print(f'-Error Playwrigh: {ex}')
+            return
 
-        total_time = int(time.time() - start_time)
-        await append_data_to_sheet_cells(service, datas_ss_id, '2gis', ['date', 'time'], k + 2, [rec_data, total_time])
-        await asyncio.sleep(3)
+        # await asyncio.sleep(5000)
+        await page.wait_for_timeout(5000)
 
-        return org_id
+        page_content = await page.content()
+        org_link, key = await get_key(page_content)
 
-async def main_2gis_sberstrem():
-    browser, context, page = await get_playwright()
+        if org_link == None or key == None:
+            return
 
-    today = date.today()
-    print(today)
-    filter = func.date(OrgLink.date) != today
-    status, result  = await read_data_from_db_filter_limit_universal('org_links', 5000, 1, filters=filter)
+        query = (
+            update(OrgLink)
+            .where(OrgLink.link == top_url)
+            .values(org_link=org_link, key=key))
 
-    if not status:
+        await update_universal(session, query)
+
+    blocks, org_rating, org_reviews_count = await blocks_2gis_bs4(org_link, key)
+    if len(blocks) == 0:
+        print('Len B = 0')
+
+        query = (
+            update(OrgLink)
+            .where(OrgLink.link == top_url)
+            .values(date=today)
+        )
+        await update_universal(session, query)
+
         return
 
-    # for r in result[:5]:
-    #     print(r.link_id, r.date)
+    for k, block in enumerate(blocks):
+        datas = await data_empty()
+        date_content = block['date_created']
+        date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%f%z")
 
-    len_r = len(result)
-    print(len_r)
+        if (current_date - date) > timedelta(days=days_ago):
+            print(f'--- Отзыв старше {days_ago} дней. = {date}')
+            query = (
+                update(OrgLink)
+                .where(OrgLink.link == top_url)
+                .values(date=today)
+            )
 
+            await update_universal(session, query)
+            return
 
-    filters = or_(
-        OrgLink.date.is_(None),
-        func.date(OrgLink.date) != today
+        user_id = block['id']
+        org_id = await get_id_obj(top_url)
+        url_answer = f'https://2gis.ru/firm/{org_id}/tab/reviews/review/{user_id}'
+
+        if url_answer in df_links:
+            query = (
+                update(OrgLink)
+                .where(OrgLink.link == top_url)
+                .values(date=today)
+            )
+
+            await update_universal(session, query)
+            return
+
+        formatted_date = date.strftime("%d.%m.%Y")
+
+        feedback = block['text']
+        author = block['user']['name']
+        rating = block['rating']
+
+        datas['Date'].append(formatted_date)
+        datas['Feedback'].append(feedback)
+        datas['Link'].append(url_answer)
+        datas['Author'].append(author)
+        datas['Rating'].append(rating)
+
+        await append_data_to_sheet_scopes(service, ss_id, '2gis', datas)
+        await asyncio.sleep(3)
+
+    query = (
+        update(OrgLink)
+        .where(OrgLink.link == top_url)
+        .values(date=today)
     )
 
-    for i in range(3):
-        row = await get_and_lock_row(OrgLink, filters)
-        org_id = await rec_datas(page, row, links)
+    await update_universal(session, query)
 
-        print(row.link_id, row.date, )
+async def main_2gis_sberstrem():
+    service = await get_service()
+    ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
 
+    df = await read_table_id(service, ss_id, '2gis')
+    df_links = set(df['Link'].tolist())
 
+    p, browser, context, page = await get_playwright()
 
+    async with SessionLocal() as session:
+        query = select(OrgLink)
+        full_result = await read_universal(session, query)
+        len_fl = len(full_result)
+        print(len_fl)
 
+        filter = func.date(OrgLink.date) == today
+        query = select(OrgLink).where(filter)
+        result = await read_universal(session, query)
+        print(len(result))
 
+        if len(result) > 0:
+            links = [i.org_link for i in result]
+            print(len(links))
 
+            set_links = set(links)
+            print(len(set_links))
 
+            query = (
+                update(OrgLink)
+                .where(OrgLink.org_link.in_(set_links))
+                .values(date=today)
+            )
+            await update_universal(session, query) #если дата по org link уже текущая, по всем org_link ставятся текущие даты.
 
+        filters = or_(
+            OrgLink.date.is_(None),
+            func.date(OrgLink.date) != today
+        )
 
+        for i in range(len_fl):
+            row = await get_and_lock_row(session, OrgLink, filters)
+            if row is None:
+                print("Нет доступных строк для обработки.")
+                return
 
+            print(f"\n***************{row.link_id}****************\n", row.date, row.link)
+            await rec_datas(service, ss_id, df_links, page, session, row)
+            await asyncio.sleep(1)
 
-    #await browser.close()
+    await browser.close()
+    await context.close()
+    await p.stop()  # 🔥 вот это решает проблему
 
 
 if __name__ == '__main__':

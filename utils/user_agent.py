@@ -632,7 +632,7 @@ async def get_playwright(url=False, headless=True, proxy=True):
         await page.goto(url)
         await page.wait_for_timeout(5000)  # имитация паузы
 
-    return browser, context, page
+    return p, browser, context, page
 
 async def get_playwright_old(url, headless=True):
     print('>>> start PW')

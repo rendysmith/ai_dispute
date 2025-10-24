@@ -478,19 +478,28 @@ async def update_data_from_db_universal(datas):
                 await session.rollback()
                 return False, f"Ошибка при обновлении: {str(e)}"
 
-async def get_and_lock_row(table_data, filters=None):
-    async with SessionLocal() as session:
-        async with session.begin():
-            query = (
-                select(table_data)
-                .order_by(table_data.link_id)
-                .with_for_update(skip_locked=True)
-                .limit(1)
-            )
+async def get_and_lock_row(session, table_data, filters=None):
+    query = (
+        select(table_data)
+        .order_by(table_data.link_id)
+        .with_for_update(skip_locked=True)
+        .limit(1)
+    )
 
-            if filters is not None:
-                query = query.where(filters)
+    if filters is not None:
+        query = query.where(filters)
 
-            result = await session.execute(query)
-            row = result.scalar_one_or_none()
-            return row
+    result = await session.execute(query)
+    row = result.scalar_one_or_none()
+    return row
+
+async def update_universal(session, query):
+    await session.execute(query)
+    await session.commit()
+
+async def read_universal(session, query):
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+
