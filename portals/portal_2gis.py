@@ -18,14 +18,15 @@ from models.mdl_tables import OrgLink
 from utils.central_module import get_local_ip, wait_for_portal, get_hpo
 from utils.db_loader import get_and_lock_row, read_data_from_db_filter_limit_universal, update_universal, \
     read_universal, SessionLocal
+from utils.gs_editor import get_service, read_table_id, append_data_to_sheet_scope, append_data_to_sheet_scopes, \
+    append_data_to_sheet_cells
 
-from utils.gs_editor import pars_url, get_service, append_data_to_sheet_scope, read_table_id, \
-    append_data_to_sheet_scopes, append_data_to_sheet_cell, append_data_to_sheet_cells
-from utils.ai_module import generate_and_white
 from utils.user_agent import get_soup, get_selenium_proxy, get_playwright
 
 import os
 from dotenv import load_dotenv
+
+
 
 current_date = datetime.now(timezone.utc)
 rec_data = current_date.strftime("%d.%m.%Y")
@@ -36,8 +37,8 @@ load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 
-headless, proxy_on, only_text = asyncio.run(get_hpo())
-headless = True
+# headless, proxy_on, only_text = asyncio.run(get_hpo())
+# headless = True
 
 today = date.today()
 print(today)
@@ -591,16 +592,17 @@ async def main_2gis_sberstrem():
         query = select(OrgLink)
         full_result = await read_universal(session, query)
         len_fl = len(full_result)
-        print(len_fl)
+        print("- Всего строк:", len_fl)
 
+        #Закрыть строки, если по таким же ссылкам уже была проведена работа.
         filter = func.date(OrgLink.date) == today
         query = select(OrgLink).where(filter)
         result = await read_universal(session, query)
-        print(len(result))
+        print("- Строк проверенных сегодня: ",len(result))
 
         if len(result) > 0:
             links = [i.org_link for i in result]
-            print(len(links))
+            print("- Ссылок", len(links))
 
             set_links = set(links)
             print(len(set_links))
@@ -620,10 +622,10 @@ async def main_2gis_sberstrem():
         for i in range(len_fl):
             row = await get_and_lock_row(session, OrgLink, filters)
             if row is None:
-                print("- Нет доступных строк для обработки.")
+                print("- Все строки на сегодня - обработаны.")
                 break
 
-            print(f"\n***************{row.link_id}****************\n", row.date, row.link)
+            print(f"\n***************{row.link_id}****************\n", row.link)
             await rec_datas(service, ss_id, df_links, page, session, row)
             #await asyncio.sleep(1)
 
@@ -644,6 +646,16 @@ if __name__ == '__main__':
     # print('--------------------FINISH------------------------')
     # print(org_id, key)
     # input()
+
+
+    org_id = '70000001045735903'
+    key = '6e7e1929-4ea9-4a5d-8c05-d601860389bd'
+
+    a,b,c = asyncio.run(blocks_2gis_bs4(org_id, key))
+    print(a)
+    print(len(a))
+    print(b)
+    print(c)
 
     asyncio.run(main_2gis_sberstrem())
 
