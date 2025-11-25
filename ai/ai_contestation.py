@@ -1,3 +1,4 @@
+import json
 import sys
 
 
@@ -22,9 +23,9 @@ from requests.auth import HTTPBasicAuth
 
 from models.mdl_tables import ForumRules
 
-from portals.portal_ya import main_ya_maps
-from portals.portal_2gis import blocks_2gis_bs4
-from portals.portal_zoon import zoon_blocks
+#from portals.portal_ya import main_ya_maps
+#from portals.portal_2gis import blocks_2gis_bs4
+#from portals.portal_zoon import zoon_blocks
 
 from utils.ai_module import get_answer_ai
 from utils.central_module import wait_for_portal, get_hpo
@@ -36,13 +37,13 @@ from utils.gs_editor import get_service, write_log_sheet, get_table_scope, appen
     append_data_to_sheet_cells, append_data_to_sheet_scopes, read_table_id, append_data_to_sheet_scope
 
 from portals.portal_otzovik import get_top_link
-from portals.portal_ya import get_json, get_id_org
+from portals.portal_ya import get_json, get_id_org, get_base_url, get_rrr
 from portals.portal_tripadvisor import blocks_tripadvisor_sel
 from portals.pravda_sotrudnikov import blocks_pravda
 from portals.otzovru import blocks_otzovru, get_feedback_otzovru
 
 
-from utils.user_agent import get_soup, get_selenium_proxy, get_soup_tor, get_soup_bs4, clean_html
+from utils.user_agent import get_soup, get_selenium_proxy, get_soup_tor, get_soup_bs4, clean_html, get_playwright
 
 from utils.constants import months
 
@@ -539,7 +540,6 @@ async def pars_dreamjob(service, url_top, ss_id, project, links, rating_max):
         await asyncio.sleep(5)
 
         #await append_data_to_sheet_cell(service, ss_id, "links", idx_last_page, last_page)
-
 
 async def pars_2gis(service, url, ss_id, project, links, rating_max):
     source = '2gis.ru'
@@ -1132,73 +1132,213 @@ async def pars_irec(service, driver, driver2, url, ss_id, project, links, rating
             await asyncio.sleep(5)
             print(f'--- append {author}')
 
-async def pars_ya_maps(service, driver, url, ss_id, project, links, rating_max):
-    org_id = await get_id_org(url)
+async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max, headless=True):
     source = "yandex.ru/maps"
 
-    url = f'https://yandex.kz/maps/org/{org_id}/reviews'
-    print(url)
-    driver.get(url)
-    await asyncio.sleep(5)
+    await page.goto(url)
+    current_url = page.url
 
-    n = 0
-    while True:
-        try:
-            reviews_element = driver.find_element(By.CSS_SELECTOR, 'h2[class="card-section-header__title _wide"]')
-            reviews_text = reviews_element.text
-            number_reviews = int(reviews_text.split(" ")[0])
-            print(f"--- 1 {number_reviews}")
-            break
+    url = await get_base_url(current_url)
+    full_url = os.path.join(url, 'reviews')
 
-        except:
+    print(f"full_url: {full_url}")
+    await page.goto(full_url)
+
+    state_view = await page.locator('script.state-view').first.inner_text()
+    json_data = json.loads(state_view)
+    #pprint(json_data)
+
+    len_blocks = len(json_data['stack'][0]['results']['items'][0]['reviewResults']['reviews'])
+    print(len_blocks)
+
+    rating_score, review_count, rating_count = await get_rrr(json_data)
+
+    if review_count == 0:
+        return {}
+
+    blocks = {}
+    blocks['rating_score'] = rating_score #рейтинг компании
+    blocks['review_count'] = review_count #кол-во отзывов
+    blocks['rating_count'] = rating_count #кол-во оценок
+
+    blocks['items'] = []
+
+    blocks_loc = []
+
+    data_temp = []
+    while review_count > len(blocks_loc):
+        print(review_count > len(blocks_loc))
+        print(review_count, len(blocks_loc))
+        await page.mouse.wheel(0, 2000)
+        await asyncio.sleep(1)
+        print('- scroll')
+
+        blocks_loc = await page.locator('div[class=business-reviews-card-view__review]').all()
+        print(f'LenB = {len(blocks_loc)}')
+
+        datas = await  empty_data()
+
+        for k, block in enumerate(blocks_loc):
+            print(f'\n*************** {k} ******************')
             try:
-                reviews_element = driver.find_element(By.CSS_SELECTOR,
-                                                      'h2[class="card-section-header__title"]')
-                reviews_text = reviews_element.text
-                number_reviews = int(reviews_text.split(" ")[0])
-                print(f"--- 2 {number_reviews}")
-                break
+                await block.locator('span[class="business-review-view__expand"]').first.click(timeout=200)
 
             except Exception as Ex:
-                print(f'3 Error: {Ex}')
-                await asyncio.sleep(2)
+                print(f'--- {k} No more')
 
-                n += 1
+            feedback = await block.locator('span[class=" spoiler-view__text-container"]').inner_text()
+            #print(feedback)
 
-                if n > 10:
-                    return
+            rating_contents = await block.locator('span[class="inline-image _loaded icon business-rating-badge-view__star _full"]').all()
+            rating = len(rating_contents)
+            #print(rating)
+
+            if rating > rating_max:
+                continue
+
+            #pprint(block)
+            date_content = await block.locator('meta[itemprop="datePublished"]').get_attribute('content')
+            date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
+            formatted_date = date.strftime("%d.%m.%Y")
+            #print(formatted_date)
+
+            author = await block.locator('span[itemprop="name"]').inner_text()
+            #print(author)
+
+            id_row = f"{formatted_date}{author}{feedback}{rating}"
+            if id_row in data_temp:
+                continue
+            else:
+                data_temp.append(id_row)
+
+            try:
+                # publicId_href = await block.locator('a[class="business-review-view__user-icon"]').get_attribute('href')
+                # publicId = publicId_href.split('/')[-1]
+
+                user_icon = block.locator('a.business-review-view__user-icon')
+                await user_icon.wait_for(state="attached", timeout=5000)
+                publicId_href = await user_icon.get_attribute('href')
+                publicId = publicId_href.split('/')[-1]
+                reviewId = 'NoLink'
+
+            except:
+                publicId = 'NoLink'
+                reviewId = 'NoLink'
+
+            review_link = os.path.join(full_url, f'?reviews%5BpublicId%5D={publicId}&si={reviewId}')
+            if review_link in links:
+                continue
+
+            datas['Дата'].append(formatted_date)
+            datas['Текст'].append(feedback)
+            datas['Бренд'].append(project)
+            datas['Источник'].append(source)
+            datas['Url'].append(review_link)
+            datas['Автор'].append(author)
+            datas['Оценка'].append(rating)
+            datas['Общий Url'].append(url)
+            datas['Кол-во отзывов'].append(review_count)
+            datas['Оценка компании до удаления'].append(rating_score)
+
+        await append_data_to_sheet_scopes(service, ss_id, project, datas)
+
+    print(blocks)
 
     try:
-        rating_befores = driver.find_elements(By.CSS_SELECTOR,
-                                             'span.business-summary-rating-badge-view__rating-text')
-
-        rating_before = float(rating_befores[0].text + '.' + rating_befores[2].text)
-
+        await browser.close()
+        await p.stop()
     except:
-        rating_before = None
+        pass
 
-    #number_reviews = 200
+    # return blocks
 
-    while True:
-        blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-reviews-card-view__review"]')
-        len_b = len(blocks)
-        print("Скрол вниз:", len_b)
+async def pars_ya_maps(service, ss_id, project, links, rating_max):
+    source = "yandex.ru/maps"
 
-        driver.execute_script("window.scrollBy(0, 500);")
+    org_id = await get_id_org(start_url)
 
-        await asyncio.sleep(3)
+    # if not org_id:
+    #     driver.get(start_url)
+    #     await asyncio.sleep(5)
+    #     current_url = driver.current_url
+    #     print(current_url)
+    #     org_id = await get_id_org(current_url)
+    #
+    # url = f'https://yandex.kz/maps/org/{org_id}/reviews'
+    # print(url)
+    # driver.get(url)
+    # await asyncio.sleep(5)
+    #
+    # n = 0
+    # while True:
+    #     try:
+    #         reviews_element = driver.find_element(By.CSS_SELECTOR, 'h2[class="card-section-header__title _wide"]')
+    #         reviews_text = reviews_element.text
+    #         number_reviews = int(reviews_text.split(" ")[0])
+    #         print(f"--- 1 {number_reviews}")
+    #         break
+    #
+    #     except:
+    #         try:
+    #             reviews_element = driver.find_element(By.CSS_SELECTOR,
+    #                                                   'h2[class="card-section-header__title"]')
+    #             reviews_text = reviews_element.text
+    #             number_reviews = int(reviews_text.split(" ")[0])
+    #             print(f"--- 2 {number_reviews}")
+    #             break
+    #
+    #         except Exception as Ex:
+    #             print(f'3 Error: {Ex}')
+    #             await asyncio.sleep(2)
+    #
+    #             n += 1
+    #
+    #             if n > 10:
+    #                 return
+    #
+    # try:
+    #     rating_befores = driver.find_elements(By.CSS_SELECTOR,
+    #                                          'span.business-summary-rating-badge-view__rating-text')
+    #
+    #     rating_before = float(rating_befores[0].text + '.' + rating_befores[2].text)
+    #
+    # except:
+    #     rating_before = None
+    #
+    # input()
+    #
+    # while True:
+    #     blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-reviews-card-view__review"]')
+    #     len_b = len(blocks)
+    #     try:
+    #         blocks[-1].click()
+    #     except:
+    #         pass
+    #
+    #     mores = driver.find_elements(By.CSS_SELECTOR, 'span.business-review-view__expand')
+    #     for more in mores:
+    #         try:
+    #             more.click()
+    #         except:
+    #             pass
+    #
+    #     print("V Скрол вниз:", len_b)
+    #     driver.execute_script("window.scrollBy(0, 500);")
+    #
+    #     await asyncio.sleep(3)
+    #
+    #     if len_b >= number_reviews:
+    #         break
 
-        if len_b >= number_reviews:
-            break
 
 
-
+    datas = await  empty_data()
     for k, block in enumerate(blocks):
         print(k)
         date_content = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__date"]').find_element(By.CSS_SELECTOR, 'meta[itemprop="datePublished"]').get_attribute('content')
         dt_object = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%f%z")
         formatted_date = dt_object.strftime("%d.%m.%Y")
-        print(formatted_date)
+        #print(formatted_date)
 
         try:
             spoiler = block.find_element(By.CSS_SELECTOR, 'span[class="spoiler-view__button"]')
@@ -1238,8 +1378,6 @@ async def pars_ya_maps(service, driver, url, ss_id, project, links, rating_max):
         if rating > rating_max:
             continue
 
-        datas = await  empty_data()
-
         datas['Дата'].append(formatted_date)
         datas['Текст'].append(feedback)
         datas['Бренд'].append(project)
@@ -1251,7 +1389,7 @@ async def pars_ya_maps(service, driver, url, ss_id, project, links, rating_max):
         datas['Кол-во отзывов'].append(number_reviews)
         datas['Оценка компании до удаления'].append(rating_before)
 
-        await append_data_to_sheet_scopes(service, ss_id, project, datas)
+    await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
 async def pars_tripadvisor(service, driver, url, ss_id, project, links, rating_max):
     source = 'tripadvisor.ru'
@@ -1583,8 +1721,24 @@ async def multi_pars(ss_id, project):
 
     start_page = 0
 
-    driver = await get_selenium_proxy(headless=False, proxy=False)
-    driver2 = await get_selenium_proxy(headless=False, proxy=False)
+    # driver = await get_selenium_proxy(headless=False, proxy=True)
+    # driver2 = await get_selenium_proxy(headless=False, proxy=False)
+
+    n = 0
+    while True:
+        try:
+            p, browser, context, page = await get_playwright(headless=False, proxy=None)
+            break
+
+        except Exception as Ex:
+            print(f'Error PW: {Ex}')
+            n += 1
+            await asyncio.sleep(3)
+
+        if n == 5:
+            return {}
+
+        print(n)
 
     for k, row in df.iterrows():
         status = row['status']
@@ -1606,7 +1760,8 @@ async def multi_pars(ss_id, project):
             await asyncio.sleep(3)
 
         elif 'yandex' in url:
-            await pars_ya_maps(service, driver, url, ss_id, project, links, rating_max)
+            #await pars_ya_maps(service, url, ss_id, project, links, rating_max)
+            await blocks_ya_maps(service, page, url, ss_id, project, links, rating_max)
             await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
             await asyncio.sleep(3)
 
@@ -1649,15 +1804,15 @@ async def multi_pars(ss_id, project):
         pass
 
 async def main():
-    ss_id = '1GXdXTqbtwDEZhKS7HawqNUvaqHSGWbVnWe-zE7k0q3g'
-    project = 'MkKlinik'
+    ss_id = '1nK5lTToDUh7En6sVdJwJ4mxJzegce-20QMfGz1ErSJk'
+    project = 'DPD'
 
     # await multi_pars(ss_id, project)
-    await review_analysis(ss_id, project)
+    # await review_analysis(ss_id, project)
 
-    # await asyncio.gather(
-    #    review_analysis(ss_id, project),
-    #    multi_pars(ss_id, project))
+    await asyncio.gather(
+       #review_analysis(ss_id, project),
+       multi_pars(ss_id, project))
 
 if __name__ == '__main__':
     asyncio.run(main())
