@@ -602,9 +602,9 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
     driver.execute_cdp_cmd('Network.enable', {})
     return driver
 
-async def get_playwright(url=False, headless=True, proxy=True):
+async def get_playwright(url=False, headless=True, proxy=True, mobile=False):
     if proxy:
-        host, port, login, password = await get_one_proxy()
+        host, port, login, password = await get_one_proxy(mobile)
 
         proxy = {
             "server": f"http://{host}:{port}",
@@ -736,6 +736,7 @@ async def get_data_with_proxy(url, text_format=True):
     for i in range(trying):
         print(f'--- Proxy try {i}')
         proxy_host, proxy_port, proxy_login, proxy_pass = await get_one_proxy()
+
         connector = ProxyConnector(proxy_type=ProxyType.HTTP,
                                    host=proxy_host,
                                    port=proxy_port,

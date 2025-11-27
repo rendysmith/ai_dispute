@@ -1,14 +1,20 @@
 import json
+import logging
 import os
 
 import aiohttp
 import requests
 import asyncio
 from bs4 import BeautifulSoup
+import random
 
 from dotenv import load_dotenv
-from utils.db_loader import read_from_postgres
-import random
+
+from models.mdl_tables import Proxies
+from sqlalchemy import select, and_, func
+
+from utils.db_loader import read_from_postgres, read_universal
+
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -132,7 +138,7 @@ async def parse_data():
 
             return result
 
-async def get_one_proxy():
+async def get_one_proxy_old(mobile=False):
     status, df = await read_from_postgres('proxies')
     if status:
         len_df = len(df)
@@ -184,8 +190,49 @@ async def get_iplist():
     #print(host_port)
     return f"{host_port_dict['host']}:{host_port_dict['port']}"
 
+async def get_one_proxy(mobile=False):
+    # 1. Формируем базовый запрос: SELECT * FROM proxies
+    query = select(Proxies)
+
+    # 2. Обрабатываем фильтр 'mobile'
+    if mobile:
+        # Добавляем условие WHERE proxy_type = 'mobile'
+        # Также добавляем условие, что proxy_type не должен быть NULL, если это важно.
+        filter_condition = and_(
+            Proxies.proxy_type == 'mobile',
+            Proxies.proxy_type.is_not(None)  # Убираем NULL-значения, чтобы избежать ошибок
+        )
+        query = query.filter(filter_condition)
+
+    # 3. Добавляем логику случайного выбора и лимит 1
+    # Это наиболее эффективный способ получить один случайный элемент
+    # (работает с PostgreSQL, MySQL и другими)
+    query = query.order_by(func.random()).limit(1)
+
+    # 4. Выполняем запрос через новую функцию
+    result = await read_universal(query=query)
+
+    # 5. Обрабатываем результат
+    if result:
+        # read_universal уже вернул список, содержащий 0 или 1 элемент
+        r_idx = result[0]
+
+        host = r_idx.host
+        port = r_idx.port
+        login = r_idx.login
+        password = r_idx.password
+
+        logging.info(f'--- Proxy data: {host} {port}')
+        return host, port, login, password
+
+    else:
+        # Если список пуст (result = []), прокси по заданным условиям не найдены.
+        logging.warning('--- No proxy found with given filters.')
+        return None, None, None, None
+
 if "__main__" in __name__:
     srv = asyncio.run(get_one_proxy())
+    print(srv)
 
 
     # srv = asyncio.run(get_cookies_proxy5())

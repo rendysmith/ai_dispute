@@ -1,6 +1,6 @@
 import json
 import sys
-
+import threading
 
 import asyncio
 import os
@@ -108,7 +108,8 @@ async def empty_data():
         "Кол-во отзывов": [],
         "Оценка компании до удаления": [],
         "Вероятность удаления": [],
-        "Текст для поддержки": []
+        "Текст для поддержки": [],
+        "Оценка компании после удаления": []
     }
     return datas
 
@@ -158,6 +159,7 @@ async def review_analysis(worktable_id, tab_name):
     '''Функция для анализа отзыва'''
 
     service = await get_service()
+    sem = asyncio.Semaphore(5)  # максимум 5 одновременных задач
 
     # ws_name = worksheet_name_dreamjob
 
@@ -175,12 +177,12 @@ async def review_analysis(worktable_id, tab_name):
     # for column in columns:
     #     df[column] = ''
 
-    for idx, row in df.iterrows():
+    async def rec_datas(idx, row):
         probably_delete = row[columns[0]]
         text_support = row[columns[1]]
 
         if pd.notnull(probably_delete) and pd.notnull(text_support):
-            continue
+            return
 
         print(f'IDX = {idx}')
 
@@ -207,10 +209,10 @@ async def review_analysis(worktable_id, tab_name):
                 rule = rules_db[0].forum_rule
 
             else:
-                continue
+                return
 
         else:
-            continue
+            return
 
         prompt = text.format(source=source, comment=comment, rule=rule)
         result = await get_answer_ai(auth, prompt)
@@ -229,6 +231,22 @@ async def review_analysis(worktable_id, tab_name):
 
         except SyntaxError as SE:
             print(f'ERROR: {SE}')
+
+    async def rec_datas_limited(idx, row):
+        async with sem:
+            return await rec_datas(idx, row)
+
+    # for idx, row in df.iterrows():
+    #     await rec_datas(idx, row)
+
+    tasks = [
+        asyncio.create_task(rec_datas_limited(idx, row))
+        for idx, row in df.iterrows()
+    ]
+    await asyncio.gather(*tasks)
+
+
+
 
 async def extract_link_from_line(url):
     # Шаблон для поиска ссылки от https: до .html
@@ -355,15 +373,15 @@ async def grade_analysis(worktable_id, worksheet_name):
         elif portal == 'nerab.ru':
             pass
 
-async def total_grade_analysis(service, tn_name):
+async def total_grade_analysis(worktable_id, tn_name):
     '''
     Функция для подсчета рейтинга после удаления отзыва
     '''
+    service = await get_service()
 
     df = await get_table_scope(service, worktable_id, tn_name)
 
     data_rows = []
-
     for idx, row in df.iterrows():
         company_link = row['Общий Url']
         feedback_counts = row['Кол-во отзывов']
@@ -399,6 +417,111 @@ async def total_grade_analysis(service, tn_name):
                 await append_data_to_sheet_cell(service, worktable_id, tn_name,'Оценка компании после удаления', idx_mini + 2, finish_rating)
                 print(f'{idx_mini} Add info...')
                 data_rows.append(idx_mini)
+
+async def total_grade_analysis_bad(worktable_id, tn_name):
+    '''
+    Оптимизированная функция подсчета рейтинга
+    '''
+    service = await get_service()
+
+    # 1. Загружаем данные
+    # ВАЖНО: Убедись, что get_table_scope возвращает корректный DF (без смещения колонок)
+    df = await get_table_scope(service, worktable_id, tn_name)
+    print(df)
+
+    if df.empty:
+        print("DataFrame is empty. Exiting.")
+        return
+
+    # 2. Предобработка данных (сразу для всей таблицы)
+    # Преобразуем оценки в числа, ошибки (не числа) заменяем на NaN
+    df["Оценка"] = pd.to_numeric(df["Оценка"], errors='coerce')
+    df["Кол-во отзывов"] = pd.to_numeric(df["Кол-во отзывов"], errors='coerce')
+    df["Оценка компании до удаления"] = pd.to_numeric(df["Оценка компании до удаления"], errors='coerce')
+
+    # Создаем маску для "плохих" отзывов, которые планируем удалить
+    # Логика: ищем строки, где вероятность содержит 50-99 или 100+ (твоя регулярка)
+    high_prob_mask = df['Вероятность удаления'].astype(str).str.contains(r'([5-9][0-9]|[1-9][0-9]{2,})', na=False)
+    print(high_prob_mask)
+
+
+    # Сразу фильтруем только те строки, которые ПОДЛЕЖАТ удалению
+    df_to_remove = df[high_prob_mask & df["Оценка"].notna()].copy()
+
+    # Удаляем дубликаты отзывов (если один отзыв записан дважды)
+    if "Ссылка Url" in df_to_remove.columns:
+        df_to_remove = df_to_remove.drop_duplicates(subset=["Ссылка Url"])
+
+    # 3. Группировка (Считаем сумму негатива и кол-во негатива по каждой компании)
+    # GroupBy работает мгновенно по сравнению с циклом
+    negative_stats = df_to_remove.groupby('Общий Url').agg({
+        'Оценка': ['sum', 'count']
+    })
+
+    # Упрощаем структуру колонок после агрегации
+    negative_stats.columns = ['neg_sum', 'neg_count']
+
+    # 4. Расчет нового рейтинга
+    # Нам нужны исходные данные по компании (берем первую попавшуюся строку для каждого URL из оригинала)
+    company_info = df.groupby('Общий Url').first()[
+        ['Кол-во отзывов', 'Оценка компании до удаления', 'Оценка компании после удаления']]
+
+    # Объединяем инфо о компании с посчитанным негативом
+    merged = company_info.join(negative_stats, how='left').fillna(0)
+
+    updates = []  # Сюда будем складывать данные для записи
+
+    print(2)
+    for url, row in merged.iterrows():
+        print("\n", url)
+
+        print(f">{row['Оценка компании после удаления']}<")
+        print(pd.notnull(row['Оценка компании после удаления']))
+        print(pd.isna((row['Оценка компании после удаления'])))
+        print(pd.notna((row['Оценка компании после удаления'])))
+
+        # Если рейтинг уже проставлен - пропускаем (как в твоем коде)
+        if pd.isna(row['Оценка компании после удаления']):
+            continue
+
+        print(3)
+        current_rating = row['Оценка компании до удаления']
+        total_count = row['Кол-во отзывов']
+
+        neg_sum = row['neg_sum']
+        neg_count = row['neg_count']
+
+        # Если нечего удалять, новый рейтинг = старому (или пропускаем)
+        if neg_count == 0:
+            finish_rating = current_rating
+        else:
+            # Формула пересчета
+            total_sum = total_count * current_rating
+            finish_sum = total_sum - neg_sum
+            finish_counts = total_count - neg_count
+
+            if finish_counts > 0:
+                finish_rating = round(finish_sum / finish_counts, 1)
+            else:
+                finish_rating = 0  # Или другое значение, если удалили ВСЕ отзывы
+
+        # 5. Готовим данные к записи
+        # Находим индекс строки в исходном DF, куда писать.
+        # (Это упрощенно, лучше писать пачкой, но оставим совместимость с твоим методом)
+
+        # Находим первую строку с этим URL в исходном df, чтобы узнать номер строки для записи
+        target_idx = df[df['Общий Url'] == url].index[0]
+
+        print(f"URL: {url} | New Rating: {finish_rating}")
+
+        # Вызываем запись
+        # +2 обычно потому что индекс с 0, а в гугле с 1 + заголовок
+        await append_data_to_sheet_cell(service,
+                                        worktable_id,
+                                        tn_name,
+                                        'Оценка компании после удаления',
+                                        target_idx + 2,
+                                        finish_rating)
 
 async def pars_dreamjob(service, url_top, ss_id, project, links, rating_max):
     """Функция для получения негативных отзывовов и записьм их в таблицу"""
@@ -1142,7 +1265,18 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max, 
     full_url = os.path.join(url, 'reviews')
 
     print(f"full_url: {full_url}")
+
+    input('Next...')
+    if 'showcaptcha' in full_url:
+        await page.reload()
+        current_url = page.url
+        url = await get_base_url(current_url)
+        full_url = os.path.join(url, 'reviews')
+
+    print(f"full_url: {full_url}")
     await page.goto(full_url)
+
+    input('NExt...')
 
     state_view = await page.locator('script.state-view').first.inner_text()
     json_data = json.loads(state_view)
@@ -1165,26 +1299,36 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max, 
 
     blocks_loc = []
 
+    len_b = len(blocks_loc)
+
+    async def click_more(block):
+        try:
+            await block.locator('span[class="business-review-view__expand"]').first.click(timeout=200)
+            print(f'\n*************** {k} ******************')
+
+        except Exception as Ex:
+            print(f'--- {k} No >more< {Ex}')
+
     data_temp = []
-    while review_count > len(blocks_loc):
-        print(review_count > len(blocks_loc))
-        print(review_count, len(blocks_loc))
-        await page.mouse.wheel(0, 2000)
-        await asyncio.sleep(1)
-        print('- scroll')
+    while review_count > len_b:
+        # print(review_count > len(blocks_loc))
+        # print(review_count, len(blocks_loc))
+        # await page.mouse.wheel(0, 1500)
+        # await asyncio.sleep(1)
+        # print('- scroll')
 
         blocks_loc = await page.locator('div[class=business-reviews-card-view__review]').all()
         print(f'LenB = {len(blocks_loc)}')
+        len_b = len(blocks_loc) + (len(blocks_loc)/100 * 5)
 
         datas = await  empty_data()
 
         for k, block in enumerate(blocks_loc):
-            print(f'\n*************** {k} ******************')
-            try:
-                await block.locator('span[class="business-review-view__expand"]').first.click(timeout=200)
+            def run_in_thread():
+                result = asyncio.run(click_more(block))
+                print("Результат:", result)
 
-            except Exception as Ex:
-                print(f'--- {k} No more')
+            threading.Thread(target=run_in_thread).start()
 
             feedback = await block.locator('span[class=" spoiler-view__text-container"]').inner_text()
             #print(feedback)
@@ -1194,7 +1338,8 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max, 
             #print(rating)
 
             if rating > rating_max:
-                continue
+                len_b = review_count
+                break
 
             #pprint(block)
             date_content = await block.locator('meta[itemprop="datePublished"]').get_attribute('content')
@@ -1219,6 +1364,7 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max, 
                 await user_icon.wait_for(state="attached", timeout=5000)
                 publicId_href = await user_icon.get_attribute('href')
                 publicId = publicId_href.split('/')[-1]
+
                 reviewId = 'NoLink'
 
             except:
@@ -1241,6 +1387,9 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max, 
             datas['Оценка компании до удаления'].append(rating_score)
 
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
+
+        if len_b >= 600:
+            break
 
     print(blocks)
 
@@ -1660,7 +1809,6 @@ async def banki_ru(ss_id, project):
     start_page = 6
     await get_irec(service, ss_id, project, driver, links, url, start_page, 2)
 
-
 async def tk_kit(ss_id, project):
 
     try:
@@ -1810,121 +1958,16 @@ async def main():
     # await multi_pars(ss_id, project)
     # await review_analysis(ss_id, project)
 
-    await asyncio.gather(
-       #review_analysis(ss_id, project),
-       multi_pars(ss_id, project))
+    # await asyncio.gather(
+    #    review_analysis(ss_id, project),
+    #    multi_pars(ss_id, project)
+    # )
+
+    await total_grade_analysis(ss_id, project)
 
 if __name__ == '__main__':
     asyncio.run(main())
     print("OK!!!")
 
-
-
-
-
-# async def nlmk(project, fix_rating):
-#     service = await get_service()
-#     df = await read_table_id(service, ss_id, project)
-#     texts = df['Текст'].tolist()
-#
-#     driver = await get_selenium_proxy(headless=False, proxy=False)
-#
-#
-#     urls = ['https://yandex.md/maps/org/novolipetskiy_metallurgicheskiy_kombinat/1037025051/reviews/?ll=39.622478%2C52.571667&z=16']
-#
-#     for url in urls:
-#         driver.get(url)
-#
-#         await asyncio.sleep(5)
-#
-#         org_id = await get_id_org(url)
-#
-#         while True:
-#             try:
-#                 reviews_element = driver.find_element(By.CSS_SELECTOR, 'h2[class="card-section-header__title _wide"]')
-#                 reviews_text = reviews_element.text
-#                 number_reviews = int(reviews_text.split(" ")[0])
-#                 print(1, number_reviews)
-#                 break
-#
-#             except:
-#                 try:
-#                     reviews_element = driver.find_element(By.CSS_SELECTOR,
-#                                                           'h2[class="card-section-header__title"]')
-#                     reviews_text = reviews_element.text
-#                     number_reviews = int(reviews_text.split(" ")[0])
-#                     print(2, number_reviews)
-#                     break
-#
-#                 except:
-#                     await asyncio.sleep(2)
-#
-#         rating_before = driver.find_element(By.CSS_SELECTOR,
-#                                             'div[class="business-summary-rating-badge-view__rating"]').text
-#
-#         #number_reviews = 50
-#
-#         while True:
-#             blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-reviews-card-view__review"]')
-#             len_b = len(blocks)
-#             print("Скрол вниз:", len_b)
-#             await asyncio.sleep(3)
-#
-#             if len_b == number_reviews:
-#                 break
-#
-#         datas = {
-#             "Дата": [],
-#             "Текст": [],
-#             "Бренд": [],
-#             "Источник": [],
-#             "Url": [],
-#             "Автор": [],
-#             "Оценка": [],
-#             "Общий Url": [],
-#             "Кол-во отзывов": [],
-#             "Оценка компании до удаления": [],
-#             'Вероятность удаления': [],
-#             'Текст для поддержки': []
-#         }
-#
-#         for k, block in enumerate(blocks):
-#             print(k)
-#             formatted_date = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__date"]').text
-#             feedback = block.find_element(By.CSS_SELECTOR, 'span[class=" spoiler-view__text-container"]').text
-#
-#             if feedback in texts:
-#                 continue
-#
-#             try:
-#                 url_author = block.find_element(By.CSS_SELECTOR, 'a[class="business-review-view__user-icon"]').get_attribute("href")
-#                 url_author_split = url_author.split('/')[-1]
-#                 url_answer = f'https://yandex.md/maps/org/{org_id}/reviews?reviews%5BpublicId%5D={url_author_split}&utm_source=review'
-#
-#             except:
-#                 url_answer = ''
-#
-#             author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
-#
-#             star_full = block.find_elements(By.CSS_SELECTOR,
-#                                             'span[class="inline-image _loaded icon business-rating-badge-view__star _full"]')
-#             rating = len(star_full)
-#
-#             if rating > fix_rating:
-#                 continue
-#
-#             datas['Дата'].append(formatted_date)
-#             datas['Текст'].append(feedback)
-#             datas['Бренд'].append(project)
-#             datas['Источник'].append("yandex.ru/maps")
-#             datas['Url'].append(url_answer)
-#             datas['Автор'].append(author)
-#             datas['Оценка'].append(rating)
-#             datas['Общий Url'].append(url)
-#             datas['Кол-во отзывов'].append(number_reviews)
-#             datas['Оценка компании до удаления'].append(rating_before)
-#
-#         await append_data_to_sheet_scopes(service, ss_id, project, datas)
-    
 
 

@@ -43,6 +43,19 @@ max_sec = int(os.environ.get("MAX_SEC"))
 today = date.today()
 print(today)
 
+async def catch_and_fetch_json(page, referer_url,  url_api):
+    response = await page.request.get(
+        url_api,
+        headers={
+            "Referer": referer_url
+            # При необходимости, можно добавить User-Agent, если его нужно переопределить
+            # "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ..."
+        }
+    )
+
+    json_data = await response.json()
+    return json_data
+
 async def text_to_json(script_text, start_word):
     json_start = script_text.find(start_word)
 
@@ -191,11 +204,13 @@ async def blocks_2gis_sel(driver, url):
 
     return data_dict['review']
 
-async def blocks_2gis_bs4(org_id, key):
+async def blocks_2gis_bs4(page, org_id, key):
     api_url = f'https://public-api.reviews.2gis.com/3.0/orgs/{org_id}/reviews?limit=50&fields=meta.org_rating,meta.org_reviews_count,meta.total_count,reviews.object.address,reviews.hiding_reason&without_my_first_review=false&rated=true&sort_by=date_created&key={key}&locale=ru_RU'
     print("ApiKeyURL: ", api_url)
 
-    r_json = await get_soup(api_url, only_text=False, proxy=proxy_on)
+    #r_json = await get_soup(api_url, only_text=False, proxy=True)
+    referer_url = f'https://2gis.ru/firm/{org_id}/tab/reviews'
+    r_json = await catch_and_fetch_json(page, referer_url, api_url)
 
     try:
         blocks = r_json['reviews']
@@ -406,8 +421,6 @@ async def check_2gis(service, url, pattern, criteria, ss_id, project, links=Fals
         await play_pars(service, links, top_url, pattern, criteria, ss_id, project, id_org, zoom)
 
 async def main_2gis_sberstrem_old():
-
-
     service = await get_service()
     datas_ss_id = '1k00OxnK8MekEVu2dmL2IqT1uxTQxWEzd0Aur5a8ILEE'
     zoom_ss_id = "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w"
@@ -514,7 +527,7 @@ async def rec_datas(service, ss_id, df_links, page, session, row):
         print('-- Double')
         return
 
-    blocks, org_rating, org_reviews_count = await blocks_2gis_bs4(org_link, key)
+    blocks, org_rating, org_reviews_count = await blocks_2gis_bs4(page, org_link, key)
     if len(blocks) == 0:
         print('Len B = 0')
 
@@ -586,7 +599,7 @@ async def main_2gis_sberstrem():
     df = await read_table_id(service, ss_id, '2gis')
     df_links = set(df['Link'].tolist())
 
-    p, browser, context, page = await get_playwright()
+    p, browser, context, page = await get_playwright(mobile=True)
 
     async with SessionLocal() as session:
         query = select(OrgLink)
@@ -650,14 +663,14 @@ if __name__ == '__main__':
     # input()
 
 
-    org_id = '70000001045735903'
-    key = '6e7e1929-4ea9-4a5d-8c05-d601860389bd'
-
-    a,b,c = asyncio.run(blocks_2gis_bs4(org_id, key))
-    print(a)
-    print(len(a))
-    print(b)
-    print(c)
+    # org_id = '70000001045735903'
+    # key = '6e7e1929-4ea9-4a5d-8c05-d601860389bd'
+    #
+    # a,b,c = asyncio.run(blocks_2gis_bs4(org_id, key))
+    # print(a)
+    # print(len(a))
+    # print(b)
+    # print(c)
 
     asyncio.run(main_2gis_sberstrem())
 

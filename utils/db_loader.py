@@ -1,3 +1,4 @@
+from typing import Optional, Any
 from venv import logger
 
 import pandas as pd
@@ -493,13 +494,24 @@ async def get_and_lock_row(session, table_data, filters=None):
     row = result.scalar_one_or_none()
     return row
 
-async def update_universal(session, query):
-    await session.execute(query)
-    await session.commit()
+async def update_universal(session = None, query = None):
+    if session:
+        await session.execute(query)
+        await session.commit()
+    else:
+        async with SessionLocal() as local_session:
+            await local_session.execute(query)
+            await local_session.commit()
 
-async def read_universal(session, query):
-    result = await session.execute(query)
-    return result.scalars().all()
+
+async def read_universal(session = None, query = None):
+    if session:
+        result = await session.execute(query)
+        return result.scalars().all()
+    else:
+        async with SessionLocal() as local_session:
+            result = await local_session.execute(query)
+            return result.scalars().all()
 
 
 
