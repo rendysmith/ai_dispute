@@ -647,18 +647,6 @@ async def main_2gis_sberstrem():
     await p.stop()  # 🔥 вот это решает проблему
 
 if __name__ == '__main__':
-    #driver = asyncio.run(get_driver())
-    #url = 'https://2gis.ru/yaroslavl/firm/70000001045733822/tab/reviews'
-
-    # ord_id, key = asyncio.run(get_key(driver, url))
-    # print('--------------------------------------------')
-    # print(ord_id, key)
-
-    # org_id, key = asyncio.run(get_id_key(driver, url))
-    # print('--------------------FINISH------------------------')
-    # print(org_id, key)
-    # input()
-
 
     # org_id = '70000001045735903'
     # key = '6e7e1929-4ea9-4a5d-8c05-d601860389bd'
