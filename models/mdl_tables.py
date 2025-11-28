@@ -248,6 +248,7 @@ class Proxies(Base):
     port = Column(String, nullable=False, index=True)
     login = Column(String, nullable=False, index=True)
     password = Column(String, nullable=False, index=True)
+    proxy_type = Column(String, nullable=False, index=True)
 
 class OrgLink(Base):
     """
