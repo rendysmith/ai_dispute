@@ -567,7 +567,7 @@ async def rec_datas(service, ss_id, df_links, page, session, row):
             )
 
             await update_universal(session, query)
-            return
+            continue
 
         formatted_date = date.strftime("%d.%m.%Y")
 

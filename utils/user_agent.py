@@ -602,7 +602,80 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
     driver.execute_cdp_cmd('Network.enable', {})
     return driver
 
-async def get_playwright(url=False, headless=True, proxy=True, mobile=False):
+
+async def get_playwright(url=False, headless=True, proxy=True, proxy_type=None, blocked_resource=True):
+    if proxy:
+        host, port, login, password = await get_one_proxy(proxy_type)
+
+        proxy = {
+            "server": f"http://{host}:{port}",
+            "username": login,  # можно опустить
+            "password": password  # можно опустить
+        }
+    else:
+        proxy = None
+
+    p = await async_playwright().start()   # <-- вместо async with
+    browser = await p.chromium.launch(
+        headless=headless,
+        proxy=proxy,
+        args=["--no-sandbox", "--disable-blink-features=AutomationControlled"]
+    )
+    context = await browser.new_context(
+        user_agent=str(ua),
+        viewport={"width":1366,"height":768},
+        locale="ru-RU"
+    )
+    await context.add_init_script(
+        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+    )
+
+    page = await context.new_page()
+    # Встраиваем стелс-режим
+    #stealth(page)
+
+    if blocked_resource:
+        # Список типов ресурсов, которые нужно блокировать
+        BLOCKED_RESOURCE_TYPES = ["image", "media", "font", "stylesheet"]
+
+        # Список частей URL, которые нужно блокировать (для трекеров)
+        # Здесь добавлен mail.ru tracker и, как пример, google-аналитика
+        BLOCKED_URL_PARTS = [
+            "mail.ru/tracker",
+            "google-analytics.com",
+            "mc.yandex.ru"
+        ]
+
+        async def block_requests(route):
+            resource_type = route.request.resource_type
+            request_url = route.request.url
+
+            # 1. Блокировка по типу ресурса
+            if resource_type in BLOCKED_RESOURCE_TYPES:
+                await route.abort()
+                return
+
+            # 2. Блокировка по URL (для трекеров)
+            if any(part in request_url for part in BLOCKED_URL_PARTS):
+                await route.abort()
+                return
+
+            # 3. Разрешение всех остальных запросов
+            await route.continue_()
+
+        # Регистрируем расширенный обработчик
+        # **/* означает перехват всех URL
+        await page.route("**/*", block_requests)
+
+    if url:
+        #await page.goto(url)
+        await page.goto(url, wait_until='domcontentloaded')
+        await page.wait_for_timeout(5000)  # имитация паузы
+
+    return p, browser, context, page
+
+
+async def get_playwright_old(url=False, headless=True, proxy=True, mobile=False):
     if proxy:
         host, port, login, password = await get_one_proxy(mobile)
 
@@ -611,6 +684,10 @@ async def get_playwright(url=False, headless=True, proxy=True, mobile=False):
             "username": login,  # можно опустить
             "password": password  # можно опустить
         }
+
+    else:
+        proxy = None
+
 
     p = await async_playwright().start()   # <-- вместо async with
     browser = await p.chromium.launch(

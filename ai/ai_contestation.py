@@ -41,7 +41,7 @@ from portals.portal_ya import get_json, get_id_org, get_base_url, get_rrr
 from portals.portal_tripadvisor import blocks_tripadvisor_sel
 from portals.pravda_sotrudnikov import blocks_pravda
 from portals.otzovru import blocks_otzovru, get_feedback_otzovru
-
+from portals.portal_2gis import blocks_2gis, blocks_2gis_bs4
 
 from utils.user_agent import get_soup, get_selenium_proxy, get_soup_tor, get_soup_bs4, clean_html, get_playwright
 
@@ -95,23 +95,6 @@ ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
 
 headless, proxy_on, only_text = asyncio.run(get_hpo())
 
-async def empty_data():
-    datas = {
-        "Дата": [],
-        "Текст": [],
-        "Бренд": [],
-        "Источник": [],
-        "Url": [],
-        "Автор": [],
-        "Оценка": [],
-        "Общий Url": [],
-        "Кол-во отзывов": [],
-        "Оценка компании до удаления": [],
-        "Вероятность удаления": [],
-        "Текст для поддержки": [],
-        "Оценка компании после удаления": []
-    }
-    return datas
 
 async def get_links(service, ss_id, project):
     try:
@@ -1085,7 +1068,7 @@ async def pars_otzovik(service, driver, url, driver2, ss_id, project, links, rat
 
         #print("- Rating:", rating)
         if rating > ratio:
-            print()
+
             print(f'- Next, Rating {rating} >= 3')
             return
 
@@ -1123,9 +1106,9 @@ async def pars_otzovik(service, driver, url, driver2, ss_id, project, links, rat
         print('-- White datas - OK!\n')
         #input('Next...')
 
-    for rt in range(1, ratio + 1):
+    for rt in range(2, ratio + 1):
         for page in range(start_page, pages + 1):
-            url_com = f"{url}/{page}/?ratio={str(rt)}"
+            url_com = f"{url}{page}/?ratio={str(rt)}"
             driver.get(url_com)
             print(f'\n\nStart: {url_com}')
             print(f"Page {page}")
@@ -1255,28 +1238,28 @@ async def pars_irec(service, driver, driver2, url, ss_id, project, links, rating
             await asyncio.sleep(5)
             print(f'--- append {author}')
 
-async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max, headless=True):
-    source = "yandex.ru/maps"
 
+async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
+    source = "yandex.ru/maps"
     await page.goto(url)
+
     current_url = page.url
 
     url = await get_base_url(current_url)
     full_url = os.path.join(url, 'reviews')
 
-    print(f"full_url: {full_url}")
+    print(f"full_url1: {full_url}")
+    await asyncio.sleep(3)
 
-    input('Next...')
     if 'showcaptcha' in full_url:
+        input('Next...')
         await page.reload()
         current_url = page.url
         url = await get_base_url(current_url)
         full_url = os.path.join(url, 'reviews')
 
-    print(f"full_url: {full_url}")
+    print(f"full_url2: {full_url}")
     await page.goto(full_url)
-
-    input('NExt...')
 
     state_view = await page.locator('script.state-view').first.inner_text()
     json_data = json.loads(state_view)
@@ -1869,8 +1852,8 @@ async def multi_pars(ss_id, project):
 
     start_page = 0
 
-    # driver = await get_selenium_proxy(headless=False, proxy=True)
-    # driver2 = await get_selenium_proxy(headless=False, proxy=False)
+    driver = await get_selenium_proxy(headless=False, proxy=False)
+    driver2 = await get_selenium_proxy(headless=False, proxy=False)
 
     n = 0
     while True:
@@ -1922,11 +1905,11 @@ async def multi_pars(ss_id, project):
             await pars_irec(service, driver, driver2, url, ss_id, project, links, rating_max)
             await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
             await asyncio.sleep(3)
-
-        elif 'tripadvisor' in url:
-            await pars_tripadvisor(service, driver, url, ss_id, project, links, rating_max)
-            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
-            await asyncio.sleep(3)
+        #
+        # elif 'tripadvisor' in url:
+        #     await pars_tripadvisor(service, driver, url, ss_id, project, links, rating_max)
+        #     await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
+        #     await asyncio.sleep(3)
 
         elif 'pravda-sotrudnikov' in url:
             await pars_pravda(service, url, ss_id, project, links)
@@ -1937,11 +1920,11 @@ async def multi_pars(ss_id, project):
             await pars_otzyvru(service, driver, url, ss_id, project, links, rating_max)
             await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
             await asyncio.sleep(3)
-
-        elif 'dreamjob' in url:
-            await pars_dreamjob(service, url, ss_id, project, links, rating_max)
-            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
-            await asyncio.sleep(3)
+        #
+        # elif 'dreamjob' in url:
+        #     await pars_dreamjob(service, url, ss_id, project, links, rating_max)
+        #     await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
+        #     await asyncio.sleep(3)
 
 
     try:
@@ -1952,18 +1935,18 @@ async def multi_pars(ss_id, project):
         pass
 
 async def main():
-    ss_id = '1nK5lTToDUh7En6sVdJwJ4mxJzegce-20QMfGz1ErSJk'
-    project = 'DPD'
+    ss_id = '1ViRHAqfAIxEJ9E0kcpmg-P5Xpi41niOy8BOre9akV1I'
+    project = 'SushiMake'
 
-    # await multi_pars(ss_id, project)
-    # await review_analysis(ss_id, project)
+    await multi_pars(ss_id, project)
+    #await review_analysis(ss_id, project)
 
     # await asyncio.gather(
     #    review_analysis(ss_id, project),
     #    multi_pars(ss_id, project)
     # )
 
-    await total_grade_analysis(ss_id, project)
+    #await total_grade_analysis(ss_id, project)
 
 if __name__ == '__main__':
     asyncio.run(main())

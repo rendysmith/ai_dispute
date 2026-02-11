@@ -10,6 +10,7 @@ from pprint import pprint
 
 import pandas as pd
 import requests
+from aiohttp import ClientSession
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
@@ -19,7 +20,7 @@ from utils.compressor import compress_string
 from utils.constants import TABLES_LIST
 from utils.converter import extract_company_name
 from utils.gs_editor import get_table_scope, append_data_to_sheet_scope, pars_url, get_service, \
-    append_data_to_sheet_cell, write_log_sheet
+    append_data_to_sheet_cell, write_log_sheet, append_data_to_sheet_scopes
 from utils.user_agent import get_data_with_proxy, get_data_without_proxy, get_selenium_proxy, get_soup_anticloud, \
     get_soup_curl_cffi, get_fetcher_local
 
@@ -39,6 +40,15 @@ formatted_7date = seven_days_ago.strftime('%Y-%m-%d')
 
 companies = {'strakhovaja-kompanija/sberbank-strah': '147351',
              'bank/novikombank': '5bb4f769245bc22a520a62b1'}
+
+async def data_empty():
+    datas = {'Date': [],
+             'Feedback':[],
+             'Link':[],
+             'Author': [],
+             'Rating': []}
+
+    return datas
 
 async def get_top_url(link):
     pattern = r'https://www\.sravni\.ru/(.*?)/otzyvy/'
@@ -75,16 +85,12 @@ async def check_sravni(service, link, pattern, criteria, ss_id, project, links=F
     url = (f'https://www.sravni.ru/proxy-reviews/reviews/?'
            f'filterBy=all&'
            f'fingerPrint=-1&'
-           f'locationRoute=&'
            f'newIds=true&'
            f'orderBy=byDate&'
            f'pageIndex=0&'
            f'pageSize={pageSize}&'
            f'rated=any&'
            f'reviewObjectId={reviewObjectId}&'
-           f'reviewObjectType=&'
-           f'specificProductId=&'
-           f'tag=&'
            f'withVotes=true')
 
     print('Url:', url)
@@ -378,5 +384,83 @@ async def main_sravni():
             print('datas', datas)
             await write_log_sheet(service, ss_id, 'logs', datas)
 
+
+async def get_ReviewObjectId(url):
+    async with ClientSession() as session:
+        async with session.get(url, timeout=60) as resp:
+            html = await resp.text()
+            print('--- Return data')
+            soup = BeautifulSoup(html, "lxml")
+
+            scripts = soup.select('script[type="application/json"]')
+            print(len(scripts))
+
+            scripts = soup.find_all('script', type="application/json")
+            print(len(scripts))
+
+            for sctipt in scripts:
+                json_data = json.loads(sctipt.text)
+                print(json_data)
+
+                data['reviews']['list']['items']
+
+
+
+
+
+
+
+
+
+
+async def sravni_sberstrem():
+    url = 'https://www.sravni.ru/strakhovaja-kompanija/sberbank-strah/otzyvy/?rated=any&orderby=byDate&filterby=all'
+    await get_ReviewObjectId(url)
+
+    input()
+
+
+
+    service = await get_service()
+
+    ss_id = '1p4MjKmzXzFrn_Usb0MvSXe6RK3zmNdnXaR9zxvCTSPI'
+    project = 'sberstrem'
+
+
+    page = 0
+    while True:
+        url = f'https://www.sravni.ru/proxy-reviews/reviews/?FilterBy=withRates&LocationGarId&NewIds=true&OrderBy=byDate&PageIndex={page}&PageSize=100&Rated=any&ReviewObjectType=banks&SqueezesVectorIds&Tag=&WithVotes=true&fingerPrint=a561f898f6820b1790b34d3883dc29c5'
+        url = f'https://www.sravni.ru/proxy-reviews/reviews?FilterBy=all&LocationGarId&NewIds=true&OrderBy=byDate&PageIndex={page}&PageSize=100&ReviewObjectId=147351&ReviewObjectType=insuranceCompany&SqueezesVectorIds&Tag=&WithVotes=true&fingerPrint=a561f898f6820b1790b34d3883dc29c5'
+        r = requests.get(url)
+
+        r_json = r.json()
+
+        datas = await data_empty()
+
+        for i in r_json['items']:
+            date_string = i['date']
+            date_string_no_z = date_string.replace('Z', '')
+            date_object = datetime.strptime(date_string_no_z, '%Y-%m-%dT%H:%M:%S.%f')
+
+            # 2. Форматирование объекта datetime в нужный формат строки
+            # %d - день с ведущим нулем, %m - месяц с ведущим нулем, %Y - год
+            formatted_date = date_object.strftime('%d.%m.%Y')
+
+            datas['Date'].append(formatted_date)
+            datas['Feedback'].append(i['text'])
+            datas['Link'].append(f"https://www.sravni.ru/strakhovaja-kompanija/sberbank-strah/otzyvy/{i['id']}/")
+            datas['Author'].append(i['authorName'])
+            datas['Rating'].append(i['rating'])
+
+        await append_data_to_sheet_scopes(service, ss_id, project, datas)
+
+
+
+
+
+        page += 1
+
+        input('Next...')
+
 if __name__ == '__main__':
-    asyncio.run(main_sravni())
+    asyncio.run(sravni_sberstrem())
