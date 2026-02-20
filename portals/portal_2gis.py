@@ -599,7 +599,7 @@ async def main_2gis_sberstrem():
     df = await read_table_id(service, ss_id, '2gis')
     df_links = set(df['Link'].tolist())
 
-    p, browser, context, page = await get_playwright(mobile=True)
+    p, browser, context, page = await get_playwright(proxy_type='mobile')
 
     async with SessionLocal() as session:
         query = select(OrgLink)
