@@ -15,6 +15,7 @@ from fake_useragent import UserAgent
 import os
 from dotenv import load_dotenv
 
+import logging
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -23,6 +24,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+
+
 
 from webdriver_manager.chrome import ChromeDriverManager
 
@@ -809,10 +812,15 @@ async def get_playwright_anticloud(url, headless=True, proxy=None):
         return page  # Added return statement
 
 async def get_data_with_proxy(url, text_format=True):
-    trying = 3
+    """
+    text_format: True - text
+    text_format: True - json()
+    """
+    trying = 5
     for i in range(trying):
         print(f'--- Proxy try {i}')
         proxy_host, proxy_port, proxy_login, proxy_pass = await get_one_proxy()
+        print("ProxyHost:", proxy_host)
 
         connector = ProxyConnector(proxy_type=ProxyType.HTTP,
                                    host=proxy_host,
@@ -820,8 +828,16 @@ async def get_data_with_proxy(url, text_format=True):
                                    username=proxy_login,
                                    password=proxy_pass)
 
+        headers = {
+            'User-Agent': ua.random,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
+        }
+
         timeout = aiohttp.ClientTimeout(total=10)
-        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+        async with aiohttp.ClientSession(connector=connector,
+                                         timeout=timeout,
+                                         headers=headers) as session:
             print('--1--')
             try:
                 async with session.get(url) as response:
@@ -829,11 +845,18 @@ async def get_data_with_proxy(url, text_format=True):
                     status_code = response.status
                     print("--- Status:", status_code)
 
-                    if status_code == 403:
+                    if status_code == 400:
+                        logging.info('400 Bad Request (Плохой запрос)')
+                        if i == trying - 1:
+                            return None
+
+                    elif status_code == 403:
+                        logging.info('403 Forbidden (Запрещено)')
                         if i == trying - 1:
                             return None
 
                     elif status_code == 507:
+                        logging.info('507 Insufficient Storage (Недостаточно места)')
                         if i == trying - 1:
                             return None
 

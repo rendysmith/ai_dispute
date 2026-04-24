@@ -30,7 +30,7 @@ from models.mdl_tables import ForumRules
 from utils.ai_module import get_answer_ai
 from utils.central_module import wait_for_portal, get_hpo
 
-from utils.constants import TABLES_LIST
+from utils.constants import TABLES_LIST, empty_data
 from utils.db_loader import read_data_from_db_filter
 
 from utils.gs_editor import get_service, write_log_sheet, get_table_scope, append_data_to_sheet_cell, \
@@ -41,7 +41,7 @@ from portals.portal_ya import get_json, get_id_org, get_base_url, get_rrr
 from portals.portal_tripadvisor import blocks_tripadvisor_sel
 from portals.pravda_sotrudnikov import blocks_pravda
 from portals.otzovru import blocks_otzovru, get_feedback_otzovru
-from portals.portal_2gis import blocks_2gis, blocks_2gis_bs4
+#from portals.portal_2gis import blocks_2gis, blocks_2gis_bs4
 
 from utils.user_agent import get_soup, get_selenium_proxy, get_soup_tor, get_soup_bs4, clean_html, get_playwright
 
@@ -536,7 +536,7 @@ async def pars_dreamjob(service, url_top, ss_id, project, links, rating_max):
 
     pages = soup.find('li', {'class': 'last'})
     print(pages)
-    input('OK!')
+    #input('OK!')
 
     for i in range(pages):
         page = str(i + 1)
@@ -1238,7 +1238,6 @@ async def pars_irec(service, driver, driver2, url, ss_id, project, links, rating
             await asyncio.sleep(5)
             print(f'--- append {author}')
 
-
 async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
     source = "yandex.ru/maps"
     await page.goto(url)
@@ -1524,11 +1523,26 @@ async def pars_ya_maps(service, ss_id, project, links, rating_max):
     await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
 async def pars_tripadvisor(service, driver, url, ss_id, project, links, rating_max):
+    soup = await get_soup(url)
+
+    print(soup)
+    input()
+
+
+
+
     source = 'tripadvisor.ru'
-    number_reviews = 1839
-    rating_before = 3.9
 
     driver.get(url)
+
+    await asyncio.sleep(10)
+
+    try:
+        number_reviews = driver.find_element(By.CSS_SELECTOR, 'div[class][data-automation="bubbleRatingValue"]').text
+    except:
+        number_reviews = driver.find_element(By.CSS_SELECTOR, 'div[class][data-automation="bubbleReviewCount"]').text
+
+    rating_before = driver.find_element(By.CSS_SELECTOR, 'div[clas"biGQs _P SewaP WupKi"]').text
 
     for i in range(1, 55):
         print(f"----------------page-{i}----------------------")
@@ -1906,10 +1920,10 @@ async def multi_pars(ss_id, project):
             await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
             await asyncio.sleep(3)
         #
-        # elif 'tripadvisor' in url:
-        #     await pars_tripadvisor(service, driver, url, ss_id, project, links, rating_max)
-        #     await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
-        #     await asyncio.sleep(3)
+        elif 'tripadvisor' in url:
+            await pars_tripadvisor(service, driver, url, ss_id, project, links, rating_max)
+            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
+            await asyncio.sleep(3)
 
         elif 'pravda-sotrudnikov' in url:
             await pars_pravda(service, url, ss_id, project, links)
@@ -1921,10 +1935,10 @@ async def multi_pars(ss_id, project):
             await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
             await asyncio.sleep(3)
         #
-        # elif 'dreamjob' in url:
-        #     await pars_dreamjob(service, url, ss_id, project, links, rating_max)
-        #     await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
-        #     await asyncio.sleep(3)
+        elif 'dreamjob' in url:
+            await pars_dreamjob(service, url, ss_id, project, links, rating_max)
+            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
+            await asyncio.sleep(3)
 
 
     try:

@@ -260,51 +260,68 @@ async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANG
     print('GS: {0} cells appended.'.format(result.get('updates').get('updatedCells')))
     return 'OK!'
 
-async def append_data_to_sheet_scopes(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, datas):
-    status = await create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME)
 
-    # Получаем текущие заголовки колонок
+async def append_data_to_sheet_scopes(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, datas):
+    # Пытаемся создать, если нет.
+    # Но для проверки "нужны ли заголовки" лучше смотреть на содержимое.
+    await create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME)
+
+    # 1. Получаем текущие данные из таблицы
     result = service.spreadsheets().values().get(
         spreadsheetId=SAMPLE_SPREADSHEET_ID,
-        range=SAMPLE_RANGE_NAME
+        range=f"{SAMPLE_RANGE_NAME}!A1:Z1"  # Читаем только первую строку
     ).execute()
 
-    current_columns = result.get('values', [])[0] if result.get('values', []) else []
+    values = result.get('values', [])
 
-    # Проверяем наличие всех ожидаемых колонок
+    # Определяем, пустая ли таблица
+    is_empty_sheet = len(values) == 0
+
+    if not is_empty_sheet:
+        current_columns = values[0]
+    else:
+        # Если таблица пустая, берем ключи из словаря как будущие заголовки
+        current_columns = list(datas.keys())
+
+    # 2. Проверяем, появились ли в datas новые ключи, которых нет в таблице
     expected_columns = list(datas.keys())
+    new_columns_found = False
     for column_name in expected_columns:
         if column_name not in current_columns:
             current_columns.append(column_name)
+            new_columns_found = True
 
-    # Подготовка данных для записи в формате списка строк
+    # 3. Подготовка строк данных
     rows_to_append = []
-    row_count = max(len(v) for v in datas.values())  # Определяем количество строк по длине самого длинного списка
+    # Считаем количество строк по самому длинному списку в datas
+    row_count = max(len(v) for v in datas.values()) if datas.values() else 0
+
     for i in range(row_count):
         row = []
         for column_name in current_columns:
-            # Получаем значение из списка или пустую строку, если индекс выходит за пределы
-            row.append(datas.get(column_name, [])[i] if i < len(datas.get(column_name, [])) else '')
+            val = datas.get(column_name, [])[i] if i < len(datas.get(column_name, [])) else ''
+            row.append(str(val))  # Приведение к строке защищает от ошибки 400
         rows_to_append.append(row)
 
-    # Запись данных в таблицу
-    body = {
-        'values': rows_to_append
-    }
+    # 4. Формируем финальный массив для записи
+    final_values = rows_to_append
 
-    if status:
-        headers = [k for k in datas.keys()]
-        body['values'].insert(0, headers)
+    # ЕСЛИ ТАБЛИЦА БЫЛА ПУСТАЯ — добавляем заголовки в самое начало
+    if is_empty_sheet:
+        final_values.insert(0, current_columns)
 
+    body = {'values': final_values}
+
+    # 5. Запись
     result = service.spreadsheets().values().append(
         spreadsheetId=SAMPLE_SPREADSHEET_ID,
         range=SAMPLE_RANGE_NAME,
-        valueInputOption='USER_ENTERED',  # Можно изменить на 'RAW' при необходимости
-        insertDataOption='INSERT_ROWS',  # Вставляем данные в новые строки
+        valueInputOption='USER_ENTERED',
+        insertDataOption='INSERT_ROWS',
         body=body
     ).execute()
 
-    print('GS: {0} cells appended.'.format(result.get('updates').get('updatedCells')))
+    print(f"GS: {result.get('updates').get('updatedCells')} cells updated/appended.")
     return 'OK!'
 
 async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_name, row_number, data: str):
@@ -332,6 +349,7 @@ async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_na
             body=value_range_body
         )
         response = request.execute()  # Асинхронный вызов
+        print('GS: cells appended.')
         return response
 
     except Exception as e:

@@ -86,7 +86,11 @@ async def analyst_tg(service, datas, prompt_trend_gone):
             if '?' in user_message_id:
                 user_message_id = user_message_id.split('?')[0]
 
-            user_message_id = int(user_message_id)
+            try:
+                user_message_id = int(user_message_id)
+            except ValueError as VE:
+                print(f'Error VE: {VE}')
+
 
             print(f"\nConnect {channel}: -------------------> {data[1]}")
             try:

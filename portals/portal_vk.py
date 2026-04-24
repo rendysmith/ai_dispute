@@ -291,7 +291,7 @@ async def blocks_vk(url, author_name=False):
         if comment.get('author_name'):
             comments.append(comment)
 
-    #print(len(comments))
+    print("VK len_coms", len(comments))
     return comments
 
 async def check_vk(service, url, pattern, criteria, ss_id, project, links=False):
@@ -337,7 +337,8 @@ async def main_vk():
 
     comments = await blocks_vk(url)
     for comment in comments:
-        uniq_id = f"{comment['id']}_{comment['from_id']}_{comment['date']}"
+
+        uniq_id = f"{comment['id']}_{comment['from_id']}_{comment['text']}"
         print(uniq_id)
         #print(com)
 

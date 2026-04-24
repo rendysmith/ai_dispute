@@ -15,10 +15,10 @@ from twocaptcha import TwoCaptcha
 
 from utils.ai_module import generate_and_white
 from utils.central_module import wait_for_portal, proxy_status, get_hpo
-from utils.constants import TABLES_LIST
+from utils.constants import TABLES_LIST, empty_data
 from utils.gs_editor import get_service, pars_url, get_table_scope, write_log_sheet, append_data_to_sheet_scope, \
     append_data_to_sheet_cell
-from utils.user_agent import get_selenium_proxy
+from utils.user_agent import get_selenium_proxy, get_playwright
 from utils.proxy_bridge import set_windows_proxy
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
@@ -45,6 +45,46 @@ print(f"Headless = {headless}, proxy = {proxy_on}")
 recorded = 0
 
 # print(f'- local_ip Otzovik: {local_ip} {headless} {proxy_on}')
+
+async def check_captcha(page):
+    while True:
+        captcha = page.locator('img[id="captcha-img"]')
+        if await captcha.is_visible():
+            print("--- Captcha!")
+
+            # captcha_link_content = await page.locator("img[id='captcha-img']").get_attribute('src')
+            # captcha_link = 'https://otzovik.com' + captcha_link_content
+            # print(captcha_link)
+            #
+            # response = await page.request.get(captcha_link)
+            #
+            # # Сохраняем в файл
+            # if response.ok:
+            #     with open("captcha1.png", "wb") as f:
+            #         f.write(await response.body())
+            #     print("Капча сохранена!")
+
+            captcha_element = page.locator("img[id='captcha-img']")
+
+            captcha_path = f'{corn_folder}/downloaded_files/captcha_{int(time.time())}.png'
+            await captcha_element.screenshot(path=captcha_path)
+
+            captcha_text = await sent_captcha(captcha_path)
+            print(captcha_text)
+
+            # 1. Находим инпут (лучше использовать более точный селектор)
+            input_field = page.get_by_placeholder("Введите код с картинки")
+
+            # 2. Очищаем поле (на всякий случай) и вводим текст
+            # fill() работает быстрее и надежнее для большинства капч
+            await input_field.fill(captcha_text)
+
+            # 3. Нажимаем Enter (обязательно с await)
+            await input_field.press("Enter")
+
+        else:
+            print('--- Without captcha')
+            break
 
 async def get_top_link(driver):
     try:
@@ -151,86 +191,44 @@ async def captcha_check(driver):
 
     return driver
 
-async def blocks_otzovik(driver, link, service):
-    print(f'Link: {link}')
-    try:
-        print('--- Get 1.0')
-        driver.get(link)
+async def get_feedback(page, url):
+    await page.goto(url)
+    await check_captcha(page)
+    text = await page.locator('div.item-right').inner_text()
+    await asyncio.sleep(2)
+    return text
 
-    except:
-        print('--- Get 1.1')
-        #driver = await get_selenium_proxy(link, headless=headless, proxy=proxy_on)
-        driver = await get_selenium_proxy(link, headless=headless, proxy=proxy_on)
+async def blocks_otzovik(page, page2, links, min_rating, max_rating):
+    blocks = await page.locator('div[class="item status4 mshow0"]').all()
 
-    if proxy_on:
-        driver = await captcha_check(driver) #обработка капчи
-        if not driver:
-            print('- Error Driver 1')
-            return
+    datas = await empty_data()
 
-    await wait_for_portal()  # Время ожидания
+    for block in blocks:
+        rating = int(await block.locator('div[class="rating-score tooltip-right"]').inner_text())
 
-    try:
-        breadcrumbs = driver.find_element(By.CSS_SELECTOR, 'div.page-caption').text
-        if 'Ошибка' in breadcrumbs:
-            print(f"- {breadcrumbs}")
-            return 'Next ...'
+        if min_rating <= rating <= max_rating:
+            review_url_content = await block.locator('a.review-btn.review-read-link').get_attribute('href')
+            review_url = f"https://otzovik.com{review_url_content}"
 
-    except Exception as Ex:
-        print(f"--- Error OTZ {Ex}")
+            if review_url in links:
+                continue
 
-    if 'order=date_desc' not in link:
-        top_link = await get_top_link(driver)
+            text = await get_feedback(page2, review_url)
 
-        if top_link:
-            datas = {'project': project,
-                     'url': link,
-                     'top_url': top_link}
+            date_content = await block.locator('div.review-postdate').get_attribute('content')
+            date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S%z")
+            date = date.replace(tzinfo=None)  # offset-naive
+            formatted_date = date.strftime("%d.%m.%Y")
 
-            await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
-            try:
-                print('--- Get 2.0')
-                driver.get(top_link)
-            except:
-                print('--- Get 2.1')
-                #driver = await get_selenium_proxy(top_link, headless=headless, proxy=proxy_on)
-                driver = await get_selenium_proxy(top_link, headless=headless, proxy=proxy_on)
-                driver = await captcha_check(driver)  # обработка капчи
-                if not driver:
-                    print('-- Error Driver')
-                    return
+            author = await block.locator('span[itemprop="name"]').inner_text()
 
-        else:
-            print('--- No top link')
-            return driver
+            datas['Дата'].append(formatted_date)
+            datas['Текст'].append(text)
+            datas['Url'].append(review_url)
+            datas['Автор'].append(author)
+            datas['Оценка'].append(rating)
 
-    else:
-        print('- Это уже топовая ссылка.')
-
-    n = 0
-    len_b = 0
-    blocks = None
-    while n < 10:
-        try:
-            blocks = driver.find_elements(By.CSS_SELECTOR, 'div[itemprop="review"]')
-            len_b = len(blocks)
-            print(f'Len_b: {len_b}')
-            if len_b == 0:
-                return 'Next...'
-
-            break
-
-        except:
-            print(f'--- driver refresh')
-            driver.refresh()
-            await asyncio.sleep(5)
-            n += 1
-
-            if n == 10:
-                print('- n == 10')
-                return None
-
-    return blocks
+    return datas
 
 async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver):
     global recorded
@@ -268,7 +266,6 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
         #print("Date_content", date_content)
         date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S%z")
         date = date.replace(tzinfo=None)  # offset-naive
-
         formatted_date = date.strftime("%d.%m.%Y")
 
         if (current_date - date) > timedelta(days=days_ago):
@@ -456,15 +453,16 @@ async def tst_otzovik():
     # print(capcha_text)
     # input('Wait...')
 
-    url = 'https://otzovik.com/review_15376402.html'
+    p, browser, context, page = await get_playwright(headless=False, blocked_resource=False)
 
-    service = await get_service()
-    #playwright, browser, page = await get_playwright(url, headless=False)
+    url = 'https://otzovik.com/reviews/elektronniy_polis_osago_sber_strahovanie/2/?order=date_desc'
 
-    driver = await get_selenium_proxy(url, headless=False)
-    await check_otzovik(service, url, 1, 1, "1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w", 1, driver)
+    await page.goto(url)
+
+    await blocks_otzovik(context, page, 4, 5)
+
 
 if __name__ == '__main__':
     #asyncio.run(tst_otzovik())
-    asyncio.run(main_otzovik())
+    asyncio.run(tst_otzovik())
     print('The End!')

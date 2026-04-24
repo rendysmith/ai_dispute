@@ -591,6 +591,7 @@ async def check_ba(service):
     return 'OK!'
 
 async def main_ba():
+    SS_ID = '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8'
     project = 'BA'
     service = await get_service()
     status = await check_ba(service)
@@ -600,7 +601,7 @@ async def main_ba():
             'date': time.ctime(),
             'error': status
     }
-    await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
+    await write_log_sheet(service, SS_ID, 'logs', data)
 
 async def tst_main():
     url_answer = 'https://vk.com/wall-38889866_286572?reply=286575&thread=286573'

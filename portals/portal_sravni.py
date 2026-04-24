@@ -22,7 +22,7 @@ from utils.converter import extract_company_name
 from utils.gs_editor import get_table_scope, append_data_to_sheet_scope, pars_url, get_service, \
     append_data_to_sheet_cell, write_log_sheet, append_data_to_sheet_scopes
 from utils.user_agent import get_data_with_proxy, get_data_without_proxy, get_selenium_proxy, get_soup_anticloud, \
-    get_soup_curl_cffi, get_fetcher_local
+    get_soup_curl_cffi, get_fetcher_local, get_soup
 
 current_date = datetime.now(timezone.utc)
 
@@ -49,6 +49,10 @@ async def data_empty():
              'Rating': []}
 
     return datas
+
+async def block_sravni():
+    url = 'https://www.sravni.ru/proxy-reviews/reviews/?FilterBy=all&LocationGarId&NewIds=true&OrderBy=highRateFirst&PageIndex=0&PageSize=10&Rated=any&ReviewObjectId=147351&ReviewObjectType=insuranceCompany&SqueezesVectorIds&Tag=&WithVotes=true&fingerPrint=a561f898f6820b1790b34d3883dc29c5'
+
 
 async def get_top_url(link):
     pattern = r'https://www\.sravni\.ru/(.*?)/otzyvy/'
@@ -384,25 +388,20 @@ async def main_sravni():
             print('datas', datas)
             await write_log_sheet(service, ss_id, 'logs', datas)
 
-
 async def get_ReviewObjectId(url):
-    async with ClientSession() as session:
-        async with session.get(url, timeout=60) as resp:
-            html = await resp.text()
-            print('--- Return data')
-            soup = BeautifulSoup(html, "lxml")
+    r_text = await get_data_with_proxy(url)
+    soup = BeautifulSoup(r_text, 'html.parser')
 
-            scripts = soup.select('script[type="application/json"]')
-            print(len(scripts))
+    scripts = soup.select('script[type="application/json"]')
+    print(len(scripts))
 
-            scripts = soup.find_all('script', type="application/json")
-            print(len(scripts))
+    scripts = soup.find_all('script', type="application/json")
+    print(len(scripts))
 
-            for sctipt in scripts:
-                json_data = json.loads(sctipt.text)
-                print(json_data)
-
-                data['reviews']['list']['items']
+    # for sctipt in scripts:
+    #     json_data = json.loads(sctipt.text)
+    #     print(json_data)
+    #     data['reviews']['list']['items']
 
 
 
@@ -415,9 +414,10 @@ async def get_ReviewObjectId(url):
 
 async def sravni_sberstrem():
     url = 'https://www.sravni.ru/strakhovaja-kompanija/sberbank-strah/otzyvy/?rated=any&orderby=byDate&filterby=all'
-    await get_ReviewObjectId(url)
+    print(url)
 
-    input()
+    ROI = await get_ReviewObjectId(url)
+    input(ROI)
 
 
 
