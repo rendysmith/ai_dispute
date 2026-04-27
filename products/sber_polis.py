@@ -396,8 +396,8 @@ async def main():
         elif 'sravni' in link:
             status = await pars_sravni(service, project, link, links, min_rating, max_rating, last_page, idx)
 
-        columns = ['status', 'last_day']
-        datas = [status, current_date]
+        columns = ['last_page', 'status', 'last_day']
+        datas = [0, status, current_date]
         await append_data_to_sheet_cells(service, ss_id, 'links', columns, idx+2, datas)
 
 if "__main__" == __name__:
