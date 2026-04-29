@@ -106,8 +106,14 @@ async def pars_banki(service, project, link, links, min_rating, max_rating, last
                     data_filter['Общий Url'].append(link)
                     data_filter['Статус оценки'].append(datas['Статус оценки'][i])
 
-            await append_data_to_sheet_cell(service, ss_id, 'links', 'last_page', idx + 2,
-                                            current_page)
+            columns = ['last_page', 'max_page']
+            fixdatas = [current_page, current_page]
+            await append_data_to_sheet_cells(service,
+                                            ss_id,
+                                            'links',
+                                             columns,
+                                             idx + 2,
+                                             fixdatas)
 
             if not within_date_range:
                 return 'OK!'
@@ -126,15 +132,15 @@ async def pars_banki(service, project, link, links, min_rating, max_rating, last
         print(f"Ошибка во время работы: {e}")
 
     finally:
-        # ВАЖНО: Закрываем всё в обратном порядке
         await page.close()
         await context.close()
         await browser.close()
-        await p.stop()  # Если get_playwright возвращает объект playwright
+        await p.stop()
+    return 'OK!'
 
 async def pars_otzovik(service, project, link, links, min_rating, max_rating, last_page=1, idx=0):
-    p, browser, context, page = await get_playwright(blocked_resource=False, proxy_type='us')
-    p2, browser2, context2, page2 = await get_playwright(blocked_resource=False, proxy_type='us')
+    p, browser, context, page = await get_playwright(blocked_resource=False, proxy_type='ru')
+    p2, browser2, context2, page2 = await get_playwright(blocked_resource=False, proxy_type='ru')
 
     today_midnight = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -185,7 +191,14 @@ async def pars_otzovik(service, project, link, links, min_rating, max_rating, la
                     datas_filter['Оценка'].append(datas['Оценка'][i])
                     datas_filter['Общий Url'].append(link)
 
-            await append_data_to_sheet_cell(service, ss_id, 'links', 'last_page', idx + 2, current_page)
+            columns = ['last_page', 'max_page']
+            fixdatas = [current_page, current_page]
+            await append_data_to_sheet_cells(service,
+                                             ss_id,
+                                             'links',
+                                             columns,
+                                             idx + 2,
+                                             fixdatas)
 
             if not datas_filter["Дата"] and len_b == pages:
                 continue
@@ -205,7 +218,6 @@ async def pars_otzovik(service, project, link, links, min_rating, max_rating, la
         traceback.print_exc()
 
     finally:
-
         await page.close()
         await context.close()
         await browser.close()
@@ -216,7 +228,10 @@ async def pars_otzovik(service, project, link, links, min_rating, max_rating, la
         await browser2.close()
         await p2.stop()
 
+    return 'OK!'
+
 async def pars_sravni(service, project, link, links, min_rating, max_rating, last_page=0, idx=0):
+    now = datetime.now(timezone.utc)
     ReviewObjectId = 147351
     PageSize = 10
     current_date = True
@@ -233,13 +248,15 @@ async def pars_sravni(service, project, link, links, min_rating, max_rating, las
 
         print(link)
 
-        #r_text = await get_data_with_proxy(link, text_format=False)
-        r_text = await get_data_with_proxy(link, text_format=False)
+        r_text = await get_soup(link, only_text=False)
 
         try:
             len_b = len(r_text['items'])
+
         except Exception as Ex:
-            return 'Error'
+            return f'Error {Ex}'
+
+        print(f'- Len = {len_b}')
 
         datas = await empty_data()
         datas['Статус оценки'] = []
@@ -279,7 +296,13 @@ async def pars_sravni(service, project, link, links, min_rating, max_rating, las
                 datas['Общий Url'].append(link)
                 datas['Статус оценки'].append(status)
 
-        await append_data_to_sheet_cell(service, ss_id, 'links', 'last_page', idx + 2, PageIndex)
+        columns = ['last_page', 'max_page']
+        fixdatas = [PageIndex, PageIndex]
+        await append_data_to_sheet_cells(service, ss_id,
+                                         'links',
+                                         columns,
+                                         idx + 2,
+                                         fixdatas)
 
         if not datas['Дата'] and len_b == PageSize:
             continue
@@ -334,8 +357,14 @@ async def pars_asn_news(service, project, link, links, min_rating, max_rating, l
                     datas_filter['Общий Url'].append(link)
                     datas_filter['Статус оценки'].append(datas['Статус оценки'][i])
 
-            await append_data_to_sheet_cell(service, ss_id, 'links', 'last_page', idx + 2,
-                                            current_page)
+            columns = ['last_page', 'max_page']
+            fixdatas = [current_page, current_page]
+            await append_data_to_sheet_cells(service,
+                                             ss_id,
+                                             'links',
+                                             columns,
+                                             idx + 2,
+                                             fixdatas)
 
             if not datas_filter["Дата"] and len_b == pages:
                 continue
