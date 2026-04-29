@@ -234,7 +234,7 @@ async def pars_sravni(service, project, link, links, min_rating, max_rating, las
         print(link)
 
         #r_text = await get_data_with_proxy(link, text_format=False)
-        r_text = await get_data_without_proxy(link, text_format=False)
+        r_text = await get_data_with_proxy(link, text_format=False)
 
         try:
             len_b = len(r_text['items'])
