@@ -1,16 +1,5 @@
-import asyncio
 import json
-import re
-from pprint import pprint
-from urllib.parse import urlparse
-
-from watchfiles import awatch
-
 from utils.constants import empty_data
-from utils.proxy_module import get_one_proxy
-from utils.user_agent import get_soup, get_playwright
-
-
 async def block_banki(page):
     datas = await empty_data()
 
@@ -96,12 +85,7 @@ async def block_banki(page):
     return datas
 
 
-
-
-
 if "__main__" == __name__:
-
-
 
     link = 'https://www.banki.ru/insurance/responses/company/sberbankstrahovanie/?ysclid=lnfawtagh8707830496'
 

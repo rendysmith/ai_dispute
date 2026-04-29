@@ -37,7 +37,7 @@ from utils.gs_editor import get_service, write_log_sheet, get_table_scope, appen
     append_data_to_sheet_cells, append_data_to_sheet_scopes, read_table_id, append_data_to_sheet_scope
 
 from portals.portal_otzovik import get_top_link
-from portals.portal_ya import get_json, get_id_org, get_base_url, get_rrr
+from portals.portal_ya import get_json, get_id_org
 from portals.portal_tripadvisor import blocks_tripadvisor_sel
 from portals.pravda_sotrudnikov import blocks_pravda
 from portals.otzovru import blocks_otzovru, get_feedback_otzovru
@@ -506,11 +506,11 @@ async def total_grade_analysis_bad(worktable_id, tn_name):
                                         target_idx + 2,
                                         finish_rating)
 
-async def pars_dreamjob(service, url_top, ss_id, project, links, rating_max):
+async def pars_dreamjob(service, url_top, ss_id, project, links, rating_max, idx_last_page, last_page=1):
     """Функция для получения негативных отзывовов и записьм их в таблицу"""
     unix_time = str(int(time.time() * 1000))
 
-    soup = await get_soup(url_top, proxy=False)
+    soup = await get_soup(url_top)
     if not soup:
         return
 
@@ -538,19 +538,22 @@ async def pars_dreamjob(service, url_top, ss_id, project, links, rating_max):
     print(pages)
     #input('OK!')
 
-    for i in range(pages):
-        page = str(i + 1)
+    for page in range(last_page, 1000):
+        #page = str(i + 1)
         print(f'\nPage: {page}')
 
         url = f'https://dreamjob.ru/employers/{employerId}?nrs%5Bsort%5D=&nrs%5Bcities%5D=%5B%5D&nrs%5Bvacancies%5D=%5B%5D&nrs%5Bdepartments%5D=%5B%5D&nrs%5Bratings%5D=%5B%222%22%2C%221%22%5D&nrs%5Bfirst_selected%5D=ratings&nrs%5Btopics%5D%5B0%5D=%5B%5D&nrs%5Btopics%5D%5B1%5D=%5B%5D&page={page}&_pjax=%23data_pjax'
         print(url)
-        soup = await get_soup(url, proxy=False)
+        soup = await get_soup(url)
         if not soup:
             continue
 
         blocks = soup.find_all('div', {"class": 'review', 'data-partly': 'short'})
+
+        len_b = len(blocks)
+
         print('Len:', len(blocks))
-        if len(blocks) == 0:
+        if len_b == 0:
             return None
 
         datas = await empty_data()
@@ -645,7 +648,10 @@ async def pars_dreamjob(service, url_top, ss_id, project, links, rating_max):
         print('White datas - OK!')
         await asyncio.sleep(5)
 
-        #await append_data_to_sheet_cell(service, ss_id, "links", idx_last_page, last_page)
+        if len_b < 49:
+            return
+
+        await append_data_to_sheet_cell(service, ss_id, "links", idx_last_page + 2, page)
 
 async def pars_2gis(service, url, ss_id, project, links, rating_max):
     source = '2gis.ru'
@@ -1893,6 +1899,7 @@ async def multi_pars(ss_id, project):
         url = row['link']
         print(f'\n{url}')
         rating_max = int(row['max_raiting'])
+        last_page = int(row['last_page'])
 
         if 'otzovik' in url:
             await pars_otzovik(service, driver, url, driver2, ss_id, project, links, rating_max)
@@ -1936,7 +1943,7 @@ async def multi_pars(ss_id, project):
             await asyncio.sleep(3)
         #
         elif 'dreamjob' in url:
-            await pars_dreamjob(service, url, ss_id, project, links, rating_max)
+            await pars_dreamjob(service, url, ss_id, project, links, rating_max, k, last_page)
             await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
             await asyncio.sleep(3)
 
@@ -1949,11 +1956,11 @@ async def multi_pars(ss_id, project):
         pass
 
 async def main():
-    ss_id = '1ViRHAqfAIxEJ9E0kcpmg-P5Xpi41niOy8BOre9akV1I'
-    project = 'SushiMake'
+    ss_id = '13UgBlcd_PMGMLqkIBedKCkWwCPZ_Tr_XRVrKJYkNets'
+    project = 'MTS'
 
-    await multi_pars(ss_id, project)
-    #await review_analysis(ss_id, project)
+    #await multi_pars(ss_id, project)
+    await review_analysis(ss_id, project)
 
     # await asyncio.gather(
     #    review_analysis(ss_id, project),
