@@ -352,6 +352,9 @@ async def full_blocks_otzovik(service, ss_id, project, page, page_2):
         if link_el:
             review_link = "https://otzovik.com" + await link_el.get_attribute('href')
 
+        if review_link in lists:
+            continue
+
         # Автор и ссылка на автора
         author_el = await card.query_selector('a.user-login')
         author_name = ""
@@ -424,7 +427,7 @@ async def full_blocks_otzovik(service, ss_id, project, page, page_2):
         await append_data_to_sheet_scope(service, ss_id, project, review_data)
         await asyncio.sleep(3)
 
-    return results
+    return review_cards
 
 
 async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver):
@@ -528,10 +531,7 @@ async def main_otzovik():
                 datas = await full_blocks_otzovik(service, ss_id, project, page, page_2)
                 len_d = len(datas)
 
-                print('************************')
-                print(datas)
-
-                to_dict = await transform_reviews_to_dict(datas)
+                #to_dict = await transform_reviews_to_dict(datas)
                 #await append_data_to_sheet_scopes(service, ss_id, project, to_dict)
 
                 await append_data_to_sheet_cell(service, ss_id, "links", 'last_page', idx+2, pg)

@@ -1,5 +1,5 @@
-from sber_polis import main_sber_polis
-from automir import main_automir
+from products.sber_polis import main_sber_polis
+from products.automir import main_automir
 
 async def main():
     try:
