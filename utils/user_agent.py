@@ -35,6 +35,7 @@ from seleniumbase import config
 from seleniumbase import SB
 
 from playwright.async_api import async_playwright
+from playwright_stealth import Stealth
 
 from utils.constants import status_codes
 from utils.proxy_module import get_one_proxy
@@ -606,7 +607,7 @@ async def get_selenium_proxy(url=None, headless=True, proxy=True):
     return driver
 
 
-async def get_playwright(url=False, headless=True, proxy=True, proxy_type=None, blocked_resource=True):
+async def get_playwright(url=False, headless=True, proxy=True, proxy_type=None, blocked_resource=True, stealth=False):
     if proxy:
         host, port, login, password = await get_one_proxy(proxy_type)
 
@@ -632,6 +633,9 @@ async def get_playwright(url=False, headless=True, proxy=True, proxy_type=None, 
     await context.add_init_script(
         "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
     )
+
+    if stealth:
+        await Stealth().apply_stealth_async(context)
 
     page = await context.new_page()
     # Встраиваем стелс-режим
@@ -676,105 +680,6 @@ async def get_playwright(url=False, headless=True, proxy=True, proxy_type=None, 
         await page.wait_for_timeout(5000)  # имитация паузы
 
     return p, browser, context, page
-
-
-async def get_playwright_old(url=False, headless=True, proxy=True, mobile=False):
-    if proxy:
-        host, port, login, password = await get_one_proxy(mobile)
-
-        proxy = {
-            "server": f"http://{host}:{port}",
-            "username": login,  # можно опустить
-            "password": password  # можно опустить
-        }
-
-    else:
-        proxy = None
-
-
-    p = await async_playwright().start()   # <-- вместо async with
-    browser = await p.chromium.launch(
-        headless=headless,
-        proxy=proxy,
-        args=["--no-sandbox", "--disable-blink-features=AutomationControlled"]
-    )
-    context = await browser.new_context(
-        user_agent=str(ua),
-        viewport={"width":1366,"height":768},
-        locale="en-US"
-    )
-    await context.add_init_script(
-        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-    )
-
-    page = await context.new_page()
-    if url:
-        await page.goto(url)
-        await page.wait_for_timeout(5000)  # имитация паузы
-
-    return p, browser, context, page
-
-async def get_playwright_old(url, headless=True):
-    print('>>> start PW')
-    """
-     :param url: url
-     :param headless: headless (boot) headless=True
-     :return:
-     """
-    try:
-        playwright = await async_playwright().start()
-
-        async def launch_browser(proxy=None):
-            """Запуск браузера с опциональным прокси и настройкой контекста"""
-            browser = await playwright.firefox.launch(
-                headless=headless,
-                proxy=proxy,
-                timeout=15000 if proxy else 30000
-            )
-
-            json_file = os.path.join(os.path.dirname(__file__), 'setting/context.json')
-
-            try:
-                context = await browser.new_context(user_agent=ua.firefox, storage_state=json.load(open(json_file)))
-            except:
-                context = await browser.new_context(user_agent=ua.firefox)
-
-            await context.set_extra_http_headers(await gen_ua(url))
-            page = await context.new_page()
-
-            # Перехватываем запросы для блокировки изображений и видео
-            async def block_images_and_videos(route):
-                if route.request.resource_type in ["image", "media"]:
-                    await route.abort()
-                else:
-                    await route.continue_()
-
-            #await page.route("**/*", block_images_and_videos)
-            await page.goto(url)
-            # Сохранение контекста в файл
-            context_state = await context.storage_state()
-            with open(json_file, 'w') as f:
-                json.dump(context_state, f)
-
-            return browser, page
-
-        try:
-            # Если ошибка, запускаем c прокси
-            proxies = await get_headers('pw')
-            browser, page = await launch_browser(proxies)
-            print('Proxy')
-
-        except:
-            # Пытаемся запустить без прокси
-            browser, page = await launch_browser()
-            print('No Proxy')
-
-        return playwright, browser, page
-
-    except Exception as Ex:
-        print("ERROR PW Ex:", Ex)
-        traceback.print_exc()
-        return None, None, None
 
 async def get_playwright_anticloud(url, headless=True, proxy=None):
     print('>>> start PW AntiCloud')

@@ -383,7 +383,7 @@ async def pars_asn_news(service, project, link, links, min_rating, max_rating, l
         print(f'--- Error Ex = {Ex}')
         traceback.print_exc()
 
-async def main():
+async def main_sber_polis():
     service = await get_service()
     df = await read_table_id(service, ss_id, 'links')
     print(df)

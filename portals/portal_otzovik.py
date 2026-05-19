@@ -11,13 +11,14 @@ import requests
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from twocaptcha import TwoCaptcha
+from twocaptcha import TwoCaptcha, AsyncTwoCaptcha
+from playwright_captcha import TwoCaptchaSolver, CaptchaType, FrameworkType
 
 from utils.ai_module import generate_and_white
 from utils.central_module import wait_for_portal, proxy_status, get_hpo
-from utils.constants import TABLES_LIST, empty_data
+from utils.constants import TABLES_LIST, empty_data, months
 from utils.gs_editor import get_service, pars_url, get_table_scope, write_log_sheet, append_data_to_sheet_scope, \
-    append_data_to_sheet_cell
+    append_data_to_sheet_cell, read_table_id, append_data_to_sheet_scopes
 from utils.user_agent import get_selenium_proxy, get_playwright
 from utils.proxy_bridge import set_windows_proxy
 
@@ -34,6 +35,7 @@ load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 captcha_key = os.environ.get("CAPTCHA_KEY")
+print(captcha_key)
 
 ss_id = TABLES_LIST['zoom']
 
@@ -46,45 +48,152 @@ recorded = 0
 
 # print(f'- local_ip Otzovik: {local_ip} {headless} {proxy_on}')
 
+async def date_convert(date_str):
+    parts = date_str.split()
+    date = 'Не определено'
+    if len(parts) == 3:
+        day = parts[0].zfill(2)
+        month_value = months.get(parts[1].lower(), '00')
+        month = str(month_value).zfill(2)
+        year = parts[2]
+        date = f"{day}.{month}.{year}"
+
+    return date
+
+async def transform_reviews_to_dict(reviews_list):
+    """
+    Преобразует список словарей в словарь с массивами значений.
+
+    Пример:
+    Вход: [{'a': 1, 'b': 2}, {'a': 3, 'b': 4}]
+    Выход: {'a': [1, 3], 'b': [2, 4]}
+    """
+    if not reviews_list:
+        return {}
+
+    # Получаем заголовки из первого словаря
+    # (предполагаем, что все словари имеют одинаковую структуру)
+    columns = list(reviews_list[0].keys())
+
+    # Создаем словарь с пустыми списками
+    result = {col: [] for col in columns}
+
+    # Заполняем значения
+    for item in reviews_list:
+        for col in columns:
+            result[col].append(item.get(col, ''))
+
+    return result
+
+async def solve_captcha(page):
+    captcha_client = AsyncTwoCaptcha(captcha_key)
+
+    async with TwoCaptchaSolver(framework=FrameworkType.PLAYWRIGHT,
+                                page=page,
+                                async_two_captcha_client=captcha_client
+                                ) as solver:
+        await solver.solve_captcha(
+            captcha_container=page,
+            captcha_type=CaptchaType.RECAPTCHA_V2 # Или другой тип, если Отзовик обновится
+        )
+
+async def sent_captcha(file_link):
+    print('--- Send captcha...')
+    solver = TwoCaptcha(apiKey=captcha_key, )
+
+    n = 0
+    while n < 10:
+        result = solver.normal(file_link)
+        #print(result)
+        if result.get('code'):
+            #print(result['code'])
+            return result['code']
+
+        await asyncio.sleep(1)
+        n += 1
+        print(f'nC = {n}')
+
+    return None
+
+async def normalize_otzovik_date(date_str):
+    """
+    Преобразует строковую дату Otzovik в формат dd.mm.YYYY.
+    Учитывает текущую дату как 14.05.2026 (на основе предоставленных данных).
+    """
+    if not date_str or not isinstance(date_str, str):
+        return date_str
+
+    # Текущая дата для расчетов (из вашего контекста)
+
+
+    today = datetime.now()  # или datetime.today()
+
+    date_str = date_str.lower().strip()
+
+    # 1. Обработка ключевых слов
+    if date_str == 'сегодня':
+        return today.strftime('%d.%m.%Y')
+    if date_str == 'вчера':
+        return (today - timedelta(days=1)).strftime('%d.%m.%Y')
+
+    # 2. Обработка дней недели
+    weekdays = {
+        'понедельник': 0, 'вторник': 1, 'среда': 2,
+        'четверг': 3, 'пятница': 4, 'суббота': 5, 'воскресенье': 6
+    }
+
+    if date_str in weekdays:
+        target_weekday = weekdays[date_str]
+        current_weekday = today.weekday()
+        # Вычисляем разницу (идем назад до ближайшего дня недели)
+        days_ago = (current_weekday - target_weekday) % 7
+        if days_ago == 0:  # Если сегодня четверг и в логе "четверг", значит это было 7 дней назад
+            days_ago = 7
+        res_date = today - timedelta(days=days_ago)
+        return res_date.strftime('%d.%m.%Y')
+
+    # 3. Обработка форматов "15 мар" или "16 фев 2018"
+    # months = {
+    #     'янв': 1, 'фев': 2, 'мар': 3, 'апр': 4, 'май': 5, 'июн': 6,
+    #     'июл': 7, 'авг': 8, 'сен': 9, 'окт': 10, 'ноя': 11, 'дек': 12
+    # }
+
+    parts = date_str.split()
+    if len(parts) >= 2:
+        try:
+            day = int(parts[0])
+            # Берем первые 3 буквы месяца для сопоставления со словарем
+            month_name = parts[1][:3]
+            month = months.get(month_name, 1)
+
+            if len(parts) == 3:
+                # Формат: "16 фев 2018"
+                year = int(parts[2])
+            else:
+                # Формат: "15 мар" (текущий год)
+                year = today.year
+
+            return f"{day:02d}.{month:02d}.{year}"
+        except (ValueError, IndexError):
+            return date_str
+
+    return date_str
+
 async def check_captcha(page):
     while True:
-        captcha = page.locator('img[id="captcha-img"]')
-        if await captcha.is_visible():
-            print("--- Captcha!")
+        try:
+            captcha_count = await page.locator('img[id="captcha-img"]').count()
+            if captcha_count > 0:
+                print('Captcha found, wait 5 sec...')
+                await asyncio.sleep(5)
 
-            # captcha_link_content = await page.locator("img[id='captcha-img']").get_attribute('src')
-            # captcha_link = 'https://otzovik.com' + captcha_link_content
-            # print(captcha_link)
-            #
-            # response = await page.request.get(captcha_link)
-            #
-            # # Сохраняем в файл
-            # if response.ok:
-            #     with open("captcha1.png", "wb") as f:
-            #         f.write(await response.body())
-            #     print("Капча сохранена!")
+            else:
+                print('--- No captcha')
+                return
 
-            captcha_element = page.locator("img[id='captcha-img']")
-
-            captcha_path = f'{corn_folder}/downloaded_files/captcha_{int(time.time())}.png'
-            await captcha_element.screenshot(path=captcha_path)
-
-            captcha_text = await sent_captcha(captcha_path)
-            print(captcha_text)
-
-            # 1. Находим инпут (лучше использовать более точный селектор)
-            input_field = page.get_by_placeholder("Введите код с картинки")
-
-            # 2. Очищаем поле (на всякий случай) и вводим текст
-            # fill() работает быстрее и надежнее для большинства капч
-            await input_field.fill(captcha_text)
-
-            # 3. Нажимаем Enter (обязательно с await)
-            await input_field.press("Enter")
-
-        else:
-            print('--- Without captcha')
-            break
+        except:
+            print('--- No captcha')
+            return
 
 async def get_top_link(driver):
     try:
@@ -101,24 +210,6 @@ async def get_top_link(driver):
     #         top_link_content_0 = await page.query_selector('h1[class="product-name"]')
     #         top_link_content = await top_link_content_0.query_selector('a')
     #         top_link = await top_link_content.get_attribute('href')
-
-async def sent_captcha(file_link):
-    print('- Send captcha...')
-    solver = TwoCaptcha(apiKey=captcha_key, )
-
-    n = 0
-    while n < 10:
-        result = solver.normal(file_link)
-        #print(result)
-        if result.get('code'):
-            #print(result['code'])
-            return result['code']
-
-        await asyncio.sleep(1)
-        n += 1
-        print(f'nC = {n}')
-
-    return None
 
 async def captcha_check(driver):
     print('>>> Capcha? <<<')
@@ -230,6 +321,112 @@ async def blocks_otzovik(page, page2, links, min_rating, max_rating):
 
     return datas
 
+async def full_blocks_otzovik(service, ss_id, project, page, page_2):
+
+    results = []
+
+    # 1. Сбор всех карточек отзывов на текущей странице
+    # Используем селектор для контейнера каждого отзыва
+    review_cards = await page.query_selector_all('div.item.status4.mshow0')
+    print(f'Len cards = {len(review_cards)}')
+
+    for card in review_cards:
+        # --- Сбор данных с основной страницы (page) ---
+
+        # Дата отзыва
+        date_el = await card.query_selector('.review-postdate span')
+        date_str = await date_el.inner_text() if date_el else None
+        review_date = await date_convert(date_str)
+
+        # Оценка
+        rating_el = await card.query_selector('.rating-score span')
+        rating = await rating_el.inner_text() if rating_el else None
+
+        # Текст отзыва (тизер)
+        text_el = await card.query_selector('.review-teaser')
+        review_text = await text_el.inner_text() if text_el else ""
+
+        # Ссылка на отзыв
+        link_el = await card.query_selector('a.review-title')
+        review_link = ""
+        if link_el:
+            review_link = "https://otzovik.com" + await link_el.get_attribute('href')
+
+        # Автор и ссылка на автора
+        author_el = await card.query_selector('a.user-login')
+        author_name = ""
+        author_link = ""
+        if author_el:
+            author_name = (await author_el.inner_text()).strip()
+            author_link = "https://otzovik.com" + await author_el.get_attribute('href')
+
+        # Проверка на ответ Официального Представителя (ОП)
+        # В списке отзывов ОП обычно отображается в блоке комментария с пометкой
+        op_response_el = await card.query_selector('.review-comment-official')  # Стандартный класс для ответа ОП
+        has_op_response = "Да" if op_response_el else "Нет"
+
+        # Дата ответа ОП (если есть в тизере, иначе ищем внутри - но по ТЗ собираем с карточки)
+        op_response_date = None
+        if op_response_el:
+            op_date_el = await op_response_el.query_selector('.comment-postdate')
+            if op_date_el:
+                op_response_date = await op_date_el.inner_text()
+
+        # --- Сбор данных со страницы автора (page_2) ---
+        reg_date = None
+        author_reviews_count = 0
+        author_comments_count = 0
+
+        if author_link:
+            try:
+                # Переходим на страницу автора во втором окне
+                await page_2.goto(author_link)
+                await check_captcha(page_2)
+                #await solve_captcha(page=page_2)
+
+                # Дата регистрации
+                reg_date_el = await page_2.query_selector('.regdate span:last-child')
+                if reg_date_el:
+                    reg_date_str = await reg_date_el.inner_text()
+                    reg_date = await normalize_otzovik_date(reg_date_str)
+
+                # Кол-во отзывов
+                rev_count_el = await page_2.query_selector('.row.reviews .val span')
+                if rev_count_el:
+                    author_reviews_count = await rev_count_el.inner_text()
+
+                # Кол-во комментариев
+                comm_count_el = await page_2.query_selector('.row.comments .val')
+                if comm_count_el:
+                    author_comments_count = (await comm_count_el.inner_text()).strip()
+
+                await asyncio.sleep(2)
+
+            except Exception as e:
+                print(f"Ошибка при парсинге автора {author_name}: {e}")
+
+        # Формируем итоговый объект
+        review_data = {
+            "Дата": review_date,
+            "Оценка": rating,
+            "Текст": review_text.replace("Читать весь отзыв", "").strip(),
+            "Url": review_link,
+            "Автор": author_name,
+            "Url_Автора": author_link,
+            "Дата регистрации": reg_date,
+            "Кол-во отзывов": author_reviews_count,
+            "Кол-во комментариев": author_comments_count,
+            "Есть ответ ОП": has_op_response,
+            "Дата ответа ОП": op_response_date
+        }
+
+        results.append(review_data)
+        await append_data_to_sheet_scope(service, ss_id, project, review_data)
+        await asyncio.sleep(3)
+
+    return results
+
+
 async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver):
     global recorded
 
@@ -292,177 +489,66 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
             print('No generate!')
 
 async def main_otzovik():
-    proxy_active = await proxy_status()
-    print(f'Proxy status: {proxy_active}')
-
-    driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
+    project = 'AlfaBank'
+    p, browser, context, page = await get_playwright(headless=False, proxy_type='ru', stealth=True,
+                                                     blocked_resource=False)
 
     service = await get_service()
-    df = await get_table_scope(service, ss_id, 'zoom')
-    #print(df)
-    idx_num_row = df.index[df['Проект'] == 'Кол-во строк'].tolist()[0]
-    print(idx_num_row)
-    df_counts = pd.Series(df.iloc[idx_num_row].values, index=df.columns).reset_index()
-    df_counts[0] = pd.to_numeric(df_counts[0], errors='coerce')
-    # Удаляем строки с NaN значениями в указанной колонке
-    df_counts = df_counts.dropna(subset=[0])
-    df_counts = df_counts.sort_values(by=0)
-    #print(df_counts)
+    ss_id = '1mWKEZmrjrf2Ui2nGBD0nEZAR9uWPDMssJCu-40o_cd4'
+    df = await read_table_id(service, ss_id, 'links')
+    print(df)
 
-    list_ = df_counts['index'].to_list()
-    print(list_)
-    #random.shuffle(list_)
+    global lists
 
-    df_uniq = await get_table_scope(service, ss_id, 'unique_url')
+    try:
+        df_project = await read_table_id(service, ss_id, project)
+        lists = df_project['Url'].to_list()
+    except:
+        lists = []
 
-    df_logs = await get_table_scope(service, ss_id, 'logs')
-    print(df_logs)
+    for idx, row in df.iterrows():
+        p_2, browser_2, context_2, page_2 = await get_playwright(headless=False,
+                                                                 proxy_type='ru',
+                                                                 stealth=True,
+                                                                 blocked_resource=False)
 
-    for project in list_:
-        if 'Проект' in project:
-            continue
+        link = row['link']
+        try:
+            pg = int(row['last_page'])
+        except:
+            pg = 1
 
-        #Если дата не совпадает с сегодняшней
-        host_logs = ''
-        project_otzovik = f'otzovik_{project}'
-        filtered_logs = df_logs[df_logs['service_name'] == project_otzovik]
-        if not filtered_logs.empty:
-            idx_logs = filtered_logs.index[0]
+        if 'otzovik' in link:
+            while True:
+                url = f'{link}{pg}/'
+                await page.goto(url)
+                await check_captcha(page)
+                #await solve_captcha(page)
 
-            if proxy_active != 'Active':
-                await append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2,
-                                                f'Proxy {proxy_active}: {record_date}')
+                datas = await full_blocks_otzovik(service, ss_id, project, page, page_2)
+                len_d = len(datas)
 
-            else:
-                await append_data_to_sheet_cell(service, ss_id, 'logs', 'status', idx_logs + 2,
-                                                f'Proxy {proxy_active}')
+                print('************************')
+                print(datas)
 
-            #Пропуск по дате
-            date_logs = df_logs.loc[idx_logs, 'date']
-            if date_logs == record_date:
-                #print()
-                continue
-        #
-        #     #Пропуск по IP
-        #     host_logs = df_logs.loc[idx_logs, 'reserve']
-        #     if host_logs != local_ip:
-        #         print('Skip:', host_logs, local_ip)
-        #         continue
-        #
-        # else:
-        #     print(f"No logs found for service: {project}")
+                to_dict = await transform_reviews_to_dict(datas)
+                #await append_data_to_sheet_scopes(service, ss_id, project, to_dict)
 
-        df_mini = df[project]
-        #print(len(df_mini))
+                await append_data_to_sheet_cell(service, ss_id, "links", 'last_page', idx+2, pg)
+                pg += 1
 
-        df_mini_pattern = df_mini[df_mini.str.contains('Пример реакции', na=False)]
-        df_mini_criteria = df_mini[df_mini.str.contains('Особые критерии', na=False)]
+                if len_d < 39:
+                    break
 
-        # Filter rows that contain 'http://'
-        df_mini = df_mini[df_mini.str.contains('http', na=False)]
+        try:
+            await p_2.stop()
+        except:
+            pass
 
-        # Remove duplicates
-        # Удаляем дубликаты
-        df_mini = df_mini.drop_duplicates().reset_index()
-
-        df_link_list = df_mini[project].to_list()
-        irec_link = [i for i in df_link_list if 'otzovik' in i]
-        len_irec = len(irec_link)
-        if len_irec == 0:
-            print(f'{project} next...')
-            continue
-
-        print(f'+++++++++++ {project} Irec link = {len_irec} ++++++++++++++')
-
-        random.shuffle(df_link_list)
-
-        len_df = len(df_link_list)
-        print(f'\n========================= Project = {project} = Len ({len_df})==============================')
-
-        start_time = time.time()
-        list_links = []
-
-        global recorded
-        recorded = 0
-
-        record = False
-        for idx, link in enumerate(df_link_list):
-            left = len_df - df_link_list.index(link)
-            print(
-                f'\n*************************{idx}*({left})*{project}**************************\n----------------- {link} ----------------')
-
-            if 'otzovik' in link:
-                record = True
-                top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
-                # print(top_df)
-
-                if not top_df.empty:
-                    print('Есть общая ссылка на статью')
-                    link = top_df.loc[0, 'top_url']
-
-                if link in list_links:
-                    print('Ссылка уже проверена.')
-                    continue
-
-                else:
-                    list_links.append(link)
-
-                timeout_seconds = 5 * 60  # 5 minuts
-                try:
-                    status = await asyncio.wait_for(
-                        check_otzovik(service=service,
-                                      link=link,
-                                      pattern=df_mini_pattern,
-                                      criteria=df_mini_criteria,
-                                      ss_id=ss_id,
-                                      project=project,
-                                      driver=driver),
-                    timeout= timeout_seconds) #5 минут.
-
-                except asyncio.TimeoutError:
-                    status = None
-                    print(f"Function 'check_otzovik' timed out after {timeout_seconds / 60} minutes.")
-
-                except Exception as e:
-                    status = None
-                    print(f"An unexpected error occurred: {e}")
-
-                if not status:
-                    # driver.quit()
-                    # #driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-                    # driver = await get_selenium_proxy(headless=headless, proxy=proxy_on)
-                    pass
-
-        if record:
-            finish_sec = time.time() - start_time
-            datas = {'service_name': project_otzovik,
-                    'count': len_irec,
-                    'date': record_date,
-                    'time': finish_sec,
-                    'recorded': recorded}
-
-            print('datas', datas)
-            await write_log_sheet(service, ss_id, 'logs', datas)
-
-    if driver:
-        driver.quit()
-
-async def tst_otzovik():
-    # file_link = '/home/andy/PycharmProjects/sidorin/ai_one_off/temp/captcha_image_1729773670.png'
-    # capcha_text = await sent_captcha(file_link)
-    # print(capcha_text)
-    # input('Wait...')
-
-    p, browser, context, page = await get_playwright(headless=False, blocked_resource=False)
-
-    url = 'https://otzovik.com/reviews/elektronniy_polis_osago_sber_strahovanie/2/?order=date_desc'
-
-    await page.goto(url)
-
-    await blocks_otzovik(context, page, 4, 5)
 
 
 if __name__ == '__main__':
-    #asyncio.run(tst_otzovik())
-    asyncio.run(tst_otzovik())
+
+
+    asyncio.run(main_otzovik())
     print('The End!')

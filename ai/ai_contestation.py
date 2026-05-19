@@ -228,9 +228,6 @@ async def review_analysis(worktable_id, tab_name):
     ]
     await asyncio.gather(*tasks)
 
-
-
-
 async def extract_link_from_line(url):
     # Шаблон для поиска ссылки от https: до .html
     pattern = r"https:.*?\.html"
@@ -239,67 +236,6 @@ async def extract_link_from_line(url):
     if match:
         return match.group(0)
     return None
-
-async def review_analysis_old(service, brand):
-    """
-    Функция для анализа отзыва
-    Args:
-        service:
-        brand:
-    Returns:
-    """
-    df = await get_table_scope(service, worktable_id, brand)
-    add_column = 'Текст для поддержки'
-    df = df[df[add_column].isnull()]
-    print(df)
-
-    for idx, row in df.iterrows():
-        print(idx)
-        link = row['Url']
-        comment = row['Текст']
-        source = row['Источник']
-
-        if 'yandex.ru/maps' in source:
-            project = 'yandex_maps'
-
-        else:
-            project = source.split('.')[0]
-
-        status, rules_db = await read_data_from_db_filter(ForumRules, forum_name=project)
-        print(status)
-
-        if status:
-            if len(rules_db) > 0:
-                print(1)
-                rule = rules_db[0].forum_rule
-
-            else:
-                print(2)
-                continue
-
-        else:
-            continue
-
-        prompt = text.format(source=source, comment=comment, rule=rule)
-        result = await get_answer_ai(auth, prompt)
-        print(result)
-
-        try:
-            result = eval(result)
-            result[1] = f"Здравствуйте, Я представляю интересы компании {brand} и хочу обратиться с просьбой удалить отзыв {link}. Отзыв содержит нарушение:\n" + result[1]
-
-            columns = ['Вероятность удаления', 'Текст для поддержки']
-            await append_data_to_sheet_cells(service, worktable_id, brand, columns, idx + 2, result)
-
-        except SyntaxError as SE:
-            print(f'ERROR: {SE}')
-
-async def main_vkusvill():
-    service = await get_service()
-    await cheak_vkusvill(service)
-
-    data = {'service_name': market, 'date': time.ctime()}
-    await write_log_sheet(service, '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'logs', data)
 
 async def grade_analysis(worktable_id, worksheet_name):
     service = await get_service()
@@ -1532,10 +1468,6 @@ async def pars_tripadvisor(service, driver, url, ss_id, project, links, rating_m
     soup = await get_soup(url)
 
     print(soup)
-    input()
-
-
-
 
     source = 'tripadvisor.ru'
 
@@ -1654,210 +1586,6 @@ async def pars_pravda(service, url, ss_id, project, links):
                 await append_data_to_sheet_scopes(service, ss_id, project, datas)
                 await asyncio.sleep(1)
 
-async def main_stroyenergokom():
-    service = await get_service()
-    driver = await get_selenium_proxy(headless=False, proxy=False)
-    project = 'СтройЭнергоКом'
-
-    urls = ['https://yandex.kz/maps/org/stroyenergokom/200448132769/reviews/?ll=37.625540%2C55.706822&z=16',
-            'https://yandex.kz/maps/org/stroyenergokom/157241800880/reviews/?ll=57.075250%2C56.146695&z=3',
-          ]
-
-    for url in urls:
-        driver.get(url)
-
-        await asyncio.sleep(5)
-
-        reviews_element = WebDriverWait(driver, 20).until(
-            EC.visibility_of_element_located((By.CSS_SELECTOR, 'h2[class="card-section-header__title _wide"]'))
-        )
-        reviews_text= reviews_element.text
-        number_reviews = int(reviews_text.split(" ")[0])
-        print(number_reviews)
-
-        rating_before = driver.find_element(By.CSS_SELECTOR, 'div[class="business-summary-rating-badge-view__rating"]').text
-
-        while True:
-            blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-reviews-card-view__review"]')
-            len_b = len(blocks)
-            print(len_b)
-            await asyncio.sleep(3)
-
-            if len_b == number_reviews:
-                break
-
-        datas = {
-            "Дата": [],
-            "Текст": [],
-            "Бренд": [project] * len_b,
-            "Источник": ["yandex.ru/maps"] * len_b,
-            "Url": [],
-            "Автор": [],
-            "Оценка": [],
-            "Общий Url": [url] * len_b,
-            "Кол-во отзывов": [number_reviews] * len_b,
-            "Оценка компании до удаления": [rating_before] * len_b
-        }
-
-        for block in blocks:
-            formatted_date = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__date"]').text
-            feedback = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__body-text"]').text
-            url_answer = ""
-            author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
-
-            star_full = block.find_elements(By.CSS_SELECTOR, 'span[class="inline-image _loaded icon business-rating-badge-view__star _full"]')
-            rating = len(star_full)
-
-            datas['Дата'].append(formatted_date)
-            datas['Текст'].append(feedback)
-            datas['Url'].append(url_answer)
-            datas['Автор'].append(author)
-            datas['Оценка'].append(rating)
-
-        await append_data_to_sheet_scopes(service, ss_id, project, datas)
-
-async def main_sberbank():
-    service = await get_service()
-    driver = await get_selenium_proxy(headless=False, proxy=False)
-    driver2 = await get_selenium_proxy(headless=False, proxy=False)
-
-    ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
-    project = 'Sberbank'
-
-    df = await read_table_id(service, ss_id, project)
-    links = df['Url'].tolist()
-
-    urls = ['https://otzovik.com/reviews/negosudarstvenniy_pensionniy_fond_sberbanka_russia_moscow/',
-            'https://irecommend.ru/content/npf-sberbanka',]
-
-    #urls = ['https://irecommend.ru/content/npf-sberbanka']
-
-    for url in urls:
-        if "otzovik" in url:
-            await otzovik(service, driver, driver2, project, links, url)
-
-        elif "irecommend.ru" in url:
-            pages = 2
-            source = "irecommend.ru"
-            number_reviews = 54
-            rating_before = 3.3
-
-            for page in range(0, pages + 1):
-                url_o = url + f"?page={page}"
-                driver.get(url_o)
-                print(f'\n\nStart: {url_o}')
-                await asyncio.sleep(7)
-
-                blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-type="1"]')
-                #print('- 2')
-                len_b = len(blocks)
-
-                for block in blocks:
-                    rating_content = block.find_elements(By.CSS_SELECTOR, 'div[class="on"]')
-                    rating = len(rating_content)
-
-                    if rating >= 4:
-                        continue
-
-                    url_answer = block.find_element(By.CSS_SELECTOR, 'a[class="reviewTextSnippet"]').get_attribute("href")
-                    if url_answer in links:
-                        continue
-
-                    print("url_feedback:", url_answer)
-
-                    feedback = await get_feedback_irec(url_answer)
-                    formatted_date = block.find_element(By.CSS_SELECTOR, 'div[class="created"]').text
-                    author = block.find_element(By.CSS_SELECTOR, 'div[class="authorName"]').text
-
-                    datas = await empty_data()
-
-                    datas['Дата'].append(formatted_date)
-                    datas['Текст'].append(feedback)
-                    datas["Бренд"].append(project)
-                    datas["Источник"].append(source)
-
-                    datas['Url'].append(url_answer)
-                    datas['Автор'].append(author)
-                    datas['Оценка'].append(rating)
-
-                    datas["Общий Url"].append(url)
-                    datas["Кол-во отзывов"].append(number_reviews)
-                    datas["Оценка компании до удаления"].append(rating_before)
-
-                    #print(datas)
-
-                    await append_data_to_sheet_scopes(service, ss_id, project, datas)
-                    await asyncio.sleep(5)
-
-    driver.quit()
-    driver2.quit()
-
-async def banki_ru(ss_id, project):
-    service = await get_service()
-    links = await get_links(service, ss_id, project)
-    driver = await get_selenium_proxy(headless=False, proxy=False)
-    # driver2 = await get_selenium_proxy(headless=False, proxy=False)
-    #
-    # try:
-    #     df = await read_table_id(service, ss_id, project)
-    #     links = df['Url'].tolist()
-    #
-    # except:
-    #     links = []
-    #
-    # url = "https://otzovik.com/reviews/banki_ru-informacionniy_portal_bankovskih_uslug/"
-    # await otzovik(service, driver, driver2, project, links, url)
-
-    url = 'https://irecommend.ru/content/bankiru'
-    start_page = 6
-    await get_irec(service, ss_id, project, driver, links, url, start_page, 2)
-
-async def tk_kit(ss_id, project):
-
-    try:
-        df_links = await read_table_id(service, ss_id, project)
-        links = df_links['Url'].tolist()
-    except:
-        links = []
-    #---------------------------Otzovik------------------------------
-    driver = await get_selenium_proxy(headless=False, proxy=proxy_on)
-    #driver2 = await get_selenium_proxy(headless=False, proxy=False)
-
-    start_page = 10
-    # for i in range(1,4): #вторая цифра до скольки не включительно т.е. собрать данные по 1-3 звезд
-    #     await otzovik(service, driver, driver2, ss_id, project, links, i, start_page)
-
-    url = 'https://irecommend.ru/content/transportnaya-kompaniya-kit'
-    await get_irec(service, ss_id, project, driver, links, url, start_page)
-
-async def molcom(ss_id, project):
-    service = await get_service()
-
-    url = 'https://yandex.kz/maps/org/molkom/1363951847/reviews/?ll=37.853102%2C55.981127&z=14'
-
-    try:
-        df_links = await read_table_id(service, ss_id, project)
-        links = df_links['Url'].tolist()
-    except:
-        links = []
-
-    await get_ya_maps(service, url, ss_id, project, links)
-
-async def t_insurance(ss_id, project):
-    service = await get_service()
-
-    url = 'https://irecommend.ru/content/tinkoff-onlain-strakhovanie'
-
-    try:
-        df_links = await read_table_id(service, ss_id, project)
-        links = df_links['Url'].tolist()
-    except:
-        links = []
-
-    start_page = 0
-    rating_max = 2
-    driver = await get_selenium_proxy(headless=False, proxy=False)
-    await get_irec(service, ss_id, project, driver, links, url, start_page, rating_max)
 
 async def multi_pars(ss_id, project):
     service = await get_service()
@@ -1899,7 +1627,10 @@ async def multi_pars(ss_id, project):
         url = row['link']
         print(f'\n{url}')
         rating_max = int(row['max_raiting'])
-        last_page = int(row['last_page'])
+        try:
+            last_page = int(row['last_page'])
+        except:
+            last_page = 0
 
         if 'otzovik' in url:
             await pars_otzovik(service, driver, url, driver2, ss_id, project, links, rating_max)
@@ -1956,11 +1687,11 @@ async def multi_pars(ss_id, project):
         pass
 
 async def main():
-    ss_id = '13UgBlcd_PMGMLqkIBedKCkWwCPZ_Tr_XRVrKJYkNets'
-    project = 'MTS'
+    ss_id = '1mWKEZmrjrf2Ui2nGBD0nEZAR9uWPDMssJCu-40o_cd4'
+    project = 'AlfaBank'
 
-    #await multi_pars(ss_id, project)
-    await review_analysis(ss_id, project)
+    await multi_pars(ss_id, project)
+    #await review_analysis(ss_id, project)
 
     # await asyncio.gather(
     #    review_analysis(ss_id, project),
