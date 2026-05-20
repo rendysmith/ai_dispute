@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import time
 from datetime import datetime, timedelta
@@ -10,17 +11,21 @@ import httpx
 import pandas as pd
 from dotenv import load_dotenv
 from kubernetes import client, config
+from kubernetes.config.config_exception import ConfigException
 
 from urllib.parse import urlparse, urlunparse
 
 from utils.gs_editor import get_service, read_table_id, append_data_to_sheet_cell, append_data_to_sheet_scopes, \
     append_data_to_sheet_scope
 
+logger = logging.getLogger(__name__)
+
 # Устанавливаем русскую локаль для корректного перевода месяцев
 try:
     locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 except locale.Error:
     locale.setlocale(locale.LC_TIME, 'Russian')
+
 
 # Получаем текущую дату и время
 current_date = datetime.now()
@@ -53,40 +58,73 @@ ss_id_feedback = '1wBtEuU9tAYTDtI1CtDsipV9lcHMnC6ndN0WXKa_tzsg'
 
 async def get_node_info():
     """
-    Возвращает (node_name, node_index, total_nodes)
-    Автоматически определяет количество нод и индекс текущей.
+    Возвращает (node_name, node_index, total_nodes).
+    При отсутствии доступа к кластеру возвращает дефолтные значения для локального запуска.
     """
+    # Дефолтные значения для локального режима
+    default_node_name = os.environ.get('NODE_NAME', 'local-node')
+    default_index = 0
+    default_total = 1
+
     try:
+        # Пробуем загрузить конфиг внутри кластера
         config.load_incluster_config()
-    except:
-        config.load_kube_config()
+        logger.info("Loaded in-cluster Kubernetes config")
+    except ConfigException:
+        try:
+            # Пробуем загрузить локальный kubeconfig
+            kube_config_path = os.path.expanduser("~/.kube/config")
+            if os.path.exists(kube_config_path):
+                config.load_kube_config(config_file=kube_config_path)
+                logger.info(f"Loaded local Kubernetes config from {kube_config_path}")
+            else:
+                logger.warning("Kubeconfig not found. Running in local mode.")
+                return default_node_name, default_index, default_total
+        except ConfigException as e:
+            logger.warning(f"Failed to load Kubernetes config: {e}. Running in local mode.")
+            return default_node_name, default_index, default_total
+    except Exception as e:
+        logger.error(f"Unexpected error loading Kubernetes config: {e}. Running in local mode.")
+        return default_node_name, default_index, default_total
 
-    v1 = client.CoreV1Api()
-    node_name = os.environ.get('NODE_NAME', '')
-
-    nodes = v1.list_node()
-    # Берём только рабочие ноды (без control-plane)
-    node_names = sorted([
-        n.metadata.name for n in nodes.items
-        if not any(
-            taint.key == 'node-role.kubernetes.io/control-plane'
-            for taint in (n.spec.taints or [])
-        )
-    ])
-
-    # Если текущая нода control-plane — пропускаем
-    if not node_names:
-        node_names = sorted([n.metadata.name for n in nodes.items])
-
+    # Если конфиг загрузился — работаем с кластером
     try:
-        node_index = node_names.index(node_name)
-    except ValueError:
-        node_index = hash(node_name) % len(node_names)
+        v1 = client.CoreV1Api()
+        node_name = os.environ.get('NODE_NAME', '')
 
-    total_nodes = len(node_names)
-    print(f"Node: {node_name}, Index: {node_index}, Total: {total_nodes}")
-    return node_name, node_index, total_nodes
+        nodes = v1.list_node()
+        # Фильтруем только рабочие ноды
+        node_names = sorted([
+            n.metadata.name for n in nodes.items
+            if not any(
+                taint.key == 'node-role.kubernetes.io/control-plane'
+                for taint in (n.spec.taints or [])
+            )
+        ])
 
+        # Если все ноды — control-plane, берём всё
+        if not node_names:
+            node_names = sorted([n.metadata.name for n in nodes.items])
+
+        if not node_names:
+            logger.warning("No nodes found in cluster. Using defaults.")
+            return default_node_name, default_index, default_total
+
+        # Определяем индекс текущей ноды
+        if node_name and node_name in node_names:
+            node_index = node_names.index(node_name)
+        else:
+            # Если NODE_NAME не задан или не найден — используем хэш
+            node_name = node_names[0]  # берём первую как дефолт
+            node_index = hash(node_name) % len(node_names)
+
+        total_nodes = len(node_names)
+        logger.info(f"Node: {node_name}, Index: {node_index}, Total: {total_nodes}")
+        return node_name, node_index, total_nodes
+
+    except Exception as e:
+        logger.error(f"Error querying Kubernetes API: {e}. Running in local mode.")
+        return default_node_name, default_index, default_total
 
 async def rename_keys(data: dict) -> dict:
     mapping = {
@@ -138,7 +176,6 @@ class GetBlock:
 
     async def create_task(self, link: str, topic: Optional[str] = None) -> Dict[str, Any]:
         url = f"{self.base_url}/api/v1/data/get_feedbacks"
-        print(url)
         params = {"link": link, "topic": topic}
         response = await self.client.post(url, headers=self.headers, params=params, auth=(username, password))
         response.raise_for_status()
@@ -182,7 +219,6 @@ async def main_automir():
     service = await get_service()
     tab = 'Яндекс карты'
     df_cards = await read_table_id(service, ss_id_cards, tab)
-    print(df_cards)
 
     try:
         df_links = await read_table_id(service, ss_id_feedback, formatted_month_year)

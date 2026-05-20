@@ -15,3 +15,7 @@ async def main():
     except:
         print('--- Error in SberPolis')
         traceback.print_exc()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
