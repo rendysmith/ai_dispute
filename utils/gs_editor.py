@@ -71,6 +71,32 @@ async def get_service():
     service = build('sheets', 'v4', credentials=credentials) #.spreadsheets().values()
     return service
 
+
+async def read_cell(service, spreadsheet_id, sheet_name, row_number, col_name):
+    """Читает значение конкретной ячейки"""
+    sheet = service.spreadsheets()
+
+    # Находим индекс колонки по имени
+    result = sheet.values().get(
+        spreadsheetId=spreadsheet_id,
+        range=f"'{sheet_name}'!A1:Z1"
+    ).execute()
+
+    headers = result.get('values', [[]])[0]
+    col_index = headers.index(col_name) + 1  # +1 потому что индексация с 1
+
+    # Читаем ячейку
+    col_letter = chr(64 + col_index)  # A=65, B=66...
+    range_name = f"'{sheet_name}'!{col_letter}{row_number}"
+
+    result = sheet.values().get(
+        spreadsheetId=spreadsheet_id,
+        range=range_name
+    ).execute()
+
+    values = result.get('values', [])
+    return values[0][0] if values and values[0] else None
+
 async def create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
     # Проверяем существование вкладки
     try:
@@ -260,7 +286,6 @@ async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANG
     print('GS: {0} cells appended.'.format(result.get('updates').get('updatedCells')))
     return 'OK!'
 
-
 async def append_data_to_sheet_scopes(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, datas):
     # Пытаемся создать, если нет.
     # Но для проверки "нужны ли заголовки" лучше смотреть на содержимое.
@@ -433,7 +458,6 @@ async def get_all_sheet_names(service, spreadsheet_id):
     # Извлечение названий листов
     sheet_names = [sheet['properties']['title'] for sheet in spreadsheet['sheets']]
     return sheet_names
-
 
 async def get_spreadsheet_title(service, spreadsheet_id):
     """Получает название таблицы Google Sheets по её ID"""

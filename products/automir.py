@@ -6,16 +6,16 @@ from os.path import join, dirname
 import locale
 from typing import Optional, Dict, Any, List
 
+import socket
+
 import httpx
 import pandas as pd
 from dotenv import load_dotenv
 
-
 from urllib.parse import urlparse, urlunparse
 
-
 from utils.gs_editor import get_service, read_table_id, append_data_to_sheet_cell, append_data_to_sheet_scopes, \
-    append_data_to_sheet_scope
+    append_data_to_sheet_scope, read_cell
 
 # Устанавливаем русскую локаль для корректного перевода месяцев
 # Для Linux/macOS часто используется 'ru_RU.UTF-8'
@@ -54,6 +54,34 @@ ss_id_cards = '163Wdetech2MkZEdzeaFrhvGgPq9hfo6yWpgXP1YWI6k'
 ss_id_feedback = '1wBtEuU9tAYTDtI1CtDsipV9lcHMnC6ndN0WXKa_tzsg'
 
 #http://176.124.192.108:8000/swagger#/Geo/geo_analysis_api_v1_data_geo_analysis_post
+
+async def try_lock_row(service, ss_id, tab, row_idx, node_id):
+    """
+    Пытается заблокировать строку для ноды.
+    Возвращает True, если блокировка успешна.
+    """
+    # Читаем текущий статус строки
+    current_status = await read_cell(service, ss_id, tab, row_idx, col_name='status')
+
+    # Если статус пустой или None — блокируем
+    if not current_status or current_status == 'None' or current_status == '':
+        await append_data_to_sheet_cell(service, ss_id, tab, 'status', row_idx, node_id)
+        await asyncio.sleep(0.5)  # Даём время на запись
+
+        # Перечитываем — вдруг другая нода успела раньше
+        current_status = await read_cell(service, ss_id, tab, row_idx, col_name='status')
+        if current_status == node_id:
+            return True
+
+    # Если заблокировано нашей же нодой (повторный запуск) — берём
+    if current_status == node_id:
+        return True
+
+    return False
+
+async def unlock_row(service, ss_id, tab, row_idx):
+    """Снимает блокировку со строки"""
+    await append_data_to_sheet_cell(service, ss_id, tab, 'status', row_idx, '')
 
 async def rename_keys(data: dict) -> dict:
     mapping = {
@@ -202,9 +230,12 @@ class GetBlock:
         await self.client.aclose()
 
 async def main_automir():
+    # Уникальный ID ноды
+    node_id = os.environ.get('NODE_NAME', socket.gethostname())
+    print(f"Node ID: {node_id}")
+
     # Инициализируем сервис Google Sheets
     service = await get_service()
-
     tab = 'Яндекс карты'
     df_cards = await read_table_id(service, ss_id_cards, tab)
     print(df_cards)
@@ -226,11 +257,18 @@ async def main_automir():
             brand = row['МАРКА']
             link_orig = row['ССЫЛКА']
             #address = row['address']
-            date = row['date']
 
-            # Пропускаем строку, если дата совпадает
+            date = row['date']
             if date == today_str:
                 continue
+
+            row_number = idx + 2  # +2 потому что первая строка — заголовок
+
+            if not await try_lock_row(service, ss_id_cards, tab, row_number, node_id):
+                print(f"[{idx}] Строка занята другой нодой, пропускаю")
+                continue
+
+            print(f"[{idx}] Строка заблокирована для {node_id}")
 
             link = await extract_org_url_parse(link_orig)
             print(f'{idx} {link}')
@@ -259,6 +297,7 @@ async def main_automir():
                 print("Len D = ", len_d)
                 if len_d == 0:
                     await append_data_to_sheet_cell(service, ss_id_cards, tab, 'date', idx + 2, today_str)
+                    await unlock_row(service, ss_id_cards, tab, row_number)
                     continue
 
                 datas_trans = await transform_items(datas)
@@ -302,17 +341,20 @@ async def main_automir():
                     existing_pairs.add((old_link, text))
 
                 await append_data_to_sheet_cell(service, ss_id_cards, tab, 'date', idx + 2, today_str)
+                await unlock_row(service, ss_id_cards, tab, row_number)
                 df_cards.at[idx, 'date'] = today_str
                 #await append_data_to_sheet_scopes(service, ss_id_feedback, formatted_month_year, datas)
 
             except httpx.HTTPStatusError as exc:
                 print(f"- ERROR Ошибка HTTP на строке {idx}: {exc.response.status_code} - {exc.response.text}")
+                await unlock_row(service, ss_id_cards, tab, row_number)
 
             except Exception as exc:
                 print(f"- ERROR Произошла ошибка на строке {idx}: {exc}")
+                await unlock_row(service, ss_id_cards, tab, row_number)
 
 
-        # datas = await get_blocks(link)
+                # datas = await get_blocks(link)
         # print(datas)
         #
         # if datas['items'] == []:
