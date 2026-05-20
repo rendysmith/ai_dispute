@@ -32,6 +32,7 @@ tgcrypto==1.2.5
 pyscreeze==1.0.1
 playwright_stealth
 playwright_captcha
+kubernetes
 
 
 

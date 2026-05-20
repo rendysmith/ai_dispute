@@ -6,20 +6,17 @@ from os.path import join, dirname
 import locale
 from typing import Optional, Dict, Any, List
 
-import socket
-
 import httpx
 import pandas as pd
 from dotenv import load_dotenv
+from kubernetes import client, config
 
 from urllib.parse import urlparse, urlunparse
 
 from utils.gs_editor import get_service, read_table_id, append_data_to_sheet_cell, append_data_to_sheet_scopes, \
-    append_data_to_sheet_scope, read_cell
+    append_data_to_sheet_scope
 
 # Устанавливаем русскую локаль для корректного перевода месяцев
-# Для Linux/macOS часто используется 'ru_RU.UTF-8'
-# Для Windows обычно достаточно 'ru_RU' или 'Russian'
 try:
     locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
 except locale.Error:
@@ -53,35 +50,43 @@ password = os.environ.get("HOST_PASSWORD")
 ss_id_cards = '163Wdetech2MkZEdzeaFrhvGgPq9hfo6yWpgXP1YWI6k'
 ss_id_feedback = '1wBtEuU9tAYTDtI1CtDsipV9lcHMnC6ndN0WXKa_tzsg'
 
-#http://176.124.192.108:8000/swagger#/Geo/geo_analysis_api_v1_data_geo_analysis_post
 
-async def try_lock_row(service, ss_id, tab, row_idx, node_id):
+async def get_node_info():
     """
-    Пытается заблокировать строку для ноды.
-    Возвращает True, если блокировка успешна.
+    Возвращает (node_name, node_index, total_nodes)
+    Автоматически определяет количество нод и индекс текущей.
     """
-    # Читаем текущий статус строки
-    current_status = await read_cell(service, ss_id, tab, row_idx, col_name='status')
+    try:
+        config.load_incluster_config()
+    except:
+        config.load_kube_config()
 
-    # Если статус пустой или None — блокируем
-    if not current_status or current_status == 'None' or current_status == '':
-        await append_data_to_sheet_cell(service, ss_id, tab, 'status', row_idx, node_id)
-        await asyncio.sleep(0.5)  # Даём время на запись
+    v1 = client.CoreV1Api()
+    node_name = os.environ.get('NODE_NAME', '')
 
-        # Перечитываем — вдруг другая нода успела раньше
-        current_status = await read_cell(service, ss_id, tab, row_idx, col_name='status')
-        if current_status == node_id:
-            return True
+    nodes = v1.list_node()
+    # Берём только рабочие ноды (без control-plane)
+    node_names = sorted([
+        n.metadata.name for n in nodes.items
+        if not any(
+            taint.key == 'node-role.kubernetes.io/control-plane'
+            for taint in (n.spec.taints or [])
+        )
+    ])
 
-    # Если заблокировано нашей же нодой (повторный запуск) — берём
-    if current_status == node_id:
-        return True
+    # Если текущая нода control-plane — пропускаем
+    if not node_names:
+        node_names = sorted([n.metadata.name for n in nodes.items])
 
-    return False
+    try:
+        node_index = node_names.index(node_name)
+    except ValueError:
+        node_index = hash(node_name) % len(node_names)
 
-async def unlock_row(service, ss_id, tab, row_idx):
-    """Снимает блокировку со строки"""
-    await append_data_to_sheet_cell(service, ss_id, tab, 'status', row_idx, '')
+    total_nodes = len(node_names)
+    print(f"Node: {node_name}, Index: {node_index}, Total: {total_nodes}")
+    return node_name, node_index, total_nodes
+
 
 async def rename_keys(data: dict) -> dict:
     mapping = {
@@ -90,62 +95,40 @@ async def rename_keys(data: dict) -> dict:
         'feedback': 'Текст отзыва',
         'rating': 'Оценка'
     }
-
     return {mapping.get(key, key): value for key, value in data.items()}
 
-async def extract_org_url_parse(url: str) -> str:
-    """
-    Извлечение с использованием urllib.parse.
-    """
-    parsed = urlparse(url)
-    # Разделяем путь и берем часть до /reviews
-    path_parts = parsed.path.split('/reviews')[0]
 
-    # Собираем URL обратно без query параметров
+async def extract_org_url_parse(url: str) -> str:
+    parsed = urlparse(url)
+    path_parts = parsed.path.split('/reviews')[0]
     clean_url = urlunparse((
         parsed.scheme,
         parsed.netloc,
         path_parts,
-        '',  # params
-        '',  # query
-        ''  # fragment
+        '', '', ''
     ))
     return clean_url
 
-async def transform_items(items: List[Dict[str, Any]]) -> Dict[str, List[Any]]:
-    """
-    Трансформирует список словарей в словарь, где ключи - это ключи из словарей,
-    а значения - списки всех значений по этим ключам.
 
-    Пример:
-    Вход: [{'date': '21.04.2026', 'rating': 5}, {'date': '14.05.2026', 'rating': 4}]
-    Выход: {'date': ['21.04.2026', '14.05.2026'], 'rating': [5, 4]}
-    """
+async def transform_items(items: List[Dict[str, Any]]) -> Dict[str, List[Any]]:
     if not items:
         return {}
-
-    # Получаем все уникальные ключи из первого словаря
-    # (предполагаем, что структура одинаковая)
     keys = items[0].keys()
-
-    # Создаем словарь с пустыми списками для каждого ключа
     result = {key: [] for key in keys}
-
-    # Заполняем списки значениями
     for item in items:
         for key in keys:
             result[key].append(item.get(key))
-
     return result
+
 
 class GetBlock:
     def __init__(self, base_url: str = "http://176.124.192.108:8000"):
         self.base_url = base_url.rstrip('/')
-        self.client = httpx.AsyncClient(base_url=self.base_url,
-                                        timeout=httpx.Timeout(120.0, connect=10.0))
-        self.headers = {
-        "accept": "application/json"
-        }
+        self.client = httpx.AsyncClient(
+            base_url=self.base_url,
+            timeout=httpx.Timeout(120.0, connect=10.0)
+        )
+        self.headers = {"accept": "application/json"}
 
     async def __aenter__(self):
         return self
@@ -154,87 +137,48 @@ class GetBlock:
         await self.close()
 
     async def create_task(self, link: str, topic: Optional[str] = None) -> Dict[str, Any]:
-        """
-        1. POST /api/v1/data/get_feedbacks
-        Точка для сбора отзывов о компании. Регистрирует задачу в общей очереди.
-        """
         url = f"{self.base_url}/api/v1/data/get_feedbacks"
         print(url)
         params = {"link": link, "topic": topic}
-
-        response = await self.client.post(url,
-                                          headers=self.headers,
-                                          params=params,
-                                          auth=(username, password))
+        response = await self.client.post(url, headers=self.headers, params=params, auth=(username, password))
         response.raise_for_status()
         return response.json()
 
     async def get_task_status(self, task_key: str) -> Dict[str, Any]:
-        """
-        2. GET /api/v1/data/reviews_task_status
-        Проверить статус выполнения задачи парсинга.
-        """
         url = "/api/v1/data/reviews_task_status"
         params = {"task_key": task_key}
-
-        response = await self.client.get(url,
-                                        headers=self.headers,
-                                        params=params,
-                                        auth=(username, password))
+        response = await self.client.get(url, headers=self.headers, params=params, auth=(username, password))
         response.raise_for_status()
         return response.json()
 
     async def stop_task(self, task_key: str) -> Dict[str, Any]:
-        """
-        3. POST /api/v1/data/stop_parsing_task
-        Остановить активную задачу парсинга.
-        """
         url = "/api/v1/data/stop_parsing_task"
         params = {"task_key": task_key}
-
-        response = await self.client.post(url,
-                                          headers=self.headers,
-                                          params=params,
-                                          auth=(username, password))
+        response = await self.client.post(url, headers=self.headers, params=params, auth=(username, password))
         response.raise_for_status()
         return response.json()
 
     async def cancel_task(self, task_key: str) -> Dict[str, Any]:
-        """
-        4. POST /api/v1/data/cancel_reviews_task
-        Отменить задачу парсинга отзывов.
-        """
         url = "/api/v1/data/cancel_reviews_task"
         params = {"task_key": task_key}
-
-        response = await self.client.post(url,
-                                          headers=self.headers,
-                                          params=params,
-                                          auth=(username, password))
+        response = await self.client.post(url, headers=self.headers, params=params, auth=(username, password))
         response.raise_for_status()
         return response.json()
 
     async def get_parsing_queue(self) -> Dict[str, Any]:
-        """
-        5. GET /api/v1/data/parsing_queue
-        Возвращает собранные blocks синхронно.
-        """
         url = "/api/v1/data/parsing_queue"
-
         response = await self.client.get(url)
         response.raise_for_status()
         return response.json()
 
     async def close(self):
-        """Закрыть асинхронную HTTP-сессию."""
         await self.client.aclose()
 
-async def main_automir():
-    # Уникальный ID ноды
-    node_id = os.environ.get('NODE_NAME', socket.gethostname())
-    print(f"Node ID: {node_id}")
 
-    # Инициализируем сервис Google Sheets
+async def main_automir():
+    # Получаем информацию о нодах
+    node_name, node_index, total_nodes = await get_node_info()
+
     service = await get_service()
     tab = 'Яндекс карты'
     df_cards = await read_table_id(service, ss_id_cards, tab)
@@ -249,36 +193,30 @@ async def main_automir():
         feedbacks = []
 
     existing_pairs = set(zip(links, feedbacks))
-    # Используем асинхронный контекстный менеджер.
-    # Клиент откроется перед циклом и корректно закроется сам после его завершения.
+
     async with GetBlock() as client:
         for idx, row in df_cards.iterrows():
+            # Каждая нода берёт только свои строки
+            if idx % total_nodes != node_index:
+                continue
+
             city = row['ГОРОД']
             brand = row['МАРКА']
             link_orig = row['ССЫЛКА']
-            #address = row['address']
+            date = row.get('date', '')
 
-            date = row['date']
+            # Пропускаем уже обработанные сегодня
             if date == today_str:
                 continue
 
-            row_number = idx + 2  # +2 потому что первая строка — заголовок
-
-            if not await try_lock_row(service, ss_id_cards, tab, row_number, node_id):
-                print(f"[{idx}] Строка занята другой нодой, пропускаю")
-                continue
-
-            print(f"[{idx}] Строка заблокирована для {node_id}")
-
             link = await extract_org_url_parse(link_orig)
-            print(f'{idx} {link}')
+            print(f'[{idx}] Node {node_name} обрабатывает: {link}')
 
-            # Проверяем ссылку на NaN (бывает при чтении из таблиц)
+            # Проверяем ссылку
             if not isinstance(link, str) or not link.startswith('http'):
                 print(f"[{idx}] Пропуск: неверный формат ссылки: {link}")
                 continue
 
-            # Генерируем УНИКАЛЬНЫЙ ключ для каждой строки внутри цикла
             my_task_key = f"task_{int(time.time())}_{idx}"
 
             try:
@@ -286,25 +224,21 @@ async def main_automir():
                 start_res = await client.create_task(link=link, topic=my_task_key)
                 print("Ответ сервера:", start_res)
 
-                # 2. Проверка статуса
                 print("Проверка статуса задачи...")
                 status_res = await client.get_task_status(task_key=my_task_key)
                 print("Статус:", status_res)
 
                 datas = start_res['items']
-
                 len_d = len(datas)
                 print("Len D = ", len_d)
+
                 if len_d == 0:
                     await append_data_to_sheet_cell(service, ss_id_cards, tab, 'date', idx + 2, today_str)
-                    await unlock_row(service, ss_id_cards, tab, row_number)
                     continue
 
                 datas_trans = await transform_items(datas)
-
                 datas = await rename_keys(datas_trans)
                 datas['Дата выгрузки'] = [today_str] * len_d
-
                 datas['ДЦ'] = [city] * len_d
                 datas['Марка'] = [brand] * len_d
                 datas['Площадка'] = ['Яндекс Карты'] * len_d
@@ -312,23 +246,23 @@ async def main_automir():
 
                 print(datas.keys())
 
-                del datas['review_link']
+                if 'review_link' in datas:
+                    del datas['review_link']
                 print(datas)
 
                 df_datas = pd.DataFrame(datas)
                 print(df_datas)
 
                 # Перебор строк DataFrame как словарей
-                for _, row in df_datas.iterrows():
-                    row_dict = row.to_dict()
-
-                    date = row_dict['Дата отзыва']
+                for _, data_row in df_datas.iterrows():
+                    row_dict = data_row.to_dict()
+                    date = row_dict.get('Дата отзыва', '')
 
                     if date != today_str and date != yesterday_str:
                         continue
 
-                    text = row_dict['Текст отзыва']
-                    old_link = row_dict['Ссылка']
+                    text = row_dict.get('Текст отзыва', '')
+                    old_link = row_dict.get('Ссылка', '')
 
                     # Проверяем пару (ссылка, текст)
                     if (old_link, text) in existing_pairs:
@@ -337,34 +271,16 @@ async def main_automir():
 
                     await append_data_to_sheet_scope(service, ss_id_feedback, formatted_month_year, row_dict)
                     await asyncio.sleep(3)
-                    # Добавляем новую пару в множество, чтобы не задвоить в текущем цикле
                     existing_pairs.add((old_link, text))
 
                 await append_data_to_sheet_cell(service, ss_id_cards, tab, 'date', idx + 2, today_str)
-                await unlock_row(service, ss_id_cards, tab, row_number)
-                df_cards.at[idx, 'date'] = today_str
-                #await append_data_to_sheet_scopes(service, ss_id_feedback, formatted_month_year, datas)
 
             except httpx.HTTPStatusError as exc:
                 print(f"- ERROR Ошибка HTTP на строке {idx}: {exc.response.status_code} - {exc.response.text}")
-                await unlock_row(service, ss_id_cards, tab, row_number)
 
             except Exception as exc:
                 print(f"- ERROR Произошла ошибка на строке {idx}: {exc}")
-                await unlock_row(service, ss_id_cards, tab, row_number)
 
-
-                # datas = await get_blocks(link)
-        # print(datas)
-        #
-        # if datas['items'] == []:
-        #     pass
-        #
-        # else:
-        #     print('Переименовать колонки, записать в таблицу')
-        #     #await append_data_to_sheet_scopes(service, ss_id_feedback, formatted_month_year, datas)
-        #
-        # await append_data_to_sheet_cell(service, ss_id_cards, tab, 'date', idx + 2, today_str)
 
 async def tst_create_task():
     """Тестовая функция для проверки create_task"""
@@ -372,10 +288,8 @@ async def tst_create_task():
         url = 'https://yandex.ru/maps/org/1157214158'
         datas = await gb.create_task(url, "test_task_001")
         print(datas)
-
         return datas
 
-if __name__ ==  "__main__":
+
+if __name__ == "__main__":
     asyncio.run(main_automir())
-
-
