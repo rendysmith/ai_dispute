@@ -1,7 +1,7 @@
 import asyncio
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from os.path import join, dirname
 import locale
 from typing import Optional, Dict, Any, List
@@ -29,9 +29,11 @@ except locale.Error:
 current_date = datetime.now()
 
 # Форматируем в нужный вид (разделитель — точка)
-formatted_date = current_date.strftime("%d.%m.%Y")
+today_str = current_date.strftime("%d.%m.%Y")
+yesterday_str = (current_date - timedelta(days=1)).strftime("%d.%m.%Y")
+
 months_ru = [
-    "", "Май", "Февраль", "Март", "Апрель", "Май", "Июнь",
+    "", "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
     "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
 ]
 
@@ -39,7 +41,7 @@ month_name = months_ru[current_date.month]
 year = current_date.year
 formatted_month_year = f"{month_name} {year}"
 
-print(formatted_date)
+print(today_str)
 print(formatted_month_year)
 
 dotenv_path = join(dirname(dirname(__file__)), '.env')
@@ -52,7 +54,6 @@ ss_id_cards = '163Wdetech2MkZEdzeaFrhvGgPq9hfo6yWpgXP1YWI6k'
 ss_id_feedback = '1wBtEuU9tAYTDtI1CtDsipV9lcHMnC6ndN0WXKa_tzsg'
 
 #http://176.124.192.108:8000/swagger#/Geo/geo_analysis_api_v1_data_geo_analysis_post
-
 
 async def rename_keys(data: dict) -> dict:
     mapping = {
@@ -200,45 +201,6 @@ class GetBlock:
         """Закрыть асинхронную HTTP-сессию."""
         await self.client.aclose()
 
-async def get_blocks(link: str) -> dict:
-    """
-    Асинхронно отправляет POST-запрос для получения отзывов.
-    """
-    url = "http://176.124.192.108:8000/api/v1/data/get_feedbacks"
-
-    headers = {
-        "accept": "application/json"
-    }
-
-    params = {
-        "link": link
-    }
-
-    # Использование AsyncClient как контекстного менеджера
-    async with httpx.AsyncClient(timeout=None) as client:
-        try:
-            # Важно: используем await перед client.post
-            response = await client.post(url,
-                                         headers=headers,
-                                         params=params,
-                                         auth=(username, password)
-                                         )
-            # Проверяем на ошибки (HTTP status >= 400)
-            response.raise_for_status()
-            # Возвращаем JSON
-            return response.json()
-
-        except httpx.HTTPStatusError as http_err:
-            print(f"HTTP ошибка: {http_err.response.status_code} - {http_err.response.text}")
-
-        except httpx.RequestError as err:
-            # repr(err) покажет точный класс ошибки (например, ConnectTimeout или InvalidURL)
-            print(f"Ошибка сети/запроса (Тип): {repr(err)}")
-            # Попробуем напечатать саму ссылку, которую сформировал httpx
-            print(f"Пытались отправить на URL: {err.request.url if hasattr(err, 'request') else 'Неизвестно'}")
-
-        return {"items": []}
-
 async def main_automir():
     # Инициализируем сервис Google Sheets
     service = await get_service()
@@ -255,6 +217,7 @@ async def main_automir():
         links = []
         feedbacks = []
 
+    existing_pairs = set(zip(links, feedbacks))
     # Используем асинхронный контекстный менеджер.
     # Клиент откроется перед циклом и корректно закроется сам после его завершения.
     async with GetBlock() as client:
@@ -266,7 +229,7 @@ async def main_automir():
             date = row['date']
 
             # Пропускаем строку, если дата совпадает
-            if date == formatted_date:
+            if date == today_str:
                 continue
 
             link = await extract_org_url_parse(link_orig)
@@ -285,7 +248,6 @@ async def main_automir():
                 start_res = await client.create_task(link=link, topic=my_task_key)
                 print("Ответ сервера:", start_res)
 
-
                 # 2. Проверка статуса
                 print("Проверка статуса задачи...")
                 status_res = await client.get_task_status(task_key=my_task_key)
@@ -296,13 +258,13 @@ async def main_automir():
                 len_d = len(datas)
                 print("Len D = ", len_d)
                 if len_d == 0:
-                    await append_data_to_sheet_cell(service, ss_id_cards, tab, 'date', idx + 2, formatted_date)
+                    await append_data_to_sheet_cell(service, ss_id_cards, tab, 'date', idx + 2, today_str)
                     continue
 
                 datas_trans = await transform_items(datas)
 
                 datas = await rename_keys(datas_trans)
-                datas['Дата выгрузки'] = [formatted_date] * len_d
+                datas['Дата выгрузки'] = [today_str] * len_d
 
                 datas['ДЦ'] = [city] * len_d
                 datas['Марка'] = [brand] * len_d
@@ -321,28 +283,26 @@ async def main_automir():
                 for _, row in df_datas.iterrows():
                     row_dict = row.to_dict()
 
+                    date = row_dict['Дата отзыва']
+
+                    if date != today_str and date != yesterday_str:
+                        continue
+
                     text = row_dict['Текст отзыва']
                     old_link = row_dict['Ссылка']
 
-                    if text not in feedbacks:
-                        await append_data_to_sheet_scope(service, ss_id_feedback, formatted_month_year, row_dict)
-                        await asyncio.sleep(3)
+                    # Проверяем пару (ссылка, текст)
+                    if (old_link, text) in existing_pairs:
+                        print(f'\n> Запись уже есть в таблице: {text}')
+                        continue
 
-                    elif text in feedbacks:
-                        feedback_idx = feedbacks.index(text)
-                        if links[feedback_idx] != old_link:
-                            await append_data_to_sheet_scope(service, ss_id_feedback, formatted_month_year, row_dict)
-                            await asyncio.sleep(3)
+                    await append_data_to_sheet_scope(service, ss_id_feedback, formatted_month_year, row_dict)
+                    await asyncio.sleep(3)
+                    # Добавляем новую пару в множество, чтобы не задвоить в текущем цикле
+                    existing_pairs.add((old_link, text))
 
-                        else:
-                            print(f'\n> Запись уже есть в таблице: {text}')
-                            print('>>Index строки:', feedbacks.index(text) + 3)
-
-
-                # Здесь вы можете раскомментировать логику обработки данных:
-                # datas = await get_blocks(link)
-                # ...
-                await append_data_to_sheet_cell(service, ss_id_cards, tab, 'date', idx + 2, formatted_date)
+                await append_data_to_sheet_cell(service, ss_id_cards, tab, 'date', idx + 2, today_str)
+                df_cards.at[idx, 'date'] = today_str
                 #await append_data_to_sheet_scopes(service, ss_id_feedback, formatted_month_year, datas)
 
             except httpx.HTTPStatusError as exc:
@@ -362,7 +322,7 @@ async def main_automir():
         #     print('Переименовать колонки, записать в таблицу')
         #     #await append_data_to_sheet_scopes(service, ss_id_feedback, formatted_month_year, datas)
         #
-        # await append_data_to_sheet_cell(service, ss_id_cards, tab, 'date', idx + 2, formatted_date)
+        # await append_data_to_sheet_cell(service, ss_id_cards, tab, 'date', idx + 2, today_str)
 
 async def tst_create_task():
     """Тестовая функция для проверки create_task"""
