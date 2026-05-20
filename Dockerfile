@@ -9,6 +9,7 @@ RUN apt-get update --fix-missing -y && \
     gnupg \
     xvfb \
     jq \
+    locales \
     # Зависимости для Chrome
     libglib2.0-0 \
     libnss3 \
@@ -26,7 +27,14 @@ RUN apt-get update --fix-missing -y && \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update -y \
     && apt-get install -y google-chrome-stable \
+    && sed -i '/ru_RU.UTF-8/s/^# //g' /etc/locale.gen \
+    && locale-gen \
     && rm -rf /var/lib/apt/lists/*
+
+# Установка переменных окружения для локали
+ENV LANG=ru_RU.UTF-8
+ENV LANGUAGE=ru_RU.UTF-8
+ENV LC_ALL=ru_RU.UTF-8
 
 # Установка chromedriver (через JSON эндпоинты Chrome for Testing)
 RUN CHROMEDRIVER_URL=$(wget -qO- https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | jq -r '.channels.Stable.downloads.chromedriver[] | select(.platform=="linux64") | .url') && \
