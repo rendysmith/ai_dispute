@@ -15,7 +15,7 @@ from twocaptcha import TwoCaptcha, AsyncTwoCaptcha
 from playwright_captcha import TwoCaptchaSolver, CaptchaType, FrameworkType
 
 from utils.ai_module import generate_and_white
-from utils.central_module import wait_for_portal, proxy_status, get_hpo
+from utils.central_module import wait_for_portal, proxy_status, get_hpo, is_running_in_container
 from utils.constants import TABLES_LIST, empty_data, months
 from utils.gs_editor import get_service, pars_url, get_table_scope, write_log_sheet, append_data_to_sheet_scope, \
     append_data_to_sheet_cell, read_table_id, append_data_to_sheet_scopes
@@ -39,14 +39,7 @@ print(captcha_key)
 
 ss_id = TABLES_LIST['zoom']
 
-headless, proxy_on, only_text = asyncio.run(get_hpo())
-headless = False
-
-print(f"Headless = {headless}, proxy = {proxy_on}")
-
 recorded = 0
-
-# print(f'- local_ip Otzovik: {local_ip} {headless} {proxy_on}')
 
 async def date_convert(date_str):
     parts = date_str.split()
@@ -180,7 +173,7 @@ async def normalize_otzovik_date(date_str):
     return date_str
 
 async def check_captcha(page):
-    while True:
+    for i in range(10):
         try:
             captcha_count = await page.locator('img[id="captcha-img"]').count()
             if captcha_count > 0:
@@ -189,11 +182,13 @@ async def check_captcha(page):
 
             else:
                 print('--- No captcha')
-                return
+                return True
 
         except:
             print('--- No captcha')
-            return
+            return True
+
+    return False
 
 async def get_top_link(driver):
     try:
@@ -284,7 +279,13 @@ async def captcha_check(driver):
 
 async def get_feedback(page, url):
     await page.goto(url)
-    await check_captcha(page)
+    try:
+        await solve_captcha(page=page)
+    except:
+        status = await check_captcha(page)
+        if status == False:
+            return None
+
     text = await page.locator('div.item-right').inner_text()
     await asyncio.sleep(2)
     return text
@@ -322,7 +323,6 @@ async def blocks_otzovik(page, page2, links, min_rating, max_rating):
     return datas
 
 async def full_blocks_otzovik(service, ss_id, project, page, page_2):
-
     results = []
 
     # 1. Сбор всех карточек отзывов на текущей странице
@@ -384,8 +384,12 @@ async def full_blocks_otzovik(service, ss_id, project, page, page_2):
             try:
                 # Переходим на страницу автора во втором окне
                 await page_2.goto(author_link)
-                await check_captcha(page_2)
-                #await solve_captcha(page=page_2)
+                try:
+                    await solve_captcha(page=page_2)
+                except:
+                    status = await check_captcha(page_2)
+                    if status == False:
+                        return results
 
                 # Дата регистрации
                 reg_date_el = await page_2.query_selector('.regdate span:last-child')
@@ -493,7 +497,12 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
 
 async def main_otzovik():
     project = 'AlfaBank'
-    p, browser, context, page = await get_playwright(headless=False, proxy_type='ru', stealth=True,
+    headless = await is_running_in_container()
+    print(f'Headless: {headless}')
+
+    p, browser, context, page = await get_playwright(headless=headless,
+                                                     proxy_type='ru',
+                                                     stealth=True,
                                                      blocked_resource=False)
 
     service = await get_service()
@@ -510,7 +519,7 @@ async def main_otzovik():
         lists = []
 
     for idx, row in df.iterrows():
-        p_2, browser_2, context_2, page_2 = await get_playwright(headless=False,
+        p_2, browser_2, context_2, page_2 = await get_playwright(headless=headless,
                                                                  proxy_type='ru',
                                                                  stealth=True,
                                                                  blocked_resource=False)
@@ -525,8 +534,12 @@ async def main_otzovik():
             while True:
                 url = f'{link}{pg}/'
                 await page.goto(url)
-                await check_captcha(page)
-                #await solve_captcha(page)
+                try:
+                    await solve_captcha(page=page_2)
+                except:
+                    status = await check_captcha(page_2)
+                    if status == False:
+                        return None
 
                 datas = await full_blocks_otzovik(service, ss_id, project, page, page_2)
                 len_d = len(datas)

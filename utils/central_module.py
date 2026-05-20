@@ -42,6 +42,37 @@ auth_username = os.environ.get("HOST_USERNAME")
 auth_password = os.environ.get("HOST_PASSWORD")
 auth = HTTPBasicAuth(auth_username, auth_password)
 
+
+async def is_running_in_container() -> bool:
+    """
+    Определяет, запущен ли код в контейнере (Docker, Kubernetes и т.п.)
+
+    Returns:
+        bool: True если в контейнере, False если на локальной машине
+    """
+    # Проверка 1: наличие файла .dockerenv (только Docker)
+    if os.path.exists('/.dockerenv'):
+        return True
+
+    # Проверка 2: анализ cgroup (Docker, K8s, других контейнеров)
+    try:
+        with open('/proc/1/cgroup', 'r') as f:
+            cgroup_content = f.read()
+            if 'docker' in cgroup_content or 'kubepods' in cgroup_content or 'containerd' in cgroup_content:
+                return True
+    except FileNotFoundError:
+        pass  # Не Linux система
+
+    # Проверка 3: переменные окружения Kubernetes
+    if os.environ.get('KUBERNETES_SERVICE_HOST'):
+        return True
+
+    # Проверка 4: переменная окружения, которую можно установить вручную
+    if os.environ.get('RUNNING_IN_CONTAINER', '').lower() in ('true', '1', 'yes'):
+        return True
+
+    return False
+
 async def get_local_ip():
     """Функция для получения IP адреса текущего сервера"""
     #http://ip-api.com/json/?fields=61439
