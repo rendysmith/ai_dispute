@@ -58,73 +58,15 @@ ss_id_feedback = '1wBtEuU9tAYTDtI1CtDsipV9lcHMnC6ndN0WXKa_tzsg'
 
 async def get_node_info():
     """
-    Возвращает (node_name, node_index, total_nodes).
-    При отсутствии доступа к кластеру возвращает дефолтные значения для локального запуска.
+    Используем JOB_COMPLETION_INDEX если запущены как Job,
+    иначе локальный режим.
     """
-    # Дефолтные значения для локального режима
-    default_node_name = os.environ.get('NODE_NAME', 'local-node')
-    default_index = 0
-    default_total = 1
+    worker_index = int(os.environ.get('JOB_COMPLETION_INDEX', 0))
+    total_workers = int(os.environ.get('TOTAL_WORKERS', 1))
+    node_name = f"worker-{worker_index}"
 
-    try:
-        # Пробуем загрузить конфиг внутри кластера
-        config.load_incluster_config()
-        logger.info("Loaded in-cluster Kubernetes config")
-    except ConfigException:
-        try:
-            # Пробуем загрузить локальный kubeconfig
-            kube_config_path = os.path.expanduser("~/.kube/config")
-            if os.path.exists(kube_config_path):
-                config.load_kube_config(config_file=kube_config_path)
-                logger.info(f"Loaded local Kubernetes config from {kube_config_path}")
-            else:
-                logger.warning("Kubeconfig not found. Running in local mode.")
-                return default_node_name, default_index, default_total
-        except ConfigException as e:
-            logger.warning(f"Failed to load Kubernetes config: {e}. Running in local mode.")
-            return default_node_name, default_index, default_total
-    except Exception as e:
-        logger.error(f"Unexpected error loading Kubernetes config: {e}. Running in local mode.")
-        return default_node_name, default_index, default_total
-
-    # Если конфиг загрузился — работаем с кластером
-    try:
-        v1 = client.CoreV1Api()
-        node_name = os.environ.get('NODE_NAME', '')
-
-        nodes = v1.list_node()
-        # Фильтруем только рабочие ноды
-        node_names = sorted([
-            n.metadata.name for n in nodes.items
-            if not any(
-                taint.key == 'node-role.kubernetes.io/control-plane'
-                for taint in (n.spec.taints or [])
-            )
-        ])
-
-        # Если все ноды — control-plane, берём всё
-        if not node_names:
-            node_names = sorted([n.metadata.name for n in nodes.items])
-
-        if not node_names:
-            logger.warning("No nodes found in cluster. Using defaults.")
-            return default_node_name, default_index, default_total
-
-        # Определяем индекс текущей ноды
-        if node_name and node_name in node_names:
-            node_index = node_names.index(node_name)
-        else:
-            # Если NODE_NAME не задан или не найден — используем хэш
-            node_name = node_names[0]  # берём первую как дефолт
-            node_index = hash(node_name) % len(node_names)
-
-        total_nodes = len(node_names)
-        logger.info(f"Node: {node_name}, Index: {node_index}, Total: {total_nodes}")
-        return node_name, node_index, total_nodes
-
-    except Exception as e:
-        logger.error(f"Error querying Kubernetes API: {e}. Running in local mode.")
-        return default_node_name, default_index, default_total
+    logger.info(f"Worker index: {worker_index}/{total_workers}")
+    return node_name, worker_index, total_workers
 
 async def rename_keys(data: dict) -> dict:
     mapping = {
@@ -239,10 +181,10 @@ async def main_automir():
             city = row['ГОРОД']
             brand = row['МАРКА']
             link_orig = row['ССЫЛКА']
-            date = row.get('date', '')
+            date_rec = row.get('date', '')
 
             # Пропускаем уже обработанные сегодня
-            if date == today_str:
+            if date_rec == today_str:
                 continue
 
             link = await extract_org_url_parse(link_orig)
@@ -292,9 +234,9 @@ async def main_automir():
                 # Перебор строк DataFrame как словарей
                 for _, data_row in df_datas.iterrows():
                     row_dict = data_row.to_dict()
-                    date = row_dict.get('Дата отзыва', '')
+                    date_review = row_dict.get('Дата отзыва', '')
 
-                    if date != today_str and date != yesterday_str:
+                    if date_review != today_str and date_review != yesterday_str:
                         continue
 
                     text = row_dict.get('Текст отзыва', '')
