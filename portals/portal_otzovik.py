@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 import requests
+from dateutil import parser
 
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
@@ -27,6 +28,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 corn_folder = os.path.dirname(os.path.dirname(__file__))
 
 current_date = datetime.now()
+current_year = current_date.year
 
 record_date = current_date.strftime("%d.%m.%Y")
 
@@ -79,16 +81,18 @@ async def transform_reviews_to_dict(reviews_list):
     return result
 
 async def solve_captcha(page):
-    captcha_client = AsyncTwoCaptcha(captcha_key)
-
-    async with TwoCaptchaSolver(framework=FrameworkType.PLAYWRIGHT,
-                                page=page,
-                                async_two_captcha_client=captcha_client
-                                ) as solver:
-        await solver.solve_captcha(
-            captcha_container=page,
-            captcha_type=CaptchaType.RECAPTCHA_V2 # Или другой тип, если Отзовик обновится
-        )
+    # captcha_client = AsyncTwoCaptcha(captcha_key)
+    #
+    # async with TwoCaptchaSolver(framework=FrameworkType.PLAYWRIGHT,
+    #                             page=page,
+    #                             async_two_captcha_client=captcha_client
+    #                             ) as solver:
+    #     await solver.solve_captcha(
+    #         captcha_container=page,
+    #         captcha_type=CaptchaType.RECAPTCHA_V2 # Или другой тип, если Отзовик обновится
+    #     )
+    await asyncio.sleep(5)
+    a = 0*1
 
 async def sent_captcha(file_link):
     print('--- Send captcha...')
@@ -279,12 +283,10 @@ async def captcha_check(driver):
 
 async def get_feedback(page, url):
     await page.goto(url)
-    try:
-        await solve_captcha(page=page)
-    except:
-        status = await check_captcha(page)
-        if status == False:
-            return None
+
+    status = await check_captcha(page)
+    if status == False:
+        return None
 
     text = await page.locator('div.item-right').inner_text()
     await asyncio.sleep(2)
@@ -294,9 +296,11 @@ async def blocks_otzovik(page, page2, links, min_rating, max_rating):
     blocks = await page.locator('div[class="item status4 mshow0"]').all()
 
     datas = await empty_data()
+    datas['len'] = []
 
     for block in blocks:
         rating = int(await block.locator('div[class="rating-score tooltip-right"]').inner_text())
+        datas['len'].append(rating)
 
         if min_rating <= rating <= max_rating:
             review_url_content = await block.locator('a.review-btn.review-read-link').get_attribute('href')
@@ -322,7 +326,7 @@ async def blocks_otzovik(page, page2, links, min_rating, max_rating):
 
     return datas
 
-async def full_blocks_otzovik(service, ss_id, project, page, page_2):
+async def full_blocks_otzovik(service, ss_id, project, page, page_2, page_3):
     results = []
 
     # 1. Сбор всех карточек отзывов на текущей странице
@@ -332,19 +336,27 @@ async def full_blocks_otzovik(service, ss_id, project, page, page_2):
 
     for card in review_cards:
         # --- Сбор данных с основной страницы (page) ---
-
         # Дата отзыва
         date_el = await card.query_selector('.review-postdate span')
         date_str = await date_el.inner_text() if date_el else None
         review_date = await date_convert(date_str)
+
+        if review_date:
+            review_date_raw = parser.parse(review_date)
+            review_year = review_date_raw.year
+        else:
+            review_year = None
+
+        if review_year != current_year:
+            return 'end'
 
         # Оценка
         rating_el = await card.query_selector('.rating-score span')
         rating = await rating_el.inner_text() if rating_el else None
 
         # Текст отзыва (тизер)
-        text_el = await card.query_selector('.review-teaser')
-        review_text = await text_el.inner_text() if text_el else ""
+        text_el = await card.query_selector('div.item-right')
+        review_text = await text_el.inner_text()
 
         # Ссылка на отзыв
         link_el = await card.query_selector('a.review-title')
@@ -365,15 +377,36 @@ async def full_blocks_otzovik(service, ss_id, project, page, page_2):
 
         # Проверка на ответ Официального Представителя (ОП)
         # В списке отзывов ОП обычно отображается в блоке комментария с пометкой
-        op_response_el = await card.query_selector('.review-comment-official')  # Стандартный класс для ответа ОП
-        has_op_response = "Да" if op_response_el else "Нет"
 
-        # Дата ответа ОП (если есть в тизере, иначе ищем внутри - но по ТЗ собираем с карточки)
-        op_response_date = None
-        if op_response_el:
-            op_date_el = await op_response_el.query_selector('.comment-postdate')
-            if op_date_el:
-                op_response_date = await op_date_el.inner_text()
+        await page_3.goto(review_link)
+
+        status = await check_captcha(page_3)
+        if status == False:
+            return results
+
+        comment_author_wrap = await page_3.query_selector_all('div.comment-author-wrap')
+        len_comment = len(comment_author_wrap)
+        print(f'len comments = {len_comment}')
+
+        has_op_response = "Нет"
+        op_response_date = ""
+
+        if len_comment > 0:
+            for caw in comment_author_wrap:
+                official_span = await caw.query_selector('span.product-official')
+                if official_span and (await official_span.inner_text()).strip() == 'Официальный представитель':
+                    has_op_response = "Да"
+
+                    # Получаем строку таймстемпа из атрибута (исправлено get_attribute)
+                    date_element = await caw.query_selector('div.comment-postdate.ts')
+                    if date_element:
+                        ts_str = await date_element.get_attribute('data-ts')
+
+                        # Конвертируем строку в число, а затем в нужный формат даты
+                        timestamp = int(ts_str)
+                        op_response_date = datetime.fromtimestamp(timestamp).strftime('%d.%m.%Y')
+
+                    break
 
         # --- Сбор данных со страницы автора (page_2) ---
         reg_date = None
@@ -384,12 +417,10 @@ async def full_blocks_otzovik(service, ss_id, project, page, page_2):
             try:
                 # Переходим на страницу автора во втором окне
                 await page_2.goto(author_link)
-                try:
-                    await solve_captcha(page=page_2)
-                except:
-                    status = await check_captcha(page_2)
-                    if status == False:
-                        return results
+
+                status = await check_captcha(page_2)
+                if status == False:
+                    return results
 
                 # Дата регистрации
                 reg_date_el = await page_2.query_selector('.regdate span:last-child')
@@ -416,7 +447,7 @@ async def full_blocks_otzovik(service, ss_id, project, page, page_2):
         review_data = {
             "Дата": review_date,
             "Оценка": rating,
-            "Текст": review_text.replace("Читать весь отзыв", "").strip(),
+            "Текст": review_text,
             "Url": review_link,
             "Автор": author_name,
             "Url_Автора": author_link,
@@ -432,7 +463,6 @@ async def full_blocks_otzovik(service, ss_id, project, page, page_2):
         await asyncio.sleep(3)
 
     return review_cards
-
 
 async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver):
     global recorded
@@ -496,7 +526,9 @@ async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver
             print('No generate!')
 
 async def main_otzovik():
+    ss_id = '1mWKEZmrjrf2Ui2nGBD0nEZAR9uWPDMssJCu-40o_cd4'
     project = 'AlfaBank'
+
     headless = await is_running_in_container()
     print(f'Headless: {headless}')
 
@@ -506,7 +538,7 @@ async def main_otzovik():
                                                      blocked_resource=False)
 
     service = await get_service()
-    ss_id = '1mWKEZmrjrf2Ui2nGBD0nEZAR9uWPDMssJCu-40o_cd4'
+
     df = await read_table_id(service, ss_id, 'links')
     print(df)
 
@@ -519,12 +551,22 @@ async def main_otzovik():
         lists = []
 
     for idx, row in df.iterrows():
+        link = row['link']
+        status = row['status']
+
+        if status == 'OK!':
+            continue
+
         p_2, browser_2, context_2, page_2 = await get_playwright(headless=headless,
                                                                  proxy_type='ru',
                                                                  stealth=True,
                                                                  blocked_resource=False)
 
-        link = row['link']
+        p_3, browser_3, context_3, page_3 = await get_playwright(headless=headless,
+                                                                 proxy_type='ru',
+                                                                 stealth=True,
+                                                                 blocked_resource=False)
+
         try:
             pg = int(row['last_page'])
         except:
@@ -532,26 +574,23 @@ async def main_otzovik():
 
         if 'otzovik' in link:
             while True:
-                url = f'{link}{pg}/'
+                url = f'{link}/{pg}/?order=date_desc'
                 await page.goto(url)
+
                 try:
-                    await solve_captcha(page=page_2)
+                    await solve_captcha(page=page)
                 except:
-                    status = await check_captcha(page_2)
-                    if status == False:
+                    status_c = await check_captcha(page)
+                    if status_c == False:
                         return None
 
-                datas = await full_blocks_otzovik(service, ss_id, project, page, page_2)
-                len_d = len(datas)
-
-                #to_dict = await transform_reviews_to_dict(datas)
-                #await append_data_to_sheet_scopes(service, ss_id, project, to_dict)
+                datas = await full_blocks_otzovik(service, ss_id, project, page, page_2, page_3)
+                if datas == 'end':
+                    await append_data_to_sheet_cell(service, ss_id, "links", 'status', idx + 2, 'OK!')
 
                 await append_data_to_sheet_cell(service, ss_id, "links", 'last_page', idx+2, pg)
                 pg += 1
 
-                if len_d < 39:
-                    break
 
         try:
             await p_2.stop()

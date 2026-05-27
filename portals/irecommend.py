@@ -1,4 +1,6 @@
+import json
 import os
+import re
 import textwrap
 import time
 from datetime import datetime, timedelta
@@ -20,9 +22,9 @@ from utils.ai_module import generate_and_white
 from utils.central_module import wait_for_portal, proxy_status, get_local_ip, get_hpo
 from utils.constants import TABLES_LIST
 from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, get_table_scope, \
-    append_data_to_sheet_cell, write_log_sheet
+    append_data_to_sheet_cell, write_log_sheet, read_table_id
 
-from utils.user_agent import extract_main_site, get_selenium_proxy
+from utils.user_agent import extract_main_site, get_selenium_proxy, get_soup
 
 from threading import Thread
 
@@ -882,33 +884,147 @@ async def main_tst():
 
     await run_spider()
 
-async def main_starter():
-    main_irecommend_task = asyncio.create_task(main_irecommend())
-    #find_and_click_task_1 = asyncio.create_task(clicker_autoit_w())
-    #find_and_click_task_2 = asyncio.create_task(clicker_pywinauto())
+async def full_blocks_irec(service, ss_id, project, link):
+    soup = await get_soup(f'{link}?new=1')
 
+    blocks = soup.select('li[class^="item"]')
+    len_b = len(blocks)
+
+    print(len_b)
+
+    async def get_feedback(link):
+        print(f'Link2 = {link}')
+        soup_2 = await get_soup(link)
+
+        review_text, has_op_response, op_response_date = "", "Нет", ""
+
+        # Защита на случай, если описание отзыва отсутствует или имеет другую верстку
+        review_elem = soup_2.select_one('div[class="description hasinlineimage"]')
+        review_text = review_elem.text if review_elem else ""
+
+        cards = soup_2.select('div[id*="cmntreply-"][class*="cmntreply-"]')
+
+        for card in cards:
+            href_elem = card.select_one('a[class="username"]')
+            if not href_elem:
+                continue  # Пропускаем карточку, если в ней нет ссылки на автора
+
+            href = href_elem.get("href")
+            if href == "/users/alfa-bank":
+                has_op_response = "Да"
+
+                # ИСПОЛЬЗУЕМ БОЛЕЕ ГИБКИЙ СЕЛЕКТОР (через точки для классов)
+                # И проверяем существование элемента перед вызовом .text
+                date_elem = card.select_one("span.timeago.timeago-processed")
+
+                if date_elem:
+                    op_response_date = date_elem.text.strip()
+                else:
+                    # Альтернативный вариант: иногда дата лежит в атрибуте title или data-time
+                    # Попробуем поискать просто любой тег с классом timeago внутри этой карточки
+                    alt_date_elem = card.select_one(".timeago")
+                    op_response_date = (
+                        alt_date_elem.text.strip() if alt_date_elem else "Дата не найдена"
+                    )
+
+                break  # Нашли нужный ответ — выходим из цикла
+
+        return review_text, has_op_response, op_response_date
+
+    async def get_author_datas(link):
+        soup_3 = await get_soup(link)
+
+        script_tag = soup_3.find("script", type="application/ld+json")
+        data = json.loads(script_tag.string)
+
+        # 3. Достаем точную строку с датой создания
+        date_created_str = data.get("dateCreated")  # '2013-08-25T10:29:39+03:00'
+        # 4. Обрезаем строку до самой даты (первые 10 символов: '2013-08-25')
+        raw_date = date_created_str[:10]
+        # 5. Превращаем её в объект datetime и форматируем в dd.mm.yyyy
+        date_obj = datetime.strptime(raw_date, "%Y-%m-%d")
+        reg_date = date_obj.strftime("%d.%m.%Y")
+
+        author_reviews_count = data["mainEntity"]['agentInteractionStatistic']['userInteractionCount']
+
+        return reg_date, author_reviews_count
+
+    for block in blocks:
+        review_link = "https://irecommend.ru" + block.select_one('a[class="reviewTextSnippet"]').get('href')
+        print(review_link)
+
+        if review_link in links:
+            continue
+
+        review_date = block.select_one('div[class="created"]').text
+        print(review_date)
+
+        stars = block.select('div[class="on"]')
+        rating = len(stars)
+        print(rating)
+
+        mini_block = block.select_one('div[class="authorName"]')
+        author_name = mini_block.select_one('a').text
+        author_link = "https://irecommend.ru" + mini_block.select_one('a').get('href')
+
+        print(author_name)
+        print(author_link)
+
+        review_text, author_datas = await asyncio.gather(
+            get_feedback(review_link),
+            get_author_datas(author_link)
+        )
+
+        review_text, has_op_response, op_response_date = review_text
+        reg_date, author_reviews_count = author_datas
+
+        review_data = {
+            "Дата": review_date,
+            "Оценка": rating,
+            "Текст": review_text,
+            "Url": review_link,
+            "Автор": author_name,
+            "Url_Автора": author_link,
+            "Дата регистрации": reg_date,
+            "Кол-во отзывов": author_reviews_count,
+            "Кол-во комментариев": "",
+            "Есть ответ ОП": has_op_response,
+            "Дата ответа ОП": op_response_date
+        }
+
+        await append_data_to_sheet_scope(service, ss_id, project, review_data)
+        await asyncio.sleep(3)
+
+async def main():
+    ss_id = '1mWKEZmrjrf2Ui2nGBD0nEZAR9uWPDMssJCu-40o_cd4'
+    project = 'AlfaBank'
+
+    service = await get_service()
+
+    df = await read_table_id(service, ss_id, 'links')
+
+    global links
     try:
-        # Ждем завершения main_irecommend_task с таймаутом
-        await asyncio.wait_for(main_irecommend_task, timeout=10800)  # таймаут 1 час
-        print("main_irecommend_task завершена")
+        df_links = await read_table_id(service, ss_id, project)
+        links = df_links['Url'].to_list()
+    except:
+        links = []
 
-    except asyncio.TimeoutError:
-        print("main_irecommend_task превысила время ожидания")
-        main_irecommend_task.cancel()
 
-    except Exception as e:
-        print(f"Ошибка в main_irecommend_task: {e}")
+    for idx, row in df.iterrows():
+        link = row['link']
 
-    # finally:
-    #     # В любом случае останавливаем find_and_click_task
-    #     if not find_and_click_task_1.done():
-    #         find_and_click_task_1.cancel()
-    #         find_and_click_task_2.cancel()
-    #         try:
-    #             await find_and_click_task_1
-    #             await find_and_click_task_2
-    #         except asyncio.CancelledError:
-    #             print("find_and_click_task остановлена")
+        if 'irecommend' in link:
+            await full_blocks_irec(service, ss_id, project, link)
+
+
+
+
+
+
+
+
+
 
 if "__main__" in __name__:
-    asyncio.run(main_irecommend())
+    asyncio.run(main())

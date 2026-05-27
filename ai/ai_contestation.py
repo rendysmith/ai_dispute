@@ -36,7 +36,7 @@ from utils.db_loader import read_data_from_db_filter
 from utils.gs_editor import get_service, write_log_sheet, get_table_scope, append_data_to_sheet_cell, \
     append_data_to_sheet_cells, append_data_to_sheet_scopes, read_table_id, append_data_to_sheet_scope
 
-from portals.portal_otzovik import get_top_link
+from portals.portal_otzovik import get_top_link, blocks_otzovik, check_captcha, date_convert, get_feedback
 from portals.portal_ya import get_json, get_id_org
 from portals.portal_tripadvisor import blocks_tripadvisor_sel
 from portals.pravda_sotrudnikov import blocks_pravda
@@ -747,27 +747,6 @@ async def pars_otzyvru(service, driver, url, ss_id, project, links, rating_max):
             await append_data_to_sheet_scopes(service, ss_id, project, datas)
             await asyncio.sleep(1)
 
-async def main_grade():
-    headless, proxy_on, only_text = await get_hpo()
-    service = await get_service()
-
-    top_urls = ['https://dreamjob.ru/employers/56859',
-               'https://dreamjob.ru/employers/25946']
-
-
-    top_urls = ['https://dreamjob.ru/employers/25946']
-
-    # for top_url in top_urls:
-    #     await pars_dreamjob(service, top_url, proxy_on)
-
-    await cheak_dreamjob(service, 'МТС')
-
-    #asyncio.run(main_vkusvill())
-    #await cheak_dreamjob(service)
-
-    #asyncio.run(grade_analysis())
-    #await total_grade_analysis(service, 'reviews')
-
 async def get_feedback_irec_sel(driver2, url):
 
     while True:
@@ -965,77 +944,211 @@ async def get_feedback_otz(driver, url):
     print('-- return Feedback datas')
     return topic + "\n" + plus + "\n" + minus + "\n" + text
 
-async def pars_otzovik(service, driver, url, driver2, ss_id, project, links, ratio, start_page=1):
-    import locale
-    locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
+async def pars_otzovik(service, url, ss_id, project, ratio, last_page=1):
+    p, browser, context, page = await get_playwright(headless=headless,
+                                                     proxy_type='ru',
+                                                     stealth=True,
+                                                     blocked_resource=False)
 
-    driver.get(url)
-    await asyncio.sleep(10)
+    p_2, browser_2, context_2, page_2 = await get_playwright(headless=headless,
+                                                     proxy_type='ru',
+                                                     stealth=True,
+                                                     blocked_resource=False)
 
-    pages = 1000
-    source = "otzovik.com"
+    source = 'otzovik.com'
 
-    rating_box = driver.find_element(By.CSS_SELECTOR, 'div[class="rating-score-wrap"]')
-    rating_box = rating_box.text.split('\n')[0]
-    rating_before = float(rating_box)
-    print(rating_before)
+    for rt in range(1, ratio + 1):
+        st_page = 1
+        while True:
+            url_full = f'{url}/{st_page}/?ratio={rt}'
+            print(url_full)
 
-    number_box = driver.find_element(By.CSS_SELECTOR, 'span[class="reviews-counter"]')
-    print(number_box.text)
-    number_box2 = number_box.text.split(':')[1]
-    print(number_box2)
-    number_reviews = int(number_box2)
-    print(number_reviews)
-    #input()
+            await page.goto(url_full)
+            status = await check_captcha(page)
 
-    #rating_before = 2.9
-    #number_reviews = 41
+            review_cards = await page.query_selector_all('div.item.status4.mshow0')
+            print(f'Len cards = {len(review_cards)}')
 
-    list_temp = []
+            for card in review_cards:
+                # --- Сбор данных с основной страницы (page) ---
+                # Дата отзыва
+                date_el = await card.query_selector('.review-postdate span')
+                date_str = await date_el.inner_text() if date_el else None
+                formatted_date = await date_convert(date_str)
 
-    async def blocks_otz(block, service):
-        try:
-            date_string = block.find_element(By.CSS_SELECTOR, 'div[class="review-postdate"]').text
-        except:
-            await asyncio.sleep(1)
-            date_string = block.find_element(By.CSS_SELECTOR, 'div[itemprop="datePublished"]').text
+                # Оценка
+                rating_el = await card.query_selector('.rating-score span')
+                rating = await rating_el.inner_text() if rating_el else None
 
-        # Преобразуем строку в объект datetime
-        date_object = datetime.strptime(date_string, '%d %b %Y')
-        # Форматируем объект datetime в нужную строку
-        formatted_date = date_object.strftime('%d.%m.%Y')
+                if rating
 
-        author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
-        rating = int(block.find_element(By.CSS_SELECTOR, 'div[class="rating-score tooltip-right"]').text)
+                # Ссылка на отзыв
+                link_el = await card.query_selector('a.review-title')
+                review_link = ""
+                if link_el:
+                    review_link = "https://otzovik.com" + await link_el.get_attribute('href')
 
-        #print("- Rating:", rating)
-        if rating > ratio:
+                if review_link in lists:
+                    continue
 
-            print(f'- Next, Rating {rating} >= 3')
-            return
+                # Автор и ссылка на автора
+                author_el = await card.query_selector('a.user-login')
+                author_name = ""
+                author_link = ""
+                if author_el:
+                    author_name = (await author_el.inner_text()).strip()
+                    author_link = "https://otzovik.com" + await author_el.get_attribute('href')
 
-        url_answer = block.find_element(By.CSS_SELECTOR, 'meta[itemprop="discussionUrl"]').get_attribute("content")
-        if url_answer in links:
-            #print(url_answer)
-            #print('- Url in links')
-            return
+                # Проверка на ответ Официального Представителя (ОП)
+                # В списке отзывов ОП обычно отображается в блоке комментария с пометкой
 
-        if url_answer in list_temp:
-            return
+                #await page_2.goto(review_link)
 
-        else:
-            list_temp.append(url_answer)
+                feedback = await get_feedback(page_2, review_link)
 
-        feedback = await get_feedback_otz(driver2, url_answer)
+                datas = await empty_data()
+
+                datas['Дата'].append(formatted_date)
+                datas['Текст'].append(feedback)
+                datas["Бренд"].append(project)
+                datas["Источник"].append(source)
+
+                datas['Url'].append(author_link)
+                datas['Автор'].append(author_name)
+                datas['Оценка'].append(rating)
+
+                datas["Общий Url"].append(url)
+                datas["Кол-во отзывов"].append(number_reviews)
+                datas["Оценка компании до удаления"].append(rating_before)
+
+                await append_data_to_sheet_scopes(service, ss_id, project, datas)
+
+
+
+
+async def pars_irec(service, url, ss_id, project, rating_max):
+    async def get_feedback(link):
+        print(f'Link2 = {link}')
+        soup_2 = await get_soup(link)
+
+        review_text, has_op_response, op_response_date = "", "Нет", ""
+
+        # Защита на случай, если описание отзыва отсутствует или имеет другую верстку
+        review_elem = soup_2.select_one('div.description.hasinlineimage')
+
+        if review_elem:
+            # 1. Удаляем блоки с картинками и их подписями, чтобы они не сливались с текстом
+            # На irecommend подписи обычно живут в span.image-title или внутри .inline-image/div.image-box
+            for garbage in review_elem.select('span.image-title, div.image-box, script, style'):
+                garbage.extract()
+
+            # 2. Извлекаем чистый текст, разделяя абзацы правильными переносами строк
+            raw_text = review_elem.get_text(separator="\n")
+
+            # 3. Универсальная очистка строк (убираем неразрывные пробелы \xa0 и пробелы по краям)
+            cleaned_lines = []
+            for line in raw_text.splitlines():
+                clean_line = line.replace("\xa0", " ").strip()
+                if clean_line:
+                    cleaned_lines.append(clean_line)
+
+            # 4. Собираем текст обратно, разделяя абзацы строго одной пустой строкой
+            review_text = "\n\n".join(cleaned_lines)
+
+            # Дополнительная страховка от множественных переносов
+            review_text = re.sub(r'\n{3,}', '\n\n', review_text)
+
+        cards = soup_2.select('div[id*="cmntreply-"][class*="cmntreply-"]')
+
+        for card in cards:
+            href_elem = card.select_one('a[class="username"]')
+            if not href_elem:
+                continue  # Пропускаем карточку, если в ней нет ссылки на автора
+
+            href = href_elem.get("href")
+            if href == "/users/alfa-bank":
+                has_op_response = "Да"
+
+                # ИСПОЛЬЗУЕМ БОЛЕЕ ГИБКИЙ СЕЛЕКТОР (через точки для классов)
+                # И проверяем существование элемента перед вызовом .text
+                date_elem = card.select_one("span.timeago.timeago-processed")
+
+                if date_elem:
+                    op_response_date = date_elem.text.strip()
+                else:
+                    # Альтернативный вариант: иногда дата лежит в атрибуте title или data-time
+                    # Попробуем поискать просто любой тег с классом timeago внутри этой карточки
+                    alt_date_elem = card.select_one(".timeago")
+                    op_response_date = (
+                        alt_date_elem.text.strip() if alt_date_elem else "Дата не найдена"
+                    )
+
+                break  # Нашли нужный ответ — выходим из цикла
+
+        return review_text, has_op_response, op_response_date
+
+    async def get_author_datas(link):
+        soup_3 = await get_soup(link)
+
+        script_tag = soup_3.find("script", type="application/ld+json")
+        data = json.loads(script_tag.string)
+
+        # 3. Достаем точную строку с датой создания
+        date_created_str = data.get("dateCreated")  # '2013-08-25T10:29:39+03:00'
+        # 4. Обрезаем строку до самой даты (первые 10 символов: '2013-08-25')
+        raw_date = date_created_str[:10]
+        # 5. Превращаем её в объект datetime и форматируем в dd.mm.yyyy
+        date_obj = datetime.strptime(raw_date, "%Y-%m-%d")
+        reg_date = date_obj.strftime("%d.%m.%Y")
+
+        author_reviews_count = data["mainEntity"]['agentInteractionStatistic']['userInteractionCount']
+
+        return reg_date, author_reviews_count
+
+    source = 'irecommend.ru'
+    link = url + f'?ft[r]=0'
+    soup = await get_soup(link)
+    blocks = soup.select('li[class^="item"]')
+    len_b = len(blocks)
+    print(len_b)
+
+    number_reviews = soup.select_one('span[class="count"][itemprop="reviewCount"]').text
+    rating_before = soup.select_one('span[class="rating"][itemprop="ratingValue"]').text
+
+    for block in blocks:
+        review_link = "https://irecommend.ru" + block.select_one('a[class="reviewTextSnippet"]').get('href')
+        print(review_link)
+
+        if review_link in links:
+            continue
+
+        formatted_date = block.select_one('div[class="created"]').text
+        print(formatted_date)
+
+        stars = block.select('div[class="on"]')
+        rating = len(stars)
+        print(rating)
+
+        if rating_max < rating:
+            continue
+
+        mini_block = block.select_one('div[class="authorName"]')
+        author = mini_block.select_one('a').text
+        author_link = "https://irecommend.ru" + mini_block.select_one('a').get('href')
+
+        print(author)
+        print(author_link)
+
+        review_text, has_op_response, op_response_date = await get_feedback(review_link)
 
         datas = await empty_data()
 
         datas['Дата'].append(formatted_date)
-        datas['Текст'].append(feedback)
+        datas['Текст'].append(review_text)
         datas["Бренд"].append(project)
         datas["Источник"].append(source)
 
-        datas['Url'].append(url_answer)
+        datas['Url'].append(review_link)
         datas['Автор'].append(author)
         datas['Оценка'].append(rating)
 
@@ -1044,141 +1157,8 @@ async def pars_otzovik(service, driver, url, driver2, ss_id, project, links, rat
         datas["Оценка компании до удаления"].append(rating_before)
 
         await append_data_to_sheet_scopes(service, ss_id, project, datas)
-        print(url_answer)
-        print('-- White datas - OK!\n')
-        #input('Next...')
-
-    for rt in range(2, ratio + 1):
-        for page in range(start_page, pages + 1):
-            url_com = f"{url}{page}/?ratio={str(rt)}"
-            driver.get(url_com)
-            print(f'\n\nStart: {url_com}')
-            print(f"Page {page}")
-
-            n = 0
-            while n < 10:
-                try:
-                    blocks = driver.find_elements(By.CSS_SELECTOR, 'div[itemprop="review"]')
-                    len_b = len(blocks)
-
-                    if len_b == 0:
-                        n += 1
-                        print(n)
-                        await asyncio.sleep(1)
-
-                    else:
-                        print(f'Len b = {len_b}')
-                        break
-
-                except:
-                    n += 1
-                    print(n)
-                    await asyncio.sleep(1)
-
-            for block in blocks:
-                await blocks_otz(block, service)
-                await asyncio.sleep(1)
-
-            try:
-                next_page = driver.find_element(By.CSS_SELECTOR, 'a[class][title="Следующая страница"]').text
-                await asyncio.sleep(1)
-            except:
-                break
-
-        #url_o = url + str(page) + "/?ratio=N"
-
-async def pars_irec(service, driver, driver2, url, ss_id, project, links, rating_max):
-    driver.get(url)
-    await asyncio.sleep(5)
-
-    source = "irecommend.ru"
-
-    pages = 0
-
-    n = 0
-    while n < 3:
-        print(f'-- {n}')
-        try:
-            selectors = ['li[class="pager-last last"]', 'li[class="pager-last"]']
-            #Кол-во страницы для парсинга на портале
-            for selector in selectors:
-                try:
-                    pages = int(driver.find_element(By.CSS_SELECTOR, selector).text)
-                    print("Pages: ", pages)
-                    await asyncio.sleep(1)
-
-                except:
-                    n += 1
-                    print(f'Error 1: {n}')
-                    await asyncio.sleep(2)
-                    continue
-
-            if pages:
-                break
-
-        except:
-            n += 1
-            print(f'Error 2: {n}')
-            await asyncio.sleep(2)
-
-    number_reviews = int(driver.find_element(By.CSS_SELECTOR, 'span[itemprop="reviewCount"]').text)
-    print(number_reviews)
-
-    rating_before = float(driver.find_element(By.CSS_SELECTOR, 'span[itemprop="ratingValue"]').text)
-    print(rating_before)
-
-    temp_lists = []
-
-    for page in range(0, pages + 1): #начинается со страницы 0
-        url_o = url + f"?page={page}"
-        print(f'\n\nStart: {url_o}')
-        driver.get(url_o)
-        await asyncio.sleep(7)
-
-        blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-type="1"]')
-        # print('- 2')
-        len_b = len(blocks)
-
-        for block in blocks:
-            rating_content = block.find_elements(By.CSS_SELECTOR, 'div[class="on"]')
-            rating = len(rating_content)
-
-            if rating > rating_max:
-                continue
-
-            url_answer = block.find_element(By.CSS_SELECTOR, 'a[class="reviewTextSnippet"]').get_attribute("href")
-            if url_answer in links:
-                continue
-
-            if url_answer in temp_lists:
-                continue
-            else:
-                temp_lists.append(url_answer)
-
-            print("- url_feedback:", url_answer)
-            feedback = await get_feedback_irec_sel(driver2, url_answer)
-
-            formatted_date = block.find_element(By.CSS_SELECTOR, 'div[class="created"]').text
-            author = block.find_element(By.CSS_SELECTOR, 'div[class="authorName"]').text
-
-            datas = await empty_data()
-
-            datas['Дата'].append(formatted_date)
-            datas['Текст'].append(feedback)
-            datas["Бренд"].append(project)
-            datas["Источник"].append(source)
-
-            datas['Url'].append(url_answer)
-            datas['Автор'].append(author)
-            datas['Оценка'].append(rating)
-
-            datas["Общий Url"].append(url)
-            datas["Кол-во отзывов"].append(number_reviews)
-            datas["Оценка компании до удаления"].append(rating_before)
-
-            await append_data_to_sheet_scopes(service, ss_id, project, datas)
-            await asyncio.sleep(5)
-            print(f'--- append {author}')
+        await asyncio.sleep(5)
+        print(f'--- append {author}')
 
 async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
     source = "yandex.ru/maps"
@@ -1586,7 +1566,6 @@ async def pars_pravda(service, url, ss_id, project, links):
                 await append_data_to_sheet_scopes(service, ss_id, project, datas)
                 await asyncio.sleep(1)
 
-
 async def multi_pars(ss_id, project):
     service = await get_service()
 
@@ -1596,28 +1575,29 @@ async def multi_pars(ss_id, project):
     if df.empty:
         pass
 
+    global links
     links = await get_links(service, ss_id, project)
 
     start_page = 0
 
-    driver = await get_selenium_proxy(headless=False, proxy=False)
-    driver2 = await get_selenium_proxy(headless=False, proxy=False)
+    #driver = await get_selenium_proxy(headless=False, proxy=False)
+    #driver2 = await get_selenium_proxy(headless=False, proxy=False)
 
-    n = 0
-    while True:
-        try:
-            p, browser, context, page = await get_playwright(headless=False, proxy=None)
-            break
-
-        except Exception as Ex:
-            print(f'Error PW: {Ex}')
-            n += 1
-            await asyncio.sleep(3)
-
-        if n == 5:
-            return {}
-
-        print(n)
+    # n = 0
+    # while True:
+    #     try:
+    #         p, browser, context, page = await get_playwright(headless=False, proxy=None)
+    #         break
+    #
+    #     except Exception as Ex:
+    #         print(f'Error PW: {Ex}')
+    #         n += 1
+    #         await asyncio.sleep(3)
+    #
+    #     if n == 5:
+    #         return {}
+    #
+    #     print(n)
 
     for k, row in df.iterrows():
         status = row['status']
@@ -1633,7 +1613,7 @@ async def multi_pars(ss_id, project):
             last_page = 0
 
         if 'otzovik' in url:
-            await pars_otzovik(service, driver, url, driver2, ss_id, project, links, rating_max)
+            await pars_otzovik(service, url, ss_id, project, rating_max)
             await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
             await asyncio.sleep(3)
 
@@ -1654,7 +1634,7 @@ async def multi_pars(ss_id, project):
             await asyncio.sleep(3)
 
         elif 'irecommend' in url:
-            await pars_irec(service, driver, driver2, url, ss_id, project, links, rating_max)
+            await pars_irec(service, url, ss_id, project, rating_max)
             await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
             await asyncio.sleep(3)
         #
@@ -1687,8 +1667,8 @@ async def multi_pars(ss_id, project):
         pass
 
 async def main():
-    ss_id = '1mWKEZmrjrf2Ui2nGBD0nEZAR9uWPDMssJCu-40o_cd4'
-    project = 'AlfaBank'
+    ss_id = '1bWkvDtlNfnM9IXBLDFS3OkFKqUl6QHzzJNWDnpX5AaE'
+    project = 'long-eared_nanny'
 
     await multi_pars(ss_id, project)
     #await review_analysis(ss_id, project)

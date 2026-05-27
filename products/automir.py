@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import time
+import traceback
 from datetime import datetime, timedelta
 from os.path import join, dirname
 import locale
@@ -204,7 +205,7 @@ async def main_automir():
 
                 print("Проверка статуса задачи...")
                 status_res = await client.get_task_status(task_key=my_task_key)
-                print("Статус:", status_res)
+                print("Статус:", status_res['detail'])
 
                 datas = start_res['items']
                 len_d = len(datas)
@@ -222,14 +223,11 @@ async def main_automir():
                 datas['Площадка'] = ['Яндекс Карты'] * len_d
                 datas['Ссылка'] = [link_orig] * len_d
 
-                print(datas.keys())
-
                 if 'review_link' in datas:
                     del datas['review_link']
                 print(datas)
 
                 df_datas = pd.DataFrame(datas)
-                print(df_datas)
 
                 # Перебор строк DataFrame как словарей
                 for _, data_row in df_datas.iterrows():
@@ -258,6 +256,7 @@ async def main_automir():
 
             except Exception as exc:
                 print(f"- ERROR Произошла ошибка на строке {idx}: {exc}")
+                traceback.print_exc()
 
 
 async def tst_create_task():
