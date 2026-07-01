@@ -72,6 +72,18 @@ async def get_service():
     return service
 
 
+async def sheets_execute(request, max_retries=3, wait_sec=60):
+    for attempt in range(max_retries):
+        try:
+            return request.execute()
+        except HttpError as e:
+            if e.resp.status == 429 and attempt < max_retries - 1:
+                print(f'--- Sheets 429, retry in {wait_sec}s ({attempt + 1}/{max_retries})')
+                await asyncio.sleep(wait_sec)
+            else:
+                raise
+
+
 async def read_cell(service, spreadsheet_id, sheet_name, row_number, col_name):
     """Читает значение конкретной ячейки"""
     sheet = service.spreadsheets()
@@ -100,7 +112,7 @@ async def read_cell(service, spreadsheet_id, sheet_name, row_number, col_name):
 async def create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
     # Проверяем существование вкладки
     try:
-        response = service.spreadsheets().get(spreadsheetId=SAMPLE_SPREADSHEET_ID).execute()
+        response = await sheets_execute(service.spreadsheets().get(spreadsheetId=SAMPLE_SPREADSHEET_ID))
         sheet_exists = any(sheet['properties']['title'] == SAMPLE_RANGE_NAME for sheet in response['sheets'])
     except HttpError as e:
         print(f"CNR An error occurred: {e}")
@@ -118,7 +130,7 @@ async def create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
             }]
         }
         try:
-            service.spreadsheets().batchUpdate(spreadsheetId=SAMPLE_SPREADSHEET_ID, body=batch_update_body).execute()
+            await sheets_execute(service.spreadsheets().batchUpdate(spreadsheetId=SAMPLE_SPREADSHEET_ID, body=batch_update_body))
             return True
 
         except HttpError as e:
@@ -180,7 +192,7 @@ async def get_table_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
 async def read_table_id(service, spreadsheet_id, worksheet_name):
     # Получение данных из таблицы
     range_name = f'{worksheet_name}'
-    result = service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=range_name).execute()
+    result = await sheets_execute(service.spreadsheets().values().get(spreadsheetId=spreadsheet_id, range=range_name))
     values = result.get('values', [])
 
     while True:
@@ -236,10 +248,10 @@ async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANG
     await create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME)
 
     # Получаем текущие заголовки колонок
-    result = service.spreadsheets().values().get(
+    result = await sheets_execute(service.spreadsheets().values().get(
         spreadsheetId=SAMPLE_SPREADSHEET_ID,
         range=SAMPLE_RANGE_NAME
-    ).execute()
+    ))
 
     current_columns = result.get('values', [])[0] if result.get('values', []) else []
     col_now = current_columns.copy()
@@ -275,13 +287,13 @@ async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANG
         if all(element == '' for element in values_2):
             body['values'].insert(0, expected_columns)
 
-    result = service.spreadsheets().values().append(
+    result = await sheets_execute(service.spreadsheets().values().append(
         spreadsheetId=SAMPLE_SPREADSHEET_ID,
         range=SAMPLE_RANGE_NAME,
         valueInputOption=value_input_option,
         insertDataOption='INSERT_ROWS',  # Вставляем данные в новые строки
         body=body
-    ).execute()
+    ))
 
     print('GS: {0} cells appended.'.format(result.get('updates').get('updatedCells')))
     return 'OK!'
@@ -353,7 +365,7 @@ async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_na
     try:
         # Получение заголовков таблицы
         header_range = f"{worksheet_name}!1:1"
-        header_result = service.spreadsheets().values().get(spreadsheetId=sheet_id, range=header_range).execute()
+        header_result = await sheets_execute(service.spreadsheets().values().get(spreadsheetId=sheet_id, range=header_range))
         headers = header_result.get('values', [])[0]
 
         # Поиск индекса нужного столбца
@@ -373,7 +385,7 @@ async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_na
             valueInputOption=value_input_option,    #Было RAW
             body=value_range_body
         )
-        response = request.execute()  # Асинхронный вызов
+        response = await sheets_execute(request)
         print('GS: cells appended.')
         return response
 
@@ -384,7 +396,7 @@ async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_na
 async def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_names: list, row_number, datas: list):
     # Получение заголовков таблицы
     header_range = f"{worksheet_name}!1:1"
-    header_result = service.spreadsheets().values().get(spreadsheetId=sheet_id, range=header_range).execute()
+    header_result = await sheets_execute(service.spreadsheets().values().get(spreadsheetId=sheet_id, range=header_range))
     headers = header_result.get('values', [])[0]
 
     try:
@@ -399,12 +411,12 @@ async def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_n
         body = {
             "values": [[column_names]]
         }
-        service.spreadsheets().values().update(
+        await sheets_execute(service.spreadsheets().values().update(
             spreadsheetId=sheet_id,
             range=range_name,
             valueInputOption="RAW",
             body=body
-        ).execute()
+        ))
 
     column_letter = chr(65 + column_index)  # Преобразование индекса в букву (A, B, C и т.д.)
 
@@ -416,10 +428,10 @@ async def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_n
 
     range_name = f"{worksheet_name}!{column_letter}{row_number}"
 
-    service.spreadsheets().values().update(
+    await sheets_execute(service.spreadsheets().values().update(
         spreadsheetId=sheet_id, range=range_name,
         valueInputOption=value_input_option, body=body
-    ).execute()
+    ))
 
 async def write_log_sheet(service, sheet_id, worksheet_name, datas):
     df = await read_table_id(service, sheet_id, worksheet_name)

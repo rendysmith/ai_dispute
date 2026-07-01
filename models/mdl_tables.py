@@ -78,6 +78,7 @@ class Tokens(Base):
     username = Column(String, nullable=False, index=True)
     api_token = Column(String, nullable=False, index=True)
     status = Column(String, nullable=False, index=True)
+    model = Column(String, nullable=True, index=True)
 
 class Hosts(Base):
     __tablename__ = 'hosts'

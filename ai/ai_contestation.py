@@ -1,4 +1,5 @@
 import json
+import logging
 import sys
 import threading
 
@@ -11,9 +12,9 @@ from datetime import datetime
 
 import selenium.common.exceptions
 from bs4.element import NavigableString
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+#from selenium.webdriver.common.by import By
+#from selenium.webdriver.support.ui import WebDriverWait
+#from selenium.webdriver.support import expected_conditions as EC
 
 
 import pandas as pd
@@ -138,13 +139,88 @@ async def move_mouse():
         # исключение в main() или вернуть управление.
         pass # Просто выходим из цикла
 
+async def review_analysis_one(worktable_id, tab_name):
+    '''Последовательный анализ отзывов: строка → ИИ → запись → следующая строка.'''
+
+    service = await get_service()
+    try:
+        df = await get_table_scope(service, worktable_id, tab_name)
+        print(df)
+
+    except Exception as Ex:
+        print(f"Error: {Ex}")
+        return
+
+    columns = ['Вероятность удаления', 'Текст для поддержки']
+
+    for idx, row in df.iterrows():
+        print(f'IDX = {idx}')
+
+        probably_delete = row[columns[0]]
+        text_support = row[columns[1]]
+
+        if pd.notnull(probably_delete) and pd.notnull(text_support):
+            print(f'--- Skip IDX={idx}: already filled')
+            continue
+
+        brand = row['Бренд']
+        link = row['Url']
+        comment = row['Текст']
+        source = row['Источник']
+
+        if 'yandex.ru/maps' in source:
+            project = 'yandex_maps'
+        else:
+            project = source.split('.')[0]
+
+        print("project:", project)
+
+        status, rules_db = await read_data_from_db_filter(ForumRules, forum_name=project)
+        if not status or not rules_db:
+            print(f'--- Skip IDX={idx}: no rules for forum_name={project}')
+            continue
+
+
+        prompt = text.format(source=source, comment=comment, rule=rule)
+        result = await get_answer_ai(auth, prompt)
+        print(result)
+
+        if not result or not isinstance(result, str):
+            print(f'ERROR AI IDX={idx}: invalid result: {result}')
+            continue
+
+        try:
+            result = eval(result)
+            if '49' not in result[0]:
+                result[1] = (f"Здравствуйте, "
+                             f"Я представляю интересы компании '{brand}' и хочу обратиться с просьбой удалить отзыв по ссылке {link}. "
+                             f"Отзыв содержит нарушение:\n") + result[1]
+
+            await append_data_to_sheet_cells(service, worktable_id, brand, columns, idx + 2, result)
+            print(f'--- OK IDX={idx}')
+
+        except (SyntaxError, TypeError) as SE:
+            print(f'ERROR IDX={idx}: {SE}')
+
+
 async def review_analysis(worktable_id, tab_name):
     '''Функция для анализа отзыва'''
 
     service = await get_service()
-    sem = asyncio.Semaphore(5)  # максимум 5 одновременных задач
+    sem = asyncio.Semaphore(3)  # максимум 5 одновременных задач
 
-    # ws_name = worksheet_name_dreamjob
+    status, rules_db = await read_data_from_db_filter(ForumRules)
+
+    if status:
+        if len(rules_db) > 0:
+            rules_map = {r.forum_name: r.forum_rule for r in rules_db}
+
+        else:
+            print(f'Return: Len {len(rules_db)}')
+            return
+    else:
+        print(f'Return: Status {status}: {rules_db}')
+        return
 
     try:
         df = await get_table_scope(service, worktable_id, tab_name)
@@ -153,30 +229,22 @@ async def review_analysis(worktable_id, tab_name):
     except Exception as Ex:
         print(f"Error: {Ex}")
         return
-    # add_column = 'Текст для поддержки'
-    # df = df[df[add_column]=='']
 
     columns = ['Вероятность удаления', 'Текст для поддержки']
-    # for column in columns:
-    #     df[column] = ''
 
     async def rec_datas(idx, row):
+        print(f'\nIDX = {idx}')
         probably_delete = row[columns[0]]
         text_support = row[columns[1]]
 
         if pd.notnull(probably_delete) and pd.notnull(text_support):
+            print(f'IDX {idx} NOT Full 2')
             return
-
-        print(f'IDX = {idx}')
 
         brand = row['Бренд']
         link = row['Url']
         comment = row['Текст']
         source = row['Источник']
-        #rating = float(row['Оценка'])
-        #
-        # if rating > rating_before: #если рейтинг выше нужного, пропускает отзыв
-        #     continue
 
         if 'yandex.ru/maps' in source:
             project = 'yandex_maps'
@@ -184,22 +252,16 @@ async def review_analysis(worktable_id, tab_name):
         else:
             project = source.split('.')[0]
 
-        print("project: ", project)
+        print("Project: ", project)
 
-        status, rules_db = await read_data_from_db_filter(ForumRules, forum_name=project)
-        if status:
-            if len(rules_db) > 0:
-                rule = rules_db[0].forum_rule
-
-            else:
-                return
-
-        else:
-            return
-
+        rule = rules_map.get(project)
         prompt = text.format(source=source, comment=comment, rule=rule)
         result = await get_answer_ai(auth, prompt)
         print(result)
+
+        if not result or not isinstance(result, str):
+            print(f'ERROR AI: invalid result: {result}')
+            return
 
         try:
             result = eval(result)
@@ -212,15 +274,19 @@ async def review_analysis(worktable_id, tab_name):
 
             await append_data_to_sheet_cells(service, worktable_id, brand, columns, idx + 2, result)
 
-        except SyntaxError as SE:
+        except (SyntaxError, TypeError) as SE:
             print(f'ERROR: {SE}')
+
+        finally:
+            await asyncio.sleep(5)
+
+    # for idx, row in df.iterrows():
+    #     await rec_datas(idx, row)
+    #     await asyncio.sleep(10)
 
     async def rec_datas_limited(idx, row):
         async with sem:
             return await rec_datas(idx, row)
-
-    # for idx, row in df.iterrows():
-    #     await rec_datas(idx, row)
 
     tasks = [
         asyncio.create_task(rec_datas_limited(idx, row))
@@ -945,12 +1011,15 @@ async def get_feedback_otz(driver, url):
     return topic + "\n" + plus + "\n" + minus + "\n" + text
 
 async def pars_otzovik(service, url, ss_id, project, ratio, last_page=1):
+    proxy_on = False
     p, browser, context, page = await get_playwright(headless=headless,
+                                                     proxy=proxy_on,
                                                      proxy_type='ru',
                                                      stealth=True,
                                                      blocked_resource=False)
 
     p_2, browser_2, context_2, page_2 = await get_playwright(headless=headless,
+                                                             proxy=proxy_on,
                                                      proxy_type='ru',
                                                      stealth=True,
                                                      blocked_resource=False)
@@ -960,13 +1029,14 @@ async def pars_otzovik(service, url, ss_id, project, ratio, last_page=1):
     for rt in range(1, ratio + 1):
         st_page = 1
         while True:
-            url_full = f'{url}/{st_page}/?ratio={rt}'
+            url_full = f'{url}{st_page}/?ratio={rt}'
             print(url_full)
 
             await page.goto(url_full)
             status = await check_captcha(page)
 
             review_cards = await page.query_selector_all('div.item.status4.mshow0')
+            len_cards = len(review_cards)
             print(f'Len cards = {len(review_cards)}')
 
             for card in review_cards:
@@ -980,7 +1050,8 @@ async def pars_otzovik(service, url, ss_id, project, ratio, last_page=1):
                 rating_el = await card.query_selector('.rating-score span')
                 rating = await rating_el.inner_text() if rating_el else None
 
-                if rating
+                if int(rating) > int(ratio):
+                    continue
 
                 # Ссылка на отзыв
                 link_el = await card.query_selector('a.review-title')
@@ -988,7 +1059,7 @@ async def pars_otzovik(service, url, ss_id, project, ratio, last_page=1):
                 if link_el:
                     review_link = "https://otzovik.com" + await link_el.get_attribute('href')
 
-                if review_link in lists:
+                if review_link in links:
                     continue
 
                 # Автор и ссылка на автора
@@ -1013,18 +1084,19 @@ async def pars_otzovik(service, url, ss_id, project, ratio, last_page=1):
                 datas["Бренд"].append(project)
                 datas["Источник"].append(source)
 
-                datas['Url'].append(author_link)
+                datas['Url'].append(review_link)
                 datas['Автор'].append(author_name)
                 datas['Оценка'].append(rating)
 
                 datas["Общий Url"].append(url)
-                datas["Кол-во отзывов"].append(number_reviews)
-                datas["Оценка компании до удаления"].append(rating_before)
+                datas["Кол-во отзывов"].append(485)
+                datas["Оценка компании до удаления"].append(4.4)
 
                 await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
 
-
+            if len_cards < 40:
+                break
 
 async def pars_irec(service, url, ss_id, project, rating_max):
     async def get_feedback(link):
@@ -1667,11 +1739,12 @@ async def multi_pars(ss_id, project):
         pass
 
 async def main():
-    ss_id = '1bWkvDtlNfnM9IXBLDFS3OkFKqUl6QHzzJNWDnpX5AaE'
-    project = 'long-eared_nanny'
+    ss_id = '1ccvSS1-7p_TFmB91v5zJjUONKyEg4cTv6bla3V6DmdQ'
+    project = 'phucket_cheap_tour'
 
     await multi_pars(ss_id, project)
-    #await review_analysis(ss_id, project)
+    await review_analysis(ss_id, project)
+
 
     # await asyncio.gather(
     #    review_analysis(ss_id, project),

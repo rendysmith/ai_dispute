@@ -5,8 +5,6 @@ import time
 import os
 import traceback
 
-import google.generativeai as genai
-import google.api_core.exceptions
 import requests
 from dotenv import load_dotenv
 
@@ -14,8 +12,10 @@ from requests.auth import HTTPBasicAuth
 
 import httpx
 
+from models.mdl_tables import Tokens
 from utils.central_module import rec_count
-from utils.db_loader import get_api_tokens, get_hosts
+from utils.db_loader import get_api_tokens, get_hosts, get_token_credentials, get_token_credentials, \
+    read_data_from_db_filter_limit
 from utils.gs_editor import append_data_to_sheet_scope
 from utils.constants import farm_hosts
 
@@ -23,53 +23,18 @@ dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 print('dotenv_path:', dotenv_path)
 
 
-async def get_answer_gemini_old(prompt: str, engine: str):
-    """
-    gemini-pro - Ограничение
-    15 RPM - Requests per minute
-    32,000 TPM - Tokens per minute
-    1,500 RPD - Requests per day
-    46,080,000 TPD - Tokens per day
+status, rows = asyncio.run(read_data_from_db_filter_limit(
+    Tokens,
+    limit=1,
+    page=1,
+    username='chat_gpt',
+))
 
-    gemini-1.5-flash - Ограничение
-    15 RPM
-    1 million TPM
-    1500 RPD
+row = rows[0]
+gpt_api_token = row.api_token
+gpt_model = row.model
 
-    gemini-1.5-pro - Ограничение
-    2 RPM
-    32,000 TPM
-    50 RPD
-    46,080,000 TPD
-    """
-    genai.configure(api_key=GEMINI_TOKEN)
-    model = genai.GenerativeModel(engine)
-
-    try:
-        response = model.generate_content(prompt)
-        #print(f"Type of response: {type(response)}") # Проверяем тип ответа
-        #print(response.__dict__) # Выводим структуру ответа
-
-        # Получаем текст из кандидатов
-        candidates = response.candidates
-        full_text = ""
-        for candidate in candidates:
-            if candidate.content:
-                text_parts = candidate.content.parts
-                full_text += "".join([part.text for part in text_parts])
-        return full_text
-
-    except google.api_core.exceptions.InternalServerError as ISE:
-        print(f'ERROR ISE: {ISE}')
-        return str(ISE)
-        #time.sleep(10)
-        #attempt += 1
-
-    except ValueError as VE:
-        print("ERROR VE", VE)
-        return str(VE)
-
-async def get_answer_gemini_local(prompt: str, engine: str, token = 'AIzaSyAFHcCXEOSIWdXdlxNelqzjoiT1CNJB8kQ'):
+async def get_answer_gemini_local(prompt: str, engine: str, token: str):
     engine = engine.lower()
     url = f'https://generativelanguage.googleapis.com/v1beta/models/{engine}:generateContent?key={token}'
     headers = {'Content-Type': 'application/json'}
@@ -99,68 +64,57 @@ async def get_answer_gemini_local(prompt: str, engine: str, token = 'AIzaSyAFHcC
         result = r_json['error']['message']
         return status_code, result
 
-
-async def get_answer_ai(auth: HTTPBasicAuth, prompt: str):
-    #farm_hosts = await get_hosts()
-    #gemini_tokens = await get_api_tokens()
+async def get_answer_ai(auth: HTTPBasicAuth, prompt: str, username: str = 'chat_gpt'):
+    endpoint = "https://api.openai.com/v1/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {gpt_api_token}",
+    }
+    data = {
+        "model": gpt_model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7,
+    }
 
     try_n = 0
-    while True:
+    while try_n <= 10:
         try:
-            random_host = random.choice(farm_hosts)
-            # random_token = random.choice(gemini_tokens)
-            # print(random_host, random_token)
-
-            url = f"http://{random_host}:8000/api/v1/start_generation"
-            data = {
-                "prompt": prompt
-            }
-
             async with httpx.AsyncClient(timeout=60) as client:
-                response = await client.post(url, json=data, auth=auth)
+                response = await client.post(endpoint, headers=headers, json=data)
 
             if response.status_code == 200:
-                result = response.json()['result'][1]
-                print('OK!')
+                result = response.json()["choices"][0]["message"]["content"]
+                print("OK!")
                 return result
 
-            else:
-                #print(response.status_code, response.text)
-                if try_n == 10:
-                    return f"{random_host} {response.status_code}"
+            try:
+                error_message = response.json().get("error", {}).get("message", response.text)
+            except Exception:
+                error_message = response.text
 
+            if response.status_code in (429, 500, 502, 503) and try_n < 10:
                 try_n += 1
                 await asyncio.sleep(1)
+                continue
 
-        except requests.exceptions.ConnectionError as CE:
-            print('ERROR HOST:', random_host)
-
-            if try_n == 10:
-                return f"{random_host} {response.status_code}"
-
-            try_n += 1
-            await asyncio.sleep(1)
+            return f"OpenAI {response.status_code}: {error_message}"
 
         except httpx.ReadTimeout as RT:
-            print(f'ERROR AI RT: {RT}')
-            traceback.print_exc()
+            print(f"ERROR AI RT: {RT}")
             if try_n == 10:
-                return f"{random_host} {response.status_code} {RT}"
-
+                return f"OpenAI timeout: {RT}"
             try_n += 1
             await asyncio.sleep(1)
 
         except Exception as Ex:
-            print(f'ERROR AI Ex: {Ex}\n{farm_hosts}')
+            print(f"ERROR AI Ex: {Ex}")
             traceback.print_exc()
-
             if try_n == 10:
-                return f"{random_host} {response.status_code}"
-
+                return f"OpenAI error: {Ex}"
             try_n += 1
             await asyncio.sleep(1)
 
-    #return None
+    return False
 
 # auth = HTTPBasicAuth('anku@sidorinlab.ru', 'pass')
 # a = asyncio.run(get_answer_gemini(auth, "Какой вес у Солнца?", "gemini-1.5-flash"))
@@ -237,11 +191,13 @@ async def get_answer_gemini_old2(auth: HTTPBasicAuth, prompt: str, engine: str):
             await asyncio.sleep(1)
 
 async def get_answer_gpt(prompt: str):
-    model = 'gpt-4o-mini'
+    load_dotenv(dotenv_path)
+    api_key = os.environ.get("GPT_TOKEN") or os.environ.get("OPENAI_API_KEY")
+    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
     endpoint = "https://api.openai.com/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {GPT_TOKEN}"
+        "Authorization": f"Bearer {api_key}"
     }
     data = {
         "model": model,

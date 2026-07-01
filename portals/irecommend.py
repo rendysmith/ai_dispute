@@ -19,12 +19,14 @@ from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
 
 from utils.ai_module import generate_and_white
-from utils.central_module import wait_for_portal, proxy_status, get_local_ip, get_hpo
+from utils.central_module import wait_for_portal, proxy_status, get_local_ip, is_running_in_container
 from utils.constants import TABLES_LIST
-from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, get_table_scope, \
+from utils.gs_editor import append_data_to_sheet_scope, pars_url, get_service, \
     append_data_to_sheet_cell, write_log_sheet, read_table_id
 
-from utils.user_agent import extract_main_site, get_selenium_proxy, get_soup
+from utils.user_agent import extract_main_site, get_selenium_proxy, get_soup, get_playwright
+from bs4 import BeautifulSoup
+from playwright._impl._errors import TargetClosedError
 
 from threading import Thread
 
@@ -51,10 +53,8 @@ screenshot_path = os.path.join(corn_folder, "temp", f"{int_time}_screen.png")
 result_after_click = os.path.join(corn_folder, "temp", "result_after_click.png")
 detected_checkboxes = os.path.join(corn_folder, 'temp', "detected_checkboxes.png")
 
-headless, proxy_on, only_text = asyncio.run(get_hpo())
-headless = False
-print("-- HPO:", headless, proxy_on)
-
+headless = True
+proxy_on = True
 recorded = 0
 
 async def click_checkbox(driver):
@@ -509,314 +509,403 @@ async def get_driver():
     #driver = await get_seleniumbase_SB(headless=False, proxy=proxy_on)
     return driver
 
-async def check_irecommend(service, link, pattern, criteria, ss_id, project, driver):
-    global recorded
-    print(f'\nLink: {link}')
 
+async def _irec_fetch_soup(url: str, page=None):
+    if page:
+        await page.goto(url, wait_until='domcontentloaded')
+        await page.wait_for_timeout(2000)
+        return BeautifulSoup(await page.content(), 'html.parser')
+
+    soup = await get_soup(url)
+    if soup and soup.select('li[class^="item"]'):
+        return soup
+
+    p, browser, context, page_pw = await get_playwright(
+        url, headless=headless, proxy=proxy_on, stealth=True, blocked_resource=True
+    )
     try:
-        driver.get(link)
-        print('Driver OK')
-
-    except:
-        driver = await get_driver()
-        driver.get(link)
-        print('New Driver OK')
-
-    box_true = True
-    while box_true:
-        await wait_for_portal()  # Время ожидания
-        box_true = await clicker_pyscreeze()
-
-    if 'new=1' not in link:
-        n = 0
-        while n < 10:
-            print('- Поиск TOP страницы, если мы еще не на ней.')
-            try:
-                try:
-                    top_block_content = driver.find_element(By.CSS_SELECTOR, 'a[class=" active"]')
-                    top_block = top_block_content.get_attribute('href')
-                    top_url = top_block + "?new=1"
-                    print('- 1.1 Top url', top_url)
-                    break
-
-                except:
-                    top_block_content = driver.find_element(By.CSS_SELECTOR, 'a[class="active"]')
-                    top_block = top_block_content.get_attribute('href')
-                    top_url = top_block + "?new=1"
-                    print('- 1.2 Top url', top_url)
-                    break
+        return BeautifulSoup(await page_pw.content(), 'html.parser')
+    finally:
+        await browser.close()
+        await p.stop()
 
 
-            except Exception as Ex1:
-                try:
-                    #traceback.print_exc()
-                    top_block_content = driver.find_element(By.CSS_SELECTOR, 'div.description')
-                    #print(top_block_content.get_attribute("outerHTML"))
+async def _irec_review_text(review_link: str, page=None) -> str:
+    soup = await _irec_fetch_soup(review_link, page=page)
+    if not soup:
+        return ""
 
-                    top_block_get = top_block_content.find_element(By.CSS_SELECTOR, 'a[href]')
-                    top_block = top_block_get.get_attribute('href')
-                    top_url = top_block + "?new=1"
-                    print('- 2 Top url', top_url)
-                    break
-                    #----------------------------------------------------------------
-                except Exception as Ex2:
-                    print(f'Error Ex2: {Ex2}')
-                    return None
+    review_elem = soup.select_one('div.description.hasinlineimage') or soup.select_one('div.description')
+    return review_elem.get_text(strip=True) if review_elem else ""
 
-            except NoSuchWindowException as NSEE:
-                print(f'Error NSEE: {NSEE}')
-                return None
 
-            except:
-                print(f'--- driver refresh')
-                driver.refresh()
-                await asyncio.sleep(5)
-                n += 1
+async def _irec_load_list_soup(page, list_url):
+    await page.goto(list_url, wait_until='domcontentloaded')
+    await page.wait_for_timeout(3000)
+    return BeautifulSoup(await page.content(), 'html.parser')
 
-                if n == 10:
-                    return None
 
-        datas = {'project': project,
-                 'url': link,
-                 'top_url': top_url}
-
-        #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        await append_data_to_sheet_scope(service, ss_id, 'unique_url', datas)
-        print('-- Record TOP link')
-
-        try:
-            driver.get(link)
-            print('Driver OK')
-
-        except:
-            driver = await get_driver()
-            driver.get(link)
-            print('New Driver OK')
-
-        await wait_for_portal()  # Время ожидания
-
-    else:
-        print('- Это уже TOP страница.')
-
-    print('- Get Blocks')
-    n = 0
-    len_b = 0
-    while n < 10:
-        try:
-            print(f'- Search blocks {n}')
-            #WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-type="1"]')))
-            driver.execute_script("window.scrollBy(0, 500);")  # Скроллит вниз на 500 пикселей
-            #print('- 1')
-            blocks = driver.find_elements(By.CSS_SELECTOR, 'div[data-type="1"]')
-            #print('- 2')
-            len_b = len(blocks)
-            print('Len_b =', len_b)
+async def _irec_resolve_list_url(service, ss_id, project, source_link, soup):
+    top_href = None
+    for sel in ['a.active', 'a[class=" active"]', 'a[class="active"]']:
+        el = soup.select_one(sel)
+        if el and el.get('href'):
+            top_href = el['href']
             break
 
-        except:
-            #driver.refresh()
-            await asyncio.sleep(5)
-            n += 1
+    if not top_href:
+        desc = soup.select_one('div.description a[href]')
+        top_href = desc.get('href') if desc else None
+
+    if not top_href:
+        return None
+
+    if top_href.startswith('/'):
+        top_url = f'https://irecommend.ru{top_href}?new=1'
+    elif top_href.startswith('http'):
+        top_url = top_href.split('?')[0] + '?new=1'
+    else:
+        top_url = f'https://irecommend.ru/{top_href}?new=1'
+
+    await append_data_to_sheet_scope(service, ss_id, 'unique_url', {
+        'project': project,
+        'url': source_link,
+        'top_url': top_url,
+    })
+    print('-- Record TOP link')
+    return top_url
+
+
+async def check_irecommend(service, link, pattern, criteria, ss_id, project, page=None, page_2=None, source_link=None, driver=None):
+    global recorded
+
+    if source_link is None:
+        source_link = link
+
+    print(f'\nLink: {link}')
+
+    async def refresh_list_from_source():
+        if not page:
+            return None, None
+        product_soup = await _irec_fetch_soup(source_link, page=page)
+        if not product_soup:
+            return None, None
+        new_list_url = await _irec_resolve_list_url(service, ss_id, project, source_link, product_soup)
+        if not new_list_url:
+            return None, None
+        print(f'-- Обновлён TOP link: {new_list_url}')
+        return new_list_url, await _irec_load_list_soup(page, new_list_url)
+
+    soup = None
+    list_url = link
+
+    if 'new=1' in link:
+        list_url = link.split('?')[0] + '?new=1'
+        if page:
+            soup = await _irec_load_list_soup(page, list_url)
+        else:
+            soup = await _irec_fetch_soup(list_url)
+
+        if (not soup or not soup.select('li[class^="item"]')) and source_link.rstrip('/') != list_url.split('?')[0].rstrip('/'):
+            print('--- Устаревший top_url, читаем со страницы товара')
+            list_url, soup = await refresh_list_from_source()
+    else:
+        product_soup = await _irec_fetch_soup(link, page=page)
+        if not product_soup:
+            print('--- Не удалось загрузить страницу товара')
+            return None
+
+        list_url = await _irec_resolve_list_url(service, ss_id, project, source_link, product_soup)
+        if not list_url:
+            print('--- Не удалось получить TOP url')
+            return None
+
+        if page:
+            soup = await _irec_load_list_soup(page, list_url)
+        else:
+            soup = await _irec_fetch_soup(list_url)
+
+    if not soup:
+        print('--- Не удалось загрузить список отзывов')
+        return None
+
+    blocks = soup.select('li[class^="item"]')
+    len_b = len(blocks)
+    print('Len_b =', len_b)
 
     if len_b == 0:
-        print('Len_b =', len_b)
-        return
+        return None
 
     links = await pars_url(service, ss_id, project)
-    domen = await extract_main_site(link)
 
     for block in blocks:
         print('****************************')
-        url_n_content = block.find_element(By.CSS_SELECTOR, 'a.reviewTextSnippet')
-        url_n = url_n_content.get_attribute('href')
-        url_answer = url_n
-        print(url_answer)
+        snippet = block.select_one('a.reviewTextSnippet')
+        if not snippet or not snippet.get('href'):
+            continue
 
-        if url_answer in links:
+        review_link = snippet['href']
+        if review_link.startswith('/'):
+            review_link = 'https://irecommend.ru' + review_link
+
+        print(review_link)
+
+        if review_link in links:
             print('Отзыв уже есть в таблице')
             continue
 
-        try:
-            date = block.find_element(By.CSS_SELECTOR, "div.created").text
-            target_date = datetime.strptime(date, "%d.%m.%Y")
+        created = block.select_one('div.created')
+        if not created:
+            continue
 
-        except:
-            date_1 = block.find_element(By.CSS_SELECTOR, "div.created")
-            date = date_1.find_element(By.CSS_SELECTOR, "span.date-created").text
+        date = created.get_text(strip=True)
+        try:
+            target_date = datetime.strptime(date, "%d.%m.%Y")
+        except ValueError:
+            span = created.select_one('span.date-created')
+            if not span:
+                continue
+            date = span.get_text(strip=True)
             target_date = datetime.strptime(date, "%d.%m.%Y")
 
         if (current_date - target_date) > timedelta(days=days_ago):
             print(f'--- Отзыв старше {days_ago} дней = {date}.')
             return "Next..."
 
-        author = block.find_element(By.CSS_SELECTOR, "div.authorName").text
+        author_el = block.select_one('div.authorName a')
+        if not author_el:
+            continue
+        author = author_el.get_text(strip=True)
 
-        title = block.find_element(By.CSS_SELECTOR, "div.reviewTitle").text
-        title_txt = block.find_element(By.CSS_SELECTOR, "span.reviewTeaserText").text
+        feedback = await _irec_review_text(review_link, page=page_2)
+        if not feedback:
+            print('--- Пустой текст отзыва')
+            continue
 
-        feedback = f"""
-        {title}
-        {title_txt}
-        """
-        feedback = textwrap.dedent(feedback)
-        #print(feedback)
-
-        formatted_date = date
-
-        await generate_and_white(service=service,
-                                 url_answer=url_answer,
-                                 author=author,
-                                 formatted_date=formatted_date,
-                                 ss_id=ss_id,
-                                 project=project,
-                                 feedback=feedback,
-                                 pattern=pattern,
-                                 criteria=criteria)
-
+        await generate_and_white(
+            service=service,
+            url_answer=review_link,
+            author=author,
+            formatted_date=date,
+            ss_id=ss_id,
+            project=project,
+            feedback=feedback,
+            pattern=pattern,
+            criteria=criteria,
+        )
         recorded += 1
 
     return 'OK!'
 
+
+async def start_browser():
+    p, browser, context, page = await get_playwright(
+        headless=headless,
+        proxy=proxy_on,
+        proxy_type='ru',
+        stealth=True,
+        blocked_resource=False,
+    )
+    return p, browser, context, page
+
+
 async def main_irecommend():
+    global headless, proxy_on, recorded
+
+    service = await get_service()
+
+    headless = await is_running_in_container()
+    proxy_on = True
+    print(f'-- Irec: headless={headless}, proxy={proxy_on}')
+
     proxy_active = await proxy_status()
     print(f'+ Proxy status: {proxy_active}')
-    #
-    # driver = None
-    # if proxy_active == 'Active':
-    driver = await get_driver()
 
     local_ip = await get_local_ip()
     print('- local_ip Irec', local_ip)
 
-    service = await get_service()
-    df = await get_table_scope(service, ss_id, 'zoom')
-    #print(df)
-    idx_num_row = df.index[df['Проект'] == 'Кол-во строк'].tolist()[0]
-    #print(idx_num_row)
-    df_counts = pd.Series(df.iloc[idx_num_row].values, index=df.columns).reset_index()
-    df_counts[0] = pd.to_numeric(df_counts[0], errors='coerce')
-    # Удаляем строки с NaN значениями в указанной колонке
-    df_counts = df_counts.dropna(subset=[0])
-    df_counts = df_counts.sort_values(by=0)
-    #print(df_counts)
+    p, browser, context, page = await start_browser()
+    p_2, browser_2, context_2, page_2 = await start_browser()
 
-    list_ = df_counts['index'].to_list()
-    #print(list_)
-    #random.shuffle(list_)
+    try:
+        df = await read_table_id(service, ss_id, 'zoom')
+        idx_num_row = df.index[df['Проект'] == 'Кол-во строк'].tolist()[0]
+        df_counts = pd.Series(df.iloc[idx_num_row].values, index=df.columns).reset_index()
+        df_counts[0] = pd.to_numeric(df_counts[0], errors='coerce')
+        df_counts = df_counts.dropna(subset=[0])
+        df_counts = df_counts.sort_values(by=0)
+        list_ = df_counts['index'].to_list()
 
-    df_uniq = await get_table_scope(service, ss_id, 'unique_url')
+        df_uniq = await read_table_id(service, ss_id, 'unique_url')
+        df_logs = await read_table_id(service, ss_id, 'logs')
 
-    df_logs = await get_table_scope(service, ss_id, 'logs')
-    #print(df_logs)
+        df_daily = await read_table_id(service, ss_id, 'daily_data')
+        df_daily = df_daily[df_daily['date'] == record_date]
+        daily_links = set(df_daily['url'].tolist())
 
-    for project in list_:
-        if 'Проект' in project:
-            continue
-
-        df_mini = df[project]
-        #print(len(df_mini))
-
-        df_mini_pattern = df_mini[df_mini.str.contains('Пример реакции', na=False)]
-        df_mini_criteria = df_mini[df_mini.str.contains('Особые критерии', na=False)]
-
-        # Filter rows that contain 'http://'
-        df_mini = df_mini[df_mini.str.contains('http', na=False)]
-
-        # Remove duplicates
-        # Удаляем дубликаты
-        df_mini = df_mini.drop_duplicates().reset_index()
-
-        df_link_list = df_mini[project].to_list()
-        irec_link = [i for i in df_link_list if 'irecommend' in i]
-        len_irec = len(irec_link)
-        if len_irec == 0:
-            print(f'{project} next...')
-            continue
-
-        print(f'\n ---> {project} Irec link = {len_irec} <---')
-
-        random.shuffle(df_link_list)
-
-        len_df = len(df_link_list)
-        print(f'\n========================= Project = {project} = Len ({len_df})==============================')
-
-        #Если дата не совпадает с сегодняшней
-        host_logs = ''
-        project_irecommend = f'irecommend_{project}'
-        filtered_logs = df_logs[df_logs['service_name'] == project_irecommend]
-        if not filtered_logs.empty:
-            idx_logs = filtered_logs.index[0]
-
-            if proxy_active != 'Active':
-                await append_data_to_sheet_cell(service, ss_id, 'logs', 'status',
-                                                idx_logs + 2,
-                                                f'Proxy {proxy_active}: {record_date}')
-
-            else:
-                await append_data_to_sheet_cell(service, ss_id, 'logs', 'status',
-                                                idx_logs + 2,
-                                                f'Proxy {proxy_active}')
-
-            #Пропуск по дате
-            date_logs = df_logs.loc[idx_logs, 'date']
-            if date_logs == record_date:
-                #print()
+        for project in list_:
+            if 'Проект' in project:
                 continue
 
-        start_time = time.time()
-        list_links = []
+            df_mini = df[project]
+            df_mini_pattern = df_mini[df_mini.str.contains('Пример реакции', na=False)]
+            df_mini_criteria = df_mini[df_mini.str.contains('Особые критерии', na=False)]
+            df_mini = df_mini[df_mini.str.contains('http', na=False)]
+            df_mini = df_mini.drop_duplicates().reset_index()
 
-        record = False
+            df_link_list = df_mini[project].to_list()
+            irec_link = [i for i in df_link_list if 'irecommend' in i]
+            len_irec = len(irec_link)
+            if len_irec == 0:
+                print(f'{project} next...')
+                continue
 
-        global recorded
-        recorded = 0
+            print(f'\n ---> {project} Irec link = {len_irec} <---')
+            random.shuffle(df_link_list)
 
-        for idx, link in enumerate(df_link_list):
-            left = len_df - df_link_list.index(link)
-            print(
-                f'\n*************************{idx}*({left})*{project}*************************\n----------------- {link} ----------------')
+            len_df = len(df_link_list)
+            print(f'\n========================= Project = {project} = Len ({len_df})==============================')
 
-            if 'irecommend' in link:
-                record = True
-                top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
-                # print(top_df)
+            project_irecommend = f'irecommend_{project}'
+            filtered_logs = df_logs[df_logs['service_name'] == project_irecommend]
+            if not filtered_logs.empty:
+                idx_logs = filtered_logs.index[0]
 
-                if not top_df.empty:
-                    print('Есть общая ссылка на статью')
-                    link = top_df.loc[0, 'top_url']
+                if proxy_active != 'Active':
+                    await append_data_to_sheet_cell(
+                        service, ss_id, 'logs', 'status', idx_logs + 2,
+                        f'Proxy {proxy_active}: {record_date}',
+                    )
+                else:
+                    await append_data_to_sheet_cell(
+                        service, ss_id, 'logs', 'status', idx_logs + 2,
+                        f'Proxy {proxy_active}',
+                    )
 
-                if link in list_links:
-                    print('Ссылка уже проверена.')
+                date_logs = df_logs.loc[idx_logs, 'date']
+                if date_logs == record_date:
                     continue
 
-                else:
+            start_time = time.time()
+            list_links = []
+            record = False
+            recorded = 0
+
+            for idx, link in enumerate(df_link_list):
+                left = len_df - df_link_list.index(link)
+                print(
+                    f'\n*************************{idx}*({left})*{project}*************************\n'
+                    f'----------------- {link} ----------------'
+                )
+
+                if 'irecommend' in link:
+                    if link in daily_links:
+                        print('Эта ссылка сегодня уже отработана')
+                        continue
+
+                    record = True
+                    source_link = link
+                    top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
+
+                    if not top_df.empty:
+                        print('Есть общая ссылка на статью')
+                        link = top_df.iloc[-1]['top_url']
+
+                    if link in list_links:
+                        print('Ссылка уже проверена.')
+                        continue
+
                     list_links.append(link)
 
-                status = await check_irecommend(service=service,
-                                       link=link,
-                                       pattern=df_mini_pattern,
-                                       criteria=df_mini_criteria,
-                                       ss_id=ss_id,
-                                       project=project,
-                                       driver=driver)
+                    try:
+                        await check_irecommend(
+                            service=service,
+                            link=link,
+                            pattern=df_mini_pattern,
+                            criteria=df_mini_criteria,
+                            ss_id=ss_id,
+                            project=project,
+                            page=page,
+                            page_2=page_2,
+                            source_link=source_link,
+                        )
+                    except TargetClosedError:
+                        print('--- Browser closed')
 
-                if not driver:
-                    #driver.quit()
-                    driver = await get_driver()
+                        if page.is_closed():
+                            print('--- Restart main browser')
+                            try:
+                                await browser.close()
+                            except Exception:
+                                pass
+                            try:
+                                await p.stop()
+                            except Exception:
+                                pass
+                            p, browser, context, page = await start_browser()
 
-        if record:
-            finish_sec = time.time() - start_time
-            datas = {'service_name': project_irecommend,
+                        if page_2.is_closed():
+                            print('--- Restart feedback browser')
+                            try:
+                                await browser_2.close()
+                            except Exception:
+                                pass
+                            try:
+                                await p_2.stop()
+                            except Exception:
+                                pass
+                            p_2, browser_2, context_2, page_2 = await start_browser()
+
+                        try:
+                            await check_irecommend(
+                                service=service,
+                                link=link,
+                                pattern=df_mini_pattern,
+                                criteria=df_mini_criteria,
+                                ss_id=ss_id,
+                                project=project,
+                                page=page,
+                                page_2=page_2,
+                                source_link=source_link,
+                            )
+                        except TargetClosedError:
+                            print('--- Browser dead again, skip link')
+                            continue
+
+                    new_daily_data = {'date': record_date, 'url': source_link}
+                    await append_data_to_sheet_scope(service, ss_id, 'daily_data', new_daily_data)
+                    daily_links.add(source_link)
+
+            if record and recorded > 0:
+                finish_sec = time.time() - start_time
+                datas = {
+                    'service_name': project_irecommend,
                     'count': len_irec,
                     'date': record_date,
                     'time': finish_sec,
-                    'recorded': recorded}
+                    'recorded': recorded,
+                }
+                print('datas', datas)
+                await write_log_sheet(service, ss_id, 'logs', datas)
 
-            print('datas', datas)
-            await write_log_sheet(service, ss_id, 'logs', datas)
+    finally:
+        try:
+            await browser_2.close()
+        except Exception:
+            pass
+        try:
+            await p_2.stop()
+        except Exception:
+            pass
+        try:
+            await browser.close()
+        except Exception:
+            pass
+        try:
+            await p.stop()
+        except Exception:
+            pass
 
-    if driver:
-        driver.quit()
 
 async def main_tst():
     import scrapy
@@ -1027,4 +1116,4 @@ async def main():
 
 
 if "__main__" in __name__:
-    asyncio.run(main())
+    asyncio.run(main_irecommend())

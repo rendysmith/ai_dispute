@@ -1,7 +1,3 @@
-MODEL_GEMINI = 'gemini-1.5-flash'
-
-GPT_TOKEN = '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'
-
 RESULT_SHEETS = '1A73rT27Sa2Au5Bsb8v2u_C-ttDwJAYg_rY27CUfzdbw'
 
 farm_hosts = ["109.107.170.211"]

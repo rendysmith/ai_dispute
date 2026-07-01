@@ -8,6 +8,7 @@ from sqlalchemy import text, update, insert, inspect
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 
 import os
 from os.path import join, dirname, abspath
@@ -40,8 +41,7 @@ def pool_conn():
 
 engine = create_async_engine(
     pool_conn(),
-    pool_size=2,  # Максимальное количество постоянных соединений
-    max_overflow=5,  # Максимальное количество "лишних" соединений
+    poolclass=NullPool,
 )
 
 SessionLocal = sessionmaker(
@@ -125,6 +125,39 @@ async def get_pass(username):
             logger.error(f"SQL Error Ex: {Ex}")
             return False, False
 
+def _get_model_by_table_name(table_name: str):
+    for mapper in Base.registry.mappers:
+        if mapper.class_.__tablename__ == table_name:
+            return mapper.class_
+    return None
+
+async def get_token_credentials(table_name: str, username: str):
+    """
+    Возвращает api_token и model из таблицы tokens (или другой с колонкой username).
+
+    :param table_name: имя таблицы, например 'tokens'
+    :param username: значение в колонке username, например 'chat_gpt'
+    :return: (api_token, model) или (False, False)
+    """
+    model = _get_model_by_table_name(table_name)
+    if not model:
+        logger.error(f"Table {table_name} not found")
+        return False, False
+
+    async with SessionLocal() as session:
+        try:
+            async with session.begin():
+                result = await session.execute(select(model).filter_by(username=username))
+                row = result.scalars().first()
+
+                if row:
+                    return row.api_token, getattr(row, 'model', None)
+                return False, False
+
+        except Exception as Ex:
+            logger.error(f"SQL Error Ex: {Ex}")
+            return False, False
+
 async def get_user_guid(username):
     async with SessionLocal() as session:
         try:
@@ -201,7 +234,6 @@ async def add_data_to_db(datas):
         except Exception as Ex:
             logger.error(f"SQL Error Ex: {Ex}")
             return False, False
-
 
 async def add_datas_to_db(table_data, mappings):
     async with SessionLocal() as session:
@@ -502,7 +534,6 @@ async def update_universal(session = None, query = None):
         async with SessionLocal() as local_session:
             await local_session.execute(query)
             await local_session.commit()
-
 
 async def read_universal(session = None, query = None):
     if session:

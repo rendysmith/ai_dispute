@@ -58,5 +58,5 @@ COPY . .
 # Установка правильных прав для Xvfb (опционально, но часто требуется)
 RUN chmod 777 /tmp
 
-# Команда запуска с виртуальным дисплеем
-CMD ["sh", "-c", "Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset & export DISPLAY=:99 && python3 -u main"]
+# Команда по умолчанию — один воркер парсинга (в k8s индекс задаёт JOB_COMPLETION_INDEX)
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset & export DISPLAY=:99 && python3 -u scaling_service.py"]

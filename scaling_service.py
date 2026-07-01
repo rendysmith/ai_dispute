@@ -2,6 +2,7 @@ import asyncio
 
 import os
 import random
+import sys
 import time
 from datetime import datetime
 
@@ -9,6 +10,7 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from portals.dreamjob import check_dreamjob
+from portals.irecommend import main_irecommend
 from portals.ocompanii import check_ocompanii
 from portals.portal_2gis import check_2gis
 from portals.portal_aplaut import check_aplout
@@ -16,8 +18,10 @@ from portals.portal_drive2 import check_drive2
 from portals.portal_dzen import check_dzen
 from portals.portal_ingate import check_ingate
 from portals.portal_otvet import check_otvet
+from portals.portal_otzovik import main_otzovik
 from portals.portal_rustore import check_rustore
 from portals.portal_sravni import check_sravni
+from portals.portal_ya import main_yandex
 from portals.portal_ya_market import check_ya_market
 from portals.pravda_sotrudnikov import check_pravda
 from portals.rocketdata import check_rocketdata
@@ -38,7 +42,8 @@ max_sec = int(os.environ.get("MAX_SEC"))
 ss_id = TABLES_LIST['zoom']
 current_date = datetime.now().strftime("%d.%m.%Y")
 
-async def start_zoom(service):
+async def start_zoom():
+    service = await get_service()
     timetable, projects, portal = [], [], []
     #timetable, projects, portal = await get_set()
 
@@ -458,6 +463,7 @@ async def start_zoom(service):
                                              project=project, links=links)
 
                 #--------------------------------------------------------------------
+
             elif 'rocketdata' in link:
                 link = 'https://go.rocketdata.io/reviews-management/reviews?ordering=-creation_date'
                 if link in list_links:
@@ -566,9 +572,56 @@ async def start_zoom(service):
 
         await write_log_sheet(service, ss_id, 'logs', datas)
 
-async def main_zoom():
-    service = await get_service()
-    await start_zoom(service)
 
-if "__main__" in __name__:
-    asyncio.run(main_zoom())
+# Максимум pod'ов в k8s Job (completions/parallelism в deploy/parsing-cronjob.yaml).
+# При добавлении парсера меняйте только список ниже, пока len(PARSING_TASKS) <= PARSING_MAX_WORKERS.
+PARSING_MAX_WORKERS = 8
+
+PARSING_TASKS = [
+    ("zoom", start_zoom),
+    ("otzovik", main_otzovik),
+    ("irecommend", main_irecommend),
+    ("yandex", main_yandex),
+]
+
+
+async def run_parsing_task(index: int) -> None:
+    if index >= len(PARSING_TASKS):
+        print(f'--- Index {index}: нет задачи, выход')
+        return
+
+    name, task = PARSING_TASKS[index]
+    print(f'--- Start parser: {name} (index {index})')
+    await task()
+    print(f'--- Done parser: {name}')
+
+
+def _is_k8s_job() -> bool:
+    return (
+        os.environ.get("JOB_COMPLETION_INDEX") is not None
+        or os.path.exists("/var/run/secrets/kubernetes.io")
+    )
+
+
+async def main():
+    parser_task = os.environ.get("PARSER_TASK")
+    if parser_task:
+        for name, task in PARSING_TASKS:
+            if name == parser_task:
+                print(f'--- Start parser: {name} (PARSER_TASK)')
+                await task()
+                print(f'--- Done parser: {name}')
+                return
+        raise SystemExit(f'Unknown PARSER_TASK: {parser_task}. Available: {[n for n, _ in PARSING_TASKS]}')
+
+    if _is_k8s_job():
+        index = int(os.environ.get("JOB_COMPLETION_INDEX", 0))
+        await run_parsing_task(index)
+        return
+
+    for index, (name, _) in enumerate(PARSING_TASKS):
+        await run_parsing_task(index)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

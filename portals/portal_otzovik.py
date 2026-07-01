@@ -12,13 +12,15 @@ from dateutil import parser
 from dotenv import load_dotenv
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from twocaptcha import TwoCaptcha, AsyncTwoCaptcha
-from playwright_captcha import TwoCaptchaSolver, CaptchaType, FrameworkType
+
+from utils.anticaptcha import SendCaptcha
+
+from playwright._impl._errors import TargetClosedError
 
 from utils.ai_module import generate_and_white
-from utils.central_module import wait_for_portal, proxy_status, get_hpo, is_running_in_container
+from utils.central_module import wait_for_portal, proxy_status, is_running_in_container, get_local_ip
 from utils.constants import TABLES_LIST, empty_data, months
-from utils.gs_editor import get_service, pars_url, get_table_scope, write_log_sheet, append_data_to_sheet_scope, \
+from utils.gs_editor import get_service, pars_url, read_table_id, write_log_sheet, append_data_to_sheet_scope, \
     append_data_to_sheet_cell, read_table_id, append_data_to_sheet_scopes
 from utils.user_agent import get_selenium_proxy, get_playwright
 from utils.proxy_bridge import set_windows_proxy
@@ -37,11 +39,38 @@ load_dotenv(dotenv_path)
 days_ago = int(os.environ.get("DAYS_AGO"))
 max_sec = int(os.environ.get("MAX_SEC"))
 captcha_key = os.environ.get("CAPTCHA_KEY")
-print(captcha_key)
 
 ss_id = TABLES_LIST['zoom']
 
 recorded = 0
+headless = True
+proxy_on = True
+
+
+async def cleanup_captcha_images():
+    temp_path = os.path.join(corn_folder, 'temp')
+    if not os.path.isdir(temp_path):
+        return
+
+    for name in os.listdir(temp_path):
+        if 'captcha_image_' in name:
+            path = os.path.join(temp_path, name)
+            try:
+                os.remove(path)
+                print(f'--- Removed {path}')
+            except OSError as ex:
+                print(f'--- Remove error {path}: {ex}')
+
+
+async def get_top_link_pw(page):
+    try:
+        top_link_content = await page.query_selector('h1.product-name a')
+        if top_link_content:
+            return await top_link_content.get_attribute('href')
+    except Exception as ex:
+        print(f'--- func No top link: {ex}')
+    return None
+
 
 async def date_convert(date_str):
     parts = date_str.split()
@@ -54,6 +83,7 @@ async def date_convert(date_str):
         date = f"{day}.{month}.{year}"
 
     return date
+
 
 async def transform_reviews_to_dict(reviews_list):
     """
@@ -80,60 +110,147 @@ async def transform_reviews_to_dict(reviews_list):
 
     return result
 
+
+async def _solve_recaptcha_pw(page) -> bool:
+    if not captcha_key:
+        return False
+
+    try:
+        from playwright_captcha import TwoCaptchaSolver, CaptchaType, FrameworkType
+        from twocaptcha import AsyncTwoCaptcha
+    except ImportError:
+        print('--- playwright_captcha not installed')
+        return False
+
+    from utils.anticaptcha import get_captcha_servers
+
+    for server in get_captcha_servers():
+        try:
+            captcha_client = AsyncTwoCaptcha(captcha_key, server=server)
+            async with TwoCaptchaSolver(
+                framework=FrameworkType.PLAYWRIGHT,
+                page=page,
+                async_two_captcha_client=captcha_client,
+            ) as solver:
+                await solver.solve_captcha(
+                    captcha_container=page,
+                    captcha_type=CaptchaType.RECAPTCHA_V2,
+                )
+            return True
+        except Exception as ex:
+            print(f'--- reCAPTCHA solve error ({server}): {ex}')
+
+    return False
+
+
+async def _captcha_image_present(page) -> bool:
+    if await page.locator('img#captcha-img').count() > 0:
+        return True
+
+    input_el = await page.query_selector('input[type="text"]')
+    if not input_el:
+        return False
+
+    imgs = await page.query_selector_all('img[src]')
+    return len(imgs) == 1
+
+
+async def solve_captcha_pw(page) -> bool:
+    """Решение капчи Otzovik через 2captcha (Playwright)."""
+    if not captcha_key:
+        print('--- CAPTCHA_KEY не задан')
+        return False
+
+    for attempt in range(10):
+        if not await _captcha_image_present(page):
+            recaptcha_frame = await page.locator('iframe[src*="recaptcha"]').count()
+            if recaptcha_frame > 0:
+                print('--- reCAPTCHA detected')
+                if await _solve_recaptcha_pw(page):
+                    await page.wait_for_timeout(3000)
+                    if not await _captcha_image_present(page):
+                        print('+++ reCAPTCHA solved')
+                        return True
+            else:
+                print('--- No captcha')
+                return True
+
+        print(f'>>> Captcha found, solving... (attempt {attempt + 1})')
+
+        captcha_img = await page.query_selector('img#captcha-img')
+        if not captcha_img:
+            imgs = await page.query_selector_all('img[src]')
+            if len(imgs) == 1:
+                captcha_img = imgs[0]
+
+        if not captcha_img:
+            return False
+
+        temp_path = os.path.join(corn_folder, 'temp')
+        os.makedirs(temp_path, exist_ok=True)
+        file_link = os.path.join(temp_path, f'captcha_image_{int(time.time())}.png')
+        await captcha_img.screenshot(path=file_link)
+        print(f'-- Captcha screenshot: {file_link}')
+
+        capcha_text = await sent_captcha(file_link)
+        if os.path.exists(file_link):
+            os.remove(file_link)
+
+        if not capcha_text:
+            print('--- 2captcha не вернул ответ')
+            await page.reload(wait_until='domcontentloaded')
+            await wait_for_portal()
+            continue
+
+        input_captcha = await page.query_selector('input[type="text"]')
+        if not input_captcha:
+            return False
+
+        await input_captcha.fill(capcha_text)
+        await asyncio.sleep(1)
+        await input_captcha.press('Enter')
+        await page.wait_for_timeout(3000)
+
+        if not await _captcha_image_present(page):
+            print('+++ Captcha solved')
+            return True
+
+        print('--- Captcha still present, retry...')
+        await page.reload(wait_until='domcontentloaded')
+        await wait_for_portal()
+
+    return False
+
+
 async def solve_captcha(page):
-    # captcha_client = AsyncTwoCaptcha(captcha_key)
-    #
-    # async with TwoCaptchaSolver(framework=FrameworkType.PLAYWRIGHT,
-    #                             page=page,
-    #                             async_two_captcha_client=captcha_client
-    #                             ) as solver:
-    #     await solver.solve_captcha(
-    #         captcha_container=page,
-    #         captcha_type=CaptchaType.RECAPTCHA_V2 # Или другой тип, если Отзовик обновится
-    #     )
-    await asyncio.sleep(5)
-    a = 0*1
+    return await solve_captcha_pw(page)
+
+
+async def check_captcha(page):
+    return await solve_captcha_pw(page)
+
 
 async def sent_captcha(file_link):
     print('--- Send captcha...')
-    solver = TwoCaptcha(apiKey=captcha_key, )
+    anti = SendCaptcha(file_link)
+    return await anti.normal_captcha()
 
-    n = 0
-    while n < 10:
-        result = solver.normal(file_link)
-        #print(result)
-        if result.get('code'):
-            #print(result['code'])
-            return result['code']
-
-        await asyncio.sleep(1)
-        n += 1
-        print(f'nC = {n}')
-
-    return None
 
 async def normalize_otzovik_date(date_str):
     """
     Преобразует строковую дату Otzovik в формат dd.mm.YYYY.
-    Учитывает текущую дату как 14.05.2026 (на основе предоставленных данных).
     """
     if not date_str or not isinstance(date_str, str):
         return date_str
 
-    # Текущая дата для расчетов (из вашего контекста)
-
-
-    today = datetime.now()  # или datetime.today()
-
+    today = datetime.now()
     date_str = date_str.lower().strip()
 
-    # 1. Обработка ключевых слов
     if date_str == 'сегодня':
         return today.strftime('%d.%m.%Y')
     if date_str == 'вчера':
         return (today - timedelta(days=1)).strftime('%d.%m.%Y')
 
-    # 2. Обработка дней недели
     weekdays = {
         'понедельник': 0, 'вторник': 1, 'среда': 2,
         'четверг': 3, 'пятница': 4, 'суббота': 5, 'воскресенье': 6
@@ -142,32 +259,22 @@ async def normalize_otzovik_date(date_str):
     if date_str in weekdays:
         target_weekday = weekdays[date_str]
         current_weekday = today.weekday()
-        # Вычисляем разницу (идем назад до ближайшего дня недели)
-        days_ago = (current_weekday - target_weekday) % 7
-        if days_ago == 0:  # Если сегодня четверг и в логе "четверг", значит это было 7 дней назад
-            days_ago = 7
-        res_date = today - timedelta(days=days_ago)
+        days_ago_val = (current_weekday - target_weekday) % 7
+        if days_ago_val == 0:
+            days_ago_val = 7
+        res_date = today - timedelta(days=days_ago_val)
         return res_date.strftime('%d.%m.%Y')
-
-    # 3. Обработка форматов "15 мар" или "16 фев 2018"
-    # months = {
-    #     'янв': 1, 'фев': 2, 'мар': 3, 'апр': 4, 'май': 5, 'июн': 6,
-    #     'июл': 7, 'авг': 8, 'сен': 9, 'окт': 10, 'ноя': 11, 'дек': 12
-    # }
 
     parts = date_str.split()
     if len(parts) >= 2:
         try:
             day = int(parts[0])
-            # Берем первые 3 буквы месяца для сопоставления со словарем
             month_name = parts[1][:3]
             month = months.get(month_name, 1)
 
             if len(parts) == 3:
-                # Формат: "16 фев 2018"
                 year = int(parts[2])
             else:
-                # Формат: "15 мар" (текущий год)
                 year = today.year
 
             return f"{day:02d}.{month:02d}.{year}"
@@ -176,23 +283,6 @@ async def normalize_otzovik_date(date_str):
 
     return date_str
 
-async def check_captcha(page):
-    for i in range(10):
-        try:
-            captcha_count = await page.locator('img[id="captcha-img"]').count()
-            if captcha_count > 0:
-                print('Captcha found, wait 5 sec...')
-                await asyncio.sleep(5)
-
-            else:
-                print('--- No captcha')
-                return True
-
-        except:
-            print('--- No captcha')
-            return True
-
-    return False
 
 async def get_top_link(driver):
     try:
@@ -209,6 +299,7 @@ async def get_top_link(driver):
     #         top_link_content_0 = await page.query_selector('h1[class="product-name"]')
     #         top_link_content = await top_link_content_0.query_selector('a')
     #         top_link = await top_link_content.get_attribute('href')
+
 
 async def captcha_check(driver):
     print('>>> Capcha? <<<')
@@ -281,6 +372,7 @@ async def captcha_check(driver):
 
     return driver
 
+
 async def get_feedback(page, url):
     await page.goto(url)
 
@@ -291,6 +383,7 @@ async def get_feedback(page, url):
     text = await page.locator('div.item-right').inner_text()
     await asyncio.sleep(2)
     return text
+
 
 async def blocks_otzovik(page, page2, links, min_rating, max_rating):
     blocks = await page.locator('div[class="item status4 mshow0"]').all()
@@ -325,6 +418,7 @@ async def blocks_otzovik(page, page2, links, min_rating, max_rating):
             datas['Оценка'].append(rating)
 
     return datas
+
 
 async def full_blocks_otzovik(service, ss_id, project, page, page_2, page_3):
     results = []
@@ -464,143 +558,398 @@ async def full_blocks_otzovik(service, ss_id, project, page, page_2, page_3):
 
     return review_cards
 
-async def check_otzovik(service, link, pattern, criteria, ss_id, project, driver):
+
+async def check_otzovik(service, link, pattern, criteria, ss_id, project, page, page_2, source_link=None):
     global recorded
 
-    blocks = await blocks_otzovik(driver, link, service)
-    if blocks == 'Next...':
-        return 'Next...'
+    if source_link is None:
+        source_link = link
 
-    elif blocks == None:
+    on_list_page = False
+    print(f'\nLink: {link}')
+    await page.goto(link, wait_until='domcontentloaded')
+    await page.wait_for_timeout(2000)
+
+    if not await check_captcha(page):
         return None
 
-    len_b = len(blocks)
+    caption_el = await page.query_selector('div.page-caption')
+    if caption_el:
+        caption = await caption_el.inner_text()
+        if 'Ошибка' in caption:
+            print(caption)
+            if '/reviews/' in link and source_link.rstrip('/') != link.rstrip('/') and '/review_' in source_link:
+                print('--- Устаревший top_url, читаем со страницы отзыва')
+                await page.goto(source_link, wait_until='domcontentloaded')
+                await page.wait_for_timeout(2000)
+                if not await check_captcha(page):
+                    return None
+                top_link = await get_top_link_pw(page)
+                if not top_link:
+                    print('--- No top link')
+                    return None
+                if not top_link.startswith('http'):
+                    top_link = f'https://otzovik.com{top_link}'
+                await append_data_to_sheet_scope(service, ss_id, 'unique_url', {
+                    'project': project,
+                    'url': source_link,
+                    'top_url': top_link,
+                })
+                print(f'-- Обновлён TOP link: {top_link}')
+                link = top_link.split('?')[0].rstrip('/') + '/?order=date_desc'
+                await page.goto(link, wait_until='domcontentloaded')
+                await page.wait_for_timeout(2000)
+                if not await check_captcha(page):
+                    return None
+                caption_el = await page.query_selector('div.page-caption')
+                if caption_el:
+                    caption = await caption_el.inner_text()
+                    if 'Ошибка' in caption:
+                        print(caption)
+                        return 'Next...'
+                on_list_page = True
+            else:
+                return 'Next...'
 
+    if not on_list_page:
+        list_url = link
+        if '/reviews/' in link and 'order=date_desc' not in link:
+            list_url = link.split('?')[0].rstrip('/') + '/?order=date_desc'
+            await page.goto(list_url, wait_until='domcontentloaded')
+            await page.wait_for_timeout(2000)
+            if not await check_captcha(page):
+                return None
+
+        elif 'order=date_desc' not in link:
+            top_link = await get_top_link_pw(page)
+            if not top_link:
+                print('--- No top link')
+                return None
+
+            if not top_link.startswith('http'):
+                top_link = f'https://otzovik.com{top_link}'
+
+            await append_data_to_sheet_scope(service, ss_id, 'unique_url', {
+                'project': project,
+                'url': link,
+                'top_url': top_link,
+            })
+            print('-- Record TOP link')
+            list_url = top_link.split('?')[0].rstrip('/') + '/?order=date_desc'
+            await page.goto(list_url, wait_until='domcontentloaded')
+            await page.wait_for_timeout(2000)
+            if not await check_captcha(page):
+                return None
+        else:
+            print('- Это уже топовая ссылка.')
+
+    review_cards = await page.query_selector_all('div.item.status4.mshow0')
+    if not review_cards:
+        review_cards = await page.query_selector_all('div[itemprop="review"]')
+
+    len_b = len(review_cards)
+    print(f'Len_b = {len_b}')
     if len_b == 0:
-        print('- No blocks')
         return None
 
     links = await pars_url(service, ss_id, project)
-    for block in blocks:
-        try:
-            url_answer = block.find_element(By.CSS_SELECTOR, 'meta[itemprop="url"]').get_attribute('content')
-        except:
-            url_answer = block.find_element(By.CSS_SELECTOR, 'meta[itemprop="url"]')
 
-        if url_answer in links:
-            print("Такой комментарий уже отмечен")
+    for card in review_cards:
+        print('****************************')
+
+        review_link = None
+        link_el = await card.query_selector('a.review-title')
+        if link_el:
+            href = await link_el.get_attribute('href')
+            if href:
+                review_link = f'https://otzovik.com{href}' if href.startswith('/') else href
+
+        if not review_link:
+            meta_el = await card.query_selector('meta[itemprop="url"]')
+            if meta_el:
+                review_link = await meta_el.get_attribute('content')
+
+        if not review_link:
             continue
 
-        try:
-            date_content = block.find_element(By.CSS_SELECTOR, "div.review-postdate").get_attribute('content')
+        print(review_link)
 
-        except:
-            date_content = block.find_element(By.CSS_SELECTOR, "div.review-postdate")
+        if review_link in links:
+            print('Отзыв уже есть в таблице')
+            continue
 
-        #print("Date_content", date_content)
-        date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S%z")
-        date = date.replace(tzinfo=None)  # offset-naive
-        formatted_date = date.strftime("%d.%m.%Y")
+        formatted_date = None
+        target_date = None
 
-        if (current_date - date) > timedelta(days=days_ago):
-            print(f'--- Отзыв старше {days_ago} дней. = {date}')
-            return 'Next'
+        date_el = await card.query_selector('div.review-postdate')
+        if date_el:
+            content = await date_el.get_attribute('content')
+            if content:
+                try:
+                    target_date = datetime.strptime(content, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
+                    formatted_date = target_date.strftime("%d.%m.%Y")
+                except ValueError:
+                    pass
 
-        author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
-        feedback = block.find_element(By.CSS_SELECTOR, "div.review-body-wrap").text
+        if not formatted_date:
+            span_el = await card.query_selector('.review-postdate span')
+            if span_el:
+                date_str = await span_el.inner_text()
+                formatted_date = await date_convert(date_str)
+                try:
+                    target_date = datetime.strptime(formatted_date, "%d.%m.%Y")
+                except ValueError:
+                    continue
 
-        try:
-            await generate_and_white(service=service,
-                                     url_answer=url_answer,
-                                     author=author,
-                                     formatted_date=formatted_date,
-                                     ss_id=ss_id,
-                                     project=project,
-                                     feedback=feedback,
-                                     pattern=pattern,
-                                     criteria=criteria)
+        if not target_date:
+            continue
 
-            recorded += 1
+        if (current_date - target_date) > timedelta(days=days_ago):
+            print(f'--- Отзыв старше {days_ago} дней = {formatted_date}.')
+            return "Next..."
 
-        except:
-            print('No generate!')
+        author_el = await card.query_selector('span[itemprop="name"]')
+        if not author_el:
+            author_el = await card.query_selector('a.user-login')
+        if not author_el:
+            continue
+        author = (await author_el.inner_text()).strip()
+
+        feedback = await get_feedback(page_2, review_link)
+        if not feedback:
+            print('--- Пустой текст отзыва')
+            continue
+
+        await generate_and_white(
+            service=service,
+            url_answer=review_link,
+            author=author,
+            formatted_date=formatted_date,
+            ss_id=ss_id,
+            project=project,
+            feedback=feedback,
+            pattern=pattern,
+            criteria=criteria,
+        )
+        recorded += 1
+
+    return 'OK!'
+
+
+async def start_browser():
+    p, browser, context, page = await get_playwright(
+        headless=headless,
+        proxy=proxy_on,
+        proxy_type='ru',
+        stealth=True,
+        blocked_resource=False,
+    )
+
+    return p, browser, context, page
+
 
 async def main_otzovik():
-    ss_id = '1mWKEZmrjrf2Ui2nGBD0nEZAR9uWPDMssJCu-40o_cd4'
-    project = 'AlfaBank'
-
-    headless = await is_running_in_container()
-    print(f'Headless: {headless}')
-
-    p, browser, context, page = await get_playwright(headless=headless,
-                                                     proxy_type='ru',
-                                                     stealth=True,
-                                                     blocked_resource=False)
+    global headless, proxy_on, recorded
 
     service = await get_service()
 
-    df = await read_table_id(service, ss_id, 'links')
-    print(df)
+    headless = await is_running_in_container()
+    proxy_on = True
+    print(f'-- Otzovik: headless={headless}, proxy={proxy_on}')
 
-    global lists
+    proxy_active = await proxy_status()
+    print(f'+ Proxy status: {proxy_active}')
+
+    p, browser, context, page = await start_browser()
+    p_2, browser_2, context_2, page_2 = await start_browser()
 
     try:
-        df_project = await read_table_id(service, ss_id, project)
-        lists = df_project['Url'].to_list()
-    except:
-        lists = []
+        df = await read_table_id(service, ss_id, 'zoom')
+        idx_num_row = df.index[df['Проект'] == 'Кол-во строк'].tolist()[0]
+        df_counts = pd.Series(df.iloc[idx_num_row].values, index=df.columns).reset_index()
+        df_counts[0] = pd.to_numeric(df_counts[0], errors='coerce')
+        df_counts = df_counts.dropna(subset=[0])
+        df_counts = df_counts.sort_values(by=0)
+        list_ = df_counts['index'].to_list()
 
-    for idx, row in df.iterrows():
-        link = row['link']
-        status = row['status']
+        df_uniq = await read_table_id(service, ss_id, 'unique_url')
+        df_logs = await read_table_id(service, ss_id, 'logs')
 
-        if status == 'OK!':
-            continue
+        df_daily = await read_table_id(service, ss_id, 'daily_data')
+        df_daily = df_daily[df_daily['date'] == record_date]
+        daily_links = set(df_daily['url'].tolist())
 
-        p_2, browser_2, context_2, page_2 = await get_playwright(headless=headless,
-                                                                 proxy_type='ru',
-                                                                 stealth=True,
-                                                                 blocked_resource=False)
+        for project in list_:
+            if 'Проект' in project:
+                continue
 
-        p_3, browser_3, context_3, page_3 = await get_playwright(headless=headless,
-                                                                 proxy_type='ru',
-                                                                 stealth=True,
-                                                                 blocked_resource=False)
+            df_mini = df[project]
+            df_mini_pattern = df_mini[df_mini.str.contains('Пример реакции', na=False)]
+            df_mini_criteria = df_mini[df_mini.str.contains('Особые критерии', na=False)]
+            df_mini = df_mini[df_mini.str.contains('http', na=False)]
+            df_mini = df_mini.drop_duplicates().reset_index()
+
+            df_link_list = df_mini[project].to_list()
+            otz_link = [i for i in df_link_list if 'otzovik' in i]
+            len_otz = len(otz_link)
+            if len_otz == 0:
+                print(f'{project} next...')
+                continue
+
+            print(f'\n ---> {project} Otzovik link = {len_otz} <---')
+            random.shuffle(df_link_list)
+
+            len_df = len(df_link_list)
+            print(f'\n========================= Project = {project} = Len ({len_df})==============================')
+
+            project_otzovik = f'otzovik_{project}'
+            filtered_logs = df_logs[df_logs['service_name'] == project_otzovik]
+            if not filtered_logs.empty:
+                idx_logs = filtered_logs.index[0]
+
+                if proxy_active != 'Active':
+                    await append_data_to_sheet_cell(
+                        service, ss_id, 'logs', 'status', idx_logs + 2,
+                        f'Proxy {proxy_active}: {record_date}',
+                    )
+                else:
+                    await append_data_to_sheet_cell(
+                        service, ss_id, 'logs', 'status', idx_logs + 2,
+                        f'Proxy {proxy_active}',
+                    )
+
+                date_logs = df_logs.loc[idx_logs, 'date']
+                if date_logs == record_date:
+                    continue
+
+            start_time = time.time()
+            list_links = []
+            record = False
+            recorded = 0
+
+            for idx, link in enumerate(df_link_list):
+                left = len_df - df_link_list.index(link)
+                print(
+                    f'\n*************************{idx}*({left})*{project}*************************\n'
+                    f'----------------- {link} ----------------'
+                )
+
+                if 'otzovik' in link:
+                    if link in daily_links:
+                        print('Эта ссылка сегодня уже отработана')
+                        continue
+
+                    record = True
+                    source_link = link
+                    top_df = df_uniq[(df_uniq['project'] == project) & (df_uniq['url'] == link)].reset_index(drop=True)
+
+                    if not top_df.empty:
+                        print('Есть общая ссылка на статью')
+                        link = top_df.iloc[-1]['top_url']
+
+                    if link in list_links:
+                        print('Ссылка уже проверена.')
+                        continue
+
+                    list_links.append(link)
+
+                    try:
+                        await check_otzovik(
+                            service=service,
+                            link=link,
+                            pattern=df_mini_pattern,
+                            criteria=df_mini_criteria,
+                            ss_id=ss_id,
+                            project=project,
+                            page=page,
+                            page_2=page_2,
+                            source_link=source_link,
+                        )
+                    except TargetClosedError:
+                        print('--- Browser closed')
+
+                        if page.is_closed():
+                            print('--- Restart main browser')
+                            try:
+                                await browser.close()
+                            except Exception:
+                                pass
+                            try:
+                                await p.stop()
+                            except Exception:
+                                pass
+                            p, browser, context, page = await start_browser()
+
+                        if page_2.is_closed():
+                            print('--- Restart feedback browser')
+                            try:
+                                await browser_2.close()
+                            except Exception:
+                                pass
+                            try:
+                                await p_2.stop()
+                            except Exception:
+                                pass
+                            p_2, browser_2, context_2, page_2 = await start_browser()
+
+                        try:
+                            await check_otzovik(
+                                service=service,
+                                link=link,
+                                pattern=df_mini_pattern,
+                                criteria=df_mini_criteria,
+                                ss_id=ss_id,
+                                project=project,
+                                page=page,
+                                page_2=page_2,
+                                source_link=source_link,
+                            )
+                        except TargetClosedError:
+                            print('--- Browser dead again, skip link')
+                            continue
+
+                    new_daily_data = {'date': record_date, 'url': source_link}
+                    await append_data_to_sheet_scope(service, ss_id, 'daily_data', new_daily_data)
+                    daily_links.add(source_link)
+
+            if record and recorded > 0:
+                finish_sec = time.time() - start_time
+                datas = {
+                    'service_name': project_otzovik,
+                    'count': len_otz,
+                    'date': record_date,
+                    'time': finish_sec,
+                    'recorded': recorded,
+                }
+                print('datas', datas)
+                await write_log_sheet(service, ss_id, 'logs', datas)
+
+    finally:
+        await cleanup_captcha_images()
 
         try:
-            pg = int(row['last_page'])
-        except:
-            pg = 1
-
-        if 'otzovik' in link:
-            while True:
-                url = f'{link}/{pg}/?order=date_desc'
-                await page.goto(url)
-
-                try:
-                    await solve_captcha(page=page)
-                except:
-                    status_c = await check_captcha(page)
-                    if status_c == False:
-                        return None
-
-                datas = await full_blocks_otzovik(service, ss_id, project, page, page_2, page_3)
-                if datas == 'end':
-                    await append_data_to_sheet_cell(service, ss_id, "links", 'status', idx + 2, 'OK!')
-
-                await append_data_to_sheet_cell(service, ss_id, "links", 'last_page', idx+2, pg)
-                pg += 1
-
-
+            await browser_2.close()
+        except Exception:
+            pass
         try:
             await p_2.stop()
-        except:
+        except Exception:
+            pass
+        try:
+            await browser.close()
+        except Exception:
+            pass
+        try:
+            await p.stop()
+        except Exception:
             pass
 
 
 
 if __name__ == '__main__':
+    async def _run():
 
+        await main_otzovik()
 
-    asyncio.run(main_otzovik())
+    asyncio.run(_run())
     print('The End!')

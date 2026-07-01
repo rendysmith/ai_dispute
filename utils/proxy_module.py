@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from types import SimpleNamespace
 
 import aiohttp
 import requests
@@ -13,7 +14,7 @@ from dotenv import load_dotenv
 from models.mdl_tables import Proxies
 from sqlalchemy import select, and_, func
 
-from utils.db_loader import read_from_postgres, read_universal
+from utils.db_loader import read_from_postgres, read_universal, delete_data_from_db_universal
 
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -190,46 +191,6 @@ async def get_iplist():
     #print(host_port)
     return f"{host_port_dict['host']}:{host_port_dict['port']}"
 
-async def get_one_proxy_old(proxy_type=None):
-    # 1. Формируем базовый запрос: SELECT * FROM proxies
-    query = select(Proxies)
-
-    # 2. Обрабатываем фильтр 'mobile'
-    if mobile:
-        # Добавляем условие WHERE proxy_type = 'mobile'
-        # Также добавляем условие, что proxy_type не должен быть NULL, если это важно.
-        filter_condition = and_(
-            Proxies.proxy_type == 'mobile',
-            Proxies.proxy_type.is_not(None)  # Убираем NULL-значения, чтобы избежать ошибок
-        )
-        query = query.filter(filter_condition)
-
-    # 3. Добавляем логику случайного выбора и лимит 1
-    # Это наиболее эффективный способ получить один случайный элемент
-    # (работает с PostgreSQL, MySQL и другими)
-    query = query.order_by(func.random()).limit(1)
-
-    # 4. Выполняем запрос через новую функцию
-    result = await read_universal(query=query)
-
-    # 5. Обрабатываем результат
-    if result:
-        # read_universal уже вернул список, содержащий 0 или 1 элемент
-        r_idx = result[0]
-
-        host = r_idx.host
-        port = r_idx.port
-        login = r_idx.login
-        password = r_idx.password
-
-        logging.info(f'--- Proxy data: {host} {port}')
-        return host, port, login, password
-
-    else:
-        # Если список пуст (result = []), прокси по заданным условиям не найдены.
-        logging.warning('--- No proxy found with given filters.')
-        return None, None, None, None
-
 async def get_one_proxy_from_db(proxy_type=None):
     # 1. Формируем базовый запрос: SELECT * FROM proxies
     query = select(Proxies)
@@ -277,10 +238,8 @@ async def is_proxy_alive(host, port, login, password):
     proxy_url = f"http://{login}:{password}@{host}:{port}"
     check_url = "https://api.ipify.org"
     try:
-        # Устанавливаем короткий тайм-аут
         timeout = aiohttp.ClientTimeout(total=5)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            # Пытаемся зайти на легкий ресурс
             async with session.get(check_url, proxy=proxy_url) as response:
                 if response.status == 200:
                     return True
@@ -289,6 +248,7 @@ async def is_proxy_alive(host, port, login, password):
         logging.debug(f"Proxy check failed for {host}:{port}: {e}")
 
     return False
+
 
 async def get_one_proxy(proxy_type=None):
     """
@@ -307,16 +267,65 @@ async def get_one_proxy(proxy_type=None):
             return host, port, login, password
 
         logging.warning(f"Proxy {host}:{port} is DEAD. Retrying...")
-        # Можно добавить пометку в БД, что прокси плохой (опционально)
         await asyncio.sleep(0.5)
 
     logging.error("Could not find a valid proxy after multiple attempts.")
     return None, None, None, None
 
+
+async def check_proxies_list(proxy_type=None, rounds=3, fail_threshold=3):
+    """
+    Проверяет все прокси из БД. Список проходится rounds раз.
+    Мёртвому прокси +1 балл за каждую неудачную проверку.
+    При fail_threshold баллах — удаление из таблицы proxies.
+    """
+    fail_scores = {}
+
+    for round_num in range(1, rounds + 1):
+        query = select(Proxies)
+        if proxy_type:
+            query = query.filter(
+                and_(
+                    Proxies.proxy_type == proxy_type,
+                    Proxies.proxy_type.is_not(None),
+                )
+            )
+
+        proxies = await read_universal(query=query) or []
+        if not proxies:
+            logging.warning("Proxy list is empty")
+            break
+
+        logging.info(f"Proxy audit round {round_num}/{rounds}, count={len(proxies)}")
+
+        for proxy in proxies:
+            host_id = proxy.host_id
+
+            if fail_scores.get(host_id, 0) >= fail_threshold:
+                continue
+
+            alive = await is_proxy_alive(proxy.host, proxy.port, proxy.login, proxy.password)
+
+            if alive:
+                logging.info(f"ALIVE {proxy.host}:{proxy.port}")
+            else:
+                fail_scores[host_id] = fail_scores.get(host_id, 0) + 1
+                score = fail_scores[host_id]
+                logging.warning(f"DEAD {proxy.host}:{proxy.port} score={score}/{fail_threshold}")
+
+                if score >= fail_threshold:
+                    ok, msg = await delete_data_from_db_universal(
+                        SimpleNamespace(table_name='proxies', position=host_id)
+                    )
+                    if ok:
+                        logging.info(msg)
+                    else:
+                        logging.error(msg)
+
+    deleted = [host_id for host_id, score in fail_scores.items() if score >= fail_threshold]
+    return {"scores": fail_scores, "deleted": deleted}
+
+
 if "__main__" in __name__:
-    srv = asyncio.run(get_one_proxy())
+    srv = asyncio.run(check_proxies_list())
     print(srv)
-
-
-    # srv = asyncio.run(get_cookies_proxy5())
-    # print(srv)

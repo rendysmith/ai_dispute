@@ -1,18 +1,17 @@
 import asyncio
 import logging
 import os
+import re
 import time
 import traceback
 from datetime import datetime, timedelta
 from os.path import join, dirname
 import locale
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 
 import httpx
 import pandas as pd
 from dotenv import load_dotenv
-from kubernetes import client, config
-from kubernetes.config.config_exception import ConfigException
 
 from urllib.parse import urlparse, urlunparse
 
@@ -20,6 +19,15 @@ from utils.gs_editor import get_service, read_table_id, append_data_to_sheet_cel
     append_data_to_sheet_scope
 
 logger = logging.getLogger(__name__)
+
+QUEUE_WAITING = 'waiting'
+QUEUE_RUNNING = 'running'
+QUEUE_COMPLETED = 'completed'
+QUEUE_ERROR = 'error'
+QUEUE_CANCELLED = 'cancelled'
+QUEUE_STOPPED = 'stopped'
+ACTIVE_STATUSES = {QUEUE_WAITING, QUEUE_RUNNING}
+TERMINAL_FAILURE_STATUSES = {QUEUE_ERROR, QUEUE_CANCELLED, QUEUE_STOPPED}
 
 # Устанавливаем русскую локаль для корректного перевода месяцев
 try:
@@ -52,6 +60,11 @@ load_dotenv(dotenv_path)
 
 username = os.environ.get("HOST_USERNAME")
 password = os.environ.get("HOST_PASSWORD")
+parser_api_url = os.environ.get("PARSER_API_URL", "http://176.124.192.108:8000")
+task_poll_interval = float(os.environ.get("TASK_POLL_INTERVAL", "10"))
+task_timeout_sec = float(os.environ.get("TASK_TIMEOUT_SEC", "900"))
+task_stale_sec = float(os.environ.get("TASK_STALE_SEC", "300"))
+task_create_read_timeout = float(os.environ.get("TASK_CREATE_READ_TIMEOUT", "120"))
 
 ss_id_cards = '163Wdetech2MkZEdzeaFrhvGgPq9hfo6yWpgXP1YWI6k'
 ss_id_feedback = '1wBtEuU9tAYTDtI1CtDsipV9lcHMnC6ndN0WXKa_tzsg'
@@ -102,12 +115,30 @@ async def transform_items(items: List[Dict[str, Any]]) -> Dict[str, List[Any]]:
     return result
 
 
+def task_key_for_link(link: str, row_idx: int) -> str:
+    org_match = re.search(r'/org/(\d+)', link)
+    if org_match:
+        return f"task_automir_{org_match.group(1)}_{row_idx}"
+    return f"task_automir_{abs(hash(link))}_{row_idx}"
+
+
+def items_from_blocks(blocks: Any) -> List[Dict[str, Any]]:
+    if not isinstance(blocks, dict):
+        return []
+    items = blocks.get('items')
+    return items if isinstance(items, list) else []
+
+
+def is_sync_blocks_response(response: Dict[str, Any]) -> bool:
+    return isinstance(response, dict) and 'items' in response and 'status' not in response
+
+
 class GetBlock:
-    def __init__(self, base_url: str = "http://176.124.192.108:8000"):
+    def __init__(self, base_url: str = parser_api_url):
         self.base_url = base_url.rstrip('/')
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
-            timeout=httpx.Timeout(120.0, connect=10.0)
+            timeout=httpx.Timeout(120.0, connect=10.0),
         )
         self.headers = {"accept": "application/json"}
 
@@ -120,7 +151,13 @@ class GetBlock:
     async def create_task(self, link: str, topic: Optional[str] = None) -> Dict[str, Any]:
         url = f"{self.base_url}/api/v1/data/get_feedbacks"
         params = {"link": link, "topic": topic}
-        response = await self.client.post(url, headers=self.headers, params=params, auth=(username, password))
+        response = await self.client.post(
+            url,
+            headers=self.headers,
+            params=params,
+            auth=(username, password),
+            timeout=httpx.Timeout(task_create_read_timeout, connect=10.0),
+        )
         response.raise_for_status()
         return response.json()
 
@@ -145,11 +182,134 @@ class GetBlock:
         response.raise_for_status()
         return response.json()
 
+    async def terminate_task_by_name(self, task_key: str) -> Dict[str, Any]:
+        """Прекратить выполнение задачи по имени (topic / task_key)."""
+        for method in (self.stop_task, self.cancel_task):
+            try:
+                result = await method(task_key)
+                logger.info("Task %s terminated via %s", task_key, method.__name__)
+                return result
+            except httpx.HTTPStatusError as exc:
+                logger.warning(
+                    "terminate_task_by_name %s via %s: %s %s",
+                    task_key,
+                    method.__name__,
+                    exc.response.status_code,
+                    exc.response.text[:200],
+                )
+        raise RuntimeError(f"Не удалось остановить задачу '{task_key}'")
+
     async def get_parsing_queue(self) -> Dict[str, Any]:
         url = "/api/v1/data/parsing_queue"
-        response = await self.client.get(url)
+        response = await self.client.get(url, headers=self.headers, auth=(username, password))
         response.raise_for_status()
         return response.json()
+
+    async def find_active_task_key_for_link(self, link: str, row_idx: int) -> Optional[str]:
+        task_key = task_key_for_link(link, row_idx)
+        try:
+            status_res = await self.get_task_status(task_key)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return None
+            raise
+
+        if status_res.get('status') in ACTIVE_STATUSES:
+            return task_key
+        return None
+
+    async def wait_for_task(
+        self,
+        task_key: str,
+        *,
+        poll_interval: float = task_poll_interval,
+        timeout_sec: float = task_timeout_sec,
+        stale_sec: float = task_stale_sec,
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        """
+        Ожидание завершения задачи через reviews_task_status.
+        При таймауте или отсутствии прогресса — terminate_task_by_name.
+        """
+        started_at = time.monotonic()
+        last_progress_at = started_at
+        last_snapshot = None
+
+        while True:
+            try:
+                status_res = await self.get_task_status(task_key)
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 404:
+                    elapsed = time.monotonic() - started_at
+                    if elapsed >= timeout_sec:
+                        raise TimeoutError(
+                            f"Задача '{task_key}' не найдена за {elapsed:.0f}с"
+                        ) from exc
+                    print(f"Task {task_key}: not_found, ждём {poll_interval}s...")
+                    await asyncio.sleep(poll_interval)
+                    continue
+                raise
+
+            status = status_res.get('status', '')
+            snapshot = (status, status_res.get('detail', ''))
+            if snapshot != last_snapshot:
+                last_progress_at = time.monotonic()
+                last_snapshot = snapshot
+
+            print(f"Task {task_key}: {status} — {status_res.get('detail', '')}")
+
+            if status == QUEUE_COMPLETED:
+                items = items_from_blocks(status_res.get('result'))
+                return items, status_res
+
+            if status in TERMINAL_FAILURE_STATUSES:
+                raise RuntimeError(
+                    f"Задача '{task_key}' завершилась со статусом {status}: "
+                    f"{status_res.get('detail', '')}"
+                )
+
+            elapsed = time.monotonic() - started_at
+            stale = time.monotonic() - last_progress_at
+            if elapsed >= timeout_sec or stale >= stale_sec:
+                print(
+                    f"Task {task_key}: таймаут (elapsed={elapsed:.0f}s, "
+                    f"stale={stale:.0f}s), останавливаем..."
+                )
+                try:
+                    await self.terminate_task_by_name(task_key)
+                except RuntimeError as exc:
+                    logger.warning("%s", exc)
+                raise TimeoutError(
+                    f"Задача '{task_key}' не ответила вовремя "
+                    f"(elapsed={elapsed:.0f}s, stale={stale:.0f}s)"
+                )
+
+            await asyncio.sleep(poll_interval)
+
+    async def run_feedbacks_task(self, link: str, row_idx: int) -> List[Dict[str, Any]]:
+        """
+        Запуск сбора отзывов: не дублирует активную задачу, ждёт результат через status API.
+        """
+        task_key = task_key_for_link(link, row_idx)
+        active_key = await self.find_active_task_key_for_link(link, row_idx)
+        if active_key:
+            print(f"Активная задача уже есть: {active_key}, ждём завершения...")
+            items, _ = await self.wait_for_task(active_key)
+            return items
+
+        try:
+            start_res = await self.create_task(link=link, topic=task_key)
+            if is_sync_blocks_response(start_res):
+                return items_from_blocks(start_res)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 409:
+                print(f"Задача '{task_key}' уже выполняется на сервере, ждём...")
+            else:
+                raise
+        except httpx.ReadTimeout:
+            print(f"create_task timeout для '{task_key}', продолжаем опрос статуса...")
+
+        items, _ = await self.wait_for_task(task_key)
+        return items
 
     async def close(self):
         await self.client.aclose()
@@ -196,18 +356,9 @@ async def main_automir():
                 print(f"[{idx}] Пропуск: неверный формат ссылки: {link}")
                 continue
 
-            my_task_key = f"task_{int(time.time())}_{idx}"
-
             try:
                 print(f"\n[{idx}] Запуск задачи для {brand} ({city})...")
-                start_res = await client.create_task(link=link, topic=my_task_key)
-                print("Ответ сервера:", start_res)
-
-                print("Проверка статуса задачи...")
-                status_res = await client.get_task_status(task_key=my_task_key)
-                print("Статус:", status_res['detail'])
-
-                datas = start_res['items']
+                datas = await client.run_feedbacks_task(link=link, row_idx=idx)
                 len_d = len(datas)
                 print("Len D = ", len_d)
 
@@ -229,7 +380,6 @@ async def main_automir():
 
                 df_datas = pd.DataFrame(datas)
 
-                # Перебор строк DataFrame как словарей
                 for _, data_row in df_datas.iterrows():
                     row_dict = data_row.to_dict()
                     date_review = row_dict.get('Дата отзыва', '')
@@ -240,7 +390,6 @@ async def main_automir():
                     text = row_dict.get('Текст отзыва', '')
                     old_link = row_dict.get('Ссылка', '')
 
-                    # Проверяем пару (ссылка, текст)
                     if (old_link, text) in existing_pairs:
                         print(f'\n> Запись уже есть в таблице: {text}')
                         continue
@@ -253,6 +402,9 @@ async def main_automir():
 
             except httpx.HTTPStatusError as exc:
                 print(f"- ERROR Ошибка HTTP на строке {idx}: {exc.response.status_code} - {exc.response.text}")
+
+            except TimeoutError as exc:
+                print(f"- ERROR Таймаут на строке {idx}: {exc}")
 
             except Exception as exc:
                 print(f"- ERROR Произошла ошибка на строке {idx}: {exc}")
