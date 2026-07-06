@@ -76,6 +76,7 @@ async def parse_otzovik_page(page, page2, links, min_rating, max_rating, ref_mid
         datas_filter['Автор'].append(author)
         datas_filter['Оценка'].append(rating)
         datas_filter['Общий Url'].append(source_link)
+        links.add(review_url)
 
     return len_b, datas_filter, within_date_range
 
@@ -115,6 +116,7 @@ async def parse_asn_news_page(page_url, links, min_rating, max_rating, ref_midni
         datas_filter['Оценка'].append(rating)
         datas_filter['Общий Url'].append(source_link)
         datas_filter['Статус оценки'].append(status)
+        links.add(review_url)
 
     return len_b, datas_filter, within_date_range
 
@@ -138,6 +140,19 @@ async def is_promotional_review(content):
         return False
     match = PROMO_PATTERN.search(content)
     return match is not None
+
+
+def track_review_urls(links: set, urls) -> None:
+    for url in urls:
+        if url:
+            links.add(url)
+
+
+async def append_reviews(service, sheet_name: str, datas: dict, links: set) -> None:
+    if not datas.get('Url'):
+        return
+    await append_data_to_sheet_scopes(service, ss_id, sheet_name, datas)
+    track_review_urls(links, datas['Url'])
 
 async def pars_banki(service, project, link, links, min_rating, max_rating, last_page=1, idx=0):
     ref_midnight = today_midnight_utc()
@@ -201,6 +216,7 @@ async def pars_banki(service, project, link, links, min_rating, max_rating, last
                     data_filter['Оценка'].append(rating)
                     data_filter['Общий Url'].append(link)
                     data_filter['Статус оценки'].append(datas['Статус оценки'][i])
+                    links.add(review_url)
 
             await append_data_to_sheet_cells(
                 service, ss_id, 'links', ['last_page', 'max_page'], idx + 2, [current_page, current_page]
@@ -208,16 +224,16 @@ async def pars_banki(service, project, link, links, min_rating, max_rating, last
 
             if not within_date_range:
                 if data_filter['Дата']:
-                    await append_data_to_sheet_scopes(service, ss_id, project, data_filter)
+                    await append_reviews(service, project, data_filter, links)
                 return 'OK!'
 
             if len_d < 25:
                 if data_filter['Дата']:
-                    await append_data_to_sheet_scopes(service, ss_id, project, data_filter)
+                    await append_reviews(service, project, data_filter, links)
                 return 'OK!'
 
             if data_filter['Дата']:
-                await append_data_to_sheet_scopes(service, ss_id, project, data_filter)
+                await append_reviews(service, project, data_filter, links)
 
             await asyncio.sleep(5)
 
@@ -271,11 +287,11 @@ async def pars_otzovik(service, project, link, links, min_rating, max_rating, la
 
             if not within_date_range:
                 if datas_filter['Дата']:
-                    await append_data_to_sheet_scopes(service, ss_id, project, datas_filter)
+                    await append_reviews(service, project, datas_filter, links)
                 return 'OK!'
 
             if datas_filter['Дата']:
-                await append_data_to_sheet_scopes(service, ss_id, project, datas_filter)
+                await append_reviews(service, project, datas_filter, links)
 
             if len_b < pages:
                 return 'OK!'
@@ -370,6 +386,7 @@ async def pars_sravni(service, project, link, links, min_rating, max_rating, las
             datas['Оценка'].append(rating)
             datas['Общий Url'].append(link)
             datas['Статус оценки'].append(status)
+            links.add(review_url)
 
         await append_data_to_sheet_cells(
             service, ss_id, 'links', ['last_page', 'max_page'], idx + 2, [PageIndex, PageIndex]
@@ -377,11 +394,11 @@ async def pars_sravni(service, project, link, links, min_rating, max_rating, las
 
         if not within_date_range:
             if datas['Дата']:
-                await append_data_to_sheet_scopes(service, ss_id, project, datas)
+                await append_reviews(service, project, datas, links)
             return 'OK!'
 
         if datas['Дата']:
-            await append_data_to_sheet_scopes(service, ss_id, project, datas)
+            await append_reviews(service, project, datas, links)
 
         if len_b < PageSize:
             return 'OK!'
@@ -409,11 +426,11 @@ async def pars_asn_news(service, project, link, links, min_rating, max_rating, l
 
             if not within_date_range:
                 if datas_filter['Дата']:
-                    await append_data_to_sheet_scopes(service, ss_id, project, datas_filter)
+                    await append_reviews(service, project, datas_filter, links)
                 return 'OK!'
 
             if datas_filter['Дата']:
-                await append_data_to_sheet_scopes(service, ss_id, project, datas_filter)
+                await append_reviews(service, project, datas_filter, links)
 
             if len_b < pages:
                 return 'OK!'
@@ -433,10 +450,10 @@ async def main_sber_polis():
 
     try:
         df_links = await read_table_id(service, ss_id, project)
-        links = df_links['Url'].tolist()
+        links = set(df_links['Url'].dropna().astype(str).tolist())
     except Exception as Ex:
         print(f'Error Ex: {Ex}')
-        links = []
+        links = set()
 
     print(f'Len Links = {len(links)}')
 
