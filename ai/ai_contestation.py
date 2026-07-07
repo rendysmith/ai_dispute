@@ -23,6 +23,7 @@ from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
 from models.mdl_tables import ForumRules
+from portals.portal_2gis import blocks_2gis_bs4, get_key
 
 #from portals.portal_ya import main_ya_maps
 #from portals.portal_2gis import blocks_2gis_bs4
@@ -38,7 +39,7 @@ from utils.gs_editor import get_service, write_log_sheet, get_table_scope, appen
     append_data_to_sheet_cells, append_data_to_sheet_scopes, read_table_id, append_data_to_sheet_scope
 
 from portals.portal_otzovik import get_top_link, blocks_otzovik, check_captcha, date_convert, get_feedback
-from portals.portal_ya import get_json, get_id_org
+from portals.portal_ya import get_json, get_id_org, get_base_url, get_rrr
 from portals.portal_tripadvisor import blocks_tripadvisor_sel
 from portals.pravda_sotrudnikov import blocks_pravda
 from portals.otzovru import blocks_otzovru, get_feedback_otzovru
@@ -657,42 +658,118 @@ async def pars_dreamjob(service, url_top, ss_id, project, links, rating_max, idx
 
 async def pars_2gis(service, url, ss_id, project, links, rating_max):
     source = '2gis.ru'
-    blocks, branch_rating, branch_reviews_count = await blocks_2gis_bs4(url)
+    p = browser = context = page = None
+    try:
+        p, browser, context, page = await get_playwright(
+            headless=headless,
+            proxy=False,
+            blocked_resource=False,
+        )
 
-    for block in blocks:
-        url_answer = block['id']
-        if url_answer in links:
-            print('Такой комментарий уже есть в списке')
-            continue
+        reviews_url = url if '/tab/reviews' in url else f"{url.rstrip('/')}/tab/reviews"
+        print(f"2GIS reviews_url: {reviews_url}")
 
-        rating = block['rating']
+        await page.goto(reviews_url, wait_until="domcontentloaded", timeout=120_000)
+        await page.wait_for_timeout(5000)
 
-        if rating > rating_max:
-            continue
+        org_id, key = await get_key(await page.content())
+        if not org_id or not key:
+            print("2GIS: org_id/key not found on page")
+            return
 
-        date_content = block['date_created']
-        date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%f%z")
-        formatted_date = date.strftime("%d.%m.%Y")
+        blocks, branch_rating, branch_reviews_count = await blocks_2gis_bs4(page, org_id, key)
+        print(f"2GIS: blocks={len(blocks)} rating={branch_rating} reviews_count={branch_reviews_count}")
 
-        feedback = block['text']
-        author = block['user']['name']
+        existing_urls: set[str] = set()
+        existing_rows: set[str] = set()
+        try:
+            df_existing = await read_table_id(service, ss_id, project)
+            if df_existing is not None and not df_existing.empty:
+                for col in ("Url", "URL", "url"):
+                    if col in df_existing.columns:
+                        existing_urls.update(
+                            u for u in df_existing[col].astype(str).tolist()
+                            if u and u != "nan"
+                        )
+                        break
+
+                need_cols = ("Дата", "Автор", "Текст", "Оценка")
+                if all(c in df_existing.columns for c in need_cols):
+                    for _, r in df_existing[list(need_cols)].iterrows():
+                        d = "" if pd.isna(r["Дата"]) else str(r["Дата"])
+                        a = "" if pd.isna(r["Автор"]) else str(r["Автор"])
+                        t = "" if pd.isna(r["Текст"]) else str(r["Текст"])
+                        o = "" if pd.isna(r["Оценка"]) else str(r["Оценка"])
+                        existing_rows.add(f"{d}|{a}|{t}|{o}")
+        except Exception as ex:
+            print(f"2GIS: dedup read error: {ex}")
+
+        links_set = set(links or [])
+        links_set.update(existing_urls)
+        seen_rows = set(existing_rows)
 
         datas = await empty_data()
 
-        datas['Дата'].append(formatted_date)
-        datas['Текст'].append(feedback)
-        datas["Бренд"].append(project)
-        datas["Источник"].append(source)
+        for block in blocks:
+            user_id = block['id']
+            url_answer = f"https://2gis.ru/firm/{org_id}/tab/review/{user_id}"
 
-        datas['Url'].append(url_answer)
-        datas['Автор'].append(author)
-        datas['Оценка'].append(rating)
+            if url_answer in links_set:
+                print('Такой комментарий уже есть в списке')
+                continue
 
-        datas["Общий Url"].append(url)
-        datas["Кол-во отзывов"].append(branch_reviews_count)
-        datas["Оценка компании до удаления"].append(branch_rating)
+            rating = block['rating']
+            if rating_max and rating > rating_max:
+                continue
 
-        await append_data_to_sheet_scopes(service, ss_id, project, datas)
+            date_content = block['date_created']
+            date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%f%z")
+            formatted_date = date.strftime("%d.%m.%Y")
+
+            feedback = block['text']
+            author = block['user']['name']
+
+            row_id = f"{formatted_date}|{author}|{feedback}|{rating}"
+            if row_id in seen_rows:
+                continue
+            seen_rows.add(row_id)
+
+            links_set.add(url_answer)
+            datas['Дата'].append(formatted_date)
+            datas['Текст'].append(feedback)
+            datas["Бренд"].append(project)
+            datas["Источник"].append(source)
+            datas['Url'].append(url_answer)
+            datas['Автор'].append(author)
+            datas['Оценка'].append(rating)
+            datas["Общий Url"].append(url)
+            datas["Кол-во отзывов"].append(branch_reviews_count)
+            datas["Оценка компании до удаления"].append(branch_rating)
+
+        if datas['Url']:
+            await append_data_to_sheet_scopes(service, ss_id, project, datas)
+            print(f"2GIS: wrote {len(datas['Url'])} rows")
+            try:
+                links.extend([u for u in datas['Url'] if u])
+            except Exception:
+                pass
+        else:
+            print("2GIS: nothing new to write")
+
+        return 'OK!'
+
+    finally:
+        try:
+            if page is not None:
+                await page.close()
+            if context is not None:
+                await context.close()
+            if browser is not None:
+                await browser.close()
+            if p is not None:
+                await p.stop()
+        except Exception:
+            pass
 
 async def pars_zoon(service, driver, url, ss_id, project, links, rating_max):
     driver.get(url)
@@ -1234,12 +1311,21 @@ async def pars_irec(service, url, ss_id, project, rating_max):
 
 async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
     source = "yandex.ru/maps"
-    await page.goto(url)
+    # Yandex Maps часто грузится долго и может не дождаться события "load".
+    # Используем domcontentloaded + увеличенный timeout.
+    try:
+        await page.goto(url, wait_until="domcontentloaded", timeout=120_000)
+
+    except Exception as ex:
+        print(f"--- goto timeout/err: {ex}. retry...")
+        await page.goto(url, wait_until="domcontentloaded", timeout=180_000)
 
     current_url = page.url
 
     url = await get_base_url(current_url)
-    full_url = os.path.join(url, 'reviews')
+    full_url = url
+    if 'reviews' not in url:
+        full_url = os.path.join(url, 'reviews')
 
     print(f"full_url1: {full_url}")
     await asyncio.sleep(3)
@@ -1249,108 +1335,149 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
         await page.reload()
         current_url = page.url
         url = await get_base_url(current_url)
-        full_url = os.path.join(url, 'reviews')
+        full_url = url
+        if 'reviews' not in url:
+            full_url = os.path.join(url, 'reviews')
 
     print(f"full_url2: {full_url}")
-    await page.goto(full_url)
+    try:
+        await page.goto(full_url, wait_until="domcontentloaded", timeout=120_000)
+    except Exception as ex:
+        print(f"--- goto(full_url) timeout/err: {ex}. retry...")
+        await page.goto(full_url, wait_until="domcontentloaded", timeout=180_000)
 
-    state_view = await page.locator('script.state-view').first.inner_text()
-    json_data = json.loads(state_view)
-    #pprint(json_data)
+    # Общее число отзывов и рейтинг компании — только из ratingData (НЕ reviewResults).
+    # Список reviewResults в state-view всегда ~50 и при скролле не растёт.
+    rating_score, review_count, rating_count = None, 0, 0
+    try:
+        state_view = await page.locator('script.state-view').first.inner_text()
+        json_state = json.loads(state_view)
+        rating_score, review_count, rating_count = await get_rrr(json_state)
+    except Exception as ex:
+        print(f"YA: ratingData from state-view failed: {ex}")
 
-    len_blocks = len(json_data['stack'][0]['results']['items'][0]['reviewResults']['reviews'])
-    print(len_blocks)
+    if not review_count:
+        try:
+            tab_text = await page.locator('div.tabs-select-view__title._name_reviews').first.inner_text(timeout=5000)
+            m = re.search(r'(\d+)', tab_text.replace('\xa0', ' '))
+            if m:
+                review_count = int(m.group(1))
+        except Exception:
+            pass
 
-    rating_score, review_count, rating_count = await get_rrr(json_data)
-
-    if review_count == 0:
+    if not review_count:
         return {}
 
-    blocks = {}
-    blocks['rating_score'] = rating_score #рейтинг компании
-    blocks['review_count'] = review_count #кол-во отзывов
-    blocks['rating_count'] = rating_count #кол-во оценок
+    # ---------------------------------------------------------------------
+    # ДЕДУП ПО УЖЕ СУЩЕСТВУЮЩИМ ДАННЫМ В ТАБЛИЦЕ
+    # ---------------------------------------------------------------------
+    existing_urls: set[str] = set()
+    existing_rows: set[str] = set()
+    try:
+        df_existing = await read_table_id(service, ss_id, project)
+        if df_existing is not None and not df_existing.empty:
+            for col in ("Url", "URL", "url"):
+                if col in df_existing.columns:
+                    existing_urls.update(
+                        u for u in df_existing[col].astype(str).tolist()
+                        if u and u != "nan"
+                    )
+                    break
 
-    blocks['items'] = []
+            need_cols = ("Дата", "Автор", "Текст", "Оценка")
+            if all(c in df_existing.columns for c in need_cols):
+                for _, r in df_existing[list(need_cols)].iterrows():
+                    d = "" if pd.isna(r["Дата"]) else str(r["Дата"])
+                    a = "" if pd.isna(r["Автор"]) else str(r["Автор"])
+                    t = "" if pd.isna(r["Текст"]) else str(r["Текст"])
+                    o = "" if pd.isna(r["Оценка"]) else str(r["Оценка"])
+                    existing_rows.add(f"{d}|{a}|{t}|{o}")
+    except Exception as ex:
+        print(f"YA: could not read existing sheet for dedup: {ex}")
 
-    blocks_loc = []
+    async def extract_cards_batch(start_idx: int):
+        """Быстро читаем только новые карточки из DOM одним JS-вызовом."""
+        return await page.evaluate(
+            """(startIdx) => {
+                const cards = document.querySelectorAll('div.business-reviews-card-view__review');
+                return Array.from(cards).slice(startIdx).map(card => {
+                    const textEl = card.querySelector('span.spoiler-view__text-container');
+                    const authorEl = card.querySelector('span[itemprop="name"]')
+                        || card.querySelector('span[dir="auto"]');
+                    const dateEl = card.querySelector('meta[itemprop="datePublished"]');
+                    const ratingEl = card.querySelector('meta[itemprop="ratingValue"]');
+                    const stars = card.querySelectorAll('span.business-rating-badge-view__star._full');
+                    const linkEl = card.querySelector('a.business-review-view__user-icon');
+                    const href = linkEl ? linkEl.getAttribute('href') : '';
+                    return {
+                        text: textEl ? textEl.innerText.trim() : '',
+                        author: authorEl ? authorEl.innerText.trim() : '',
+                        date: dateEl ? dateEl.content : '',
+                        rating: ratingEl ? ratingEl.content : String(stars.length || ''),
+                        publicId: href ? href.split('/').pop() : 'NoLink',
+                    };
+                });
+            }""",
+            start_idx,
+        )
 
-    len_b = len(blocks_loc)
+    links_set = set(links or [])
+    links_set.update(existing_urls)
+    seen_rows = set(existing_rows)
+    total_written = 0
+    processed_count = 0
 
-    async def click_more(block):
-        try:
-            await block.locator('span[class="business-review-view__expand"]').first.click(timeout=200)
-            print(f'\n*************** {k} ******************')
+    cards = page.locator('div.business-reviews-card-view__review')
+    prev_found = -1
+    unchanged = 0
 
-        except Exception as Ex:
-            print(f'--- {k} No >more< {Ex}')
+    async def write_new_batch(found: int, scroll_i: int):
+        nonlocal processed_count, total_written
+        if found <= processed_count:
+            return 0
 
-    data_temp = []
-    while review_count > len_b:
-        # print(review_count > len(blocks_loc))
-        # print(review_count, len(blocks_loc))
-        # await page.mouse.wheel(0, 1500)
-        # await asyncio.sleep(1)
-        # print('- scroll')
+        batch = await extract_cards_batch(processed_count)
+        if not batch:
+            processed_count = found
+            return 0
 
-        blocks_loc = await page.locator('div[class=business-reviews-card-view__review]').all()
-        print(f'LenB = {len(blocks_loc)}')
-        len_b = len(blocks_loc) + (len(blocks_loc)/100 * 5)
+        datas = await empty_data()
+        for item in batch:
+            feedback = item.get('text') or ''
+            author = item.get('author') or ''
 
-        datas = await  empty_data()
+            rating = None
+            raw_rating = item.get('rating')
+            if raw_rating not in (None, ''):
+                try:
+                    rating = int(float(raw_rating))
+                except Exception:
+                    rating = None
 
-        for k, block in enumerate(blocks_loc):
-            def run_in_thread():
-                result = asyncio.run(click_more(block))
-                print("Результат:", result)
-
-            threading.Thread(target=run_in_thread).start()
-
-            feedback = await block.locator('span[class=" spoiler-view__text-container"]').inner_text()
-            #print(feedback)
-
-            rating_contents = await block.locator('span[class="inline-image _loaded icon business-rating-badge-view__star _full"]').all()
-            rating = len(rating_contents)
-            #print(rating)
-
-            if rating > rating_max:
-                len_b = review_count
-                break
-
-            #pprint(block)
-            date_content = await block.locator('meta[itemprop="datePublished"]').get_attribute('content')
-            date = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
-            formatted_date = date.strftime("%d.%m.%Y")
-            #print(formatted_date)
-
-            author = await block.locator('span[itemprop="name"]').inner_text()
-            #print(author)
-
-            id_row = f"{formatted_date}{author}{feedback}{rating}"
-            if id_row in data_temp:
+            if rating_max and rating is not None and rating > rating_max:
                 continue
-            else:
-                data_temp.append(id_row)
 
-            try:
-                # publicId_href = await block.locator('a[class="business-review-view__user-icon"]').get_attribute('href')
-                # publicId = publicId_href.split('/')[-1]
+            formatted_date = ""
+            date_content = item.get('date') or ''
+            if date_content:
+                try:
+                    dt = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%fZ")
+                    formatted_date = dt.strftime("%d.%m.%Y")
+                except Exception:
+                    pass
 
-                user_icon = block.locator('a.business-review-view__user-icon')
-                await user_icon.wait_for(state="attached", timeout=5000)
-                publicId_href = await user_icon.get_attribute('href')
-                publicId = publicId_href.split('/')[-1]
+            row_id = f"{formatted_date}|{author}|{feedback}|{rating}"
+            if row_id in seen_rows:
+                continue
+            seen_rows.add(row_id)
 
-                reviewId = 'NoLink'
+            public_id = item.get('publicId') or 'NoLink'
+            review_link = f"{full_url}?reviews%5BpublicId%5D={public_id}&utm_source=review"
 
-            except:
-                publicId = 'NoLink'
-                reviewId = 'NoLink'
-
-            review_link = os.path.join(full_url, f'?reviews%5BpublicId%5D={publicId}&si={reviewId}')
-            if review_link in links:
+            if review_link in links_set:
                 continue
 
+            links_set.add(review_link)
             datas['Дата'].append(formatted_date)
             datas['Текст'].append(feedback)
             datas['Бренд'].append(project)
@@ -1362,22 +1489,99 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
             datas['Кол-во отзывов'].append(review_count)
             datas['Оценка компании до удаления'].append(rating_score)
 
-        await append_data_to_sheet_scopes(service, ss_id, project, datas)
+        start_idx = processed_count
+        written = len(datas['Url'])
+        processed_count = found
+        if written:
+            await append_data_to_sheet_scopes(service, ss_id, project, datas)
+            total_written += written
+            try:
+                links.extend([u for u in datas['Url'] if u])
+            except Exception:
+                pass
 
-        if len_b >= 600:
+        print(
+            f"YA batch scroll {scroll_i}: cards {start_idx}-{found} "
+            f"new={len(batch)} wrote={written} total_written={total_written}"
+        )
+        return written
+
+    # Скролл + инкрементальная запись после каждой догрузки
+    for i in range(5000):
+        found = await cards.count()
+        print(f"YA scroll {i}: found={found} total={review_count} unchanged={unchanged}")
+
+        await write_new_batch(found, i)
+
+        if found >= review_count:
             break
 
-    print(blocks)
+        if found == prev_found:
+            unchanged += 1
+        else:
+            unchanged = 0
+            prev_found = found
 
+        if unchanged >= 10:
+            break
+
+        if found > 0:
+            try:
+                last_card = cards.nth(found - 1)
+                await last_card.scroll_into_view_if_needed(timeout=5000)
+                try:
+                    await last_card.hover(timeout=1000)
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+        await page.mouse.wheel(0, 3500)
+        await asyncio.sleep(1.2)
+
+    final_found = await cards.count()
+    await write_new_batch(final_found, -1)
+
+    print(f"YA done: wrote {total_written} rows (found DOM={final_found} total={review_count})")
+
+    return {
+        "rating_score": rating_score,
+        "review_count": review_count,
+        "rating_count": rating_count,
+        "items_found_dom": final_found,
+        "items_written": total_written,
+    }
+
+async def pars_ya_maps(service, url, ss_id, project, links, rating_max):
+    """
+    Yandex Maps парсинг через Playwright.
+
+    `get_playwright` находится внутри `pars_ya_maps`, чтобы `multi_pars`
+    не зависел от внешней переменной `page`.
+    """
+    p = browser = context = page = None
     try:
-        await browser.close()
-        await p.stop()
-    except:
-        pass
+        p, browser, context, page = await get_playwright(headless=headless,
+                                                         proxy_type='ru',
+                                                         blocked_resource=False)
+        await blocks_ya_maps(service, page, url, ss_id, project, links, rating_max)
+        return 'OK!'
 
-    # return blocks
+    finally:
+        try:
+            if page is not None:
+                await page.close()
+            if context is not None:
+                await context.close()
+            if browser is not None:
+                await browser.close()
+            if p is not None:
+                await p.stop()
+        except Exception:
+            pass
 
-async def pars_ya_maps(service, ss_id, project, links, rating_max):
+
+async def pars_ya_maps_legacy(service, ss_id, project, links, rating_max):
     source = "yandex.ru/maps"
 
     org_id = await get_id_org(start_url)
@@ -1695,8 +1899,7 @@ async def multi_pars(ss_id, project):
             await asyncio.sleep(3)
 
         elif 'yandex' in url:
-            #await pars_ya_maps(service, url, ss_id, project, links, rating_max)
-            await blocks_ya_maps(service, page, url, ss_id, project, links, rating_max)
+            await pars_ya_maps(service, url, ss_id, project, links, rating_max)
             await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
             await asyncio.sleep(3)
 
@@ -1739,10 +1942,10 @@ async def multi_pars(ss_id, project):
         pass
 
 async def main():
-    ss_id = '1ccvSS1-7p_TFmB91v5zJjUONKyEg4cTv6bla3V6DmdQ'
-    project = 'phucket_cheap_tour'
+    ss_id = '1XQXUaQjeGpdiAJKfXcIDjo8CXz0bGYTcMnAvfVjfzJs'
+    project = 'ASO'
 
-    await multi_pars(ss_id, project)
+    #await multi_pars(ss_id, project)
     await review_analysis(ss_id, project)
 
 
