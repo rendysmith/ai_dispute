@@ -10,6 +10,8 @@ jobs:
     permissions:
       contents: read    # Необходимо для checkout
       packages: write   # Необходимо для пуша образов в GHCR
+    outputs:
+      image_digest: ${{ steps.build.outputs.digest }}
 
     # outputs: # Эту секцию можно оставить, если вы планируете использовать image_tag в других job'ах в будущем,
                # но для текущей конфигурации (только сборка и пуш) она не обязательна.
@@ -38,6 +40,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}} # Тег 'latest' только для основной ветки
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: . # Контекст сборки - корень репозитория (где Dockerfile)
@@ -54,7 +57,8 @@ jobs:
       contents: read
     env:
       KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE || 'default' }}
-      IMAGE: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+      # Пиним по digest, чтобы не зависеть от формата sha-тегов.
+      IMAGE: ghcr.io/${{ github.repository }}@${{ needs.build-and-push-image.outputs.image_digest }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
