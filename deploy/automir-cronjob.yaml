@@ -1,0 +1,75 @@
+# Automir: 4 Indexed-воркера на разных нодах
+#
+# Каждый pod обрабатывает свой шард строк:
+#   idx % TOTAL_WORKERS == JOB_COMPLETION_INDEX
+#
+# Перед применением:
+#   1. kubectl create secret generic products-env --from-env-file=.env -n default
+#   2. kubectl delete cronjob ai-automir-cronjob ai-products-cronjob -n default  # старые, если есть
+#   3. kubectl apply -f deploy/automir-cronjob.yaml
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ai-automir-workers
+  namespace: default
+spec:
+  schedule: "0 */4 * * *"
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 1
+  successfulJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      completions: 4
+      parallelism: 4
+      completionMode: Indexed
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: ai-automir-workers
+        spec:
+          restartPolicy: Never
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    labelSelector:
+                      matchLabels:
+                        app: ai-automir-workers
+                    topologyKey: kubernetes.io/hostname
+          imagePullSecrets:
+            - name: ghcr-secret
+          containers:
+            - name: automir
+              image: ghcr.io/rendysmith/ai_one_off:latest
+              imagePullPolicy: Always
+              envFrom:
+                - secretRef:
+                    name: products-env
+              env:
+                - name: JOB_COMPLETION_INDEX
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+                - name: TOTAL_WORKERS
+                  value: "4"
+              command:
+                - /bin/sh
+                - -c
+              args:
+                - |
+                  echo "Automir worker index: $JOB_COMPLETION_INDEX / $TOTAL_WORKERS"
+                  timeout 7200s python3 -u -c "
+                  import asyncio
+                  from products.automir import main_automir
+                  asyncio.run(main_automir())
+                  "
+              resources:
+                requests:
+                  memory: "512Mi"
+                  cpu: "500m"
+                limits:
+                  memory: "2Gi"
+                  cpu: "2000m"

@@ -72,14 +72,22 @@ ss_id_feedback = '1wBtEuU9tAYTDtI1CtDsipV9lcHMnC6ndN0WXKa_tzsg'
 
 async def get_node_info():
     """
-    Используем JOB_COMPLETION_INDEX если запущены как Job,
-    иначе локальный режим.
+    Используем JOB_COMPLETION_INDEX если запущены как Indexed Job,
+    иначе локальный режим (один воркер обрабатывает все строки).
     """
     worker_index = int(os.environ.get('JOB_COMPLETION_INDEX', 0))
     total_workers = int(os.environ.get('TOTAL_WORKERS', 1))
+    if total_workers < 1:
+        total_workers = 1
+    if worker_index < 0 or worker_index >= total_workers:
+        raise ValueError(
+            f"Invalid worker index: {worker_index}/{total_workers}. "
+            f"Ожидается JOB_COMPLETION_INDEX в диапазоне 0..{total_workers - 1}"
+        )
     node_name = f"worker-{worker_index}"
 
-    logger.info(f"Worker index: {worker_index}/{total_workers}")
+    print(f"Automir shard: worker {worker_index}/{total_workers}")
+    logger.info("Worker index: %s/%s", worker_index, total_workers)
     return node_name, worker_index, total_workers
 
 async def rename_keys(data: dict) -> dict:

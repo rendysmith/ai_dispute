@@ -1,0 +1,56 @@
+# SberPolis: 1 pod (ссылок мало, нужен Playwright — выше память)
+#
+# Перед применением:
+#   1. kubectl create secret generic products-env --from-env-file=.env -n default
+#   2. kubectl apply -f deploy/sberpolis-cronjob.yaml
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ai-sberpolis-worker
+  namespace: default
+spec:
+  schedule: "0 */4 * * *"
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 1
+  successfulJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      completions: 1
+      parallelism: 1
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app: ai-sberpolis-worker
+        spec:
+          restartPolicy: Never
+          imagePullSecrets:
+            - name: ghcr-secret
+          containers:
+            - name: sberpolis
+              image: ghcr.io/rendysmith/ai_one_off:latest
+              imagePullPolicy: Always
+              envFrom:
+                - secretRef:
+                    name: products-env
+              command:
+                - /bin/sh
+                - -c
+              args:
+                - |
+                  echo "SberPolis single worker start"
+                  Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
+                  export DISPLAY=:99
+                  timeout 7200s python3 -u -c "
+                  import asyncio
+                  from products.sber_polis import main_sber_polis
+                  asyncio.run(main_sber_polis())
+                  "
+              resources:
+                requests:
+                  memory: "2Gi"
+                  cpu: "1000m"
+                limits:
+                  memory: "8Gi"
+                  cpu: "2000m"

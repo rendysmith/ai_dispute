@@ -1,71 +1,16 @@
-# Products: Indexed Job — один pod на задачу из PRODUCT_TASKS в products/main_products.py
+# УСТАРЕЛ: не используйте этот манифест.
 #
-# index 0 → main_automir
-# index 1 → main_sber_polis
+# Вместо него:
+#   - deploy/automir-cronjob.yaml   (4 воркера ↔ 4 ноды)
+#   - deploy/sberpolis-cronjob.yaml (1 воркер)
 #
-# Перед применением:
-#   1. Заменить image при необходимости
-#   2. kubectl create secret generic products-env --from-env-file=.env -n default
-#   3. kubectl apply -f deploy/products-cronjob.yaml
-
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: ai-products-cronjob
-  namespace: default
-spec:
-  schedule: "0 */4 * * *"
-  concurrencyPolicy: Forbid
-  failedJobsHistoryLimit: 1
-  successfulJobsHistoryLimit: 3
-  jobTemplate:
-    spec:
-      completions: 2
-      parallelism: 2
-      completionMode: Indexed
-      backoffLimit: 1
-      template:
-        metadata:
-          labels:
-            app: ai-products
-        spec:
-          restartPolicy: Never
-          affinity:
-            podAntiAffinity:
-              preferredDuringSchedulingIgnoredDuringExecution:
-                - weight: 100
-                  podAffinityTerm:
-                    labelSelector:
-                      matchLabels:
-                        app: ai-products
-                    topologyKey: kubernetes.io/hostname
-          imagePullSecrets:
-            - name: ghcr-secret
-          containers:
-            - name: ai-products
-              image: ghcr.io/rendysmith/ai_one_off:latest
-              imagePullPolicy: Always
-              envFrom:
-                - secretRef:
-                    name: products-env
-              env:
-                - name: JOB_COMPLETION_INDEX
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
-              command:
-                - /bin/sh
-                - -c
-              args:
-                - |
-                  echo "Worker index: $JOB_COMPLETION_INDEX / 2"
-                  Xvfb :99 -screen 0 1920x1080x24 -ac +extension GLX +render -noreset &
-                  export DISPLAY=:99
-                  timeout 3000s python3 -u products/main_products.py
-              resources:
-                requests:
-                  memory: "2Gi"
-                  cpu: "1000m"
-                limits:
-                  memory: "4Gi"
-                  cpu: "2000m"
+# Причина: Indexed Job на products/main_products.py имел только 2 задачи
+# (index 0=automir, 1=sber_polis), а при completions=4 pod'ы 2/3 выходили
+# с "нет задачи", и automir не шардировался на 4 воркера.
+#
+# Удалить старый CronJob:
+#   kubectl delete cronjob ai-products-cronjob ai-automir-cronjob -n default
+#
+# Применить новые:
+#   kubectl apply -f deploy/automir-cronjob.yaml
+#   kubectl apply -f deploy/sberpolis-cronjob.yaml
