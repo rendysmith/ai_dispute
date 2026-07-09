@@ -154,13 +154,10 @@ def active_automir_jobs(batch_v1: client.BatchV1Api, namespace: str) -> List[cli
     return active
 
 
-def configure_kube_client_incluster_strict() -> None:
+def configure_kube_client_incluster_strict() -> client.ApiClient:
     """
-    Надёжная настройка клиента в кластере.
-
-    В некоторых кластерах `config.load_incluster_config()` завершается без ошибки,
-    но реальные запросы уходят без Bearer-токена → API отвечает как system:anonymous.
-    Здесь мы читаем токен/CA напрямую и явно задаём Authorization header.
+    Настройка клиента в кластере: читаем SA-токен и CA, создаём ApiClient явно.
+    load_incluster_config() не используем — в некоторых окружениях запросы уходят без auth.
     """
     token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
     ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
@@ -178,14 +175,26 @@ def configure_kube_client_incluster_strict() -> None:
     if not token:
         raise RuntimeError(f"Serviceaccount token at {token_path} is empty")
 
-    cfg = client.Configuration.get_default_copy()
+    cfg = client.Configuration()
     cfg.host = f"https://{host}:{port}"
     cfg.ssl_ca_cert = ca_path if os.path.exists(ca_path) else None
     cfg.verify_ssl = True
+    cfg.api_key_prefix = {"authorization": "Bearer"}
+    cfg.api_key = {"authorization": token}
 
-    # Python client expects `api_key['authorization'] = 'Bearer ...'`
-    cfg.api_key = {"authorization": f"Bearer {token}"}
-    client.Configuration.set_default(cfg)
+    return client.ApiClient(configuration=cfg)
+
+
+def build_k8s_apis() -> Tuple[client.CoreV1Api, client.BatchV1Api]:
+    token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+    if os.path.exists(token_path):
+        api_client = configure_kube_client_incluster_strict()
+        print("Loaded in-cluster kubeconfig (explicit ApiClient + Bearer token)")
+        return client.CoreV1Api(api_client), client.BatchV1Api(api_client)
+
+    config.load_kube_config()
+    print("Loaded local kubeconfig")
+    return client.CoreV1Api(), client.BatchV1Api()
 
 
 def build_worker_job(
@@ -306,18 +315,7 @@ def main() -> int:
     min_free_mem = parse_memory(schedule_memory)
     min_free_cpu = parse_cpu(schedule_cpu)
 
-    try:
-        # 1) Пытаемся штатно
-        config.load_incluster_config()
-        # 2) И поверх — строгая настройка токена/CA
-        configure_kube_client_incluster_strict()
-        print("Loaded in-cluster kubeconfig (strict token auth)")
-    except config.ConfigException:
-        config.load_kube_config()
-        print("Loaded local kubeconfig")
-
-    v1 = client.CoreV1Api()
-    batch_v1 = client.BatchV1Api()
+    v1, batch_v1 = build_k8s_apis()
 
     running = active_automir_jobs(batch_v1, namespace)
     if running:

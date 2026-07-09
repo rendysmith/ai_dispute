@@ -38,7 +38,7 @@ tgcrypto==1.2.5
 youtube-comment-downloader==0.1.76
 
 # Orchestration
-kubernetes
+kubernetes==35.0.0
 
 # Config
 python-dotenv~=1.0.0

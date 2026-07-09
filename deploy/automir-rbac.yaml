@@ -11,10 +11,10 @@ metadata:
   name: automir-launcher
 rules:
   - apiGroups: [""]
-    resources: ["nodes", "pods"]
+    resources: ["nodes"]
     verbs: ["get", "list"]
   - apiGroups: [""]
-    resources: ["pods/log"]
+    resources: ["pods"]
     verbs: ["get", "list"]
   - apiGroups: ["batch"]
     resources: ["jobs"]
