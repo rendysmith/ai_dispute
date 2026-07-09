@@ -79,17 +79,20 @@ jobs:
       - name: Apply CronJobs manifests
         shell: bash
         run: |
+          kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/automir-rbac.yaml
           kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/automir-cronjob.yaml
           kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/sberpolis-cronjob.yaml
+          kubectl delete cronjob ai-automir-workers -n "${KUBE_NAMESPACE}" --ignore-not-found
 
       - name: Pin CronJobs to this image sha
         shell: bash
         run: |
-          kubectl -n "${KUBE_NAMESPACE}" set image cronjob/ai-automir-workers automir="${IMAGE}"
+          kubectl -n "${KUBE_NAMESPACE}" set image cronjob/ai-automir-launcher launcher="${IMAGE}"
+          kubectl -n "${KUBE_NAMESPACE}" set env cronjob/ai-automir-launcher AUTOMIR_IMAGE="${IMAGE}"
           kubectl -n "${KUBE_NAMESPACE}" set image cronjob/ai-sberpolis-worker sberpolis="${IMAGE}"
 
       - name: Trigger immediate runs (optional)
         shell: bash
         run: |
-          kubectl -n "${KUBE_NAMESPACE}" create job --from=cronjob/ai-automir-workers "automir-manual-${GITHUB_SHA::7}" || true
+          kubectl -n "${KUBE_NAMESPACE}" create job --from=cronjob/ai-automir-launcher "automir-manual-${GITHUB_SHA::7}" || true
           kubectl -n "${KUBE_NAMESPACE}" create job --from=cronjob/ai-sberpolis-worker "sberpolis-manual-${GITHUB_SHA::7}" || true

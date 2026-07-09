@@ -25,6 +25,16 @@ spec:
             app: ai-sberpolis-worker
         spec:
           restartPolicy: Never
+          # Не сажать sberpolis на ту же ноду, где уже идёт automir (там был OOM)
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    labelSelector:
+                      matchLabels:
+                        app: ai-automir-workers
+                    topologyKey: kubernetes.io/hostname
           imagePullSecrets:
             - name: ghcr-secret
           containers:
@@ -48,9 +58,10 @@ spec:
                   asyncio.run(main_sber_polis())
                   "
               resources:
+                # requests занижены, чтобы pod мог встать рядом с другими задачами
                 requests:
-                  memory: "2Gi"
-                  cpu: "1000m"
+                  memory: "512Mi"
+                  cpu: "200m"
                 limits:
-                  memory: "8Gi"
+                  memory: "6Gi"
                   cpu: "2000m"
