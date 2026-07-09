@@ -49,13 +49,13 @@ spec:
                   value: "1"
                 # Нода считается свободной, если остаётся столько ресурсов под лимит воркера
                 - name: AUTOMIR_SCHEDULE_MEMORY
-                  value: "3Gi"
+                  value: "1Gi"
                 - name: AUTOMIR_SCHEDULE_CPU
                   value: "500m"
                 - name: AUTOMIR_WORKER_MEMORY_REQUEST
                   value: "256Mi"
                 - name: AUTOMIR_WORKER_MEMORY_LIMIT
-                  value: "3Gi"
+                  value: "1200Mi"
                 - name: AUTOMIR_WORKER_CPU_REQUEST
                   value: "200m"
                 - name: AUTOMIR_WORKER_CPU_LIMIT

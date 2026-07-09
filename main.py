@@ -2,7 +2,7 @@ import asyncio
 
 from datetime import datetime
 
-from scaling_service import main_zoom #Функция опроса всех порталов
+from scaling_service import main as scaling_main #Функция опроса всех порталов
 
 from ai.ai_brandanalytics import main_ba #Генерация данных из BA
 from ai.ai_rbi_reactions import main_rbi #Обработка данных RBI
@@ -43,6 +43,6 @@ async def main_total():
         pass
 
 if __name__ == '__main__':
-    asyncio.run(main_zoom())
+    asyncio.run(scaling_main())
 
     print('OK!')

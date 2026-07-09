@@ -32,7 +32,7 @@ status, rows = asyncio.run(read_data_from_db_filter_limit(
 
 row = rows[0]
 gpt_api_token = row.api_token
-gpt_model = row.model
+gpytnt_model = row.model
 
 async def get_answer_gemini_local(prompt: str, engine: str, token: str):
     engine = engine.lower()
