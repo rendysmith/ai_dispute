@@ -154,6 +154,40 @@ def active_automir_jobs(batch_v1: client.BatchV1Api, namespace: str) -> List[cli
     return active
 
 
+def configure_kube_client_incluster_strict() -> None:
+    """
+    Надёжная настройка клиента в кластере.
+
+    В некоторых кластерах `config.load_incluster_config()` завершается без ошибки,
+    но реальные запросы уходят без Bearer-токена → API отвечает как system:anonymous.
+    Здесь мы читаем токен/CA напрямую и явно задаём Authorization header.
+    """
+    token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+    ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+    host = os.environ.get("KUBERNETES_SERVICE_HOST")
+    port = os.environ.get("KUBERNETES_SERVICE_PORT", "443")
+    if not host:
+        raise RuntimeError("KUBERNETES_SERVICE_HOST is not set")
+
+    try:
+        with open(token_path, "r", encoding="utf-8") as f:
+            token = f.read().strip()
+    except OSError as exc:
+        raise RuntimeError(f"Cannot read serviceaccount token at {token_path}: {exc}") from exc
+
+    if not token:
+        raise RuntimeError(f"Serviceaccount token at {token_path} is empty")
+
+    cfg = client.Configuration.get_default_copy()
+    cfg.host = f"https://{host}:{port}"
+    cfg.ssl_ca_cert = ca_path if os.path.exists(ca_path) else None
+    cfg.verify_ssl = True
+
+    # Python client expects `api_key['authorization'] = 'Bearer ...'`
+    cfg.api_key = {"authorization": f"Bearer {token}"}
+    client.Configuration.set_default(cfg)
+
+
 def build_worker_job(
     *,
     name: str,
@@ -273,8 +307,11 @@ def main() -> int:
     min_free_cpu = parse_cpu(schedule_cpu)
 
     try:
+        # 1) Пытаемся штатно
         config.load_incluster_config()
-        print("Loaded in-cluster kubeconfig")
+        # 2) И поверх — строгая настройка токена/CA
+        configure_kube_client_incluster_strict()
+        print("Loaded in-cluster kubeconfig (strict token auth)")
     except config.ConfigException:
         config.load_kube_config()
         print("Loaded local kubeconfig")
