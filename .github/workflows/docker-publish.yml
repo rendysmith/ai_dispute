@@ -67,14 +67,17 @@ jobs:
         run: |
           mkdir -p "$HOME/.kube"
           echo "${{ secrets.KUBE_CONFIG_B64 }}" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
           kubectl version --client=true
           kubectl get ns "${KUBE_NAMESPACE}"
 
+      # ВНИМАНИЕ: secret.yaml не применяется автоматически!
+      # Реальный Secret создаётся один раз вручную (см. deploy/README.md),
+      # иначе заглушки из репозитория затрут боевые значения.
       - name: Apply Kubernetes manifests
         shell: bash
         run: |
           kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/k8s/configmap.yaml
-          kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/k8s/secret.yaml
           kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/k8s/deployment.yaml
           kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/k8s/service.yaml
 

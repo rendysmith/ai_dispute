@@ -1,11 +1,11 @@
 """
 AI Contestation API — FastAPI-сервис для сбора и анализа отзывов.
 
-POST /run          — запустить pipeline: multi_pars → review_analysis (2 прохода)
-POST /get_feedback — получить свежие отзывы по адресу страницы (Яндекс, 2GIS — в разработке)
-GET  /tasks/{id}   — статус фоновой задачи
-GET  /capacity     — занятость ресурсов пода и сколько ещё запусков влезет
-GET  /healthz      — healthcheck для k8s
+POST /api/v1/data/get_feedbacks — получить отзывы по адресу: ?link=...&topic=... (Basic Auth)
+POST /run                      — запустить pipeline: multi_pars → review_analysis (2 прохода)
+GET  /tasks/{id}               — статус фоновой задачи
+GET  /capacity                 — занятость ресурсов пода и сколько ещё запусков влезет
+GET  /healthz                  — healthcheck для k8s
 
 Ресурсы: перед каждым запуском проверяется свободная мощность пода
 (см. utils/scheduler.py) — минимум 1 запуск каждой точки гарантирован,
@@ -13,16 +13,19 @@ GET  /healthz      — healthcheck для k8s
 Время жизни задачи ограничено таймаутом (TASK_TIMEOUT_SEC / FEEDBACK_TIMEOUT_SEC) —
 зависнуть не может, при превышении задача отменяется (браузеры закрываются).
 
-Авторизация: если задан env API_TOKEN, все точки (кроме /healthz) требуют
-заголовок `Authorization: Bearer <API_TOKEN>`.
+Авторизация: точки (кроме /healthz) требуют Basic Auth —
+логин/пароль из env HOST_USERNAME / HOST_PASSWORD (те же, что для запроса к ферме).
+Если креды не заданы — точки открыты (локальная разработка).
 """
 import asyncio
 import logging
 import os
+import secrets
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
 from ai.ai_contestation import multi_pars, review_analysis, blocks_ya_reviews_api
@@ -39,7 +42,9 @@ RUNNING_SS: set[str] = set()
 
 MAX_TASKS_KEEP = 200
 
-API_TOKEN = os.environ.get('API_TOKEN', '')
+# Авторизация точек API: Basic Auth — логин/пароль (те же, что для запроса к ферме)
+HOST_USERNAME = os.environ.get('HOST_USERNAME', '')
+HOST_PASSWORD = os.environ.get('HOST_PASSWORD', '')
 
 # Время жизни задач: /run может идти часами, /get_feedback — это запрос-ответ (минуты)
 TASK_TIMEOUT_SEC = float(os.environ.get('TASK_TIMEOUT_SEC', str(8 * 3600)))
@@ -47,25 +52,33 @@ FEEDBACK_TIMEOUT_SEC = float(os.environ.get('FEEDBACK_TIMEOUT_SEC', '900'))
 
 scheduler = make_scheduler()
 
+basic_auth = HTTPBasic(auto_error=False)
 
-async def require_auth(authorization: str = Header(default='')):
+
+async def require_auth(credentials: HTTPBasicCredentials | None = Depends(basic_auth)):
     """
-    Bearer-авторизация. Активна только если задан API_TOKEN:
-    без токена в env все точки открыты (локальная разработка).
+    Авторизация точек: Basic Auth по HOST_USERNAME / HOST_PASSWORD.
+    Если креды не заданы — авторизация отключена (локальная разработка).
     """
-    if not API_TOKEN:
+    if not HOST_USERNAME or not HOST_PASSWORD:
         return
-    if authorization != f'Bearer {API_TOKEN}':
-        raise HTTPException(status_code=401, detail='Неверный или отсутствующий токен')
+
+    if credentials is not None:
+        user_ok = secrets.compare_digest(credentials.username, HOST_USERNAME)
+        pass_ok = secrets.compare_digest(credentials.password, HOST_PASSWORD)
+        if user_ok and pass_ok:
+            return
+
+    raise HTTPException(
+        status_code=401,
+        detail='Неверные учётные данные',
+        headers={'WWW-Authenticate': 'Basic realm="ai-contestation"'},
+    )
 
 
 class RunRequest(BaseModel):
     ss_id: str = Field(..., min_length=1, description='ID Google Sheets таблицы (обязательно)')
     project: str = Field('default', description='Название проекта (вкладка в таблице)')
-
-
-class FeedbackRequest(BaseModel):
-    url: str = Field(..., min_length=1, description='Адрес страницы с отзывами (Яндекс, 2GIS и т.д.)')
 
 
 def _now_iso() -> str:
@@ -132,15 +145,22 @@ async def run(req: RunRequest, _auth=Depends(require_auth)):
     return {'task_id': task_id, 'status': 'pending', 'ss_id': req.ss_id, 'project': req.project}
 
 
-@app.post('/get_feedback')
-async def get_feedback(req: FeedbackRequest, _auth=Depends(require_auth)):
+@app.post('/api/v1/data/get_feedbacks')
+async def get_feedbacks(link: str = Query(..., min_length=1,
+                                          description='Адрес страницы с отзывами (Яндекс, 2GIS и т.д.)'),
+                        topic: str | None = Query(default=None,
+                                                  description='Тема/раздел (опционально, для будущих парсеров)'),
+                        _auth=Depends(require_auth)):
     """
     Получение отзывов по адресу страницы (без записи в Google-таблицу).
+
+    Контракт совпадает с GetBlock из другого проекта:
+    POST /api/v1/data/get_feedbacks?link=...&topic=... + Basic Auth.
 
     Сейчас поддерживается Яндекс (reviews.yandex.ru и org-страницы Карт),
     в будущем — 2GIS и другие площадки.
     """
-    if '2gis' in req.url:
+    if '2gis' in link:
         # TODO: парсер отзывов 2GIS (public-api.reviews.2gis.com)
         raise HTTPException(status_code=501, detail='Парсер отзывов 2GIS будет добавлен позже')
 
@@ -150,7 +170,7 @@ async def get_feedback(req: FeedbackRequest, _auth=Depends(require_auth)):
 
     try:
         result = await asyncio.wait_for(
-            blocks_ya_reviews_api(None, req.url, None, None, [], rating_max=5,
+            blocks_ya_reviews_api(None, link, None, None, [], rating_max=5,
                                   ranking='by_time', max_pages=1),
             timeout=FEEDBACK_TIMEOUT_SEC,
         )

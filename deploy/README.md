@@ -8,13 +8,14 @@
 | Метод | Путь          | Описание                                                                 |
 |-------|---------------|--------------------------------------------------------------------------|
 | POST  | `/run`        | Запуск pipeline. Body: `{"ss_id": "...", "project": "default"}`. `ss_id` обязателен, `project` по умолчанию `default`. Возвращает `202` + `task_id` |
-| POST  | `/get_feedback` | Получение свежих отзывов по адресу. Body: `{"url": "..."}`. Возвращает `{"datas": {...}, "items_written": N, "rating_score": ..., "review_count": N}` без записи в таблицу |
+| POST  | `/api/v1/data/get_feedbacks` | Получение свежих отзывов по адресу. Параметры: `link` (обязательно), `topic` (опционально). Возвращает `{"datas": {...}, "items_written": N, "rating_score": ..., "review_count": N}` без записи в таблицу |
 | GET   | `/tasks/{id}` | Статус задачи: `pending/running/success/error` + текущий этап            |
 | GET   | `/capacity`   | Ресурсы пода: лимиты, текущая нагрузка, сколько ещё запусков влезет     |
 | GET   | `/healthz`    | Healthcheck для k8s (readiness/liveness)                                 |
 
-**Авторизация**: если задан env `API_TOKEN`, все точки, кроме `/healthz`,
-требуют заголовок `Authorization: Bearer <API_TOKEN>` (401 при неверном токене).
+**Авторизация**: все точки, кроме `/healthz`, требуют **Basic Auth** —
+логин/пароль `HOST_USERNAME`/`HOST_PASSWORD` (те же, что для запроса к ферме).
+Пример: `curl -u логин:пароль ...` (401 при неверных кредах).
 
 ## Ресурсы и одновременные запуски
 
@@ -63,17 +64,17 @@
 
 ```bash
 curl -X POST http://<host>/run -H 'Content-Type: application/json' \
+  -u 'логин:пароль' \
   -d '{"ss_id": "1ABC...", "project": "Evotor"}'
 
 # → {"task_id": "3fa85f64-...", "status": "pending", ...}
 
-curl -X POST http://<host>/get_feedback -H 'Content-Type: application/json' \
-  -H 'Authorization: Bearer <API_TOKEN>' \
-  -d '{"url": "https://yandex.md/maps/org/avtomir_mazda/86615003593/reviews/"}'
+curl -X POST 'http://<host>/api/v1/data/get_feedbacks?link=https://yandex.md/maps/org/avtomir_mazda/86615003593/reviews/&topic=' \
+  -u 'логин:пароль'
 
 # → {"datas": {...}, "items_written": 50, "rating_score": 4.7, "review_count": 695}
 
-curl http://<host>/tasks/3fa85f64-...
+curl http://<host>/tasks/3fa85f64-... -u 'логин:пароль'
 ```
 
 ## Требования
@@ -95,31 +96,74 @@ curl http://<host>/tasks/3fa85f64-...
 | `HOST_USERNAME/PASSWORD` | Secret   | доступ к хост-ферме (не используется напрямую) |
 | `CAPTCHA_KEY`       | Secret        | ключ 2captcha                               |
 
-## Деплой
+## Деплой (автоматический)
+
+Схема: **push в `main` → GitHub Actions собирает Docker-образ → пушит в GHCR → применяет манифесты в k8s → подменяет образ по digest → ждёт rollout**.
+
+### Шаг 1. Одноразовая настройка в кластере (вручную, один раз)
 
 ```bash
-# 1. Секрет (реальные значения!)
-kubectl create secret generic ai-contestation-secret \
-  --from-literal=POSTGRESQL_HOST=... \
-  --from-literal=POSTGRESQL_PORT=5432 \
-  --from-literal=POSTGRESQL_DB=... \
-  --from-literal=POSTGRESQL_USERNAME=... \
-  --from-literal=POSTGRESQL_PASSWORD=... \
-  --from-literal=HOST_USERNAME=... \
-  --from-literal=HOST_PASSWORD=... \
-  --from-literal=CAPTCHA_KEY=... \
-  -n <namespace>
+# 1. Namespace (если ещё нет)
+kubectl create namespace <ns>
 
-# 2. Манифесты (перед этим замените image в deployment.yaml)
-kubectl apply -f deploy/k8s/configmap.yaml
-kubectl apply -f deploy/k8s/deployment.yaml
-kubectl apply -f deploy/k8s/service.yaml
-
-# 3. Проверка
-kubectl rollout status deployment/ai-contestation
-kubectl port-forward svc/ai-contestation 8000:80
-curl http://localhost:8000/healthz
+# 2. Реальный Secret с боевыми значениями (заглушки из репозитория НЕ применяются CI!)
+KUBE_NAMESPACE=<ns> \
+POSTGRESQL_HOST=... POSTGRESQL_PORT=5432 POSTGRESQL_DB=... \
+POSTGRESQL_USERNAME=... POSTGRESQL_PASSWORD=... \
+HOST_USERNAME=... HOST_PASSWORD=... \
+CAPTCHA_KEY=... API_TOKEN=... \
+./deploy/setup-secret.sh
 ```
+
+`deploy/k8s/secret.yaml` в репозитории — только шаблон, CI его не применяет,
+чтобы не затереть боевые значения.
+
+### Шаг 2. Секреты GitHub (Settings → Secrets and variables → Actions)
+
+| Секрет | Описание |
+|--------|----------|
+| `KUBE_CONFIG_B64` | kubeconfig кластера в base64 (`base64 -w0 ~/.kube/config`). У пользователя должны быть права на namespace (deployments/services/configmaps) |
+| `KUBE_NAMESPACE` | Namespace для деплоя (необязательно, по умолчанию `default`) |
+
+Логин в GHCR происходит автоматически через `GITHUB_TOKEN`.
+
+> Если репозиторий **приватный** — k8s не сможет скачать образ без pull-секрета:
+> создайте PAT с правами `read:packages`, затем
+> `kubectl create secret docker-registry ghcr-pull --docker-server=ghcr.io --docker-username=<user> --docker-password=<PAT> -n <ns>`
+> и добавьте в `deploy/k8s/deployment.yaml`:
+> ```yaml
+> spec:
+>   imagePullSecrets:
+>     - name: ghcr-pull
+> ```
+> Для публичного репозитория это не нужно.
+
+### Шаг 3. Пуш — и всё
+
+```bash
+git push origin main
+```
+
+GitHub Actions: `Build → Deploy`. Следить можно на вкладке Actions репозитория.
+
+### Проверка после деплоя
+
+```bash
+kubectl -n <ns> get pods -l app=ai-contestation
+kubectl -n <ns> logs -l app=ai-contestation --tail=50
+kubectl -n <ns> port-forward svc/ai-contestation 8000:80
+curl http://localhost:8000/healthz          # {"status":"ok"}
+curl http://localhost:8000/capacity         # ресурсы пода
+curl -X POST http://localhost:8000/get_feedback -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <API_TOKEN>' \
+  -d '{"url": "https://yandex.md/maps/org/avtomir_mazda/86615003593/reviews/"}'
+```
+
+### Если деплой не прошёл
+
+- `kubectl -n <ns> describe pod -l app=ai-contestation` — ошибки запуска (ImagePullBackOff → приватный репозиторий, CreateContainerConfigError → нет Secret);
+- `kubectl -n <ns> get events --sort-by=.lastTimestamp | tail` — события кластера;
+- вкладка Actions в GitHub — на каком шаге упало (обычно: нет `KUBE_CONFIG_B64` или нет прав у kubeconfig).
 
 ## Локальный запуск
 

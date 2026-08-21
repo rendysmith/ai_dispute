@@ -18,6 +18,8 @@ spec:
     spec:
       containers:
         - name: api
+          # Образ подменяется автоматически при деплое (workflow: set image по digest).
+          # Для приватного репозитория добавьте imagePullSecrets (см. deploy/README.md).
           image: ghcr.io/YOUR_ORG/YOUR_REPO:latest
           imagePullPolicy: IfNotPresent
           ports:
