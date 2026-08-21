@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-contestation
+  labels:
+    app: ai-contestation
+spec:
+  # Парсинг идёт в фоне; при рестарте поды задача просто перезапускается.
+  # Хранилище задач in-memory — держим одну реплику.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-contestation
+  template:
+    metadata:
+      labels:
+        app: ai-contestation
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/YOUR_ORG/YOUR_REPO:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: ai-contestation-config
+            - secretRef:
+                name: ai-contestation-secret
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          securityContext:
+            # Playwright chromium запускается с --no-sandbox
+            allowPrivilegeEscalation: false

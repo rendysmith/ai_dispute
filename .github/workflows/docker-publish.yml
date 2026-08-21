@@ -1,4 +1,4 @@
-name: Docker Image CI for ai_one_off
+name: Docker Image CI for ai-contestation
 
 on:
   push:
@@ -13,12 +13,6 @@ jobs:
     outputs:
       image_digest: ${{ steps.build.outputs.digest }}
 
-    # outputs: # Эту секцию можно оставить, если вы планируете использовать image_tag в других job'ах в будущем,
-               # но для текущей конфигурации (только сборка и пуш) она не обязательна.
-               # Если outputs не используется ни одним другим job'ом (который бы зависел от этого через 'needs'),
-               # ее можно удалить для чистоты. Оставим пока, на всякий случай.
-    #   image_tag: ${{ steps.meta.outputs.version }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,27 +21,27 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.repository_owner }} # Имя пользователя или организации GitHub
-          password: ${{ secrets.GITHUB_TOKEN }}      # Ваш Personal Access Token
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata (tags, labels) for Docker
-        id: meta # Даем ID этому шагу, чтобы ссылаться на его выводы (если понадобятся outputs)
+        id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }} # Используем github.repository напрямую
-          tags: | # Как тегировать образ
-            type=sha # Тег по SHA коммита, например, ghcr.io/user/app:sha-abcdef1
-            type=raw,value=latest,enable={{is_default_branch}} # Тег 'latest' только для основной ветки
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
         id: build
         uses: docker/build-push-action@v5
         with:
-          context: . # Контекст сборки - корень репозитория (где Dockerfile)
-          file: ./Dockerfile # Явное указание Dockerfile (если он не в корне, измените путь)
-          push: true # Загружать образ после сборки
-          tags: ${{ steps.meta.outputs.tags }} # Используем теги, сгенерированные шагом meta
-          labels: ${{ steps.meta.outputs.labels }} # Используем метки, сгенерированные шагом meta
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
   deploy-to-kubernetes:
     name: Deploy to Kubernetes
@@ -76,23 +70,16 @@ jobs:
           kubectl version --client=true
           kubectl get ns "${KUBE_NAMESPACE}"
 
-      - name: Apply CronJobs manifests
+      - name: Apply Kubernetes manifests
         shell: bash
         run: |
-          kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/automir-rbac.yaml
-          kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/automir-cronjob.yaml
-          kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/sberpolis-cronjob.yaml
-          kubectl delete cronjob ai-automir-workers -n "${KUBE_NAMESPACE}" --ignore-not-found
+          kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/k8s/configmap.yaml
+          kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/k8s/secret.yaml
+          kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/k8s/deployment.yaml
+          kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/k8s/service.yaml
 
-      - name: Pin CronJobs to this image sha
+      - name: Pin Deployment to this image sha
         shell: bash
         run: |
-          kubectl -n "${KUBE_NAMESPACE}" set image cronjob/ai-automir-launcher launcher="${IMAGE}"
-          kubectl -n "${KUBE_NAMESPACE}" set env cronjob/ai-automir-launcher AUTOMIR_IMAGE="${IMAGE}"
-          kubectl -n "${KUBE_NAMESPACE}" set image cronjob/ai-sberpolis-worker sberpolis="${IMAGE}"
-
-      - name: Trigger immediate runs (optional)
-        shell: bash
-        run: |
-          kubectl -n "${KUBE_NAMESPACE}" create job --from=cronjob/ai-automir-launcher "automir-manual-${GITHUB_SHA::7}" || true
-          kubectl -n "${KUBE_NAMESPACE}" create job --from=cronjob/ai-sberpolis-worker "sberpolis-manual-${GITHUB_SHA::7}" || true
+          kubectl -n "${KUBE_NAMESPACE}" set image deployment/ai-contestation api="${IMAGE}"
+          kubectl -n "${KUBE_NAMESPACE}" rollout status deployment/ai-contestation --timeout=300s

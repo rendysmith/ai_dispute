@@ -1,25 +1,3 @@
-RESULT_SHEETS = '1A73rT27Sa2Au5Bsb8v2u_C-ttDwJAYg_rY27CUfzdbw'
-
-farm_hosts = ["109.107.170.211"]
-
-TABLES_LIST = {
-    'Sidorin': '1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8',
-    'zoom': '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w',
-    'Vkusvill': ['1HtUgQn3UJKbpjKHqqRqt5WSjDWKCJa0fOYLiM9UwcTw', 'reviews'],
-    'OZON': ['1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'OZON', 'OZON_link'],
-    'RBI': ['1wLn7fQ2omM6_mzY7v1iAqQWzQqMpbo2odDLg7LrnMm8', 'RBI', 'RBI_link'],
-    'Article_fun': ['1Pzr-jIsZXrtzriouheL8F0Q3DUEMAV1uqh4hwF98IqA'],
-    'Article_eco': ['1Pzr-jIsZXrtzriouheL8F0Q3DUEMAV1uqh4hwF98IqA'],
-    'Cordiant': ['1waN-H3ClPPuttkhD0CXM8ybJDIsAerbXJHD1j7CjayU', 'Отзывы'],
-    'WineLab': ['1xAFv1aS1K9AxsCbYD-9bBGD2HKf0by4nuBL8diP12UI', 'Отзывы (отзовики)'],
-    'Gloria Jeans': ['1-nJogtu91LB6FYfsmeZcpJafmeBUnaZ7YR1JwR3JIBs', 'Реакции АВ'],
-    'Cordiant_react': ['1G3e-4BOuvySTdy-alPsVH9_DZ6IjF6nAhKpvO8HVH8w', 'Реагирование (АВ)'],
-    'Tinkoff': ['', ''],
-    'TinHR': ['', ''],
-    'HoneyBunny': ['', ''],
-    'PMEF': ['1isMeBJ57Q5jlgRcPogcNGwKwaoTWLxwtnpAWG0hEgoc', 'Карта реакций_2023']
-}
-
 months = {
     'янв': 1,
     'января': 1,
@@ -79,11 +57,6 @@ status_codes = {
     521: "Это ошибка от Cloudflare, указывающая, что он не может подключиться к исходному серверу, поскольку тот не отвечает на запросы."
 }
 
-platforms = {
-    'irecommend': ['irecommend'],
-    'otzovik': ['otzovik'],
-    'ya_maps': ['maps']
-}
 
 async def empty_data():
     datas = {
@@ -102,11 +75,3 @@ async def empty_data():
         "Оценка компании после удаления": []
     }
     return datas
-
-async def empty_blocks():
-   return {
-        'rating_score': '', #рейтинг компании
-        'rating_count': '', #всего оценок
-        'review_count': '', #кол-во отзывов
-        'items': []
-    }

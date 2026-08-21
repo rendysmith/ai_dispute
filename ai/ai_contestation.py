@@ -1,55 +1,31 @@
-import json
-import logging
-import sys
-import threading
-
 import asyncio
+import json
 import os
-
 import re
-import time
 from datetime import datetime
-
-import selenium.common.exceptions
-from bs4.element import NavigableString
-#from selenium.webdriver.common.by import By
-#from selenium.webdriver.support.ui import WebDriverWait
-#from selenium.webdriver.support import expected_conditions as EC
-
-
-import pandas as pd
 
 from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 
-from models.mdl_tables import ForumRules
-from portals.portal_2gis import blocks_2gis_bs4, get_key
+import pandas as pd
 
-#from portals.portal_ya import main_ya_maps
-#from portals.portal_2gis import blocks_2gis_bs4
-#from portals.portal_zoon import zoon_blocks
+from models.mdl_tables import ForumRules
+from portals.dreamjob import extract_review_text
+from portals.otzovru import blocks_otzovru, get_feedback_otzovru
+from portals.portal_2gis import get_id_obj
+from portals.portal_otzovik import check_captcha, date_convert, get_feedback
+from portals.portal_tripadvisor import blocks_tripadvisor
+from portals.portal_ya import get_base_url, get_rrr
+from portals.portal_zoon import zoon_blocks
+from portals.pravda_sotrudnikov import blocks_pravda
 
 from utils.ai_module import get_answer_ai
-from utils.central_module import wait_for_portal, get_hpo
-
-from utils.constants import TABLES_LIST, empty_data
+from utils.central_module import get_hpo
+from utils.constants import empty_data, months
 from utils.db_loader import read_data_from_db_filter
-
-from utils.gs_editor import get_service, write_log_sheet, get_table_scope, append_data_to_sheet_cell, \
-    append_data_to_sheet_cells, append_data_to_sheet_scopes, read_table_id, append_data_to_sheet_scope
-
-from portals.portal_otzovik import get_top_link, blocks_otzovik, check_captcha, date_convert, get_feedback
-from portals.portal_ya import get_json, get_id_org, get_base_url, get_rrr
-from portals.portal_tripadvisor import blocks_tripadvisor_sel
-from portals.pravda_sotrudnikov import blocks_pravda
-from portals.otzovru import blocks_otzovru, get_feedback_otzovru
-#from portals.portal_2gis import blocks_2gis, blocks_2gis_bs4
-
-from utils.user_agent import get_soup, get_selenium_proxy, get_soup_tor, get_soup_bs4, clean_html, get_playwright
-
-from utils.constants import months
-
-import textwrap
+from utils.gs_editor import get_service, get_table_scope, read_table_id, append_data_to_sheet_cell, \
+    append_data_to_sheet_cells, append_data_to_sheet_scopes
+from utils.user_agent import get_soup, get_soup_bs4, get_soup_curl_cffi, get_playwright, get_playwright_irec
 
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
@@ -60,6 +36,28 @@ username = os.environ.get("HOST_USERNAME")
 password = os.environ.get("HOST_PASSWORD")
 auth = HTTPBasicAuth(username, password)
 
+# headless/proxy: env-переопределение для контейнера (k8s), иначе автоопределение по IP.
+# Инициализация ленивая: под uvicorn модуль импортируется внутри запущенного event loop,
+# поэтому asyncio.run на уровне модуля недопустим.
+_headless_env = os.environ.get("HEADLESS")
+_proxy_env = os.environ.get("PROXY_ON")
+if _headless_env is not None or _proxy_env is not None:
+    headless = _headless_env.lower() in ("1", "true", "yes") if _headless_env is not None else True
+    proxy_on = _proxy_env.lower() in ("1", "true", "yes") if _proxy_env is not None else False
+    only_text = False
+    _hpo_loaded = True
+else:
+    headless = proxy_on = only_text = None
+    _hpo_loaded = False
+
+
+async def _ensure_hpo():
+    """Определяет headless/proxy один раз за процесс (по IP текущего сервера)."""
+    global headless, proxy_on, only_text, _hpo_loaded
+    if _hpo_loaded:
+        return
+    headless, proxy_on, only_text = await get_hpo()
+    _hpo_loaded = True
 
 text = """
 Ты модератор сайта {source},
@@ -88,15 +86,6 @@ text = """
 Перед выполнением прочитай задание еще раз.
 """
 
-#market = 'Vkusvill'
-worktable_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
-ss_id = '1FLCSWjY9vWv2Lf1hVB4BORfXK3B1tCvx85su2ZHAKyY'
-#worksheet_name = TABLES_LIST[market][1]
-#worksheet_name_dreamjob = 'reviews_dreamjob'
-#print(worktable_id, worksheet_name)
-
-headless, proxy_on, only_text = asyncio.run(get_hpo())
-
 
 async def get_links(service, ss_id, project):
     try:
@@ -107,108 +96,12 @@ async def get_links(service, ss_id, project):
 
     return links
 
-async def move_mouse():
-    import pyautogui
-
-    print("Скрипт запущен. Мышь будет двигаться каждые 5 минут, чтобы предотвратить засыпание экрана.")
-    print("Чтобы остановить, нажмите CTRL+C.")
-
-    try:
-        while True:
-            # Получаем текущие координаты мыши в отдельном потоке
-            x, y = await asyncio.to_thread(pyautogui.position)
-
-            # Перемещаем мышь на 1 пиксель вправо в отдельном потоке
-            await asyncio.to_thread(pyautogui.moveTo, x + 10, y, duration=0.25)
-            print(f"Мышь перемещена на 1 пиксель вправо. Новые координаты: ({x}, {y})")
-
-            # Асинхронно ждем 30 секунд. Это не блокирует другие задачи.
-            await asyncio.sleep(30)
-            # Получаем текущие координаты мыши в отдельном потоке
-            x, y = await asyncio.to_thread(pyautogui.position)
-
-            # Перемещаем мышь обратно в отдельном потоке
-            await asyncio.to_thread(pyautogui.moveTo, x - 10 , y, duration=0.25)
-            print(f"Мышь перемещена на 1 пиксель влево. Новые координаты: ({x}, {y})")
-
-            # Асинхронно ждем 30 секунд перед следующим циклом
-            await asyncio.sleep(30)
-
-    except KeyboardInterrupt:
-        print("\nСкрипт остановлен пользователем.")
-        # sys.exit() не рекомендуется в асинхронном коде. Лучше обработать
-        # исключение в main() или вернуть управление.
-        pass # Просто выходим из цикла
-
-async def review_analysis_one(worktable_id, tab_name):
-    '''Последовательный анализ отзывов: строка → ИИ → запись → следующая строка.'''
-
-    service = await get_service()
-    try:
-        df = await get_table_scope(service, worktable_id, tab_name)
-        print(df)
-
-    except Exception as Ex:
-        print(f"Error: {Ex}")
-        return
-
-    columns = ['Вероятность удаления', 'Текст для поддержки']
-
-    for idx, row in df.iterrows():
-        print(f'IDX = {idx}')
-
-        probably_delete = row[columns[0]]
-        text_support = row[columns[1]]
-
-        if pd.notnull(probably_delete) and pd.notnull(text_support):
-            print(f'--- Skip IDX={idx}: already filled')
-            continue
-
-        brand = row['Бренд']
-        link = row['Url']
-        comment = row['Текст']
-        source = row['Источник']
-
-        if 'yandex.ru/maps' in source:
-            project = 'yandex_maps'
-        else:
-            project = source.split('.')[0]
-
-        print("project:", project)
-
-        status, rules_db = await read_data_from_db_filter(ForumRules, forum_name=project)
-        if not status or not rules_db:
-            print(f'--- Skip IDX={idx}: no rules for forum_name={project}')
-            continue
-
-
-        prompt = text.format(source=source, comment=comment, rule=rule)
-        result = await get_answer_ai(auth, prompt)
-        print(result)
-
-        if not result or not isinstance(result, str):
-            print(f'ERROR AI IDX={idx}: invalid result: {result}')
-            continue
-
-        try:
-            result = eval(result)
-            if '49' not in result[0]:
-                result[1] = (f"Здравствуйте, "
-                             f"Я представляю интересы компании '{brand}' и хочу обратиться с просьбой удалить отзыв по ссылке {link}. "
-                             f"Отзыв содержит нарушение:\n") + result[1]
-
-            await append_data_to_sheet_cells(service, worktable_id, brand, columns, idx + 2, result)
-            print(f'--- OK IDX={idx}')
-
-        except (SyntaxError, TypeError) as SE:
-            print(f'ERROR IDX={idx}: {SE}')
-
 
 async def review_analysis(worktable_id, tab_name):
     '''Функция для анализа отзыва'''
 
     service = await get_service()
-    sem = asyncio.Semaphore(3)  # максимум 5 одновременных задач
+    sem = asyncio.Semaphore(3)  # максимум 3 одновременных задач
 
     status, rules_db = await read_data_from_db_filter(ForumRules)
 
@@ -281,10 +174,6 @@ async def review_analysis(worktable_id, tab_name):
         finally:
             await asyncio.sleep(5)
 
-    # for idx, row in df.iterrows():
-    #     await rec_datas(idx, row)
-    #     await asyncio.sleep(10)
-
     async def rec_datas_limited(idx, row):
         async with sem:
             return await rec_datas(idx, row)
@@ -295,263 +184,56 @@ async def review_analysis(worktable_id, tab_name):
     ]
     await asyncio.gather(*tasks)
 
-async def extract_link_from_line(url):
-    # Шаблон для поиска ссылки от https: до .html
-    pattern = r"https:.*?\.html"
-    # Поиск ссылки в строке
-    match = re.search(pattern, url)
-    if match:
-        return match.group(0)
-    return None
-
-async def grade_analysis(worktable_id, worksheet_name):
-    service = await get_service()
-
-    df = await get_table_scope(service, worktable_id, worksheet_name)
-    not_null = 'Текст'
-    is_null = 'Общий Url'
-    df = df[(df[not_null].notnull() & df[is_null].isnull())]
-
-    columns = ['Общий Url', 'Ссылка Url']
-
-    print(df)
-    for idx, row in df.iterrows():
-        portal = row['Источник']
-        link = row['Url']
-        print(link)
-
-        if portal == 'otzovik.com':
-            feeback_link = await extract_link_from_line(link)
-
-            await wait_for_portal()
-            status, top_link = await get_top_link(link) #Получаем топовую ссылку
-            if not status:
-                result = ['Ошибка, проверить страницу на актульность.', feeback_link]
-                await append_data_to_sheet_cells(service, worktable_id, worksheet_name, columns, idx + 2, result)
-                await asyncio.sleep(5)
-                continue
-
-            print("top_link",top_link)
-
-            soup = await get_soup(top_link)
-            if not soup:
-                await asyncio.sleep(5)
-                continue
-
-            error_page = soup.find('h1')
-            for er in error_page:
-                if 'Ошибка' in er.text:
-
-                    result = ['Ошибка, проверить страницу на актульность.', feeback_link]
-                    await append_data_to_sheet_cells(service, worktable_id, worksheet_name, columns, idx + 2, result)
-                    await asyncio.sleep(5)
-                    continue
-
-            overall_grade = soup.find('div', class_='rating-score-2 big').text.strip()
-            number_grades = soup.find('span', class_='votes').text.strip()
-
-            columns = ['Общий Url', 'Ссылка Url', 'Кол-во отзывов', 'Оценка компании до удаления']
-            result = [top_link, feeback_link, number_grades, overall_grade]
-            await append_data_to_sheet_cells(service, worktable_id, worksheet_name, columns, idx + 2, result)
-
-            await asyncio.sleep(5)
-
-        elif portal == 'nerab.ru':
-            pass
-
-async def total_grade_analysis(worktable_id, tn_name):
-    '''
-    Функция для подсчета рейтинга после удаления отзыва
-    '''
-    service = await get_service()
-
-    df = await get_table_scope(service, worktable_id, tn_name)
-
-    data_rows = []
-    for idx, row in df.iterrows():
-        company_link = row['Общий Url']
-        feedback_counts = row['Кол-во отзывов']
-
-        if pd.isna(feedback_counts):
-            # print('Next...')
-            continue
-
-        #df = df[(df[add_column] == '') & (df[add_column_2].str.contains(r'([5-9][0-9]|[1-9][0-9]{2,})'))]
-        df_mini = df[(df['Общий Url'] == company_link) & (df['Вероятность удаления'].str.contains(r'([5-9][0-9]|[1-9][0-9]{2,})'))]
-
-        df_mini = df_mini.drop_duplicates(subset=["Ссылка Url"]) #Удаляем дублика ссылок!!!!!!!!!!!!!!!!!!!!!!
-        df_mini["Оценка"] = pd.to_numeric(df_mini["Оценка"], errors='coerce')  # Преобразуем в числа
-
-        counts_feedback = float(df_mini['Кол-во отзывов'].iloc[-1])
-        company_rating = float(df_mini['Оценка компании до удаления'].iloc[-1])
-
-        total_sum = counts_feedback * company_rating
-        total_negative_sum = df_mini["Оценка"].sum()
-        total_negative_count = df_mini["Оценка"].count()
-
-        finish_sum = total_sum - total_negative_sum
-        finish_counts = counts_feedback - total_negative_count
-        finish_rating = round(finish_sum / finish_counts, 1)
-
-        for idx_mini, row_mini in df_mini.iterrows():
-            rating = row_mini['Оценка компании после удаления']
-
-            if pd.notnull(rating):
-                continue
-
-            if idx_mini not in data_rows:
-                await append_data_to_sheet_cell(service, worktable_id, tn_name,'Оценка компании после удаления', idx_mini + 2, finish_rating)
-                print(f'{idx_mini} Add info...')
-                data_rows.append(idx_mini)
-
-async def total_grade_analysis_bad(worktable_id, tn_name):
-    '''
-    Оптимизированная функция подсчета рейтинга
-    '''
-    service = await get_service()
-
-    # 1. Загружаем данные
-    # ВАЖНО: Убедись, что get_table_scope возвращает корректный DF (без смещения колонок)
-    df = await get_table_scope(service, worktable_id, tn_name)
-    print(df)
-
-    if df.empty:
-        print("DataFrame is empty. Exiting.")
-        return
-
-    # 2. Предобработка данных (сразу для всей таблицы)
-    # Преобразуем оценки в числа, ошибки (не числа) заменяем на NaN
-    df["Оценка"] = pd.to_numeric(df["Оценка"], errors='coerce')
-    df["Кол-во отзывов"] = pd.to_numeric(df["Кол-во отзывов"], errors='coerce')
-    df["Оценка компании до удаления"] = pd.to_numeric(df["Оценка компании до удаления"], errors='coerce')
-
-    # Создаем маску для "плохих" отзывов, которые планируем удалить
-    # Логика: ищем строки, где вероятность содержит 50-99 или 100+ (твоя регулярка)
-    high_prob_mask = df['Вероятность удаления'].astype(str).str.contains(r'([5-9][0-9]|[1-9][0-9]{2,})', na=False)
-    print(high_prob_mask)
-
-
-    # Сразу фильтруем только те строки, которые ПОДЛЕЖАТ удалению
-    df_to_remove = df[high_prob_mask & df["Оценка"].notna()].copy()
-
-    # Удаляем дубликаты отзывов (если один отзыв записан дважды)
-    if "Ссылка Url" in df_to_remove.columns:
-        df_to_remove = df_to_remove.drop_duplicates(subset=["Ссылка Url"])
-
-    # 3. Группировка (Считаем сумму негатива и кол-во негатива по каждой компании)
-    # GroupBy работает мгновенно по сравнению с циклом
-    negative_stats = df_to_remove.groupby('Общий Url').agg({
-        'Оценка': ['sum', 'count']
-    })
-
-    # Упрощаем структуру колонок после агрегации
-    negative_stats.columns = ['neg_sum', 'neg_count']
-
-    # 4. Расчет нового рейтинга
-    # Нам нужны исходные данные по компании (берем первую попавшуюся строку для каждого URL из оригинала)
-    company_info = df.groupby('Общий Url').first()[
-        ['Кол-во отзывов', 'Оценка компании до удаления', 'Оценка компании после удаления']]
-
-    # Объединяем инфо о компании с посчитанным негативом
-    merged = company_info.join(negative_stats, how='left').fillna(0)
-
-    updates = []  # Сюда будем складывать данные для записи
-
-    print(2)
-    for url, row in merged.iterrows():
-        print("\n", url)
-
-        print(f">{row['Оценка компании после удаления']}<")
-        print(pd.notnull(row['Оценка компании после удаления']))
-        print(pd.isna((row['Оценка компании после удаления'])))
-        print(pd.notna((row['Оценка компании после удаления'])))
-
-        # Если рейтинг уже проставлен - пропускаем (как в твоем коде)
-        if pd.isna(row['Оценка компании после удаления']):
-            continue
-
-        print(3)
-        current_rating = row['Оценка компании до удаления']
-        total_count = row['Кол-во отзывов']
-
-        neg_sum = row['neg_sum']
-        neg_count = row['neg_count']
-
-        # Если нечего удалять, новый рейтинг = старому (или пропускаем)
-        if neg_count == 0:
-            finish_rating = current_rating
-        else:
-            # Формула пересчета
-            total_sum = total_count * current_rating
-            finish_sum = total_sum - neg_sum
-            finish_counts = total_count - neg_count
-
-            if finish_counts > 0:
-                finish_rating = round(finish_sum / finish_counts, 1)
-            else:
-                finish_rating = 0  # Или другое значение, если удалили ВСЕ отзывы
-
-        # 5. Готовим данные к записи
-        # Находим индекс строки в исходном DF, куда писать.
-        # (Это упрощенно, лучше писать пачкой, но оставим совместимость с твоим методом)
-
-        # Находим первую строку с этим URL в исходном df, чтобы узнать номер строки для записи
-        target_idx = df[df['Общий Url'] == url].index[0]
-
-        print(f"URL: {url} | New Rating: {finish_rating}")
-
-        # Вызываем запись
-        # +2 обычно потому что индекс с 0, а в гугле с 1 + заголовок
-        await append_data_to_sheet_cell(service,
-                                        worktable_id,
-                                        tn_name,
-                                        'Оценка компании после удаления',
-                                        target_idx + 2,
-                                        finish_rating)
 
 async def pars_dreamjob(service, url_top, ss_id, project, links, rating_max, idx_last_page, last_page=1):
-    """Функция для получения негативных отзывовов и записьм их в таблицу"""
-    unix_time = str(int(time.time() * 1000))
-
-    soup = await get_soup(url_top)
+    """Функция для получения негативных отзывов и записи их в таблицу"""
+    soup = await get_soup(url_top, proxy=False)
     if not soup:
         return
 
-    total_rating = soup.find('div', {"class": 'dashboard__grade-total'}).text
-    print(total_rating)
-    total_rating = float(total_rating.replace(',', '.'))
-    print(total_rating)
+    # Рейтинг: берём первый <span> внутри .dashboard__grade-total-wrapper
+    # (там лежит только число "4,2"), а не .text всего блока,
+    # который содержит "4,2\nОчень хорошо\n87 отзывов"
+    grade_wrapper = soup.find('div', {'class': 'dashboard__grade-total-wrapper'})
+    if grade_wrapper:
+        total_rating_raw = grade_wrapper.find('span').text.strip()
+    else:
+        # fallback: вытащить число регуляркой из всего блока
+        block_text = soup.find('div', {'class': 'dashboard__grade-total'}).text
+        m = re.search(r'[\d]+[,.][\d]+', block_text)
+        total_rating_raw = m.group(0) if m else '0'
+    print(f'[dreamjob] total_rating raw: {repr(total_rating_raw)}')
+    total_rating = float(total_rating_raw.replace(',', '.'))
+    print(f'[dreamjob] total_rating: {total_rating}')
 
     try:
-        total_reviews_content = soup.find('span', {"class": 'tabs__count'}).text
-        print(total_reviews_content)
-        total_reviews = int(total_reviews_content.replace(' ', ''))
-        print(total_reviews)
+        # Кол-во отзывов берём из вкладки Отзывы (a#tab_reviews),
+        # т.к. на странице несколько span.tabs__count (вакансии, зарплаты и т.д.)
+        tab_reviews = soup.find('a', {'id': 'tab_reviews'})
+        total_reviews_content = tab_reviews.find('span', {'class': 'tabs__count'}).text
+        print(f'[dreamjob] total_reviews raw: {repr(total_reviews_content)}')
+        total_reviews = int(total_reviews_content.replace(' ', '').replace('\xa0', ''))
+        print(f'[dreamjob] total_reviews: {total_reviews}')
 
-    except:
-        total_reviews_content = soup.find('div', {"class": 'dashboard__grade-reviews'}).text
+    except Exception:
+        total_reviews_content = soup.find('span', {'class': 'dashboard__grade-reviews'}).text
         total_reviews_split = total_reviews_content.split(' ')[0]
-        print(total_reviews_split)
-        total_reviews = int(total_reviews_split.replace(' ', ''))
-        print(total_reviews)
+        print(f'[dreamjob] total_reviews fallback: {repr(total_reviews_split)}')
+        total_reviews = int(total_reviews_split.replace(' ', '').replace('\xa0', ''))
+        print(f'[dreamjob] total_reviews: {total_reviews}')
 
     employerId = url_top.split('/')[-1]
 
-    pages = soup.find('li', {'class': 'last'})
-    print(pages)
-    #input('OK!')
-
     for page in range(last_page, 1000):
-        #page = str(i + 1)
         print(f'\nPage: {page}')
 
         url = f'https://dreamjob.ru/employers/{employerId}?nrs%5Bsort%5D=&nrs%5Bcities%5D=%5B%5D&nrs%5Bvacancies%5D=%5B%5D&nrs%5Bdepartments%5D=%5B%5D&nrs%5Bratings%5D=%5B%222%22%2C%221%22%5D&nrs%5Bfirst_selected%5D=ratings&nrs%5Btopics%5D%5B0%5D=%5B%5D&nrs%5Btopics%5D%5B1%5D=%5B%5D&page={page}&_pjax=%23data_pjax'
         print(url)
-        soup = await get_soup(url)
-        if not soup:
+        soup_2 = await get_soup(url, proxy=False)
+        if not soup_2:
             continue
 
-        blocks = soup.find_all('div', {"class": 'review', 'data-partly': 'short'})
+        blocks = soup_2.find_all('div', {"class": 'review', 'data-partly': 'short'})
 
         len_b = len(blocks)
 
@@ -561,22 +243,7 @@ async def pars_dreamjob(service, url_top, ss_id, project, links, rating_max, idx
 
         datas = await empty_data()
 
-        async def get_text_after_title(soup_element, title_text):
-            title_tag = soup_element.find('div', class_='review__title', string=lambda t: t and title_text in t)
-            if not title_tag:
-                return None
-            # Идём по следующим элементам, пока не найдём непустой текст
-            next_sib = title_tag.next_sibling
-            while next_sib:
-                if isinstance(next_sib, NavigableString):
-                    stripped = next_sib.strip()
-                    if stripped:
-                        return stripped
-                next_sib = next_sib.next_sibling
-            return None
-
         for block in blocks:
-            #print('\n*******************************************')
             try:
                 date = block.find_next('div', {'class': 'review__header-date'}).text
             except:
@@ -584,7 +251,7 @@ async def pars_dreamjob(service, url_top, ss_id, project, links, rating_max, idx
                 data_split = date_content.split(',')[-1]
                 date = data_split.strip()
 
-            date_content = date.split(' ')
+            date_content = date.split('\xa0')
             year = date_content[-1]
             month = months[date_content[-2]]
 
@@ -596,17 +263,7 @@ async def pars_dreamjob(service, url_top, ss_id, project, links, rating_max, idx
             formatted_date = f"01.{month}.{year}"
             print(formatted_date)
 
-            plus = await get_text_after_title(block, "Что нравится?")
-            minus = await get_text_after_title(block, "Что можно улучшить?")
-
-            feedback = f"""Что нравится?:
-{plus}
-Что можно улучшить?:
-{minus}
-"""
-
-            feedback = textwrap.dedent(feedback)
-            #print(feedback)
+            feedback = await extract_review_text(block)
 
             portal = 'dreamjob.ru'
 
@@ -616,25 +273,18 @@ async def pars_dreamjob(service, url_top, ss_id, project, links, rating_max, idx
 
             if not url_answer:
                 url_answer = block.find('a', tabindex='0').get('href')
-            #print(url_answer)
 
             if url_answer in links:
                 continue
 
             author = block.find('h2', {'class': 'review__header-title'}).text.strip()
-            #print(author)
 
-            #rating = block.find('div', {'class': 'review__header-title'}).text.strip()
-            rating = soup.find(lambda tag: tag.name == "div" and "class" in tag.attrs and "data-partly-switch" in tag.attrs).text.strip()
-            rating = float(rating.replace(',', '.'))
-            #print(rating)
+            rating_elem = block.find(
+                lambda tag: tag.name == "div" and "class" in tag.attrs and "data-partly-switch" in tag.attrs)
+            rating = float(rating_elem.text.strip().replace(',', '.')) if rating_elem else 0.0
 
-            if rating >= rating_max:
-                return
-
-            #top_url = 'https://dreamjob.ru/employers/56859'
-
-            #print(date)
+            if rating > rating_max:
+                continue
 
             datas['Дата'].append(formatted_date)
             datas['Текст'].append(feedback)
@@ -654,31 +304,54 @@ async def pars_dreamjob(service, url_top, ss_id, project, links, rating_max, idx
         if len_b < 49:
             return
 
-        await append_data_to_sheet_cell(service, ss_id, "links", idx_last_page + 2, page)
+        await append_data_to_sheet_cell(service, ss_id, "links", "last_page", idx_last_page + 2, page)
+
 
 async def pars_2gis(service, url, ss_id, project, links, rating_max):
     source = '2gis.ru'
-    p = browser = context = page = None
+    api_key = '6e7e1929-4ea9-4a5d-8c05-d601860389bd'
+
     try:
-        p, browser, context, page = await get_playwright(
-            headless=headless,
-            proxy=False,
-            blocked_resource=False,
-        )
-
-        reviews_url = url if '/tab/reviews' in url else f"{url.rstrip('/')}/tab/reviews"
-        print(f"2GIS reviews_url: {reviews_url}")
-
-        await page.goto(reviews_url, wait_until="domcontentloaded", timeout=120_000)
-        await page.wait_for_timeout(5000)
-
-        org_id, key = await get_key(await page.content())
-        if not org_id or not key:
-            print("2GIS: org_id/key not found on page")
+        org_id = await get_id_obj(url)
+        if not org_id:
+            print(f"2GIS: org_id not found in url: {url}")
             return
 
-        blocks, branch_rating, branch_reviews_count = await blocks_2gis_bs4(page, org_id, key)
-        print(f"2GIS: blocks={len(blocks)} rating={branch_rating} reviews_count={branch_reviews_count}")
+        # Собираем ВСЕ отрицательные отзывы через API (пагинация по 50)
+        blocks = []
+        branch_rating = 0
+        branch_reviews_count = 0
+        offset = 0
+
+        while True:
+            api_url = (
+                f'https://public-api.reviews.2gis.com/3.0/branches/{org_id}/reviews'
+                f'?limit=50&offset={offset}&ratings=negative&is_advertiser=false'
+                f'&fields=meta.providers,meta.branch_rating,meta.branch_reviews_count,meta.total_count,'
+                f'reviews.hiding_reason,reviews.emojis,reviews.trust_factors'
+                f'&rated=true&sort_by=trust&key={api_key}&locale=ru_RU'
+            )
+            print(f"2GIS API URL: {api_url}")
+
+            r_json = await get_soup_curl_cffi(api_url, dict_type=True, proxy=False)
+            if not r_json:
+                print(f"2GIS: API returned empty on offset={offset}")
+                break
+
+            meta = r_json.get('meta', {})
+            branch_rating = meta.get('branch_rating', branch_rating)
+            branch_reviews_count = meta.get('branch_reviews_count', branch_reviews_count)
+            total_count = meta.get('total_count', 0)
+
+            page_blocks = r_json.get('reviews', [])
+            blocks.extend(page_blocks)
+            print(f"2GIS: fetched {len(page_blocks)} reviews (offset={offset}, total_negative={total_count})")
+
+            if len(page_blocks) < 50:
+                break
+            offset += 50
+
+        print(f"2GIS: total blocks={len(blocks)} rating={branch_rating} reviews_count={branch_reviews_count}")
 
         existing_urls: set[str] = set()
         existing_rows: set[str] = set()
@@ -701,6 +374,7 @@ async def pars_2gis(service, url, ss_id, project, links, rating_max):
                         t = "" if pd.isna(r["Текст"]) else str(r["Текст"])
                         o = "" if pd.isna(r["Оценка"]) else str(r["Оценка"])
                         existing_rows.add(f"{d}|{a}|{t}|{o}")
+
         except Exception as ex:
             print(f"2GIS: dedup read error: {ex}")
 
@@ -758,556 +432,577 @@ async def pars_2gis(service, url, ss_id, project, links, rating_max):
 
         return 'OK!'
 
-    finally:
-        try:
-            if page is not None:
-                await page.close()
-            if context is not None:
-                await context.close()
-            if browser is not None:
-                await browser.close()
-            if p is not None:
-                await p.stop()
-        except Exception:
-            pass
+    except Exception as ex:
+        print(f"2GIS: error: {ex}")
+        return None
 
-async def pars_zoon(service, driver, url, ss_id, project, links, rating_max):
-    driver.get(url)
-    await asyncio.sleep(5)
 
+async def pars_zoon(service, url, ss_id, project, links, rating_max):
+    """Парсер zoon.ru (Playwright)."""
     source = 'zoon.ru'
+    await _ensure_hpo()
 
+    p = browser = context = page = None
     try:
-        number_reviewss = driver.find_elements(By.CSS_SELECTOR, 'span[class="service-block-nav-item-count z-text--13"]')
-        print("Leb_NR", len(number_reviewss))
-        number_reviews = int(number_reviewss[1].text)
+        p, browser, context, page = await get_playwright(headless=headless, proxy=proxy_on,
+                                                         blocked_resource=False, stealth=True)
 
-    except:
-        number_reviewss = driver.find_element(By.CSS_SELECTOR, 'div[data-uitest="count_reviews_in_total"]').text
-        print("number_reviewss:", number_reviewss)
-        number_reviews = int(number_reviewss.split(' ')[0])
-        print("number_reviewss:", number_reviews)
-
-    if number_reviews == 0:
-        return
-
-    rating_befores = driver.find_element(By.CSS_SELECTOR, 'div[data-target="rating-total"]').text
-    rating_before = float(rating_befores.replace(',', '.'))
-
-    print(number_reviews, rating_before)
-
-    content = await zoon_blocks(driver, url, rating_max)
-    df = pd.DataFrame(content)
-
-    datas = await empty_data()
-
-    for k, row in df.iterrows():
-        url_answer = row['Url']
-        if url_answer in links:
-            print('Такой комментарий уже есть в списке')
-            continue
-
-        rating = row['Оценка']
-        if rating > rating_max:
-            continue
-
-        formatted_date = row['Дата']
-        feedback = row['Текст']
-        author = row['Автор']
-
-        datas['Дата'].append(formatted_date)
-        datas['Текст'].append(feedback)
-        datas['Бренд'].append(project)
-        datas['Источник'].append(source)
-        datas['Url'].append(url_answer)
-        datas['Автор'].append(author)
-        datas['Оценка'].append(rating)
-        datas['Общий Url'].append(url)
-        datas['Кол-во отзывов'].append(number_reviews)
-        datas['Оценка компании до удаления'].append(rating_before)
-
-    await append_data_to_sheet_scopes(service, ss_id, project, datas)
-
-async def pars_otzyvru(service, driver, url, ss_id, project, links, rating_max):
-    source = 'otzyvru.com'
-
-    number_reviews = 74
-    rating_before = 3.9
-
-    page = 1
-    while True:
-        link = f"https://www.otzyvru.com/servis-poiska-vrachey-docdoc?sort=rating_asc&page={page}"
-        blocks = await blocks_otzovru(driver, link)
-
-        if len(blocks) == 0:
+        content = await zoon_blocks(page, url, rating_max)
+        if not content.get('Дата'):
+            print('zoon: нет новых отзывов')
             return
 
-        btn_blue = driver.find_element(By.CSS_SELECTOR, 'a[class="btn blue"]')
-        print("Blue button:", btn_blue == True)
+        # Число отзывов и рейтинг компании — со страницы
+        number_reviews = 0
+        rating_before = 0.0
+        counter_found = False
+        try:
+            counter = page.locator('div[data-uitest="count_reviews_in_total"]')
+            if await counter.count() > 0:
+                counter_found = True
+                number_reviews = int((await counter.first.inner_text()).split(' ')[0])
+            else:
+                tabs = page.locator('span[class="service-block-nav-item-count z-text--13"]')
+                if await tabs.count() > 1:
+                    counter_found = True
+                    number_reviews = int((await tabs.nth(1).inner_text()).replace(' ', '').replace('\xa0', ''))
+        except Exception as ex:
+            print(f'zoon: number_reviews error: {ex}')
 
-        for block in blocks:
-            try:
-                url_answers = block.find_element(By.CSS_SELECTOR, 'h2')
-                url_answer = url_answers.find_element(By.CSS_SELECTOR, 'a[href]').get_attribute('href')
+        if number_reviews == 0 and counter_found:
+            print('zoon: 0 отзывов')
+            return
 
-            except:
-                url_answer = block.find_element(By.CSS_SELECTOR, 'a[href][target="_blank"]').get_attribute('href')
+        try:
+            rating_el = page.locator('div[data-target="rating-total"]')
+            if await rating_el.count() > 0:
+                rating_before = float((await rating_el.first.inner_text()).replace(',', '.'))
+        except Exception as ex:
+            print(f'zoon: rating error: {ex}')
 
-            print(url_answer)
+        datas = await empty_data()
+
+        for i in range(len(content['Дата'])):
+            url_answer = content['Url'][i]
             if url_answer in links:
+                print('Такой комментарий уже есть в списке')
                 continue
 
-            #--------------------------------------
-            rating_content = block.find_element(By.CSS_SELECTOR, 'div[class="comment_stats"]').find_element(By.CSS_SELECTOR, 'span[class="value-title"]').get_attribute('title')
-            rating = int(rating_content)
-            print('rating:', rating)
-
+            rating = content['Оценка'][i]
             if rating > rating_max:
-                print('Rating is END!')
-                return
+                continue
 
-            author = block.find_element(By.CSS_SELECTOR, 'span[class="reviewer"][itemprop="name"]').text
-
-            date_content = block.find_element(By.CSS_SELECTOR, 'span[class="value-title"][title]').get_attribute('title')
-            date = datetime.strptime(date_content, "%Y-%m-%d")
-            formatted_date = date.strftime("%d.%m.%Y")
-
-            feedback = await get_feedback_otzovru(url_answer)
-
-            datas = await empty_data()
-
-            datas['Дата'].append(formatted_date)
-            datas['Текст'].append(feedback)
+            datas['Дата'].append(content['Дата'][i])
+            datas['Текст'].append(content['Текст'][i])
             datas['Бренд'].append(project)
             datas['Источник'].append(source)
             datas['Url'].append(url_answer)
-            datas['Автор'].append(author)
+            datas['Автор'].append(content['Автор'][i])
             datas['Оценка'].append(rating)
             datas['Общий Url'].append(url)
             datas['Кол-во отзывов'].append(number_reviews)
             datas['Оценка компании до удаления'].append(rating_before)
 
-            await append_data_to_sheet_scopes(service, ss_id, project, datas)
-            await asyncio.sleep(1)
-
-async def get_feedback_irec_sel(driver2, url):
-
-    while True:
-        try:
-            driver2.get(url)
-            await asyncio.sleep(5)
-
-            feedback = driver2.find_element(By.CSS_SELECTOR, 'a[class="review-summary active"]').text
-            break
-
-        except Exception as Ex:
-            print(f'- Error Ex: {Ex}')
-            await asyncio.sleep(5)
-
-    description_content = driver2.find_element(By.CSS_SELECTOR, 'div[class="description hasinlineimage"]').text
-    description = await clean_html(description_content)
-    #input(description)
-
-    # ps = driver2.find_elements(By.CSS_SELECTOR, 'p')
-    # for p in ps:
-    feedback += f"\n{description}"
-    return textwrap.fill(feedback, width=200)
-
-async def get_feedback_irec(url):
-
-    while True:
-        try:
-            #soup = await get_soup_tor(url)
-            soup = await get_soup(url, proxy=proxy_on)
-            feedback = soup.find("a", {"class": "review-summary active"}).text
-            break
-
-        except Exception as Ex:
-            print(f'- Error Ex: {Ex}')
-            await asyncio.sleep(5)
-
-    ps = soup.find_all('p')
-    for p in ps:
-        feedback += p.text
-    return textwrap.fill(feedback, width=200)
-
-async def get_feedback_otz1(driver, url):
-    print(f'- New page: {url}')
-    main_tab = driver.current_window_handle
-    print(f'- Main tab = {main_tab}')
-    # Открываем новую вкладку с помощью JavaScript
-    driver.execute_script("window.open('');")
-
-    print('- Len tabs: ', len(driver.window_handles))
-    print('- Switch to new tab')
-    # Переключаемся на новую вкладку (индекс 1, так как вкладки нумеруются с 0)
-    #driver.switch_to.window(driver.window_handles[1])
-    await asyncio.sleep(5)
-
-    print(f'- Driver get: {driver.current_window_handle}')
-    driver.get(url)
-    await asyncio.sleep(5)
-
-    #
-    #
-    # print("driver.window_handles: ", driver.window_handles)
-    # for idx, tab in enumerate(driver.window_handles):
-    #     print("-- driver tab", idx, tab)
-    #     print("-- driver current", driver.current_window_handle)
-    #
-    #     if main_tab != driver.current_window_handle:
-    #         break
-    #
-    #     else:
-    #         print('- Переключаем на другую вкладку')
-    #         driver.switch_to.window(driver.window_handles[idx + 1])
-    #         await asyncio.sleep(1)
-
-    print(driver.current_window_handle)
-    print("---- 1")
-    print(driver.current_window_handle)
-
-    topic = ''
-    topics = driver.find_elements(By.CSS_SELECTOR, 'h1')
-    for i, tpc in enumerate(topics):
-        try:
-            if i == 1:
-                topic = tpc.text
-
-        except:
-            break
-
-    print('---- 2')
-
-    plus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-plus"]').text
-    minus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-minus"]').text
-    try:
-        text = driver.find_element(By.CSS_SELECTOR, 'div[class="review-body description"]').text
-
-    except selenium.common.exceptions.NoSuchElementException as NSEE:
-        text = 'NO DATA'
+        await append_data_to_sheet_scopes(service, ss_id, project, datas)
 
     finally:
-        print('-- Close Tab')
-        await asyncio.sleep(5)
-        try:
-            driver.close()
-            driver.switch_to.window(driver.window_handles[idx])  # Вернуться на первую вкладку
-
-        except Exception as e:
-            print(f"- Ошибка при закрытии вкладки: {e}")
-
-    print('-- return Feedback datas')
-    return topic + "\n" + plus + "\n" + minus + "\n" + text
-
-async def get_feedback_otz(driver, url):
-    #driver = await get_selenium_proxy(url, headless=False, proxy=False)
-    driver.get(url)
-
-    n = 0
-    while n < 10:
-        try:
-            plus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-plus"]').text
-            break
-
-        except:
-            n += 1
-            print(n, 'Plus')
-            await asyncio.sleep(2)
-
-            if n == 5:
-                driver.refresh()
-
-    # print("driver.window_handles: ", driver.window_handles)
-    # for idx, tab in enumerate(driver.window_handles):
-    #     print("-- driver tab", idx, tab)
-    #     print("-- driver current", driver.current_window_handle)
-    #
-    #     if main_tab != driver.current_window_handle:
-    #         break
-    #
-    #     else:
-    #         print('- Переключаем на другую вкладку')
-    #         driver.switch_to.window(driver.window_handles[idx + 1])
-    #         await asyncio.sleep(1)
-
-    #print(driver.current_window_handle)
-    print("---- 1")
-    #print(driver.current_window_handle)
-
-    topic = ''
-    topics = driver.find_elements(By.CSS_SELECTOR, 'h1')
-    for i, tpc in enumerate(topics):
-        try:
-            if i == 1:
-                topic = tpc.text
-
-        except:
-            break
-
-    print('---- 2')
-
-    # try:
-    #     plus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-plus"]').text
-    # except:
-    #     return
-
-    n = 0
-    while n < 10:
-        try:
-            minus = driver.find_element(By.CSS_SELECTOR, 'div[class="review-minus"]').text
-            break
-
-        except:
-            n += 1
-            print(n, 'Minus')
-            await asyncio.sleep(2)
-
-            if n == 5:
-                driver.refresh()
+        await close_playwright(p, browser, context, page)
 
 
+async def pars_otzyvru(service, url, ss_id, project, links, rating_max):
+    """Парсер otzyvru.com (Playwright + bs4 для текста отзыва)."""
+    source = 'otzyvru.com'
+    await _ensure_hpo()
+
+    number_reviews = 74
+    rating_before = 3.9
+
+    p = browser = context = page = None
     try:
-        text = driver.find_element(By.CSS_SELECTOR, 'div[class="review-body description"]').text
+        p, browser, context, page = await get_playwright(headless=headless, proxy=proxy_on,
+                                                         blocked_resource=False, stealth=True)
 
-    except selenium.common.exceptions.NoSuchElementException as NSEE:
-        text = 'NO DATA'
-
-    finally:
-        print('-- Close Tab')
-        await asyncio.sleep(1)
-        try:
-            #driver.quit()
-            #driver.switch_to.window(driver.window_handles[idx])  # Вернуться на первую вкладку
-            pass
-
-        except Exception as e:
-            print(f"- Ошибка при закрытии вкладки: {e}")
-
-    print('-- return Feedback datas')
-    return topic + "\n" + plus + "\n" + minus + "\n" + text
-
-async def pars_otzovik(service, url, ss_id, project, ratio, last_page=1):
-    proxy_on = False
-    p, browser, context, page = await get_playwright(headless=headless,
-                                                     proxy=proxy_on,
-                                                     proxy_type='ru',
-                                                     stealth=True,
-                                                     blocked_resource=False)
-
-    p_2, browser_2, context_2, page_2 = await get_playwright(headless=headless,
-                                                             proxy=proxy_on,
-                                                     proxy_type='ru',
-                                                     stealth=True,
-                                                     blocked_resource=False)
-
-    source = 'otzovik.com'
-
-    for rt in range(1, ratio + 1):
-        st_page = 1
+        page_num = 1
         while True:
-            url_full = f'{url}{st_page}/?ratio={rt}'
-            print(url_full)
+            link = f'{url}?sort=rating_asc&page={page_num}'
+            blocks = await blocks_otzovru(page, link)
 
-            await page.goto(url_full)
-            status = await check_captcha(page)
+            if len(blocks) == 0:
+                return
 
-            review_cards = await page.query_selector_all('div.item.status4.mshow0')
-            len_cards = len(review_cards)
-            print(f'Len cards = {len(review_cards)}')
-
-            for card in review_cards:
-                # --- Сбор данных с основной страницы (page) ---
-                # Дата отзыва
-                date_el = await card.query_selector('.review-postdate span')
-                date_str = await date_el.inner_text() if date_el else None
-                formatted_date = await date_convert(date_str)
-
-                # Оценка
-                rating_el = await card.query_selector('.rating-score span')
-                rating = await rating_el.inner_text() if rating_el else None
-
-                if int(rating) > int(ratio):
+            for block in blocks:
+                url_answer = block['url']
+                if not url_answer or url_answer in links:
                     continue
 
-                # Ссылка на отзыв
-                link_el = await card.query_selector('a.review-title')
-                review_link = ""
-                if link_el:
-                    review_link = "https://otzovik.com" + await link_el.get_attribute('href')
-
-                if review_link in links:
+                try:
+                    rating = int(block['rating'])
+                except (TypeError, ValueError):
+                    print('otzyvru: пропуск — рейтинг не найден')
                     continue
 
-                # Автор и ссылка на автора
-                author_el = await card.query_selector('a.user-login')
-                author_name = ""
-                author_link = ""
-                if author_el:
-                    author_name = (await author_el.inner_text()).strip()
-                    author_link = "https://otzovik.com" + await author_el.get_attribute('href')
+                print('rating:', rating)
 
-                # Проверка на ответ Официального Представителя (ОП)
-                # В списке отзывов ОП обычно отображается в блоке комментария с пометкой
+                if rating > rating_max:
+                    print('Rating is END!')
+                    return
 
-                #await page_2.goto(review_link)
+                author = block['author']
 
-                feedback = await get_feedback(page_2, review_link)
+                try:
+                    date = datetime.strptime(block['date'], "%Y-%m-%d")
+                    formatted_date = date.strftime("%d.%m.%Y")
+                except (TypeError, ValueError):
+                    print('otzyvru: пропуск — дата не найдена')
+                    continue
+
+                feedback = await get_feedback_otzovru(url_answer)
 
                 datas = await empty_data()
 
                 datas['Дата'].append(formatted_date)
                 datas['Текст'].append(feedback)
-                datas["Бренд"].append(project)
-                datas["Источник"].append(source)
-
-                datas['Url'].append(review_link)
-                datas['Автор'].append(author_name)
+                datas['Бренд'].append(project)
+                datas['Источник'].append(source)
+                datas['Url'].append(url_answer)
+                datas['Автор'].append(author)
                 datas['Оценка'].append(rating)
-
-                datas["Общий Url"].append(url)
-                datas["Кол-во отзывов"].append(485)
-                datas["Оценка компании до удаления"].append(4.4)
+                datas['Общий Url'].append(url)
+                datas['Кол-во отзывов'].append(number_reviews)
+                datas['Оценка компании до удаления'].append(rating_before)
 
                 await append_data_to_sheet_scopes(service, ss_id, project, datas)
+                await asyncio.sleep(1)
+
+            page_num += 1
+
+    finally:
+        await close_playwright(p, browser, context, page)
 
 
-            if len_cards < 40:
-                break
+async def get_feedback_irec(url, proxy_on, proxy_type):
+    print('>>> Get feedback')
+    html = await get_playwright_irec(url, proxy=proxy_on, proxy_type=proxy_type)
+    soup = await get_soup_bs4(html, only_pars=True)
 
-async def pars_irec(service, url, ss_id, project, rating_max):
-    async def get_feedback(link):
-        print(f'Link2 = {link}')
-        soup_2 = await get_soup(link)
+    # Если суп не сварился (Cloudflare заблокировал запрос и вернул 521/403)
+    if not soup:
+        print(f"Ошибка загрузки страницы (возможно блокировка): {url}")
+        return ""
 
-        review_text, has_op_response, op_response_date = "", "Нет", ""
+    # 1. Цепляемся за главный уникальный блок отзыва, как вы и предложили
+    main_review_block = soup.find(attrs={"itemprop": "review"})
 
-        # Защита на случай, если описание отзыва отсутствует или имеет другую верстку
-        review_elem = soup_2.select_one('div.description.hasinlineimage')
+    # Если блок не найден (например, удалили отзыв или выдало капчу)
+    if not main_review_block:
+        print(f"Блок отзыва не найден на странице: {url}")
+        return ""
 
-        if review_elem:
-            # 1. Удаляем блоки с картинками и их подписями, чтобы они не сливались с текстом
-            # На irecommend подписи обычно живут в span.image-title или внутри .inline-image/div.image-box
-            for garbage in review_elem.select('span.image-title, div.image-box, script, style'):
-                garbage.extract()
+    # 2. Ищем основной текст ВНУТРИ главного блока
+    review_text = ""
+    body_elem = main_review_block.find(attrs={"itemprop": "reviewBody"})
 
-            # 2. Извлекаем чистый текст, разделяя абзацы правильными переносами строк
-            raw_text = review_elem.get_text(separator="\n")
+    if body_elem:
+        # Удаляем мусорные блоки с картинками, чтобы их скрытый текст не попал в результат
+        for img in body_elem.find_all('div', class_='inline-image'):
+            img.extract()
 
-            # 3. Универсальная очистка строк (убираем неразрывные пробелы \xa0 и пробелы по краям)
-            cleaned_lines = []
-            for line in raw_text.splitlines():
-                clean_line = line.replace("\xa0", " ").strip()
-                if clean_line:
-                    cleaned_lines.append(clean_line)
+        # Извлекаем текст, заменяя теги <br> и <p> на переносы строк
+        review_text = body_elem.get_text(separator='\n', strip=True)
 
-            # 4. Собираем текст обратно, разделяя абзацы строго одной пустой строкой
-            review_text = "\n\n".join(cleaned_lines)
+    # 3. Ищем достоинства (плюсы) ВНУТРИ главного блока
+    pros_text = ""
+    pros_elem = main_review_block.find(attrs={"itemprop": "positiveNotes"})
+    if pros_elem:
+        pros = [item.get_text(strip=True) for item in pros_elem.find_all(attrs={"itemprop": "name"})]
+        pros_text = ", ".join(pros)
 
-            # Дополнительная страховка от множественных переносов
-            review_text = re.sub(r'\n{3,}', '\n\n', review_text)
+    # 4. Ищем недостатки (минусы) ВНУТРИ главного блока
+    cons_text = ""
+    cons_elem = main_review_block.find(attrs={"itemprop": "negativeNotes"})
+    if cons_elem:
+        cons = [item.get_text(strip=True) for item in cons_elem.find_all(attrs={"itemprop": "name"})]
+        cons_text = ", ".join(cons)
 
-        cards = soup_2.select('div[id*="cmntreply-"][class*="cmntreply-"]')
+    # 5. Собираем всё в красивый единый текст
+    final_parts = []
 
-        for card in cards:
-            href_elem = card.select_one('a[class="username"]')
-            if not href_elem:
-                continue  # Пропускаем карточку, если в ней нет ссылки на автора
+    if review_text:
+        final_parts.append(review_text)
 
-            href = href_elem.get("href")
-            if href == "/users/alfa-bank":
-                has_op_response = "Да"
+    if pros_text:
+        final_parts.append(f"Достоинства:\n{pros_text}")
 
-                # ИСПОЛЬЗУЕМ БОЛЕЕ ГИБКИЙ СЕЛЕКТОР (через точки для классов)
-                # И проверяем существование элемента перед вызовом .text
-                date_elem = card.select_one("span.timeago.timeago-processed")
+    if cons_text:
+        final_parts.append(f"Недостатки:\n{cons_text}")
 
-                if date_elem:
-                    op_response_date = date_elem.text.strip()
-                else:
-                    # Альтернативный вариант: иногда дата лежит в атрибуте title или data-time
-                    # Попробуем поискать просто любой тег с классом timeago внутри этой карточки
-                    alt_date_elem = card.select_one(".timeago")
-                    op_response_date = (
-                        alt_date_elem.text.strip() if alt_date_elem else "Дата не найдена"
-                    )
+    # Склеиваем всё с двойным отступом для красоты
+    return "\n\n".join(final_parts)
 
-                break  # Нашли нужный ответ — выходим из цикла
 
-        return review_text, has_op_response, op_response_date
-
-    async def get_author_datas(link):
-        soup_3 = await get_soup(link)
-
-        script_tag = soup_3.find("script", type="application/ld+json")
-        data = json.loads(script_tag.string)
-
-        # 3. Достаем точную строку с датой создания
-        date_created_str = data.get("dateCreated")  # '2013-08-25T10:29:39+03:00'
-        # 4. Обрезаем строку до самой даты (первые 10 символов: '2013-08-25')
-        raw_date = date_created_str[:10]
-        # 5. Превращаем её в объект datetime и форматируем в dd.mm.yyyy
-        date_obj = datetime.strptime(raw_date, "%Y-%m-%d")
-        reg_date = date_obj.strftime("%d.%m.%Y")
-
-        author_reviews_count = data["mainEntity"]['agentInteractionStatistic']['userInteractionCount']
-
-        return reg_date, author_reviews_count
+async def pars_irec(service, url, ss_id, project, rating_max, links):
+    """Парсер irecommend.ru (Playwright + bs4)."""
+    proxy_on_irec = False
+    proxy_type = 'mobile'
 
     source = 'irecommend.ru'
-    link = url + f'?ft[r]=0'
-    soup = await get_soup(link)
-    blocks = soup.select('li[class^="item"]')
-    len_b = len(blocks)
-    print(len_b)
 
-    number_reviews = soup.select_one('span[class="count"][itemprop="reviewCount"]').text
-    rating_before = soup.select_one('span[class="rating"][itemprop="ratingValue"]').text
+    site_page = 1
 
-    for block in blocks:
-        review_link = "https://irecommend.ru" + block.select_one('a[class="reviewTextSnippet"]').get('href')
-        print(review_link)
+    while True:
+        link = url + f'?page={site_page}&ft[r]=0'  # Только отрицательные
+        print(f'\n******************* {site_page} ********************')
 
-        if review_link in links:
-            continue
+        html = await get_playwright_irec(link, proxy=proxy_on_irec, proxy_type=proxy_type)
+        soup = await get_soup_bs4(html, only_pars=True)
 
-        formatted_date = block.select_one('div[class="created"]').text
-        print(formatted_date)
+        if not soup:
+            print(f"Error: Could not retrieve soup for {link}")
+            return
 
-        stars = block.select('div[class="on"]')
-        rating = len(stars)
-        print(rating)
+        blocks = soup.select('li[class^="item"]')
+        len_b = len(blocks)
+        print(f'Blocks = {len_b}')
 
-        if rating_max < rating:
-            continue
+        num_elem = soup.select_one('span.count[itemprop="reviewCount"]')
+        number_reviews = num_elem.text.strip() if num_elem else "0"
 
-        mini_block = block.select_one('div[class="authorName"]')
-        author = mini_block.select_one('a').text
-        author_link = "https://irecommend.ru" + mini_block.select_one('a').get('href')
+        rating_elem = soup.select_one('span.rating[itemprop="ratingValue"]')
+        rating_before = rating_elem.text.strip() if rating_elem else "0.0"
 
-        print(author)
-        print(author_link)
+        for block in blocks:
+            link_elem = block.select_one('a.reviewTextSnippet')
+            if not link_elem:
+                continue
+            review_link = "https://irecommend.ru" + link_elem.get('href')
 
-        review_text, has_op_response, op_response_date = await get_feedback(review_link)
+            if review_link in links:
+                continue
 
-        datas = await empty_data()
+            date_elem = block.select_one('div.created')
+            formatted_date = date_elem.text.strip() if date_elem else ""
 
-        datas['Дата'].append(formatted_date)
-        datas['Текст'].append(review_text)
-        datas["Бренд"].append(project)
-        datas["Источник"].append(source)
+            stars = block.select('.starsRating .on')
+            rating = len(stars)
 
-        datas['Url'].append(review_link)
-        datas['Автор'].append(author)
-        datas['Оценка'].append(rating)
+            if rating_max < rating:
+                continue
 
-        datas["Общий Url"].append(url)
-        datas["Кол-во отзывов"].append(number_reviews)
-        datas["Оценка компании до удаления"].append(rating_before)
+            mini_block = block.select_one('div.authorName')
+            if not mini_block:
+                continue
 
-        await append_data_to_sheet_scopes(service, ss_id, project, datas)
-        await asyncio.sleep(5)
-        print(f'--- append {author}')
+            author_a = mini_block.select_one('a')
+            if not author_a:
+                continue
+
+            author = author_a.text.strip()
+            author_link = "https://irecommend.ru" + author_a.get('href')
+
+            review_text = await get_feedback_irec(review_link, proxy_on_irec, proxy_type)
+            print(f'Text: {review_text}')
+
+            datas = await empty_data()
+
+            datas['Дата'].append(formatted_date)
+            datas['Текст'].append(review_text)
+            datas["Бренд"].append(project)
+            datas["Источник"].append(source)
+
+            datas['Url'].append(review_link)
+            datas['Автор'].append(author)
+            datas['Оценка'].append(rating)
+
+            datas["Общий Url"].append(url)
+            datas["Кол-во отзывов"].append(number_reviews)
+            datas["Оценка компании до удаления"].append(rating_before)
+
+            await append_data_to_sheet_scopes(service, ss_id, project, datas)
+            await asyncio.sleep(5)
+            print(f'--- append {author}')
+
+        site_page += 1
+
+        if len_b < 50:
+            return
+
+
+async def pars_tripadvisor(service, url, ss_id, project, links, rating_max):
+    """Парсер tripadvisor.ru (Playwright)."""
+    source = 'tripadvisor.ru'
+    await _ensure_hpo()
+
+    number_reviews = None
+    rating_before = None
+
+    p = browser = context = page = None
+    try:
+        p, browser, context, page = await get_playwright(headless=headless, proxy=proxy_on,
+                                                         blocked_resource=False, stealth=True)
+
+        # Пагинация: tripadvisor использует -oN- в URL (N = смещение, страницы по 10)
+        for i in range(1, 55):
+            print(f"----------------page-{i}----------------------")
+
+            page_url = url
+            if i > 1 and 'Reviews' in url:
+                base = url.split('Reviews', 1)[0] + 'Reviews'
+                suffix = re.sub(r'-o\d+', '', url.split('Reviews', 1)[1])
+                page_url = f"{base}-o{(i - 1) * 10}{suffix}"
+
+            blocks = await blocks_tripadvisor(page, page_url)
+
+            if not blocks:
+                break
+
+            if i == 1:
+                # Число отзывов и рейтинг компании (опционально)
+                try:
+                    rc = page.locator('div[data-automation="bubbleReviewCount"]')
+                    if await rc.count() > 0:
+                        txt = (await rc.first.inner_text()).replace('\xa0', ' ')
+                        m = re.search(r'\d[\d\s]*', txt)
+                        if m:
+                            number_reviews = int(m.group(0).replace(' ', ''))
+                except Exception as ex:
+                    print(f'tripadvisor: number_reviews error: {ex}')
+
+                try:
+                    rv = page.locator('div[data-automation="bubbleRatingValue"]')
+                    if await rv.count() > 0:
+                        txt = (await rv.first.inner_text()).strip()
+                        m = re.search(r'\d+[.,]\d+', txt)
+                        if m:
+                            rating_before = float(m.group(0).replace(',', '.'))
+                except Exception as ex:
+                    print(f'tripadvisor: rating error: {ex}')
+
+            datas = await empty_data()
+
+            for block in blocks:
+                url_answer = block['url_answer']
+                if not url_answer or url_answer in links:
+                    continue
+
+                formatted_date = block['formatted_date']
+                feedback = block['feedback']
+                author = block['author']
+                rating = block['rating']
+
+                datas['Дата'].append(formatted_date)
+                datas['Текст'].append(feedback)
+                datas['Бренд'].append(project)
+                datas['Источник'].append(source)
+                datas['Url'].append(url_answer)
+                datas['Автор'].append(author)
+                datas['Оценка'].append(rating)
+                datas['Общий Url'].append(url)
+                datas['Кол-во отзывов'].append(number_reviews)
+                datas['Оценка компании до удаления'].append(rating_before)
+
+            await append_data_to_sheet_scopes(service, ss_id, project, datas)
+            await asyncio.sleep(3)
+
+    finally:
+        await close_playwright(p, browser, context, page)
+
+
+async def close_playwright(p=None, browser=None, context=None, page=None):
+    """Универсальная функция для корректного закрытия всех объектов Playwright.
+
+    Закрывает page -> context -> browser -> останавливает playwright.
+    Каждый шаг обёрнут в try/except, чтобы ошибка на одном этапе
+    не прерывала закрытие остальных.
+    """
+    try:
+        if page is not None:
+            await page.close()
+    except Exception:
+        pass
+    try:
+        if context is not None:
+            await context.close()
+    except Exception:
+        pass
+    try:
+        if browser is not None:
+            await browser.close()
+    except Exception:
+        pass
+    try:
+        if p is not None:
+            await p.stop()
+    except Exception:
+        pass
+
+
+async def pars_otzovik(service, url, ss_id, project, ratio, links):
+    """Парсер otzovik.com (Playwright)."""
+    proxy_on_otz = False
+    await _ensure_hpo()
+
+    p = browser = context = page = None
+    p_2 = browser_2 = context_2 = page_2 = None
+    try:
+        p, browser, context, page = await get_playwright(headless=headless,
+                                                         proxy=proxy_on_otz,
+                                                         proxy_type='ru',
+                                                         stealth=True,
+                                                         blocked_resource=False)
+
+        p_2, browser_2, context_2, page_2 = await get_playwright(headless=headless,
+                                                                 proxy=proxy_on_otz,
+                                                                 proxy_type='ru',
+                                                                 stealth=True,
+                                                                 blocked_resource=False)
+
+        source = 'otzovik.com'
+
+        for rt in range(1, ratio + 1):
+            st_page = 1
+            print(f'[otzovik] Начинаем рейтинг={rt}, страница={st_page}')
+            while True:
+                url_full = f'{url}{st_page}/?ratio={rt}'
+                print(f'[otzovik] Переход: {url_full}')
+
+                await page.goto(url_full)
+                status = await check_captcha(page)
+
+                # Собираем ВСЕ карточки отзывов — класс statusN динамический,
+                # поэтому выбираем только по общим признакам: div.item.mshow0
+                review_cards = await page.query_selector_all('div.item.mshow0')
+                len_cards = len(review_cards)
+                print(f'[otzovik] ratio={rt}, страница={st_page}: найдено карточек = {len_cards}')
+
+                for card in review_cards:
+                    # --- Сбор данных с основной страницы (page) ---
+                    # Дата отзыва
+                    date_el = await card.query_selector('.review-postdate span')
+                    date_str = await date_el.inner_text() if date_el else None
+                    formatted_date = await date_convert(date_str)
+
+                    # Оценка
+                    rating_el = await card.query_selector('.rating-score span')
+                    rating = await rating_el.inner_text() if rating_el else None
+
+                    if rating is None:
+                        print(f'[otzovik] Пропуск карточки — оценка не найдена')
+                        continue
+
+                    if int(rating) > int(ratio):
+                        continue
+
+                    # Ссылка на отзыв
+                    link_el = await card.query_selector('a.review-title')
+                    review_link = ""
+                    if link_el:
+                        review_link = "https://otzovik.com" + await link_el.get_attribute('href')
+
+                    if review_link in links:
+                        continue
+
+                    # Автор и ссылка на автора
+                    author_el = await card.query_selector('a.user-login')
+                    author_name = ""
+                    if author_el:
+                        author_name = (await author_el.inner_text()).strip()
+
+                    feedback = await get_feedback(page_2, review_link)
+
+                    datas = await empty_data()
+
+                    datas['Дата'].append(formatted_date)
+                    datas['Текст'].append(feedback)
+                    datas["Бренд"].append(project)
+                    datas["Источник"].append(source)
+
+                    datas['Url'].append(review_link)
+                    datas['Автор'].append(author_name)
+                    datas['Оценка'].append(rating)
+
+                    datas["Общий Url"].append(url)
+                    datas["Кол-во отзывов"].append(485)
+                    datas["Оценка компании до удаления"].append(4.4)
+
+                    await append_data_to_sheet_scopes(service, ss_id, project, datas)
+
+                print(f'[otzovik] Страница {st_page} обработана. Карточек: {len_cards}. '
+                      f'{"Последняя страница — выход." if len_cards < 40 else "Переходим дальше."}')
+
+                if len_cards < 40:
+                    break
+
+                st_page += 1
+
+    finally:
+        await close_playwright(p, browser, context, page)
+        await close_playwright(p_2, browser_2, context_2, page_2)
+
+
+async def pars_pravda(service, url, ss_id, project, links):
+    """Парсер pravda-sotrudnikov.ru (bs4)."""
+    source = 'pravda-sotrudnikov.ru'
+    rating = None
+
+    soup = await get_soup(url, proxy=False)
+
+    number_reviews = soup.find('span', {'class': 'company-reviews-title-quantity'}).text
+    print(number_reviews)
+
+    rating_before = soup.find('div', {'class': 'company-info-contacts-row'}).find(
+        'span', {'class': "rating-autostars"}).get('data-rating')
+    print(rating_before)
+
+    last_page = 1
+    li = soup.find_all('li')
+    for l in li:
+        txt = l.text
+        if txt.isdigit():
+            last_page = int(txt)
+
+    print(f'Last page: {last_page}')
+
+    for i in range(last_page):
+        url_page = url + f'?page={i + 1}'
+        print(url_page)
+
+        blocks = await blocks_pravda(url_page)
+        print(f'LenB: {len(blocks)}')
+
+        if len(blocks) > 0:
+            for block in blocks:
+
+                yellow_button = block.find('a', class_='btn btn-yellow show-answers-button')
+                url_answer = 'https://pravda-sotrudnikov.ru' + yellow_button.get('href')
+                if url_answer in links:
+                    continue
+
+                date_str = block.find('div', class_='company-reviews-list-item-date').text.strip()
+                date = datetime.strptime(date_str, "%H:%M %d.%m.%Y")
+                formatted_date = date.strftime("%d.%m.%Y")
+
+                author = block.find('div', class_='company-reviews-list-item-name').text
+                author = " ".join(author.split())
+
+                text = block.find('div', {'class': 'row'}).text
+                feedback = "\n".join(line.strip() for line in text.splitlines() if line.strip())
+
+                datas = await empty_data()
+
+                datas['Дата'].append(formatted_date)
+                datas['Текст'].append(feedback)
+                datas['Бренд'].append(project)
+                datas['Источник'].append(source)
+                datas['Url'].append(url_answer)
+                datas['Автор'].append(author)
+                datas['Оценка'].append(rating)
+                datas['Общий Url'].append(url)
+                datas['Кол-во отзывов'].append(number_reviews)
+                datas['Оценка компании до удаления'].append(rating_before)
+
+                await append_data_to_sheet_scopes(service, ss_id, project, datas)
+                await asyncio.sleep(1)
+
 
 async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
     source = "yandex.ru/maps"
@@ -1331,7 +1026,7 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
     await asyncio.sleep(3)
 
     if 'showcaptcha' in full_url:
-        input('Next...')
+        print('YA: captcha detected, reload...')
         await page.reload()
         current_url = page.url
         url = await get_base_url(current_url)
@@ -1552,17 +1247,446 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
         "items_written": total_written,
     }
 
-async def pars_ya_maps(service, url, ss_id, project, links, rating_max):
+
+async def _blocks_ya_maps_fetch_reviews(service, url, ss_id, project, links, rating_max,
+                                        ranking='by_rating_asc', max_pages=None):
     """
-    Yandex Maps парсинг через Playwright.
+    Парсинг отзывов Яндекс.Карт (org-страницы) через внутренний API fetchReviews.
+
+    Страница сама вызывает fetchReviews при смене сортировки — перехватываем
+    ответы через Playwright (токены csrf/s генерирует фронтенд, без браузера
+    запросы отклоняются).
+
+    :param ranking: сортировка:
+        'by_time' — сначала новые («По новизне»);
+        'by_rating_asc' — сначала низкие оценки («Сначала низкие»);
+        'by_rating_desc' — сначала высокие («Сначала высокие»).
+    :param max_pages: сколько страниц отзывов собрать (None — все, что догрузит скролл).
+        Для частых запусков (несколько раз в день) достаточно max_pages=1.
+    """
+    source = "yandex.ru/maps"
+
+    SORT_LABELS = {
+        'by_time': 'По новизне',
+        'by_rating_asc': 'Сначала низкие',
+        'by_rating_desc': 'Сначала высокие',
+    }
+
+    label = SORT_LABELS.get(ranking)
+    if not label:
+        print(f'YA fetchReviews: сортировка {ranking!r} не поддерживается')
+        return {}
+
+    p = browser = context = page = None
+    try:
+        p, browser, context, page = await get_playwright(headless=headless, proxy=proxy_on,
+                                                         blocked_resource=False, stealth=True)
+
+        api_responses = []
+
+        def on_response(resp):
+            if 'fetchReviews' in resp.url and f'ranking={ranking}' in resp.url:
+                api_responses.append(resp)
+
+        page.on('response', on_response)
+
+        try:
+            await page.goto(url, wait_until='domcontentloaded', timeout=120_000)
+        except Exception as ex:
+            print(f'YA fetchReviews: goto error: {ex}')
+            return {}
+        await asyncio.sleep(6)
+
+        # Смена сортировки (по умолчанию страница открывается с сортировкой «По умолчанию»)
+        try:
+            sort_btn = page.get_by_text('По умолчанию', exact=False).first
+            await sort_btn.click(timeout=6000)
+            await asyncio.sleep(1.5)
+            item = page.get_by_text(label, exact=True).first
+            await item.click(timeout=6000)
+            print(f'YA fetchReviews: сортировка -> {label}')
+        except Exception as ex:
+            print(f'YA fetchReviews: не удалось сменить сортировку: {ex}')
+            return {}
+
+        async def collect():
+            """Достаёт отзывы из перехваченных ответов fetchReviews."""
+            out, seen = [], set()
+            total = 0
+            for resp in api_responses:
+                try:
+                    data = await resp.json()
+                except Exception:
+                    continue
+                params = (data.get('data') or {}).get('params') or {}
+                total = max(total, params.get('count', 0) or 0)
+                for rev in (data.get('data') or {}).get('reviews') or []:
+                    rid = rev.get('reviewId')
+                    if rid and rid not in seen:
+                        seen.add(rid)
+                        out.append(rev)
+            return out, total
+
+        await asyncio.sleep(4)
+        reviews, total_count = await collect()
+
+        # Догрузка следующих страниц скроллом (если запрошено)
+        pages_left = (max_pages - 1) if max_pages is not None else None
+        while pages_left is None or pages_left > 0:
+            before = len(reviews)
+            await page.mouse.wheel(0, 8000)
+            await asyncio.sleep(2.5)
+            reviews, total_count = await collect()
+            if len(reviews) == before:
+                break
+            if pages_left is not None:
+                pages_left -= 1
+
+        if not reviews:
+            print('YA fetchReviews: отзывы не получены')
+            return {}
+
+        print(f'YA fetchReviews: собрано отзывов = {len(reviews)}, всего у компании = {total_count}')
+
+        # Рейтинг компании со страницы (опционально)
+        company_rating = None
+        try:
+            els = page.locator('span.business-summary-rating-badge-view__rating-text')
+            n = await els.count()
+            if n:
+                parts = []
+                for i in range(min(n, 4)):
+                    txt = await els.nth(i).inner_text()
+                    parts.append(txt.strip())
+                joined = ''.join(parts)
+                m = re.search(r'\d+[.,]\d+', joined)
+                if m:
+                    company_rating = float(m.group(0).replace(',', '.'))
+                else:
+                    m2 = re.search(r'\d+', joined)
+                    if m2:
+                        company_rating = float(m2.group(0))
+        except Exception as ex:
+            print(f'YA fetchReviews: rating error: {ex}')
+
+        # ---------------------------------------------------------------------
+        # ДЕДУП ПО УЖЕ СУЩЕСТВУЮЩИМ ДАННЫМ В ТАБЛИЦЕ (если передан ss_id)
+        # ---------------------------------------------------------------------
+        existing_urls: set[str] = set()
+        existing_rows: set[str] = set()
+        if ss_id is not None:
+            try:
+                df_existing = await read_table_id(service, ss_id, project)
+                if df_existing is not None and not df_existing.empty:
+                    for col in ("Url", "URL", "url"):
+                        if col in df_existing.columns:
+                            existing_urls.update(
+                                u for u in df_existing[col].astype(str).tolist()
+                                if u and u != "nan"
+                            )
+                            break
+
+                    need_cols = ("Дата", "Автор", "Текст", "Оценка")
+                    if all(c in df_existing.columns for c in need_cols):
+                        for _, r in df_existing[list(need_cols)].iterrows():
+                            d = "" if pd.isna(r["Дата"]) else str(r["Дата"])
+                            a = "" if pd.isna(r["Автор"]) else str(r["Автор"])
+                            t = "" if pd.isna(r["Текст"]) else str(r["Текст"])
+                            o = "" if pd.isna(r["Оценка"]) else str(r["Оценка"])
+                            existing_rows.add(f"{d}|{a}|{t}|{o}")
+            except Exception as ex:
+                print(f"YA fetchReviews: could not read existing sheet for dedup: {ex}")
+
+        links_set = set(links or [])
+        links_set.update(existing_urls)
+        seen_rows = set(existing_rows)
+
+        base_url = await get_base_url(url)
+        datas = await empty_data()
+
+        for rev in reviews:
+            rating = rev.get('rating')
+            if rating is None or (rating_max and rating > rating_max):
+                continue
+
+            rid = rev.get('reviewId')
+            review_link = f"{base_url}?reviews%5BpublicId%5D={rid}&utm_source=review"
+            if review_link in links_set:
+                continue
+            links_set.add(review_link)
+
+            feedback = rev.get('text') or ''
+            author = (rev.get('author') or {}).get('name') or ''
+
+            formatted_date = ""
+            ts = rev.get('updatedTime')
+            if ts:
+                try:
+                    dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S.%fZ")
+                    formatted_date = dt.strftime("%d.%m.%Y")
+                except Exception:
+                    pass
+
+            row_id = f"{formatted_date}|{author}|{feedback}|{rating}"
+            if row_id in seen_rows:
+                continue
+            seen_rows.add(row_id)
+
+            datas['Дата'].append(formatted_date)
+            datas['Текст'].append(feedback)
+            datas['Бренд'].append(project)
+            datas['Источник'].append(source)
+            datas['Url'].append(review_link)
+            datas['Автор'].append(author)
+            datas['Оценка'].append(rating)
+            datas['Общий Url'].append(base_url)
+            datas['Кол-во отзывов'].append(total_count)
+            datas['Оценка компании до удаления'].append(company_rating if company_rating is not None else '')
+
+        if datas['Url']:
+            if ss_id is not None:
+                await append_data_to_sheet_scopes(service, ss_id, project, datas)
+                print(f"YA fetchReviews: wrote {len(datas['Url'])} rows")
+                try:
+                    links.extend([u for u in datas['Url'] if u])
+                except Exception:
+                    pass
+            else:
+                print(f"YA fetchReviews: ss_id не задан — запись пропущена, строк: {len(datas['Url'])}")
+        else:
+            print("YA fetchReviews: nothing new to write")
+
+        return {
+            "rating_score": company_rating,
+            "review_count": total_count,
+            "items_written": len(datas['Url']),
+            "datas": datas,
+        }
+
+    finally:
+        await close_playwright(p, browser, context, page)
+
+
+async def blocks_ya_reviews_api(service, url, ss_id, project, links, rating_max, ranking='by_rating_asc', max_pages=None):
+    """
+    Парсинг отзывов Яндекс (универсальная функция).
+
+    - reviews.yandex.ru — скрытый API digest (без Playwright);
+    - org-страницы Яндекс.Карт (yandex.ru/maps/org/...) — внутренний API fetchReviews
+      через Playwright (перехват ответов при смене сортировки).
+
+    :param ranking: сортировка:
+        'by_rating_asc' — сначала отрицательные/низкие оценки;
+        'by_time' — сначала свежие.
+    :param max_pages: ограничение числа загружаемых страниц (None — все).
+        Для частых запусков (несколько раз в день) достаточно max_pages=1.
+
+    Если ss_id=None — запись в Google-таблицу и дедупликация пропускаются,
+    функция только возвращает собранные данные.
+    """
+    if '/maps/org/' in url:
+        return await _blocks_ya_maps_fetch_reviews(service, url, ss_id, project, links, rating_max,
+                                                   ranking=ranking, max_pages=max_pages)
+
+    from urllib.parse import quote
+    source = "reviews.yandex.ru"
+
+    try:
+        # 1. HTML страницы: objectId + рейтинг компании
+        html = await get_soup_curl_cffi(url, dict_type=False, proxy=False)
+        if html is None:
+            print(f"YA reviews: не удалось загрузить страницу: {url}")
+            return {}
+
+        html_text = str(html)
+        m = re.search(r'"objectId":"([^"]+)"', html_text)
+        if not m:
+            print(f"YA reviews: objectId не найден на странице: {url}")
+            return {}
+        object_id = m.group(1)
+        otype = object_id.split('/')[1].capitalize() if '/' in object_id else 'Site'
+        print(f"YA reviews: objectId={object_id} otype={otype}")
+
+        # 2. Рейтинг компании из JSON-LD
+        rating_score = None
+        m_ld = re.search(r'<script type="application/ld\+json">(.*?)</script>', html_text, re.S)
+        if m_ld:
+            try:
+                ld = json.loads(m_ld.group(1))
+                rating_score = ld.get('aggregateRating', {}).get('ratingValue')
+            except Exception:
+                pass
+
+        # 3. Дедуп по уже существующим данным в таблице (если передан ss_id)
+        existing_urls: set[str] = set()
+        existing_rows: set[str] = set()
+        if ss_id is not None:
+            try:
+                df_existing = await read_table_id(service, ss_id, project)
+                if df_existing is not None and not df_existing.empty:
+                    for col in ("Url", "URL", "url"):
+                        if col in df_existing.columns:
+                            existing_urls.update(
+                                u for u in df_existing[col].astype(str).tolist()
+                                if u and u != "nan"
+                            )
+                            break
+
+                    need_cols = ("Дата", "Автор", "Текст", "Оценка")
+                    if all(c in df_existing.columns for c in need_cols):
+                        for _, r in df_existing[list(need_cols)].iterrows():
+                            d = "" if pd.isna(r["Дата"]) else str(r["Дата"])
+                            a = "" if pd.isna(r["Автор"]) else str(r["Автор"])
+                            t = "" if pd.isna(r["Текст"]) else str(r["Текст"])
+                            o = "" if pd.isna(r["Оценка"]) else str(r["Оценка"])
+                            existing_rows.add(f"{d}|{a}|{t}|{o}")
+            except Exception as ex:
+                print(f"YA reviews: could not read existing sheet for dedup: {ex}")
+
+        links_set = set(links or [])
+        links_set.update(existing_urls)
+        seen_rows = set(existing_rows)
+
+        datas = await empty_data()
+        review_count = 0
+        offset = 0
+        page_num = 0
+
+        while True:
+            page_num += 1
+            api_url = (
+                'https://reviews.yandex.ru/ugcpub/digest'
+                f'?notEscapeUserDisplayName=1'
+                f'&ranking={ranking}'
+                f'&fixTokens=true'
+                f'&add_my_review=true'
+                f'&objectId={quote(object_id)}&appId=vertical-object'
+                f'&offset={offset}'
+                f'&otype={otype}'
+                f'&limit=50'
+                f'&withNpsScore=1'
+                f'&reviewsTypeId=0'
+                f'&addComments=true'
+                f'&isSiteShop=1'
+                f'&ignore_filter_aspects_stats_by_tag=1'
+            )
+            r_json = await get_soup_curl_cffi(api_url, dict_type=True, proxy=False)
+            if not r_json:
+                print(f"YA reviews: API вернул пусто на offset={offset}")
+                break
+
+            review_count = r_json.get('pager', {}).get('totalCount', review_count)
+
+            page_reviews = [
+                v for v in r_json.get('view', {}).get('views', [])
+                if v.get('type') == '/ugc/review'
+            ]
+            if not page_reviews:
+                break
+
+            # Стоп по рейтингу имеет смысл только при сортировке по рейтингу
+            if ranking == 'by_rating_asc':
+                if all(v.get('rating', {}).get('val', 0) > rating_max for v in page_reviews):
+                    print(f"YA reviews: стоп на offset={offset} — все отзывы rating > {rating_max}")
+                    break
+
+            for item in page_reviews:
+                rating = item.get('rating', {}).get('val')
+                if rating is None or (rating_max and rating > rating_max):
+                    continue
+
+                feedback = item.get('text') or ''
+                author = item.get('author', {}).get('name') or ''
+                review_id = item.get('id') or 'NoLink'
+
+                formatted_date = ""
+                ts = item.get('time')
+                if ts:
+                    try:
+                        formatted_date = datetime.fromtimestamp(ts / 1000).strftime("%d.%m.%Y")
+                    except Exception:
+                        pass
+
+                row_id = f"{formatted_date}|{author}|{feedback}|{rating}"
+                if row_id in seen_rows:
+                    continue
+                seen_rows.add(row_id)
+
+                review_link = f"{url}?reviews%5BpublicId%5D={review_id}&utm_source=review"
+                if review_link in links_set:
+                    continue
+
+                links_set.add(review_link)
+                datas['Дата'].append(formatted_date)
+                datas['Текст'].append(feedback)
+                datas['Бренд'].append(project)
+                datas['Источник'].append(source)
+                datas['Url'].append(review_link)
+                datas['Автор'].append(author)
+                datas['Оценка'].append(rating)
+                datas['Общий Url'].append(url)
+                datas['Кол-во отзывов'].append(review_count)
+                datas['Оценка компании до удаления'].append(rating_score)
+
+            if len(page_reviews) < 25:
+                break
+            offset += 25
+            if max_pages is not None and page_num >= max_pages:
+                print(f"YA reviews: достигнут лимит страниц max_pages={max_pages}")
+                break
+
+        if datas['Url']:
+            if ss_id is not None:
+                await append_data_to_sheet_scopes(service, ss_id, project, datas)
+                print(f"YA reviews: wrote {len(datas['Url'])} rows")
+                try:
+                    links.extend([u for u in datas['Url'] if u])
+                except Exception:
+                    pass
+            else:
+                print(f"YA reviews: ss_id не задан — запись пропущена, строк: {len(datas['Url'])}")
+        else:
+            print("YA reviews: nothing new to write")
+
+        return {
+            "rating_score": rating_score,
+            "review_count": review_count,
+            "items_written": len(datas['Url']),
+            "datas": datas,
+        }
+
+    except Exception as ex:
+        print(f"YA reviews: error: {ex}")
+        return {}
+
+
+async def pars_ya_maps(service, url, ss_id, project, links, rating_max, ranking='by_rating_asc', max_pages=None):
+    """
+    Yandex парсинг.
+
+    reviews.yandex.ru — через скрытый API digest (без Playwright).
+    yandex.ru/maps — через Playwright (legacy).
 
     `get_playwright` находится внутри `pars_ya_maps`, чтобы `multi_pars`
     не зависел от внешней переменной `page`.
     """
+    await _ensure_hpo()
+
+    if 'reviews.yandex.ru' in url:
+        return await blocks_ya_reviews_api(service, url, ss_id, project, links, rating_max,
+                                           ranking=ranking, max_pages=max_pages)
+
+    # org-страницы Яндекс.Карт: сначала API fetchReviews, при неудаче — legacy скролл
+    if '/maps/org/' in url:
+        result = await blocks_ya_reviews_api(service, url, ss_id, project, links, rating_max,
+                                             ranking=ranking, max_pages=max_pages)
+        if result:
+            return result
+        print('YA: fetchReviews не дал данных — fallback на legacy blocks_ya_maps')
+
     p = browser = context = page = None
     try:
         p, browser, context, page = await get_playwright(headless=headless,
-                                                         proxy_type='ru',
                                                          blocked_resource=False)
         await blocks_ya_maps(service, page, url, ss_id, project, links, rating_max)
         return 'OK!'
@@ -1581,299 +1705,22 @@ async def pars_ya_maps(service, url, ss_id, project, links, rating_max):
             pass
 
 
-async def pars_ya_maps_legacy(service, ss_id, project, links, rating_max):
-    source = "yandex.ru/maps"
-
-    org_id = await get_id_org(start_url)
-
-    # if not org_id:
-    #     driver.get(start_url)
-    #     await asyncio.sleep(5)
-    #     current_url = driver.current_url
-    #     print(current_url)
-    #     org_id = await get_id_org(current_url)
-    #
-    # url = f'https://yandex.kz/maps/org/{org_id}/reviews'
-    # print(url)
-    # driver.get(url)
-    # await asyncio.sleep(5)
-    #
-    # n = 0
-    # while True:
-    #     try:
-    #         reviews_element = driver.find_element(By.CSS_SELECTOR, 'h2[class="card-section-header__title _wide"]')
-    #         reviews_text = reviews_element.text
-    #         number_reviews = int(reviews_text.split(" ")[0])
-    #         print(f"--- 1 {number_reviews}")
-    #         break
-    #
-    #     except:
-    #         try:
-    #             reviews_element = driver.find_element(By.CSS_SELECTOR,
-    #                                                   'h2[class="card-section-header__title"]')
-    #             reviews_text = reviews_element.text
-    #             number_reviews = int(reviews_text.split(" ")[0])
-    #             print(f"--- 2 {number_reviews}")
-    #             break
-    #
-    #         except Exception as Ex:
-    #             print(f'3 Error: {Ex}')
-    #             await asyncio.sleep(2)
-    #
-    #             n += 1
-    #
-    #             if n > 10:
-    #                 return
-    #
-    # try:
-    #     rating_befores = driver.find_elements(By.CSS_SELECTOR,
-    #                                          'span.business-summary-rating-badge-view__rating-text')
-    #
-    #     rating_before = float(rating_befores[0].text + '.' + rating_befores[2].text)
-    #
-    # except:
-    #     rating_before = None
-    #
-    # input()
-    #
-    # while True:
-    #     blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="business-reviews-card-view__review"]')
-    #     len_b = len(blocks)
-    #     try:
-    #         blocks[-1].click()
-    #     except:
-    #         pass
-    #
-    #     mores = driver.find_elements(By.CSS_SELECTOR, 'span.business-review-view__expand')
-    #     for more in mores:
-    #         try:
-    #             more.click()
-    #         except:
-    #             pass
-    #
-    #     print("V Скрол вниз:", len_b)
-    #     driver.execute_script("window.scrollBy(0, 500);")
-    #
-    #     await asyncio.sleep(3)
-    #
-    #     if len_b >= number_reviews:
-    #         break
-
-
-
-    datas = await  empty_data()
-    for k, block in enumerate(blocks):
-        print(k)
-        date_content = block.find_element(By.CSS_SELECTOR, 'span[class="business-review-view__date"]').find_element(By.CSS_SELECTOR, 'meta[itemprop="datePublished"]').get_attribute('content')
-        dt_object = datetime.strptime(date_content, "%Y-%m-%dT%H:%M:%S.%f%z")
-        formatted_date = dt_object.strftime("%d.%m.%Y")
-        #print(formatted_date)
-
-        try:
-            spoiler = block.find_element(By.CSS_SELECTOR, 'span[class="spoiler-view__button"]')
-            spoiler.click()
-            print('-> Click spoiler')
-            await asyncio.sleep(2)
-
-        except Exception as Ex:
-            feedback = block.find_element(By.CSS_SELECTOR, 'span[class=" spoiler-view__text-container"]').text
-            print(f'- Нет спойлера\n{feedback}')
-
-        feedback = block.find_element(By.CSS_SELECTOR, 'span[class=" spoiler-view__text-container"]').text
-
-        # if feedback in texts:
-        #     continue
-
-        try:
-            url_author = block.find_element(By.CSS_SELECTOR,
-                                            'a[class="business-review-view__user-icon"]').get_attribute("href")
-            url_author_split = url_author.split('/')[-1]
-            url_answer = f'https://yandex.md/maps/org/{org_id}/reviews?reviews%5BpublicId%5D={url_author_split}&utm_source=review'
-
-            if url_answer in links:
-                continue
-        except:
-            url_answer = ''
-
-        try:
-            author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
-        except:
-            author = block.find_element(By.CSS_SELECTOR, 'span[dir="auto"]').text
-
-        star_full = block.find_elements(By.CSS_SELECTOR,
-                                        'span[class="inline-image _loaded icon business-rating-badge-view__star _full"]')
-        rating = len(star_full)
-
-        if rating > rating_max:
-            continue
-
-        datas['Дата'].append(formatted_date)
-        datas['Текст'].append(feedback)
-        datas['Бренд'].append(project)
-        datas['Источник'].append(source)
-        datas['Url'].append(url_answer)
-        datas['Автор'].append(author)
-        datas['Оценка'].append(rating)
-        datas['Общий Url'].append(url)
-        datas['Кол-во отзывов'].append(number_reviews)
-        datas['Оценка компании до удаления'].append(rating_before)
-
-    await append_data_to_sheet_scopes(service, ss_id, project, datas)
-
-async def pars_tripadvisor(service, driver, url, ss_id, project, links, rating_max):
-    soup = await get_soup(url)
-
-    print(soup)
-
-    source = 'tripadvisor.ru'
-
-    driver.get(url)
-
-    await asyncio.sleep(10)
-
-    try:
-        number_reviews = driver.find_element(By.CSS_SELECTOR, 'div[class][data-automation="bubbleRatingValue"]').text
-    except:
-        number_reviews = driver.find_element(By.CSS_SELECTOR, 'div[class][data-automation="bubbleReviewCount"]').text
-
-    rating_before = driver.find_element(By.CSS_SELECTOR, 'div[clas"biGQs _P SewaP WupKi"]').text
-
-    for i in range(1, 55):
-        print(f"----------------page-{i}----------------------")
-
-        # offset = f'r{str((i - 1) * 10)}'
-        # url = f'https://www.tripadvisor.ru/Attraction_Review-g298484-d8514577-Reviews-o{offset}-Moskvarium-Moscow_Central_Russia.html'
-
-        blocks = await blocks_tripadvisor_sel(driver, url)
-
-        print(blocks)
-        print(len(blocks))
-        #await asyncio.sleep(10)
-
-        datas = await  empty_data()
-
-        for block in blocks:
-            url_answer = block['url_answer']
-            if url_answer in links:
-                continue
-
-            formatted_date = block['formatted_date']
-            feedback = block['feedback']
-
-            author = block['author']
-            rating = block['rating']
-
-            datas['Дата'].append(formatted_date)
-            datas['Текст'].append(feedback)
-            datas['Бренд'].append(project)
-            datas['Источник'].append(source)
-            datas['Url'].append(url_answer)
-            datas['Автор'].append(author)
-            datas['Оценка'].append(rating)
-            datas['Общий Url'].append(url)
-            datas['Кол-во отзывов'].append(number_reviews)
-            datas['Оценка компании до удаления'].append(rating_before)
-
-            #await asyncio.sleep(1)
-
-        await append_data_to_sheet_scopes(service, ss_id, project, datas)
-        await asyncio.sleep(3)
-
-async def pars_pravda(service, url, ss_id, project, links):
-    source = 'pravda-sotrudnikov.ru'
-    rating = None
-
-    soup = await get_soup(url, proxy=False)
-
-    number_reviews = soup.find('span', {'class': 'company-reviews-title-quantity'}).text
-    print(number_reviews)
-
-    rating_before = soup.find('div', {'class': 'company-info-contacts-row'}).find('span', {'class': "rating-autostars"}).get('data-rating')
-    print(rating_before)
-
-    last_page = 1
-    li = soup.find_all('li')
-    for l in li:
-        txt = l.text
-        if txt.isdigit():
-            last_page = int(txt)
-
-    print(f'Last page: {last_page}')
-
-    for i in range(last_page):
-        url_page = url + f'?page={i+1}'
-        print(url_page)
-
-        blocks = await blocks_pravda(url_page)
-        print(f'LenB: {len(blocks)}')
-
-        if len(blocks) > 0:
-            for block in blocks:
-
-                yellow_button = block.find('a', class_='btn btn-yellow show-answers-button')
-                url_answer = 'https://pravda-sotrudnikov.ru' + yellow_button.get('href')
-                if url_answer in links:
-                    continue
-
-                date_str = block.find('div', class_='company-reviews-list-item-date').text.strip()
-                date = datetime.strptime(date_str, "%H:%M %d.%m.%Y")
-                formatted_date = date.strftime("%d.%m.%Y")
-
-                author = block.find('div', class_='company-reviews-list-item-name').text
-                #author = "\n".join(line.strip() for line in author.splitlines() if line.strip())
-                author = " ".join(author.split())
-
-                text = block.find('div', {'class': 'row'}).text
-                feedback = "\n".join(line.strip() for line in text.splitlines() if line.strip())
-
-                datas = await  empty_data()
-
-                datas['Дата'].append(formatted_date)
-                datas['Текст'].append(feedback)
-                datas['Бренд'].append(project)
-                datas['Источник'].append(source)
-                datas['Url'].append(url_answer)
-                datas['Автор'].append(author)
-                datas['Оценка'].append(rating)
-                datas['Общий Url'].append(url)
-                datas['Кол-во отзывов'].append(number_reviews)
-                datas['Оценка компании до удаления'].append(rating_before)
-
-                await append_data_to_sheet_scopes(service, ss_id, project, datas)
-                await asyncio.sleep(1)
-
 async def multi_pars(ss_id, project):
+    """
+    Сбор отзывов по ссылкам из листа 'links' Google-таблицы.
+
+    Для каждого портала вызывается свой парсер, статус пишется
+    обратно в колонку 'status' ('OK!' или текст ошибки).
+    """
     service = await get_service()
 
     df = await read_table_id(service, ss_id, 'links')
     print(df)
 
     if df.empty:
-        pass
+        return
 
-    global links
     links = await get_links(service, ss_id, project)
-
-    start_page = 0
-
-    #driver = await get_selenium_proxy(headless=False, proxy=False)
-    #driver2 = await get_selenium_proxy(headless=False, proxy=False)
-
-    # n = 0
-    # while True:
-    #     try:
-    #         p, browser, context, page = await get_playwright(headless=False, proxy=None)
-    #         break
-    #
-    #     except Exception as Ex:
-    #         print(f'Error PW: {Ex}')
-    #         n += 1
-    #         await asyncio.sleep(3)
-    #
-    #     if n == 5:
-    #         return {}
-    #
-    #     print(n)
 
     for k, row in df.iterrows():
         status = row['status']
@@ -1888,77 +1735,69 @@ async def multi_pars(ss_id, project):
         except:
             last_page = 0
 
-        if 'otzovik' in url:
-            await pars_otzovik(service, url, ss_id, project, rating_max)
-            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
-            await asyncio.sleep(3)
+        try:
+            if 'otzovik' in url:
+                await pars_otzovik(service, url, ss_id, project, rating_max, links)
+                result = 'OK!'
 
-        elif '2gis' in url:
-            await pars_2gis(service, url, ss_id, project, links, rating_max)
-            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
-            await asyncio.sleep(3)
+            elif '2gis' in url:
+                await pars_2gis(service, url, ss_id, project, links, rating_max)
+                result = 'OK!'
 
-        elif 'yandex' in url:
-            await pars_ya_maps(service, url, ss_id, project, links, rating_max)
-            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
-            await asyncio.sleep(3)
+            elif 'yandex' in url:
+                await pars_ya_maps(service, url, ss_id, project, links, rating_max)
+                result = 'OK!'
 
-        elif 'zoon' in url:
-            await pars_zoon(service, driver, url, ss_id, project, links, rating_max)
-            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
-            await asyncio.sleep(3)
+            elif 'zoon' in url:
+                await pars_zoon(service, url, ss_id, project, links, rating_max)
+                result = 'OK!'
 
-        elif 'irecommend' in url:
-            await pars_irec(service, url, ss_id, project, rating_max)
-            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
-            await asyncio.sleep(3)
-        #
-        elif 'tripadvisor' in url:
-            await pars_tripadvisor(service, driver, url, ss_id, project, links, rating_max)
-            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
-            await asyncio.sleep(3)
+            elif 'irecommend' in url:
+                await pars_irec(service, url, ss_id, project, rating_max, links)
+                result = 'OK!'
 
-        elif 'pravda-sotrudnikov' in url:
-            await pars_pravda(service, url, ss_id, project, links)
-            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
-            await asyncio.sleep(3)
+            elif 'tripadvisor' in url:
+                await pars_tripadvisor(service, url, ss_id, project, links, rating_max)
+                result = 'OK!'
 
-        elif 'otzyvru' in url:
-            await pars_otzyvru(service, driver, url, ss_id, project, links, rating_max)
-            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
-            await asyncio.sleep(3)
-        #
-        elif 'dreamjob' in url:
-            await pars_dreamjob(service, url, ss_id, project, links, rating_max, k, last_page)
-            await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, 'OK!')
-            await asyncio.sleep(3)
+            elif 'pravda-sotrudnikov' in url:
+                await pars_pravda(service, url, ss_id, project, links)
+                result = 'OK!'
 
+            elif 'otzyvru' in url:
+                await pars_otzyvru(service, url, ss_id, project, links, rating_max)
+                result = 'OK!'
 
-    try:
-        driver.quit()
-        driver2.quit()
+            elif 'dreamjob' in url:
+                await pars_dreamjob(service, url, ss_id, project, links, rating_max, k, last_page)
+                result = 'OK!'
 
-    except:
-        pass
+            else:
+                print(f'Неизвестный портал: {url}')
+                result = f'Unknown portal: {url}'
 
-async def main():
-    ss_id = '1XQXUaQjeGpdiAJKfXcIDjo8CXz0bGYTcMnAvfVjfzJs'
-    project = 'ASO'
+        except Exception as Ex:
+            print(f'ERROR multi_pars ({url}): {Ex}')
+            result = f'ERROR: {Ex}'
 
-    #await multi_pars(ss_id, project)
-    await review_analysis(ss_id, project)
+        # Пишем статус: 'OK!' или текст ошибки (ошибочные строки будут переобработаны)
+        await append_data_to_sheet_cell(service, ss_id, 'links', 'status', k + 2, str(result)[:100])
+        await asyncio.sleep(3)
 
+if "__main__" == __name__:
+    from pprint import pprint
 
-    # await asyncio.gather(
-    #    review_analysis(ss_id, project),
-    #    multi_pars(ss_id, project)
-    # )
+    async def main():
+        service = await get_service()
+        ss_id = '1wBVKv14zcMLZawsT20JBt6FDxpzLDdppAJoFPgJ2La4'
+        project = 'test'
+        url = 'https://yandex.md/maps/org/avtomir_mazda/86615003593/reviews/?ll=37.679170%2C55.853506&z=16'
+        links = []
+        rating_max = 5
+        ranking = "by_time"   # самые свежие отзывы
+        max_pages = 1         # пагинация не нужна — запуск будет частым
 
-    #await total_grade_analysis(ss_id, project)
+        list_datas = await blocks_ya_reviews_api(service, url, ss_id, project, links, rating_max, ranking, max_pages)
+        pprint(list_datas)
 
-if __name__ == '__main__':
     asyncio.run(main())
-    print("OK!!!")
-
-
-

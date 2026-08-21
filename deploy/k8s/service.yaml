@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-contestation
+  labels:
+    app: ai-contestation
+spec:
+  selector:
+    app: ai-contestation
+  ports:
+    - port: 80
+      targetPort: http
+      name: http

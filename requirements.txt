@@ -3,7 +3,6 @@ requests~=2.31.0
 httpx~=0.27.0
 aiohttp~=3.9.1
 aiohttp_proxy==0.1.2
-cloudscraper==1.2.71
 curl_cffi==0.7.3
 
 # Data
@@ -16,29 +15,21 @@ google-api-python-client~=2.121.0
 SQLAlchemy~=2.0.31
 asyncpg>=0.28.0
 
-# Browser automation
+# Browser automation (Playwright — все парсеры)
 playwright
 playwright_stealth
 playwright_captcha
-selenium==4.25.0
-seleniumbase==4.31.6
-webdriver-manager==4.0.1
-pyvirtualdisplay==3.0
-fake-useragent~=1.5.1
 
 # Parsing
 beautifulsoup4==4.12.3
+fake-useragent~=1.5.1
 
 # Captcha
 2captcha-python==1.5.0
 
-# Telegram / YouTube
-pyrogram==2.0.106
-tgcrypto==1.2.5
-youtube-comment-downloader==0.1.76
-
-# Orchestration
-kubernetes==35.0.0
+# API
+fastapi~=0.115.0
+uvicorn[standard]~=0.30.0
 
 # Config
 python-dotenv~=1.0.0

@@ -2,17 +2,8 @@ import asyncio
 import json
 import os
 import time
-#import time
-#import numpy as np
-#import traceback
 
 import warnings
-#import gspread
-#from oauth2client.service_account import ServiceAccountCredentials
-
-#import gspread_dataframe as gd
-#from gspread_dataframe import set_with_dataframe, get_as_dataframe
-#from gs_update_utils import setup_google_sheets, upload_table_to_google_sheet
 from datetime import datetime
 
 from google.oauth2 import service_account
@@ -20,20 +11,13 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 import pandas as pd
-from sqlalchemy.util import await_only
 
 # Получить текущую дату
 current_date = datetime.now()
 
-# Форматировать дату в виде "12.12"
-formatted_date = current_date.strftime("%d.%m")
-
 warnings.simplefilter("ignore")
 
 value_input_option = 'USER_ENTERED'
-
-
-#project_root = os.path.dirname(os.path.dirname(__file__))
 
 abspath = os.path.dirname(os.path.dirname(__file__))
 path_to_credentials = os.path.join(abspath, 'utils', "service_account.json")
@@ -44,31 +28,12 @@ with open(path_to_credentials, 'r') as file:
 
 print('client_email', data['client_email'])
 
-def column_name_to_letter(column_name):
-    """
-    Преобразует название колонки в его буквенное определение.
-
-    Args:
-    column_name (str): Название колонки.
-
-    Returns:
-    str: Буквенное определение колонки.
-    """
-    letters = ""
-    column_number = 0
-    for letter in column_name:
-        column_number = column_number * 26 + (ord(letter.upper()) - ord('A')) + 1
-    while column_number > 0:
-        column_number, remainder = divmod(column_number - 1, 26)
-        letters = chr(65 + remainder) + letters
-    return letters
 
 async def get_service():
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-    #SERVICE_ACCOUNT_FILE = os.path.join(abspath, 'service_account.json')
     SERVICE_ACCOUNT_FILE = path_to_credentials
     credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-    service = build('sheets', 'v4', credentials=credentials) #.spreadsheets().values()
+    service = build('sheets', 'v4', credentials=credentials)  # .spreadsheets().values()
     return service
 
 
@@ -83,31 +48,6 @@ async def sheets_execute(request, max_retries=3, wait_sec=60):
             else:
                 raise
 
-
-async def read_cell(service, spreadsheet_id, sheet_name, row_number, col_name):
-    """Читает значение конкретной ячейки"""
-    sheet = service.spreadsheets()
-
-    # Находим индекс колонки по имени
-    result = sheet.values().get(
-        spreadsheetId=spreadsheet_id,
-        range=f"'{sheet_name}'!A1:Z1"
-    ).execute()
-
-    headers = result.get('values', [[]])[0]
-    col_index = headers.index(col_name) + 1  # +1 потому что индексация с 1
-
-    # Читаем ячейку
-    col_letter = chr(64 + col_index)  # A=65, B=66...
-    range_name = f"'{sheet_name}'!{col_letter}{row_number}"
-
-    result = sheet.values().get(
-        spreadsheetId=spreadsheet_id,
-        range=range_name
-    ).execute()
-
-    values = result.get('values', [])
-    return values[0][0] if values and values[0] else None
 
 async def create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
     # Проверяем существование вкладки
@@ -137,6 +77,7 @@ async def create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
             print(f"An error occurred while creating the sheet: {e}")
             return
 
+
 async def get_table_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
     """
     :param service:
@@ -149,13 +90,10 @@ async def get_table_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
     service = service.spreadsheets().values()
     result = service.get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=SAMPLE_RANGE_NAME).execute()
     values = result.get('values', [])
-    #print(values)
+    # print(values)
 
     if not values:
         raise ValueError("No data found in the specified range.")
-
-    #df = pd.DataFrame(values[1:], columns=values[0])  # Assuming headers in the first row
-    #print(df)
 
     n = 0
     VE = None
@@ -164,7 +102,7 @@ async def get_table_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
         try:
             # Create a pandas DataFrame from the retrieved values
             df = pd.DataFrame(values[1:], columns=values[0])  # Assuming headers in the first row
-            #print(df)
+            # print(df)
             return df
 
         except ValueError as VE:
@@ -188,6 +126,7 @@ async def get_table_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME):
             n += 1
 
     return str(VE) if VE else "Unknown Error"
+
 
 async def read_table_id(service, spreadsheet_id, worksheet_name):
     # Получение данных из таблицы
@@ -214,35 +153,6 @@ async def read_table_id(service, spreadsheet_id, worksheet_name):
             print(f'!!!Error Ex: {Ex}')
             return pd.DataFrame()
 
-async def read_all_worksheets(service, spreadsheet_id):
-    # Получение метаинформации о таблице (включает листы)
-    metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-    sheets = metadata.get('sheets', [])
-
-    all_data = {}
-
-    for sheet in sheets:
-        title = sheet['properties']['title']
-        print(f'Чтение листа: {title}')
-        try:
-            range_name = f'{title}'
-            result = service.spreadsheets().values().get(
-                spreadsheetId=spreadsheet_id, range=range_name).execute()
-            values = result.get('values', [])
-
-            if not values:
-                df = pd.DataFrame()
-            else:
-                df = pd.DataFrame(values[1:], columns=values[0])
-                df = df.dropna(axis=0, how="all")
-
-            all_data[title] = df
-
-        except Exception as e:
-            print(f'Ошибка при чтении листа {title}: {e}')
-            all_data[title] = pd.DataFrame()
-
-    return all_data  # словарь: {имя_листа: DataFrame}
 
 async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, data):
     await create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME)
@@ -261,7 +171,6 @@ async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANG
     for column_name in expected_columns:
         if column_name not in current_columns:
             # Если колонка отсутствует, добавляем её в таблицу
-            #print(column_name)
             current_columns.append(column_name)
 
     # Подготовка данных для записи
@@ -274,7 +183,6 @@ async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANG
         'values': [values]
     }
 
-    #input()
     if col_now != expected_columns:
         values_2 = []
         for k, v in enumerate(col_now):
@@ -298,9 +206,9 @@ async def append_data_to_sheet_scope(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANG
     print('GS: {0} cells appended.'.format(result.get('updates').get('updatedCells')))
     return 'OK!'
 
+
 async def append_data_to_sheet_scopes(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME, datas):
     # Пытаемся создать, если нет.
-    # Но для проверки "нужны ли заголовки" лучше смотреть на содержимое.
     await create_new_range(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RANGE_NAME)
 
     # 1. Получаем текущие данные из таблицы
@@ -322,11 +230,9 @@ async def append_data_to_sheet_scopes(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RAN
 
     # 2. Проверяем, появились ли в datas новые ключи, которых нет в таблице
     expected_columns = list(datas.keys())
-    new_columns_found = False
     for column_name in expected_columns:
         if column_name not in current_columns:
             current_columns.append(column_name)
-            new_columns_found = True
 
     # 3. Подготовка строк данных
     rows_to_append = []
@@ -361,6 +267,7 @@ async def append_data_to_sheet_scopes(service, SAMPLE_SPREADSHEET_ID, SAMPLE_RAN
     print(f"GS: {result.get('updates').get('updatedCells')} cells updated/appended.")
     return 'OK!'
 
+
 async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_name, row_number, data: str):
     try:
         # Получение заголовков таблицы
@@ -382,7 +289,7 @@ async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_na
         request = service.spreadsheets().values().update(
             spreadsheetId=sheet_id,
             range=range_name,
-            valueInputOption=value_input_option,    #Было RAW
+            valueInputOption=value_input_option,  # Было RAW
             body=value_range_body
         )
         response = await sheets_execute(request)
@@ -393,6 +300,7 @@ async def append_data_to_sheet_cell(service, sheet_id, worksheet_name, column_na
         print(f"ADSC An error occurred: {e}")
         return None
 
+
 async def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_names: list, row_number, datas: list):
     # Получение заголовков таблицы
     header_range = f"{worksheet_name}!1:1"
@@ -400,7 +308,7 @@ async def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_n
     headers = header_result.get('values', [])[0]
 
     try:
-        #Если все колонки присутствуют
+        # Если все колонки присутствуют
         column_index = headers.index(column_names[0])
 
     except:
@@ -432,171 +340,3 @@ async def append_data_to_sheet_cells(service, sheet_id, worksheet_name, column_n
         spreadsheetId=sheet_id, range=range_name,
         valueInputOption=value_input_option, body=body
     ))
-
-async def write_log_sheet(service, sheet_id, worksheet_name, datas):
-    df = await read_table_id(service, sheet_id, worksheet_name)
-    service_name = datas['service_name']
-    index = df.index[df['service_name'] == service_name].tolist()
-    #print(index)
-
-    if index == []:
-        print('Logs: Не найден элемент вводим на новую строку')
-        await append_data_to_sheet_scope(service, sheet_id, worksheet_name, datas)
-
-    else:
-        print(f'Logs: {service_name} - есть в таблице, изменяем дату')
-        idx = index[0] + 2
-        columns = list(datas.keys())
-        values = list(datas.values())
-        await append_data_to_sheet_cells(service, sheet_id, worksheet_name, columns, idx, values)
-
-async def pars_url(service, SS_ID, R_N):
-    try:
-        df = await get_table_scope(service, SS_ID, R_N)
-        links = df['Link'].to_list()
-    except:
-        links = []
-    return links
-
-async def get_all_sheet_names(service, spreadsheet_id):
-    """
-    Получение названий всех листов в таблице
-    :param service: авторизованный сервис Google Sheets
-    :param spreadsheet_id: ID Google таблицы
-    :return: список названий листов
-    """
-    # Получение информации о таблице
-    spreadsheet = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-    # Извлечение названий листов
-    sheet_names = [sheet['properties']['title'] for sheet in spreadsheet['sheets']]
-    return sheet_names
-
-async def get_spreadsheet_title(service, spreadsheet_id):
-    """Получает название таблицы Google Sheets по её ID"""
-    try:
-        # Получаем метаданные таблицы
-        spreadsheet = service.spreadsheets().get(
-            spreadsheetId=spreadsheet_id
-        ).execute()
-
-        # Извлекаем название таблицы
-        return spreadsheet['properties']['title']
-
-    except Exception as e:
-        print(f'Ошибка при получении названия таблицы: {e}')
-        return None
-
-def get_all_spreadsheets():
-    try:
-        all_spreadsheets = gc.openall()
-        print('all_spreadsheets -', all_spreadsheets)
-        spreadsheet_names = [spreadsheet.title for spreadsheet in all_spreadsheets]
-        #return spreadsheet_names
-
-    except gspread.exceptions.APIError as AE:
-        print('--- Проблемы с API')
-        print(AE)
-        #return []
-        spreadsheet_names = []
-
-    # Пример использования:
-    for spreadsheet_name in spreadsheet_names:
-        print('Название:', spreadsheet_name)
-
-    print('----------------------------')
-    return spreadsheet_names
-
-def write_data(data, worksheet_name):
-    df = pd.DataFrame(data)
-    # Открытие таблицы по ее названию
-    try:
-        workfile = gc.open("results").worksheet(worksheet_name)
-    except:
-        workfile = gc.open("results").add_worksheet(title=worksheet_name, rows=1, cols=1)
-        headers = list(df.columns)
-        workfile.append_row(headers)  # Запись заголовков
-
-    # Преобразование данных в DataFrame
-    #print(data)
-
-    #print(df)
-    workfile.append_row(df.iloc[-1, :].tolist())
-
-    #Еще как вариант
-    # Получение последней строки
-    # last_row = workfile.row_count
-    # # Запись DataFrame в таблицу, начиная с новой строки
-    # workfile.append_rows(df.values.tolist(), start_row=last_row + 1)
-
-def update_data(worktable_name, worksheet_name, idx, text):
-    workfile = gc.open(worktable_name)
-    worksheet = workfile.worksheet(worksheet_name) #открываем вкладку
-
-    all_values = worksheet.get_all_values()
-    header_row = all_values[0] #прочитать заговок
-
-    # Find the index of the new column or create a new column if it doesn't exist
-    new_column_name = f"Answers"
-    new_column_index = header_row.index(new_column_name) if new_column_name in header_row else len(header_row) + 1
-
-    if new_column_name not in header_row:
-        header_row.append(new_column_name)
-        worksheet.update("A1", [header_row])  # Update the header row
-
-    worksheet.update_cell(idx, new_column_index, text)
-
-def write_data_old(worktable_name, worksheet_name, data):
-    try:
-        workfile = gc.open(worktable_name)
-    except gspread.exceptions.APIError as AE:
-        print('Проблемы с API')
-        print(AE)
-        return
-
-    worksheet = workfile.worksheet(worksheet_name)
-    try:
-        existing_data = worksheet.get_all_values()
-    except gspread.exceptions.APIError as AE:
-        print('Проблемы с API при чтении данных')
-        print(AE)
-        return
-
-    num_rows = len(existing_data)
-    num_cols = len(existing_data[0]) if existing_data else 0
-
-    new_data = [data]
-    new_num_rows = num_rows + 1
-    new_num_cols = len(data)
-
-    if new_num_cols != num_cols:
-        print("Ошибка: Число столбцов не соответствует ожидаемому")
-        return
-
-    try:
-        worksheet.update(f'A{new_num_rows}', new_data)
-        print("Данные успешно добавлены в таблицу.")
-    except gspread.exceptions.APIError as AE:
-        print('Проблемы с API при обновлении данных')
-        print(AE)
-
-async def main():
-    service = await get_service()
-    # current_date = datetime.now().strftime("%d.%m.%Y")
-    # data = {'service_name': "СберСтрахование_2", 'count': 5, 'date': current_date}
-    # ss_id = '1zk9x6rdVVGKgsKK_7jRwD4yN9sd745mzQv4jRrKbI9w'
-    # await write_log_sheet(service, ss_id, 'logs', data)
-
-    ss_id = '1-Cn4UAvTKkpSesgKda8VvINJeKu5HafW67rbLNoR7Ug'
-    table_name = 'tk_kit'
-    datas = {'Общий Url': ['asdfasdf', '11111111111111111']}
-    await append_data_to_sheet_scopes(service, ss_id, table_name, datas)
-
-    # df = await read_table_id(service, '1uAgMSukxmO0KZLZ-C5mhv7c3IsxvgyD1vxaSPg3TykU', 'ORM (test)')
-    # print(df)
-
-if "__main__" == __name__:
-    asyncio.run(main())
-
-
-
-

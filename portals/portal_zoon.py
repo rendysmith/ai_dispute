@@ -1,61 +1,98 @@
-from datetime import datetime
-
 import asyncio
 
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.action_chains import ActionChains
-
-from utils.user_agent import get_soup, get_selenium_proxy
+from datetime import datetime
 
 
+async def zoon_blocks(page, url, max_rating):
+    """
+    Playwright: открывает страницу zoon.ru, скроллит и собирает отзывы.
 
-async def zoon_blocks(driver, url, max_rating):
-    # driver.get(url)
-    # await asyncio.sleep(5)
-
-    print('Click: Reviews')
-
+    :param page: playwright page
+    :param url: ссылка на компанию
+    :param max_rating: максимальный рейтинг отзыва (включительно)
+    :return: dict с массивами {'Дата', 'Текст', 'Url', 'Автор', 'Оценка'}
+    """
     try:
-        driver.find_element(By.CSS_SELECTOR, 'a[data-id="reviews"][data-type="reviews"]').click()
-        print('- Click: R1')
-
-    except:
-        driver.find_elements(By.CSS_SELECTOR, 'span[class="service-block-nav-item-text"]')[1].click()
-        print('- Click: R2')
+        await page.goto(url, wait_until='domcontentloaded', timeout=120_000)
+    except Exception as ex:
+        print(f'--- zoon goto error: {ex}')
+        return {}
 
     await asyncio.sleep(5)
 
-    print('- scrollTo: ')
+    print('Click: Reviews')
+    try:
+        tab = page.locator('a[data-id="reviews"][data-type="reviews"]')
+        if await tab.count() > 0:
+            await tab.first.click(timeout=5000)
+            print('- Click: R1')
+        else:
+            tabs = page.locator('span[class="service-block-nav-item-text"]')
+            if await tabs.count() > 1:
+                await tabs.nth(1).click(timeout=5000)
+                print('- Click: R2')
+    except Exception as ex:
+        print(f'--- zoon tab click error: {ex}')
+
+    await asyncio.sleep(5)
+
+    # Скролл + клик "Показать ещё" (аналог старой selenium-логики)
     n = 0
     while n < 10:
-        #driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        driver.execute_script("window.scrollBy(0, window.innerHeight);")
+        await page.mouse.wheel(0, 1000)
+        await asyncio.sleep(2)
 
+        clicked = False
         try:
-            driver.find_element(By.CSS_SELECTOR, 'a[data-uitest="show-more-comments-button"]').click()
-            print('Click: M1')
+            btn = page.locator('a[data-uitest="show-more-comments-button"]')
+            if await btn.count() > 0:
+                await btn.first.click(timeout=5000)
+                print('Click: M1')
+                clicked = True
+                await asyncio.sleep(3)
+        except Exception:
+            pass
+
+        if not clicked:
+            try:
+                btn2 = page.locator('div[class="comments-next js-show-more-box"]')
+                if await btn2.count() > 0:
+                    await btn2.first.click(timeout=5000)
+                    print('Click: M2')
+                    clicked = True
+                    await asyncio.sleep(3)
+            except Exception:
+                pass
+
+        # Если кнопок "показать ещё" больше нет — все отзывы загружены
+        if not clicked:
             break
 
-        except:
-            try:
-                driver.find_element(By.CSS_SELECTOR, 'div[class="comments-next js-show-more-box"]').click()
-                print('Click: M2')
-                break
-
-            except:
-                #print(driver.page_source)
-                blocks = driver.find_elements(By.CSS_SELECTOR,
-                                              'div[class="comment-item__container js-comment-container"][itemprop="review"]')
-                print("Len_b:", len(blocks))
-                n+=1
-                print(f'- except {n}')
+        n += 1
 
     await asyncio.sleep(3)
 
-    blocks = driver.find_elements(By.CSS_SELECTOR, 'div[class="comment-item__container js-comment-container"][itemprop="review"]')
-    print("Len_b:", len(blocks))
+    items = await page.evaluate(
+        """() => {
+            const blocks = document.querySelectorAll(
+                'div[class="comment-item__container js-comment-container"][itemprop="review"]'
+            );
+            return Array.from(blocks).map(block => {
+                const ratingMeta = block.querySelector('meta[itemprop="ratingValue"]');
+                const dateMeta = block.querySelector('meta[itemprop="datePublished"]');
+                const body = block.querySelector('div[class="comment-item__body js-comment-text"]');
+                const author = block.querySelector('span[itemprop="name"]');
+                return {
+                    rating: ratingMeta ? ratingMeta.content : null,
+                    date: dateMeta ? dateMeta.content : '',
+                    feedback: body ? body.textContent.trim() : '',
+                    dataId: block.getAttribute('data-id') || '',
+                    author: author ? author.textContent.trim() : ''
+                };
+            });
+        }"""
+    )
+    print(f'Len_b: {len(items)}')
 
     datas = {
         "Дата": [],
@@ -65,94 +102,29 @@ async def zoon_blocks(driver, url, max_rating):
         "Оценка": [],
     }
 
-    for block in blocks:
-        rating = int(block.find_element(By.CSS_SELECTOR, 'meta[itemprop="ratingValue"]').get_attribute("content"))
+    for item in items:
+        if item['rating'] is None:
+            continue
+
+        rating = int(item['rating'])
         print("rating: ", rating)
 
         if rating > max_rating:
             continue
 
-        date_str = block.find_element(By.CSS_SELECTOR,  'meta[itemprop="datePublished"]').get_attribute('content')
-        dt = datetime.fromisoformat(date_str)
-        formatted_date = dt.strftime("%d.%m.%Y")
-        #print(formatted_date)
+        try:
+            dt = datetime.fromisoformat(item['date'])
+            formatted_date = dt.strftime("%d.%m.%Y")
+        except Exception:
+            formatted_date = item['date']
 
-        feedback = block.find_element(By.CSS_SELECTOR, 'div[class="comment-item__body js-comment-text"]').text
-        #print(feedback)
-
-        data_id = block.get_attribute('data-id')
-        url_answer = f'{url}#comment{data_id}'
-        #print(url_answer)
-
-        author = block.find_element(By.CSS_SELECTOR, 'span[itemprop="name"]').text
-        #print(author)
+        url_answer = f"{url}#comment{item['dataId']}"
 
         datas['Дата'].append(formatted_date)
-        datas['Текст'].append(feedback)
+        datas['Текст'].append(item['feedback'])
         datas['Url'].append(url_answer)
-        datas['Автор'].append(author)
+        datas['Автор'].append(item['author'])
         datas['Оценка'].append(rating)
 
     print(f'Len: {len(datas["Дата"])}')
     return datas
-
-
-
-
-async def zoon_blocks_soup(url):
-    soup = await get_soup(url, proxy=False)
-    blocks = soup.find_all('li', {'class': 'comment-item js-comment'})
-
-    datas = {
-        "Дата": [],
-        "Текст": [],
-        "Url": [],
-        "Автор": [],
-        "Оценка": [],
-    }
-
-    for block in blocks:
-        date_str = block.find('meta', {"itemprop": "datePublished"}).get('content')
-        dt = datetime.fromisoformat(date_str)
-        formatted_date = dt.strftime("%d.%m.%Y")
-        print(formatted_date)
-
-        feedback = block.find('span', {"class": "js-comment-content"}).text
-        print(feedback)
-
-        data_id = block.get('data-id')
-        url_answer = f'{url}#comment{data_id}'
-        print(url_answer)
-
-        author = block.get('data-author')
-        print(author)
-
-        rating = block.find('meta', {"itemprop": "ratingValue"}).get("content")
-        print(rating)
-
-        datas['Дата'].append(formatted_date)
-        datas['Текст'].append(feedback)
-        datas['Url'].append(url_answer)
-        datas['Автор'].append(author)
-        datas['Оценка'].append(rating)
-
-    return datas
-
-    for block in blocks:
-        print("\n-------------------", block)
-
-
-
-    #driver = await get_selenium_proxy(url, headless=False, proxy=False)
-
-async def main():
-    url = "https://zoon.ru/msk/internet/internet-portal_po_poisku_vrachej_sberzdorove"
-
-    driver = await get_selenium_proxy(url, headless=False, proxy=False)
-    datas = await zoon_blocks(driver, url, 3)
-    print(datas)
-
-if "__main__" in __name__:
-    asyncio.run(main())
-
-
