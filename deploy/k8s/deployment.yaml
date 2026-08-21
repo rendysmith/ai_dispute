@@ -16,12 +16,14 @@ spec:
       labels:
         app: ai-contestation
     spec:
+      imagePullSecrets:
+        - name: ghcr-pull-secret
       containers:
         - name: api
           # Образ подменяется автоматически при деплое (workflow: set image по digest).
           # Для приватного репозитория добавьте imagePullSecrets (см. deploy/README.md).
-          image: ghcr.io/YOUR_ORG/YOUR_REPO:latest
-          imagePullPolicy: IfNotPresent
+          image: ghcr.io/rendysmith/ai_dispute:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
               name: http
