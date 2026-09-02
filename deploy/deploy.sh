@@ -13,6 +13,14 @@ fi
 
 cd "${APP_DIR}"
 
+# Предпроверка обязательных файлов (CI их не создаёт)
+[ -f .env ] || { echo "Ошибка: ${APP_DIR}/.env не найден на сервере" >&2; exit 1; }
+if [ ! -f secrets/service_account.json ]; then
+    echo "Ошибка: secrets/service_account.json не найден на сервере (или Docker создал папку вместо файла)." >&2
+    echo "Положите файл: scp service_account.json root@<VDS>:${APP_DIR}/secrets/" >&2
+    exit 1
+fi
+
 echo ">>> Качаем свежий образ..."
 docker compose pull
 
@@ -23,7 +31,7 @@ docker compose up -d --remove-orphans
 docker image prune -f >/dev/null 2>&1 || true
 
 echo ">>> Проверяем healthz..."
-for i in $(seq 1 15); do
+for i in $(seq 1 45); do
     if curl -fsS http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
         echo "OK: сервис здоров (healthz)."
         docker compose ps
@@ -32,5 +40,7 @@ for i in $(seq 1 15); do
     sleep 2
 done
 
-echo "Ошибка: сервис не ответил на healthz за 30 секунд. Смотрите: docker compose logs ai-dispute" >&2
+echo "Ошибка: сервис не ответил на healthz за 90 секунд." >&2
+docker compose ps >&2 || true
+docker compose logs --tail=80 >&2 || true
 exit 1

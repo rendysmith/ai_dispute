@@ -64,16 +64,27 @@ jobs:
           script: |
             set -e
             cd /opt/ai-dispute
+
+            # Предпроверка обязательных файлов на сервере (CI их не создаёт)
+            [ -f .env ] || { echo "Ошибка: /opt/ai-dispute/.env не найден на сервере" >&2; exit 1; }
+            if [ ! -f secrets/service_account.json ]; then
+              echo "Ошибка: secrets/service_account.json не найден на сервере (или Docker создал папку вместо файла)." >&2
+              echo "Положите файл: scp service_account.json root@<VDS>:/opt/ai-dispute/secrets/" >&2
+              exit 1
+            fi
+
             docker compose pull
             docker compose up -d --remove-orphans
             docker image prune -f || true
-            for i in $(seq 1 30); do
+            for i in $(seq 1 45); do
               if curl -fsS http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
                 echo "OK: сервис здоров."
+                docker compose ps
                 exit 0
               fi
               sleep 2
             done
             echo "Ошибка: healthz не отвечает." >&2
-            docker compose logs --tail=50 ai-dispute || true
+            docker compose ps >&2 || true
+            docker compose logs --tail=80 >&2 || true
             exit 1

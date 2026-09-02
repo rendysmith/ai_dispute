@@ -25,10 +25,12 @@ abspath = os.path.dirname(os.path.dirname(__file__))
 path_to_credentials = os.environ.get('SERVICE_ACCOUNT_FILE') or os.path.join(abspath, 'utils', 'service_account.json')
 print('path_to_credentials:', path_to_credentials)
 
-if not os.path.exists(path_to_credentials):
+if not os.path.isfile(path_to_credentials):
     raise RuntimeError(
         f'Файл сервисного аккаунта Google не найден: {path_to_credentials}\n'
-        f'Положите utils/service_account.json или задайте env SERVICE_ACCOUNT_FILE.'
+        f'Положите utils/service_account.json или задайте env SERVICE_ACCOUNT_FILE.\n'
+        f'Внимание: если путь смонтирован в Docker, а файла на хосте нет — Docker '
+        f'создаёт папку вместо файла, и приложение падает на старте.'
     )
 
 with open(path_to_credentials, 'r') as file:
