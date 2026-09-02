@@ -5,6 +5,9 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/opt/ai-dispute}"
+# Репозиторий публичный — конфигурацию тянем прямо из GitHub,
+# чтобы compose на сервере всегда совпадал с кодом.
+COMPOSE_URL="https://raw.githubusercontent.com/rendysmith/ai_dispute/main/docker-compose.yml"
 
 if [ ! -d "${APP_DIR}" ]; then
     echo "Ошибка: папка ${APP_DIR} не найдена. Сначала выполните одноразовую настройку (deploy/README.md)." >&2
@@ -20,6 +23,27 @@ if [ ! -f secrets/service_account.json ]; then
     echo "Положите файл: scp service_account.json root@<VDS>:${APP_DIR}/secrets/" >&2
     exit 1
 fi
+
+# Синхронизируем docker-compose.yml из репозитория (если GitHub недоступен —
+# работаем с тем, что уже лежит на сервере)
+echo ">>> Синхронизируем docker-compose.yml из репозитория..."
+if command -v curl >/dev/null 2>&1; then
+    if curl -fsSL --max-time 30 "${COMPOSE_URL}" -o docker-compose.yml.new 2>/dev/null \
+       && grep -q '^services:' docker-compose.yml.new \
+       && grep -q 'secrets/service_account.json' docker-compose.yml.new; then
+        mv docker-compose.yml.new docker-compose.yml
+        echo "    docker-compose.yml обновлён (${COMPOSE_URL})"
+    else
+        rm -f docker-compose.yml.new
+        echo "    Внимание: не удалось скачать compose из GitHub — используем текущий файл" >&2
+    fi
+else
+    echo "    Внимание: curl не найден — используем текущий docker-compose.yml" >&2
+fi
+
+# Проверяем, что в compose есть монтирование сервисного аккаунта
+grep -q 'secrets/service_account.json' docker-compose.yml \
+    || { echo "Ошибка: docker-compose.yml на сервере не монтирует secrets/service_account.json" >&2; exit 1; }
 
 echo ">>> Качаем свежий образ..."
 docker compose pull

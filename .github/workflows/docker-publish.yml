@@ -73,6 +73,22 @@ jobs:
               exit 1
             fi
 
+            # Синхронизация docker-compose.yml из публичного репозитория —
+            # конфигурация на сервере всегда совпадает с кодом
+            if command -v curl >/dev/null 2>&1; then
+              if curl -fsSL --max-time 30 https://raw.githubusercontent.com/rendysmith/ai_dispute/main/docker-compose.yml -o docker-compose.yml.new 2>/dev/null \
+                 && grep -q '^services:' docker-compose.yml.new \
+                 && grep -q 'secrets/service_account.json' docker-compose.yml.new; then
+                mv docker-compose.yml.new docker-compose.yml
+                echo "docker-compose.yml обновлён из репозитория"
+              else
+                rm -f docker-compose.yml.new
+                echo "Внимание: не удалось скачать compose — используем текущий файл" >&2
+              fi
+            fi
+            grep -q 'secrets/service_account.json' docker-compose.yml \
+              || { echo "Ошибка: compose на сервере не монтирует secrets/service_account.json" >&2; exit 1; }
+
             docker compose pull
             docker compose up -d --remove-orphans
             docker image prune -f || true
