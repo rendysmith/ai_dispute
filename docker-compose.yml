@@ -6,7 +6,8 @@
 #   secrets/service_account.json — Google service account (в git НЕ хранится!)
 #
 # IMAGE подставляется из .env, например:
-#   IMAGE=ghcr.io/your-github-account/your-repo:latest
+#   IMAGE=ghcr.io/rendysmith/ai_dispute:latest
+# (деплой-скрипт добавляет актуальный IMAGE в .env на сервере автоматически)
 #
 # Запуск вручную:  docker compose pull && docker compose up -d
 # Автодеплой:      push в main → GitHub Actions собирает образ и выполняет
@@ -14,7 +15,7 @@
 
 services:
   ai-dispute:
-    image: ${IMAGE:-ghcr.io/YOUR_ORG/YOUR_REPO:latest}
+    image: ${IMAGE:-ghcr.io/rendysmith/ai_dispute:latest}
     container_name: ai-dispute
     restart: unless-stopped
     ports:

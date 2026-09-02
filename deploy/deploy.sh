@@ -24,6 +24,15 @@ if [ ! -f secrets/service_account.json ]; then
     exit 1
 fi
 
+# IMAGE: если в .env нет — добавляем актуальный образ из GHCR,
+# чтобы compose не подставил заглушку YOUR_ORG/YOUR_REPO
+if grep -q '^IMAGE=' .env; then
+    echo "IMAGE уже задан в .env: $(grep '^IMAGE=' .env | head -1)"
+else
+    echo "IMAGE=ghcr.io/rendysmith/ai_dispute:latest" >> .env
+    echo ">>> Добавлено в .env: IMAGE=ghcr.io/rendysmith/ai_dispute:latest"
+fi
+
 # Синхронизируем docker-compose.yml из репозитория (если GitHub недоступен —
 # работаем с тем, что уже лежит на сервере)
 echo ">>> Синхронизируем docker-compose.yml из репозитория..."

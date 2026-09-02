@@ -73,6 +73,15 @@ jobs:
               exit 1
             fi
 
+            # IMAGE: если в .env нет — добавляем актуальный образ,
+            # чтобы compose не подставил заглушку YOUR_ORG/YOUR_REPO
+            if grep -q '^IMAGE=' .env; then
+              echo "IMAGE уже задан в .env"
+            else
+              echo "IMAGE=ghcr.io/rendysmith/ai_dispute:latest" >> .env
+              echo "IMAGE добавлен в .env"
+            fi
+
             # Синхронизация docker-compose.yml из публичного репозитория —
             # конфигурация на сервере всегда совпадает с кодом
             if command -v curl >/dev/null 2>&1; then
