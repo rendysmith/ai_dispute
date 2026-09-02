@@ -170,6 +170,7 @@ IMAGE=ghcr.io/<owner>/<repo>:sha-<старый> docker compose up -d
 
 | Симптом | Причина / решение |
 |---------|-------------------|
+| Job падает: `Run Command Timeout` при первом деплое | Первый `docker compose pull` качает образ ~1.5 ГБ и на медленном канале VDS не успевает за 10 минут. Таймаут команды в workflow поднят до 60 минут (`command_timeout: 60m`); повторный запуск продолжит скачивание с места (слои кэшируются). Последующие деплои тянут только изменившиеся слои |
 | Контейнер перезапускается, в логах `RuntimeError: Файл сервисного аккаунта Google не найден` | Нет `secrets/service_account.json` на сервере — положить файл и `docker compose up -d` |
 | `CreateContainerConfigError` / `env file .env not found` | Нет `.env` в `/opt/ai-dispute` |
 | Контейнер стартует, но `/run` падает с ошибкой БД | PostgreSQL недоступен: проверить `POSTGRESQL_*` в `.env` |

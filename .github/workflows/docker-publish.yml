@@ -57,13 +57,17 @@ jobs:
           username: ${{ secrets.VDS_USER }}
           key: ${{ secrets.VDS_SSH_KEY }}
           port: ${{ secrets.VDS_PORT }}
+          # Первый pull образа (~1.5 ГБ) на медленном канале VDS идёт дольше
+          # стандартных 10 минут — таймаут команды поднят до 60 минут.
+          # Последующие деплои тянут только изменившиеся слои (секунды).
+          command_timeout: 60m
           script: |
             set -e
             cd /opt/ai-dispute
             docker compose pull
             docker compose up -d --remove-orphans
             docker image prune -f || true
-            for i in $(seq 1 15); do
+            for i in $(seq 1 30); do
               if curl -fsS http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
                 echo "OK: сервис здоров."
                 exit 0
