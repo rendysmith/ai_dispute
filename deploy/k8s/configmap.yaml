@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: ai-contestation-config
+  name: ai-dispute-config
   labels:
-    app: ai-contestation
+    app: ai-dispute
 data:
   # В контейнере браузеры всегда headless
   HEADLESS: "true"

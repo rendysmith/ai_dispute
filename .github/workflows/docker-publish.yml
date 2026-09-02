@@ -1,4 +1,4 @@
-name: Docker Image CI for ai-contestation
+name: Docker Image CI for ai-dispute
 
 on:
   push:
@@ -49,7 +49,7 @@ jobs:
     needs: build-and-push-image
     steps:
       # На VDS: docker compose pull && up -d && проверка healthz
-      # (рабочая папка на сервере — /opt/ai-contestation, см. deploy/README.md)
+      # (рабочая папка на сервере — /opt/ai-dispute, см. deploy/README.md)
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -59,7 +59,7 @@ jobs:
           port: ${{ secrets.VDS_PORT }}
           script: |
             set -e
-            cd /opt/ai-contestation
+            cd /opt/ai-dispute
             docker compose pull
             docker compose up -d --remove-orphans
             docker image prune -f || true
@@ -71,5 +71,5 @@ jobs:
               sleep 2
             done
             echo "Ошибка: healthz не отвечает." >&2
-            docker compose logs --tail=50 ai-contestation || true
+            docker compose logs --tail=50 ai-dispute || true
             exit 1

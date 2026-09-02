@@ -1,4 +1,4 @@
-# Деплой ai-contestation на VDS (автоматический)
+# Деплой ai-dispute на VDS (автоматический)
 
 Проект разворачивается на **отдельном VDS-сервере** через Docker Compose.
 Деплой полностью автоматический: **push в `main` → GitHub Actions собирает Docker-образ,
@@ -11,7 +11,7 @@ GitHub (push в main)
 GitHub Actions: сборка образа → GHCR (ghcr.io/<owner>/<repo>:latest)
    │
    ▼  (SSH)
-VDS: /opt/ai-contestation ── docker compose up -d
+VDS: /opt/ai-dispute ── docker compose up -d
      ├── .env                        (секреты/настройки, в git нет)
      ├── secrets/service_account.json (Google service account, в git нет)
      └── docker-compose.yml
@@ -25,8 +25,8 @@ VDS: /opt/ai-contestation ── docker compose up -d
 
 | Секрет | Хранилище | Зачем |
 |--------|-----------|-------|
-| `POSTGRESQL_*`, `HOST_USERNAME`, `HOST_PASSWORD`, `CAPTCHA_KEY`, `MAX_SEC` и пр. | **`.env` на VDS** (`/opt/ai-contestation/.env`) | Читает приложение в контейнере |
-| `service_account.json` (Google) | **`secrets/` на VDS** (`/opt/ai-contestation/secrets/`) | Монтируется в контейнер |
+| `POSTGRESQL_*`, `HOST_USERNAME`, `HOST_PASSWORD`, `CAPTCHA_KEY`, `MAX_SEC` и пр. | **`.env` на VDS** (`/opt/ai-dispute/.env`) | Читает приложение в контейнере |
+| `service_account.json` (Google) | **`secrets/` на VDS** (`/opt/ai-dispute/secrets/`) | Монтируется в контейнер |
 | `VDS_HOST`, `VDS_USER`, `VDS_SSH_KEY`, `VDS_PORT` | **GitHub Secrets** (зашифрованы) | Нужны только CI для деплоя по SSH |
 
 CI **не знает** кредов БД и Google-аккаунта: workflow делает лишь
@@ -50,9 +50,9 @@ docker compose version           # проверка: v2+
 ### 1.2 Рабочая папка проекта
 
 ```bash
-sudo mkdir -p /opt/ai-contestation/secrets
-sudo chown -R $USER:$USER /opt/ai-contestation
-cd /opt/ai-contestation
+sudo mkdir -p /opt/ai-dispute/secrets
+sudo chown -R $USER:$USER /opt/ai-dispute
+cd /opt/ai-dispute
 ```
 
 Скопируйте на сервер два файла (из репозитория):
@@ -73,8 +73,8 @@ chmod 600 .env
 Положите его на сервер:
 
 ```bash
-# локально:  scp utils/service_account.json vds:/opt/ai-contestation/secrets/
-scp utils/service_account.json root@<IP>:/opt/ai-contestation/secrets/
+# локально:  scp utils/service_account.json vds:/opt/ai-dispute/secrets/
+scp utils/service_account.json root@<IP>:/opt/ai-dispute/secrets/
 ```
 
 Контейнер монтирует его в `/app/utils/service_account.json` (см. docker-compose.yml).
@@ -116,7 +116,7 @@ SSH-ключ должен быть добавлен в `~/.ssh/authorized_keys` 
 
 Проверка доступа с вашей машины:
 ```bash
-ssh -i ~/.ssh/id_ed25519 root@<IP> 'docker compose -f /opt/ai-contestation/docker-compose.yml ps'
+ssh -i ~/.ssh/id_ed25519 root@<IP> 'docker compose -f /opt/ai-dispute/docker-compose.yml ps'
 ```
 
 ---
@@ -140,7 +140,7 @@ git push origin main
 ```bash
 # На сервере
 docker compose ps                       # статус контейнера
-docker compose logs --tail=100 ai-contestation
+docker compose logs --tail=100 ai-dispute
 curl http://127.0.0.1:8000/healthz      # {"status":"ok"}
 curl http://127.0.0.1:8000/capacity     # ресурсы
 
@@ -156,7 +156,7 @@ curl -X POST 'http://127.0.0.1:8000/api/v1/data/get_feedbacks?link=https://yande
 
 ```bash
 # Обновление (то же, что делает CI)
-cd /opt/ai-contestation && ./deploy/deploy.sh
+cd /opt/ai-dispute && ./deploy/deploy.sh
 
 # Откат на предыдущий образ
 docker compose ps --format '{{.Image}}'   # посмотреть текущий
@@ -171,7 +171,7 @@ IMAGE=ghcr.io/<owner>/<repo>:sha-<старый> docker compose up -d
 | Симптом | Причина / решение |
 |---------|-------------------|
 | Контейнер перезапускается, в логах `RuntimeError: Файл сервисного аккаунта Google не найден` | Нет `secrets/service_account.json` на сервере — положить файл и `docker compose up -d` |
-| `CreateContainerConfigError` / `env file .env not found` | Нет `.env` в `/opt/ai-contestation` |
+| `CreateContainerConfigError` / `env file .env not found` | Нет `.env` в `/opt/ai-dispute` |
 | Контейнер стартует, но `/run` падает с ошибкой БД | PostgreSQL недоступен: проверить `POSTGRESQL_*` в `.env` |
 | `ImagePullBackOff` / `pull access denied` | Репозиторий приватный, на сервере не выполнен `docker login ghcr.io` (шаг 1.4) |
 | Job `deploy-to-vds` падает: `Permission denied (publickey)` | Неверный `VDS_SSH_KEY` или ключ не в `authorized_keys` |

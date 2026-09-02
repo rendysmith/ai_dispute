@@ -1,5 +1,5 @@
 """
-AI Contestation API — FastAPI-сервис для сбора и анализа отзывов.
+ai_dispute API — FastAPI-сервис для сбора и анализа отзывов.
 
 POST /api/v1/data/get_feedbacks — получить отзывы по адресу: ?link=...&topic=... (Basic Auth)
 POST /run                      — запустить pipeline: multi_pars → review_analysis (2 прохода)
@@ -34,7 +34,7 @@ from utils.scheduler import make_scheduler
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 logger = logging.getLogger('contestation-api')
 
-app = FastAPI(title='AI Contestation API', version='1.0.0')
+app = FastAPI(title='ai_dispute API', version='1.0.0')
 
 # Хранилище задач (in-memory; для одной реплики k8s этого достаточно)
 TASKS: dict[str, dict] = {}
@@ -72,7 +72,7 @@ async def require_auth(credentials: HTTPBasicCredentials | None = Depends(basic_
     raise HTTPException(
         status_code=401,
         detail='Неверные учётные данные',
-        headers={'WWW-Authenticate': 'Basic realm="ai-contestation"'},
+        headers={'WWW-Authenticate': 'Basic realm="ai-dispute"'},
     )
 
 

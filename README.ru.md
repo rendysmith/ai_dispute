@@ -1,4 +1,4 @@
-# AI Contestation Service
+# ai_dispute — сервис сбора и оспаривания отзывов
 
 > **🌐 [English](README.md) · [Русский](README.ru.md) (по умолчанию — English)**
 
@@ -374,7 +374,7 @@ service account должен иметь доступ к вашим таблиц�
 GitHub push → GH Actions (build → GHCR) → SSH → VDS: docker compose up -d
 ```
 
-Структура на сервере (`/opt/ai-contestation`): `docker-compose.yml` + `.env`
+Структура на сервере (`/opt/ai-dispute`): `docker-compose.yml` + `.env`
 (настройки и секреты) + `secrets/service_account.json` (Google-креды).
 
 Пошаговое руководство — одноразовая настройка VDS, секреты GitHub, поиск проблем —

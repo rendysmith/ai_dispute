@@ -1,4 +1,4 @@
-# Деплой ai-contestation на VDS (docker compose).
+# Деплой ai-dispute на VDS (docker compose).
 #
 # На сервере в одной папке должны лежать:
 #   docker-compose.yml   — этот файл
@@ -13,9 +13,9 @@
 #                  deploy/deploy.sh на сервере по SSH.
 
 services:
-  ai-contestation:
+  ai-dispute:
     image: ${IMAGE:-ghcr.io/YOUR_ORG/YOUR_REPO:latest}
-    container_name: ai-contestation
+    container_name: ai-dispute
     restart: unless-stopped
     ports:
       - "8000:8000"

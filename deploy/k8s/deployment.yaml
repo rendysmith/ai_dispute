@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ai-contestation
+  name: ai-dispute
   labels:
-    app: ai-contestation
+    app: ai-dispute
 spec:
   # Парсинг идёт в фоне; при рестарте поды задача просто перезапускается.
   # Хранилище задач in-memory — держим одну реплику.
   replicas: 1
   selector:
     matchLabels:
-      app: ai-contestation
+      app: ai-dispute
   template:
     metadata:
       labels:
-        app: ai-contestation
+        app: ai-dispute
     spec:
       imagePullSecrets:
         - name: ghcr-pull-secret
@@ -29,9 +29,9 @@ spec:
               name: http
           envFrom:
             - configMapRef:
-                name: ai-contestation-config
+                name: ai-dispute-config
             - secretRef:
-                name: ai-contestation-secret
+                name: ai-dispute-secret
           readinessProbe:
             httpGet:
               path: /healthz

@@ -1,4 +1,4 @@
-# AI Contestation Service
+# ai_dispute — AI Contestation Service
 
 > **🌐 [English](README.md) (default) · [Русский](README.ru.md)**
 
@@ -374,7 +374,7 @@ pushes it to GHCR, connects to the server over SSH and runs
 GitHub push → GH Actions (build → GHCR) → SSH → VDS: docker compose up -d
 ```
 
-Server layout (`/opt/ai-contestation`): `docker-compose.yml` + `.env` (settings and
+Server layout (`/opt/ai-dispute`): `docker-compose.yml` + `.env` (settings and
 secrets) + `secrets/service_account.json` (Google credentials).
 
 The complete step-by-step guide — one-time VDS setup, GitHub secrets, troubleshooting —
