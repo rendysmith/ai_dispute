@@ -43,46 +43,33 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  deploy-to-kubernetes:
-    name: Deploy to Kubernetes
+  deploy-to-vds:
+    name: Deploy to VDS
     runs-on: ubuntu-latest
     needs: build-and-push-image
-    permissions:
-      contents: read
-    env:
-      KUBE_NAMESPACE: ${{ secrets.KUBE_NAMESPACE || 'default' }}
-      # Пиним по digest, чтобы не зависеть от формата sha-тегов.
-      IMAGE: ghcr.io/${{ github.repository }}@${{ needs.build-and-push-image.outputs.image_digest }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
+      # На VDS: docker compose pull && up -d && проверка healthz
+      # (рабочая папка на сервере — /opt/ai-contestation, см. deploy/README.md)
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          version: 'latest'
-
-      - name: Configure kubeconfig
-        shell: bash
-        run: |
-          mkdir -p "$HOME/.kube"
-          echo "${{ secrets.KUBE_CONFIG_B64 }}" | base64 -d > "$HOME/.kube/config"
-          chmod 600 "$HOME/.kube/config"
-          kubectl version --client=true
-          kubectl get ns "${KUBE_NAMESPACE}"
-
-      # ВНИМАНИЕ: secret.yaml не применяется автоматически!
-      # Реальный Secret создаётся один раз вручную (см. deploy/README.md),
-      # иначе заглушки из репозитория затрут боевые значения.
-      - name: Apply Kubernetes manifests
-        shell: bash
-        run: |
-          kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/k8s/configmap.yaml
-          kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/k8s/deployment.yaml
-          kubectl apply -n "${KUBE_NAMESPACE}" -f deploy/k8s/service.yaml
-
-      - name: Pin Deployment to this image sha
-        shell: bash
-        run: |
-          kubectl -n "${KUBE_NAMESPACE}" set image deployment/ai-contestation api="${IMAGE}"
-          kubectl -n "${KUBE_NAMESPACE}" rollout status deployment/ai-contestation --timeout=300s
+          host: ${{ secrets.VDS_HOST }}
+          username: ${{ secrets.VDS_USER }}
+          key: ${{ secrets.VDS_SSH_KEY }}
+          port: ${{ secrets.VDS_PORT }}
+          script: |
+            set -e
+            cd /opt/ai-contestation
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker image prune -f || true
+            for i in $(seq 1 15); do
+              if curl -fsS http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
+                echo "OK: сервис здоров."
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "Ошибка: healthz не отвечает." >&2
+            docker compose logs --tail=50 ai-contestation || true
+            exit 1

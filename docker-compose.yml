@@ -1,0 +1,42 @@
+# Деплой ai-contestation на VDS (docker compose).
+#
+# На сервере в одной папке должны лежать:
+#   docker-compose.yml   — этот файл
+#   .env                 — переменные окружения (см. .env.example в репозитории)
+#   secrets/service_account.json — Google service account (в git НЕ хранится!)
+#
+# IMAGE подставляется из .env, например:
+#   IMAGE=ghcr.io/your-github-account/your-repo:latest
+#
+# Запуск вручную:  docker compose pull && docker compose up -d
+# Автодеплой:      push в main → GitHub Actions собирает образ и выполняет
+#                  deploy/deploy.sh на сервере по SSH.
+
+services:
+  ai-contestation:
+    image: ${IMAGE:-ghcr.io/YOUR_ORG/YOUR_REPO:latest}
+    container_name: ai-contestation
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # В контейнере браузеры всегда headless
+      HEADLESS: "true"
+      PROXY_ON: "false"
+      RUNNING_IN_CONTAINER: "true"
+    volumes:
+      # Google service account — файл лежит на сервере, а не в git
+      - ./secrets/service_account.json:/app/utils/service_account.json:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"

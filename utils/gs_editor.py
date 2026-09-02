@@ -20,8 +20,16 @@ warnings.simplefilter("ignore")
 value_input_option = 'USER_ENTERED'
 
 abspath = os.path.dirname(os.path.dirname(__file__))
-path_to_credentials = os.path.join(abspath, 'utils', "service_account.json")
+# Путь к сервисному аккаунту Google: env SERVICE_ACCOUNT_FILE (в Docker монтируется
+# с хоста) или файл utils/service_account.json рядом с проектом.
+path_to_credentials = os.environ.get('SERVICE_ACCOUNT_FILE') or os.path.join(abspath, 'utils', 'service_account.json')
 print('path_to_credentials:', path_to_credentials)
+
+if not os.path.exists(path_to_credentials):
+    raise RuntimeError(
+        f'Файл сервисного аккаунта Google не найден: {path_to_credentials}\n'
+        f'Положите utils/service_account.json или задайте env SERVICE_ACCOUNT_FILE.'
+    )
 
 with open(path_to_credentials, 'r') as file:
     data = json.load(file)

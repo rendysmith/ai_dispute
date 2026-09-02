@@ -5,8 +5,9 @@ platforms, stores them in Google Sheets, and runs an AI-powered analysis that es
 the probability of getting each review removed and drafts support messages for
 platform moderation teams.
 
-Designed to run in **Kubernetes** with automatic CI/CD: every push to `main` builds a
-Docker image and deploys it to the cluster.
+Runs on a dedicated **VDS server** (Docker Compose) with automatic deployment:
+every push to `main` triggers a GitHub Actions pipeline that builds the Docker image,
+pushes it to GHCR and updates the service on the server over SSH.
 
 ---
 
@@ -26,7 +27,7 @@ Docker image and deploys it to the cluster.
 - [Configuration](#configuration)
 - [Google Sheets Layout](#google-sheets-layout)
 - [Running Locally](#running-locally)
-- [Kubernetes Deployment](#kubernetes-deployment)
+- [Automatic Deployment (VDS)](#automatic-deployment-vds)
 - [Project Structure](#project-structure)
 - [Tech Stack](#tech-stack)
 
@@ -50,8 +51,8 @@ flowchart TD
 ```
 
 Every request passes through a **resource-aware scheduler**: the first launch of each
-endpoint is always accepted, every additional launch is admitted only if the pod has
-enough free CPU/memory (otherwise — `HTTP 429`). Each background task has a hard
+endpoint is always accepted, every additional launch is admitted only if the container
+has enough free CPU/memory (otherwise — `HTTP 429`). Each background task has a hard
 lifetime limit, so a task cannot hang forever.
 
 ---
@@ -139,7 +140,7 @@ curl -X POST 'http://localhost:8000/api/v1/data/get_feedbacks?link=https://yande
 import httpx
 
 async def create_task(link: str):
-    base_url = "http://ai-contestation-service"   # our server
+    base_url = "http://<vds-ip>:8000"   # our server
     async with httpx.AsyncClient(base_url=base_url, timeout=httpx.Timeout(300.0, connect=10.0)) as client:
         response = await client.post(
             "/api/v1/data/get_feedbacks",
@@ -220,7 +221,7 @@ Current state of a background task.
 
 ### GET /capacity
 
-Live report of pod resources and how many more launches fit right now.
+Live report of container resources and how many more launches fit right now.
 
 ```json
 {
@@ -250,23 +251,22 @@ Liveness/readiness probe. Always returns `{"status": "ok"}` — no authenticatio
 
 ## Concurrency & Resource Control
 
-Before **every** launch the service checks whether the pod has room for one more job:
+Before **every** launch the service checks whether the container has room for one more job:
 
-- pod limits are read from the container cgroup (in k8s these are the `limits` from
-  `deployment.yaml`);
+- container limits are read from the cgroup (in Kubernetes these are the pod `limits`;
+  in Docker Compose — `deploy.resources.limits`);
 - each endpoint type has a **guaranteed minimum of 1 concurrent launch** — the first
   launch is always accepted;
 - every additional launch is accepted only if
-  `base usage + weight of running tasks + weight of the new task ≤ pod limits`
+  `base usage + weight of running tasks + weight of the new task ≤ container limits`
   (both CPU and memory are checked);
 - if there is not enough room, the endpoint responds `429` with a human-readable reason;
 - weights are configurable via environment variables (see
-  [Configuration](#configuration)) — e.g. with default weights and a 2 CPU / 4 GB pod:
-  `1 × run + 1 × get_feedback` fits (2.0 CPU / 3.0 GB), a second `run` does not.
+  [Configuration](#configuration)) — e.g. with default weights and a 2 CPU / 4 GB
+  container: `1 × run + 1 × get_feedback` fits (2.0 CPU / 3.0 GB), a second `run` does not.
 
-Because the container physically cannot exceed its own limits, pod limits are the
-correct ceiling for this calculation even when other projects share the nodes — node
-placement is handled by kube-scheduler through `resources.requests`.
+Because the container physically cannot exceed its own limits, these limits are the
+correct ceiling for this calculation even when other workloads share the server.
 
 ## Task Lifetime
 
@@ -278,15 +278,16 @@ No task can hang forever:
 | `/api/v1/data/get_feedbacks` | `FEEDBACK_TIMEOUT_SEC` | 15 minutes | `504 Gateway Timeout` |
 
 Additionally, all blocking HTTP calls inside parsers have their own timeouts, and if
-the event loop ever blocks completely, the Kubernetes liveness probe restarts the pod.
+the process ever hangs completely, Docker restarts the container
+(`restart: unless-stopped` in `docker-compose.yml`; the compose healthcheck monitors
+`/healthz`).
 
 ---
 
 ## Configuration
 
-All settings come from environment variables. Non-secret values live in the k8s
-ConfigMap (`deploy/k8s/configmap.yaml`), secrets in the k8s Secret
-(`deploy/setup-secret.sh`). See `.env.example` for a full template.
+All settings are provided through environment variables — a single `.env` file on the
+deployment server (VDS). See `.env.example` for a full template.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -300,8 +301,9 @@ ConfigMap (`deploy/k8s/configmap.yaml`), secrets in the k8s Secret
 | `PROXY_ON` | auto | Route browser traffic through the proxy pool from DB |
 | `MAX_SEC` | 30 | Max random pause between site requests, seconds |
 | `CAPTCHA_KEY` | — | 2captcha API key (used by the Otzovik parser) |
+| `SERVICE_ACCOUNT_FILE` | `utils/service_account.json` | Path to the Google service account file |
 | **Scheduler** | | |
-| `POD_CPU_LIMIT` / `POD_MEM_GB_LIMIT` | from cgroup | Pod resource ceiling override |
+| `POD_CPU_LIMIT` / `POD_MEM_GB_LIMIT` | from cgroup | Resource ceiling override |
 | `TASK_CPU_RUN` / `TASK_MEM_RUN` | 1.0 / 1.5 | Weight of one `/run` launch |
 | `TASK_CPU_GET_FEEDBACK` / `TASK_MEM_GET_FEEDBACK` | 0.7 / 1.0 | Weight of one `get_feedbacks` launch |
 | `BASE_CPU` / `BASE_MEM_GB` | 0.3 / 0.5 | Baseline consumption of the service itself |
@@ -313,8 +315,10 @@ ConfigMap (`deploy/k8s/configmap.yaml`), secrets in the k8s Secret
 
 ## Google Sheets Layout
 
-The service account credentials ship with the project (`utils/service_account.json`)
-and must have edit access to the target spreadsheets.
+The Google service account (`service_account.json`) is **not stored in git** — it is a
+credential placed on the deployment server (see
+[`deploy/README.md`](deploy/README.md)) and must have edit access to the target
+spreadsheets.
 
 **`links` worksheet** (input for `/run`) — one row per page to collect:
 
@@ -343,34 +347,42 @@ python3.12 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium
 
-cp .env.example .env    # fill in real values
+cp .env.example .env              # fill in real values
+# utils/service_account.json тоже нужно положить рядом с проектом (в git его нет)
 
 uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
 The service starts even without a database — the GPT token is loaded lazily on the
 first AI call. However, `/run` and the AI analysis require a reachable PostgreSQL,
-and `utils/service_account.json` must have access to your spreadsheets.
+and the Google service account must have access to your spreadsheets.
 
 Interactive API docs: <http://localhost:8000/docs>
 
 ---
 
-## Kubernetes Deployment
+## Automatic Deployment (VDS)
 
-Deployment is fully automated: **a push to `main` triggers GitHub Actions**, which
-builds the image, pushes it to GHCR, applies the manifests from `deploy/k8s/`, pins the
-new image by digest and waits for the rollout to finish.
+The service runs on a dedicated VDS server via **Docker Compose**, and deployment is
+fully automated: **a push to `main` triggers GitHub Actions**, which builds the image,
+pushes it to GHCR, connects to the server over SSH and runs
+`docker compose pull && docker compose up -d`, then verifies `/healthz`.
 
-One-time setup (namespace, secrets, GitHub Actions secrets) is described in
-[`deploy/README.md`](deploy/README.md).
+```
+GitHub push → GH Actions (build → GHCR) → SSH → VDS: docker compose up -d
+```
+
+Server layout (`/opt/ai-contestation`): `docker-compose.yml` + `.env` (settings and
+secrets) + `secrets/service_account.json` (Google credentials).
+
+The complete step-by-step guide — one-time VDS setup, GitHub secrets, troubleshooting —
+is in [`deploy/README.md`](deploy/README.md).
 
 Quick check after a deploy:
 
 ```bash
-kubectl -n <ns> get pods -l app=ai-contestation
-kubectl -n <ns> port-forward svc/ai-contestation 8000:80
-curl http://localhost:8000/healthz
+curl http://<VDS-IP>:8000/healthz          # {"status":"ok"}
+curl http://<VDS-IP>:8000/capacity         # live resource report
 ```
 
 ---
@@ -400,16 +412,16 @@ curl http://localhost:8000/healthz
 │   ├── proxy_module.py           # proxy pool from DB with liveness checks
 │   ├── scheduler.py              # resource-aware admission control
 │   ├── user_agent.py             # HTTP clients + Playwright browser factories
-│   └── service_account.json      # Google service account credentials
+│   └── service_account.json      # Google credentials (NOT in git — on server only)
 ├── models/
 │   └── mdl_tables.py             # SQLAlchemy ORM models
 ├── deploy/
-│   ├── k8s/                      # K8s manifests: ConfigMap, Deployment, Service, Secret template
-│   ├── setup-secret.sh           # One-time cluster secret bootstrap
-│   └── README.md                 # Full deployment guide
+│   ├── deploy.sh                 # Server-side update: pull + up -d + healthz
+│   └── README.md                 # Step-by-step VDS deployment guide
+├── docker-compose.yml            # VDS deployment: container, env, volume, healthcheck
 ├── Dockerfile                    # python:3.12-slim + Playwright Chromium
 ├── requirements.txt
-└── .github/workflows/            # CI/CD: build → GHCR → k8s rollout
+└── .github/workflows/            # CI/CD: build → GHCR → SSH deploy to VDS
 ```
 
 ## Tech Stack
@@ -421,4 +433,4 @@ curl http://localhost:8000/healthz
 | AI | OpenAI Chat Completions API |
 | Storage | Google Sheets API (service account), PostgreSQL (SQLAlchemy 2 + asyncpg) |
 | Anti-bot | playwright-stealth, playwright-captcha, 2captcha |
-| Packaging | Docker (python:3.12-slim), GitHub Actions, Kubernetes |
+| Packaging | Docker (python:3.12-slim), Docker Compose, GitHub Actions |

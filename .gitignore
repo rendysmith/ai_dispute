@@ -1,5 +1,9 @@
 .env
 .env.*
+!.env.example
+# Секреты, которые кладутся на сервер вручную (НЕ хранить в git)
+secrets/
+service_account.json
 venv/
 .venv/
 env/
