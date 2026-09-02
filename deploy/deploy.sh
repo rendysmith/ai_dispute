@@ -54,8 +54,20 @@ fi
 grep -q 'secrets/service_account.json' docker-compose.yml \
     || { echo "Ошибка: docker-compose.yml на сервере не монтирует secrets/service_account.json" >&2; exit 1; }
 
-echo ">>> Качаем свежий образ..."
-docker compose pull
+echo ">>> Качаем свежий образ (до 5 попыток, сеть VDS→GHCR бывает нестабильной)..."
+pull_ok=0
+for attempt in 1 2 3 4 5; do
+    if docker compose pull; then
+        pull_ok=1
+        break
+    fi
+    echo "    pull не удался (попытка ${attempt}/5), ждём 20с и повторяем..." >&2
+    sleep 20
+done
+if [ "${pull_ok}" != "1" ]; then
+    echo "Ошибка: не удалось скачать образ после 5 попыток. Проверьте сеть VDS → ghcr.io" >&2
+    exit 1
+fi
 
 echo ">>> Перезапускаем контейнер..."
 docker compose up -d --remove-orphans

@@ -98,7 +98,20 @@ jobs:
             grep -q 'secrets/service_account.json' docker-compose.yml \
               || { echo "Ошибка: compose на сервере не монтирует secrets/service_account.json" >&2; exit 1; }
 
-            docker compose pull
+            # Pull с ретраями: сеть VDS→GHCR бывает нестабильной (TLS handshake timeout)
+            pull_ok=0
+            for attempt in 1 2 3 4 5; do
+              if docker compose pull; then
+                pull_ok=1
+                break
+              fi
+              echo "pull не удался (попытка ${attempt}/5), ждём 20с и повторяем..." >&2
+              sleep 20
+            done
+            if [ "${pull_ok}" != "1" ]; then
+              echo "Ошибка: не удалось скачать образ после 5 попыток. Проверьте сеть VDS → ghcr.io" >&2
+              exit 1
+            fi
             docker compose up -d --remove-orphans
             docker image prune -f || true
             for i in $(seq 1 45); do
