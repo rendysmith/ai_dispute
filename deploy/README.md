@@ -19,6 +19,23 @@ VDS: /opt/ai-contestation ── docker compose up -d
 
 ---
 
+## Где какие секреты (политика)
+
+Репозиторий **публичный** — боевых секретов в нём нет и не будет.
+
+| Секрет | Хранилище | Зачем |
+|--------|-----------|-------|
+| `POSTGRESQL_*`, `HOST_USERNAME`, `HOST_PASSWORD`, `CAPTCHA_KEY`, `MAX_SEC` и пр. | **`.env` на VDS** (`/opt/ai-contestation/.env`) | Читает приложение в контейнере |
+| `service_account.json` (Google) | **`secrets/` на VDS** (`/opt/ai-contestation/secrets/`) | Монтируется в контейнер |
+| `VDS_HOST`, `VDS_USER`, `VDS_SSH_KEY`, `VDS_PORT` | **GitHub Secrets** (зашифрованы) | Нужны только CI для деплоя по SSH |
+
+CI **не знает** кредов БД и Google-аккаунта: workflow делает лишь
+`docker compose pull && up -d` — файлы `.env` и `secrets/service_account.json`
+на сервере при автодеплое не перезаписываются и переживают любой деплой.
+Восстановление сервера: скопировать два файла заново (см. шаги 1.2–1.3).
+
+---
+
 ## Шаг 1. Одноразовая настройка VDS (вручную, один раз)
 
 ### 1.1 Docker и docker compose
@@ -84,6 +101,8 @@ curl http://127.0.0.1:8000/healthz     # {"status":"ok"}
 ---
 
 ## Шаг 2. Секреты GitHub (Settings → Secrets and variables → Actions)
+
+**Только эти четыре** — креды БД и Google-аккаунт CI не нужны (см. «Где какие секреты» выше):
 
 | Секрет | Описание |
 |--------|----------|
