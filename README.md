@@ -1,5 +1,7 @@
 # AI Contestation Service
 
+> **🌐 [English](README.md) (default) · [Русский](README.ru.md)**
+
 A FastAPI microservice that collects negative customer reviews from major review
 platforms, stores them in Google Sheets, and runs an AI-powered analysis that estimates
 the probability of getting each review removed and drafts support messages for
