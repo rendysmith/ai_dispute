@@ -15,10 +15,12 @@ google-api-python-client~=2.121.0
 SQLAlchemy~=2.0.31
 asyncpg>=0.28.0
 
-# Browser automation (Playwright — все парсеры)
-playwright
-playwright_stealth
-playwright_captcha
+# Browser automation (Playwright — все парсеры).
+# Версии зафиксированы: иначе pip ставит свежий playwright при каждой сборке,
+# слой зависимостей меняется, и VDS каждый раз скачивает сотни МБ заново.
+playwright==1.60.0
+playwright_stealth==2.0.3
+playwright_captcha==0.1.5
 
 # Parsing
 beautifulsoup4==4.12.3

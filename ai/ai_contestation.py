@@ -1320,19 +1320,73 @@ async def _blocks_ya_maps_fetch_reviews(service, url, ss_id, project, links, rat
             else:
                 break
 
-        # Смена сортировки: контрол — div.rating-ranking-view (или текст «По умолчанию»)
-        try:
-            sort_btn = page.locator('div.rating-ranking-view').first
-            if await sort_btn.count() == 0:
-                sort_btn = page.get_by_text('По умолчанию', exact=False).first
-            await sort_btn.scroll_into_view_if_needed(timeout=5000)
-            await sort_btn.click(timeout=8000)
-            await asyncio.sleep(1.5)
+        # Смена сортировки: контрол — div.rating-ranking-view (или текст «По умолчанию»).
+        # SPA Яндекса перерисовывает DOM — элемент может «отвалиться» между поиском
+        # и кликом, поэтому кликаем с ретраями, а в конце — напрямую через JS.
+        def _sort_btn_js():
+            return page.evaluate(
+                """() => {
+                    const el = document.querySelector('div.rating-ranking-view');
+                    if (el) { el.click(); return true; }
+                    const byText = [...document.querySelectorAll('*')].find(
+                        e => e.childElementCount === 0 && e.textContent.trim() === 'По умолчанию'
+                    );
+                    if (byText) { byText.click(); return true; }
+                    return false;
+                }"""
+            )
 
-            clicked = False
-            for label in sort_labels:
+        def _label_js(label):
+            return page.evaluate(
+                """(lbl) => {
+                    const el = [...document.querySelectorAll('*')].find(
+                        e => e.childElementCount === 0 && e.textContent.trim() === lbl
+                    );
+                    if (el) { el.click(); return true; }
+                    return false;
+                }""",
+                label,
+            )
+
+        sort_opened = False
+        sort_err = ''
+        for attempt in range(4):
+            try:
+                sort_btn = page.locator('div.rating-ranking-view').first
+                if await sort_btn.count() == 0:
+                    sort_btn = page.get_by_text('По умолчанию', exact=False).first
+                if await sort_btn.count() == 0:
+                    sort_err = 'контрол сортировки не найден'
+                    await asyncio.sleep(1.5)
+                    continue
                 try:
-                    await page.get_by_text(label, exact=True).first.click(timeout=3000)
+                    await sort_btn.scroll_into_view_if_needed(timeout=3000)
+                except Exception:
+                    pass
+                await sort_btn.click(timeout=4000)
+                sort_opened = True
+                break
+            except Exception as ex:
+                sort_err = str(ex)
+                await asyncio.sleep(1.5)
+
+        if not sort_opened:
+            try:
+                sort_opened = await _sort_btn_js()
+            except Exception as ex:
+                sort_err = f'JS click: {ex}'
+
+        if not sort_opened:
+            print(f'YA fetchReviews: не удалось открыть сортировку: {sort_err}')
+            return {'error': f'Не удалось открыть сортировку: {sort_err}'}
+
+        await asyncio.sleep(1.5)
+
+        clicked = False
+        for label in sort_labels:
+            for attempt in range(3):
+                try:
+                    await page.get_by_text(label, exact=True).first.click(timeout=2500)
                     clicked = True
                     print(f'YA fetchReviews: сортировка -> {label}')
                     break
@@ -1343,17 +1397,26 @@ async def _blocks_ya_maps_fetch_reviews(service, url, ss_id, project, links, rat
                         print(f'YA fetchReviews: сортировка -> {label} (fuzzy)')
                         break
                     except Exception:
-                        continue
+                        await asyncio.sleep(1)
+            if clicked:
+                break
 
-            if not clicked:
-                msg = (f'Не найден пункт сортировки {sort_labels} '
-                       f'(возможна капча или требуется вход на Яндекс)')
-                print(f'YA fetchReviews: {msg}')
-                return {'error': msg}
+        if not clicked:
+            # fallback: клик по пункту меню напрямую через JS
+            for label in sort_labels:
+                try:
+                    if await _label_js(label):
+                        clicked = True
+                        print(f'YA fetchReviews: сортировка -> {label} (js)')
+                        break
+                except Exception:
+                    continue
 
-        except Exception as ex:
-            print(f'YA fetchReviews: не удалось сменить сортировку: {ex}')
-            return {'error': f'Не удалось сменить сортировку: {ex}'}
+        if not clicked:
+            msg = (f'Не найден пункт сортировки {sort_labels} '
+                   f'(возможна капча или требуется вход на Яндекс)')
+            print(f'YA fetchReviews: {msg}')
+            return {'error': msg}
 
         async def collect():
             """Достаёт отзывы из перехваченных ответов fetchReviews."""

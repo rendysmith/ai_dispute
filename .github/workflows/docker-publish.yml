@@ -42,6 +42,10 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Кэш слоёв в GHCR: зависимости переиспользуются между сборками,
+          # build-job не ставит pip/playwright с нуля при каждом пуше
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max
 
   deploy-to-vds:
     name: Deploy to VDS
