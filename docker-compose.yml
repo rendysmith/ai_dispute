@@ -36,6 +36,13 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
+    deploy:
+      resources:
+        limits:
+          # Сервер: AMD 2 ядра / 4 ГБ. Планировщик внутри сервиса читает эти
+          # лимиты из cgroup и не запускает парсеры сверх них (HTTP 429).
+          cpus: "2.0"
+          memory: 4G
     logging:
       driver: json-file
       options:

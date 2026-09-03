@@ -1266,16 +1266,17 @@ async def _blocks_ya_maps_fetch_reviews(service, url, ss_id, project, links, rat
     """
     source = "yandex.ru/maps"
 
+    # Варианты названий пунктов сортировки (у разных организаций/регионов бывают разные)
     SORT_LABELS = {
-        'by_time': 'По новизне',
-        'by_rating_asc': 'Сначала низкие',
-        'by_rating_desc': 'Сначала высокие',
+        'by_time': ['По новизне', 'Сначала новые', 'Сначала новые отзывы'],
+        'by_rating_asc': ['Сначала низкие', 'Сначала отрицательные'],
+        'by_rating_desc': ['Сначала высокие', 'Сначала положительные'],
     }
 
-    label = SORT_LABELS.get(ranking)
-    if not label:
+    sort_labels = SORT_LABELS.get(ranking)
+    if not sort_labels:
         print(f'YA fetchReviews: сортировка {ranking!r} не поддерживается')
-        return {}
+        return {'error': f'Сортировка {ranking!r} не поддерживается'}
 
     p = browser = context = page = None
     try:
@@ -1294,20 +1295,65 @@ async def _blocks_ya_maps_fetch_reviews(service, url, ss_id, project, links, rat
             await page.goto(url, wait_until='domcontentloaded', timeout=120_000)
         except Exception as ex:
             print(f'YA fetchReviews: goto error: {ex}')
-            return {}
+            return {'error': f'Не удалось загрузить страницу: {ex}'}
+
         await asyncio.sleep(6)
 
-        # Смена сортировки (по умолчанию страница открывается с сортировкой «По умолчанию»)
+        if 'showcaptcha' in page.url:
+            return {'error': 'Яндекс показал капчу (showcaptcha) — повторите позже или смените IP'}
+
+        # Закрываем возможные диалоги (вход/регион/подсказки) — их оверлей
+        # перехватывает клики, из-за чего сортировка «не нажимается»
+        for _ in range(3):
+            try:
+                await page.keyboard.press('Escape')
+                await page.wait_for_timeout(700)
+            except Exception:
+                break
+            close_btn = page.locator('button[class*="dialog__close"]').first
+            if await close_btn.count() > 0:
+                try:
+                    if await close_btn.is_visible():
+                        await close_btn.click(timeout=2000)
+                except Exception:
+                    pass
+            else:
+                break
+
+        # Смена сортировки: контрол — div.rating-ranking-view (или текст «По умолчанию»)
         try:
-            sort_btn = page.get_by_text('По умолчанию', exact=False).first
-            await sort_btn.click(timeout=6000)
+            sort_btn = page.locator('div.rating-ranking-view').first
+            if await sort_btn.count() == 0:
+                sort_btn = page.get_by_text('По умолчанию', exact=False).first
+            await sort_btn.scroll_into_view_if_needed(timeout=5000)
+            await sort_btn.click(timeout=8000)
             await asyncio.sleep(1.5)
-            item = page.get_by_text(label, exact=True).first
-            await item.click(timeout=6000)
-            print(f'YA fetchReviews: сортировка -> {label}')
+
+            clicked = False
+            for label in sort_labels:
+                try:
+                    await page.get_by_text(label, exact=True).first.click(timeout=3000)
+                    clicked = True
+                    print(f'YA fetchReviews: сортировка -> {label}')
+                    break
+                except Exception:
+                    try:
+                        await page.locator(f'text={label}').first.click(timeout=2000)
+                        clicked = True
+                        print(f'YA fetchReviews: сортировка -> {label} (fuzzy)')
+                        break
+                    except Exception:
+                        continue
+
+            if not clicked:
+                msg = (f'Не найден пункт сортировки {sort_labels} '
+                       f'(возможна капча или требуется вход на Яндекс)')
+                print(f'YA fetchReviews: {msg}')
+                return {'error': msg}
+
         except Exception as ex:
             print(f'YA fetchReviews: не удалось сменить сортировку: {ex}')
-            return {}
+            return {'error': f'Не удалось сменить сортировку: {ex}'}
 
         async def collect():
             """Достаёт отзывы из перехваченных ответов fetchReviews."""
@@ -1327,8 +1373,16 @@ async def _blocks_ya_maps_fetch_reviews(service, url, ss_id, project, links, rat
                         out.append(rev)
             return out, total
 
-        await asyncio.sleep(4)
-        reviews, total_count = await collect()
+        # Ждём ответ fetchReviews (до ~20 сек)
+        reviews, total_count = [], 0
+        for _ in range(10):
+            await asyncio.sleep(2)
+            reviews, total_count = await collect()
+            if reviews:
+                break
+
+        if not reviews:
+            return {'error': 'Отзывы не получены (смотрите логи: возможна капча или вход на Яндекс)'}
 
         # Догрузка следующих страниц скроллом (если запрошено)
         pages_left = (max_pages - 1) if max_pages is not None else None
@@ -1344,7 +1398,7 @@ async def _blocks_ya_maps_fetch_reviews(service, url, ss_id, project, links, rat
 
         if not reviews:
             print('YA fetchReviews: отзывы не получены')
-            return {}
+            return {'error': 'Отзывы не получены (смотрите логи: возможна капча или вход на Яндекс)'}
 
         print(f'YA fetchReviews: собрано отзывов = {len(reviews)}, всего у компании = {total_count}')
 
@@ -1496,13 +1550,13 @@ async def blocks_ya_reviews_api(service, url, ss_id, project, links, rating_max,
         html = await get_soup_curl_cffi(url, dict_type=False, proxy=False)
         if html is None:
             print(f"YA reviews: не удалось загрузить страницу: {url}")
-            return {}
+            return {'error': f'Не удалось загрузить страницу: {url}'}
 
         html_text = str(html)
         m = re.search(r'"objectId":"([^"]+)"', html_text)
         if not m:
             print(f"YA reviews: objectId не найден на странице: {url}")
-            return {}
+            return {'error': f'objectId не найден на странице: {url}'}
         object_id = m.group(1)
         otype = object_id.split('/')[1].capitalize() if '/' in object_id else 'Site'
         print(f"YA reviews: objectId={object_id} otype={otype}")
@@ -1657,7 +1711,7 @@ async def blocks_ya_reviews_api(service, url, ss_id, project, links, rating_max,
 
     except Exception as ex:
         print(f"YA reviews: error: {ex}")
-        return {}
+        return {'error': f'YA reviews: {ex}'}
 
 
 async def pars_ya_maps(service, url, ss_id, project, links, rating_max, ranking='by_rating_asc', max_pages=None):
