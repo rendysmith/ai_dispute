@@ -28,7 +28,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
-from ai.ai_contestation import multi_pars, review_analysis, blocks_ya_reviews_api
+from ai.ai_contestation import multi_pars, review_analysis, blocks_ya_reviews_api, _ensure_hpo
 from utils.scheduler import make_scheduler
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
@@ -169,6 +169,9 @@ async def get_feedbacks(link: str = Query(..., min_length=1,
         raise HTTPException(status_code=429, detail=msg)
 
     try:
+        # headless/proxy определяются по IP сервера один раз за процесс
+        await _ensure_hpo()
+
         result = await asyncio.wait_for(
             blocks_ya_reviews_api(None, link, None, None, [], rating_max=5,
                                   ranking='by_time', max_pages=1),

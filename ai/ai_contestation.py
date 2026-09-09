@@ -1248,349 +1248,9 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
     }
 
 
-async def _blocks_ya_maps_fetch_reviews(service, url, ss_id, project, links, rating_max,
-                                        ranking='by_rating_asc', max_pages=None):
-    """
-    Парсинг отзывов Яндекс.Карт (org-страницы) через внутренний API fetchReviews.
-
-    Страница сама вызывает fetchReviews при смене сортировки — перехватываем
-    ответы через Playwright (токены csrf/s генерирует фронтенд, без браузера
-    запросы отклоняются).
-
-    :param ranking: сортировка:
-        'by_time' — сначала новые («По новизне»);
-        'by_rating_asc' — сначала низкие оценки («Сначала низкие»);
-        'by_rating_desc' — сначала высокие («Сначала высокие»).
-    :param max_pages: сколько страниц отзывов собрать (None — все, что догрузит скролл).
-        Для частых запусков (несколько раз в день) достаточно max_pages=1.
-    """
-    source = "yandex.ru/maps"
-
-    # Варианты названий пунктов сортировки (у разных организаций/регионов бывают разные)
-    SORT_LABELS = {
-        'by_time': ['По новизне', 'Сначала новые', 'Сначала новые отзывы'],
-        'by_rating_asc': ['Сначала низкие', 'Сначала отрицательные'],
-        'by_rating_desc': ['Сначала высокие', 'Сначала положительные'],
-    }
-
-    sort_labels = SORT_LABELS.get(ranking)
-    if not sort_labels:
-        print(f'YA fetchReviews: сортировка {ranking!r} не поддерживается')
-        return {'error': f'Сортировка {ranking!r} не поддерживается'}
-
-    p = browser = context = page = None
-    try:
-        p, browser, context, page = await get_playwright(headless=headless, proxy=proxy_on,
-                                                         blocked_resource=False, stealth=True)
-
-        api_responses = []
-
-        def on_response(resp):
-            if 'fetchReviews' in resp.url and f'ranking={ranking}' in resp.url:
-                api_responses.append(resp)
-
-        page.on('response', on_response)
-
-        try:
-            await page.goto(url, wait_until='domcontentloaded', timeout=120_000)
-        except Exception as ex:
-            print(f'YA fetchReviews: goto error: {ex}')
-            return {'error': f'Не удалось загрузить страницу: {ex}'}
-
-        await asyncio.sleep(6)
-
-        if 'showcaptcha' in page.url:
-            return {'error': 'Яндекс показал капчу (showcaptcha) — повторите позже или смените IP'}
-
-        # Закрываем возможные диалоги (вход/регион/подсказки) — их оверлей
-        # перехватывает клики, из-за чего сортировка «не нажимается»
-        for _ in range(3):
-            try:
-                await page.keyboard.press('Escape')
-                await page.wait_for_timeout(700)
-            except Exception:
-                break
-            close_btn = page.locator('button[class*="dialog__close"]').first
-            if await close_btn.count() > 0:
-                try:
-                    if await close_btn.is_visible():
-                        await close_btn.click(timeout=2000)
-                except Exception:
-                    pass
-            else:
-                break
-
-        # Смена сортировки: контрол — div.rating-ranking-view (или текст «По умолчанию»).
-        # SPA Яндекса перерисовывает DOM — элемент может «отвалиться» между поиском
-        # и кликом, поэтому кликаем с ретраями, а в конце — напрямую через JS.
-        def _sort_btn_js():
-            return page.evaluate(
-                """() => {
-                    const el = document.querySelector('div.rating-ranking-view');
-                    if (el) { el.click(); return true; }
-                    const byText = [...document.querySelectorAll('*')].find(
-                        e => e.childElementCount === 0 && e.textContent.trim() === 'По умолчанию'
-                    );
-                    if (byText) { byText.click(); return true; }
-                    return false;
-                }"""
-            )
-
-        def _label_js(label):
-            return page.evaluate(
-                """(lbl) => {
-                    const el = [...document.querySelectorAll('*')].find(
-                        e => e.childElementCount === 0 && e.textContent.trim() === lbl
-                    );
-                    if (el) { el.click(); return true; }
-                    return false;
-                }""",
-                label,
-            )
-
-        sort_opened = False
-        sort_err = ''
-        for attempt in range(4):
-            try:
-                sort_btn = page.locator('div.rating-ranking-view').first
-                if await sort_btn.count() == 0:
-                    sort_btn = page.get_by_text('По умолчанию', exact=False).first
-                if await sort_btn.count() == 0:
-                    sort_err = 'контрол сортировки не найден'
-                    await asyncio.sleep(1.5)
-                    continue
-                try:
-                    await sort_btn.scroll_into_view_if_needed(timeout=3000)
-                except Exception:
-                    pass
-                await sort_btn.click(timeout=4000)
-                sort_opened = True
-                break
-            except Exception as ex:
-                sort_err = str(ex)
-                await asyncio.sleep(1.5)
-
-        if not sort_opened:
-            try:
-                sort_opened = await _sort_btn_js()
-            except Exception as ex:
-                sort_err = f'JS click: {ex}'
-
-        if not sort_opened:
-            print(f'YA fetchReviews: не удалось открыть сортировку: {sort_err}')
-            return {'error': f'Не удалось открыть сортировку: {sort_err}'}
-
-        await asyncio.sleep(1.5)
-
-        clicked = False
-        for label in sort_labels:
-            for attempt in range(3):
-                try:
-                    await page.get_by_text(label, exact=True).first.click(timeout=2500)
-                    clicked = True
-                    print(f'YA fetchReviews: сортировка -> {label}')
-                    break
-                except Exception:
-                    try:
-                        await page.locator(f'text={label}').first.click(timeout=2000)
-                        clicked = True
-                        print(f'YA fetchReviews: сортировка -> {label} (fuzzy)')
-                        break
-                    except Exception:
-                        await asyncio.sleep(1)
-            if clicked:
-                break
-
-        if not clicked:
-            # fallback: клик по пункту меню напрямую через JS
-            for label in sort_labels:
-                try:
-                    if await _label_js(label):
-                        clicked = True
-                        print(f'YA fetchReviews: сортировка -> {label} (js)')
-                        break
-                except Exception:
-                    continue
-
-        if not clicked:
-            msg = (f'Не найден пункт сортировки {sort_labels} '
-                   f'(возможна капча или требуется вход на Яндекс)')
-            print(f'YA fetchReviews: {msg}')
-            return {'error': msg}
-
-        async def collect():
-            """Достаёт отзывы из перехваченных ответов fetchReviews."""
-            out, seen = [], set()
-            total = 0
-            for resp in api_responses:
-                try:
-                    data = await resp.json()
-                except Exception:
-                    continue
-                params = (data.get('data') or {}).get('params') or {}
-                total = max(total, params.get('count', 0) or 0)
-                for rev in (data.get('data') or {}).get('reviews') or []:
-                    rid = rev.get('reviewId')
-                    if rid and rid not in seen:
-                        seen.add(rid)
-                        out.append(rev)
-            return out, total
-
-        # Ждём ответ fetchReviews (до ~20 сек)
-        reviews, total_count = [], 0
-        for _ in range(10):
-            await asyncio.sleep(2)
-            reviews, total_count = await collect()
-            if reviews:
-                break
-
-        if not reviews:
-            return {'error': 'Отзывы не получены (смотрите логи: возможна капча или вход на Яндекс)'}
-
-        # Догрузка следующих страниц скроллом (если запрошено)
-        pages_left = (max_pages - 1) if max_pages is not None else None
-        while pages_left is None or pages_left > 0:
-            before = len(reviews)
-            await page.mouse.wheel(0, 8000)
-            await asyncio.sleep(2.5)
-            reviews, total_count = await collect()
-            if len(reviews) == before:
-                break
-            if pages_left is not None:
-                pages_left -= 1
-
-        if not reviews:
-            print('YA fetchReviews: отзывы не получены')
-            return {'error': 'Отзывы не получены (смотрите логи: возможна капча или вход на Яндекс)'}
-
-        print(f'YA fetchReviews: собрано отзывов = {len(reviews)}, всего у компании = {total_count}')
-
-        # Рейтинг компании со страницы (опционально)
-        company_rating = None
-        try:
-            els = page.locator('span.business-summary-rating-badge-view__rating-text')
-            n = await els.count()
-            if n:
-                parts = []
-                for i in range(min(n, 4)):
-                    txt = await els.nth(i).inner_text()
-                    parts.append(txt.strip())
-                joined = ''.join(parts)
-                m = re.search(r'\d+[.,]\d+', joined)
-                if m:
-                    company_rating = float(m.group(0).replace(',', '.'))
-                else:
-                    m2 = re.search(r'\d+', joined)
-                    if m2:
-                        company_rating = float(m2.group(0))
-        except Exception as ex:
-            print(f'YA fetchReviews: rating error: {ex}')
-
-        # ---------------------------------------------------------------------
-        # ДЕДУП ПО УЖЕ СУЩЕСТВУЮЩИМ ДАННЫМ В ТАБЛИЦЕ (если передан ss_id)
-        # ---------------------------------------------------------------------
-        existing_urls: set[str] = set()
-        existing_rows: set[str] = set()
-        if ss_id is not None:
-            try:
-                df_existing = await read_table_id(service, ss_id, project)
-                if df_existing is not None and not df_existing.empty:
-                    for col in ("Url", "URL", "url"):
-                        if col in df_existing.columns:
-                            existing_urls.update(
-                                u for u in df_existing[col].astype(str).tolist()
-                                if u and u != "nan"
-                            )
-                            break
-
-                    need_cols = ("Дата", "Автор", "Текст", "Оценка")
-                    if all(c in df_existing.columns for c in need_cols):
-                        for _, r in df_existing[list(need_cols)].iterrows():
-                            d = "" if pd.isna(r["Дата"]) else str(r["Дата"])
-                            a = "" if pd.isna(r["Автор"]) else str(r["Автор"])
-                            t = "" if pd.isna(r["Текст"]) else str(r["Текст"])
-                            o = "" if pd.isna(r["Оценка"]) else str(r["Оценка"])
-                            existing_rows.add(f"{d}|{a}|{t}|{o}")
-            except Exception as ex:
-                print(f"YA fetchReviews: could not read existing sheet for dedup: {ex}")
-
-        links_set = set(links or [])
-        links_set.update(existing_urls)
-        seen_rows = set(existing_rows)
-
-        base_url = await get_base_url(url)
-        datas = await empty_data()
-
-        for rev in reviews:
-            rating = rev.get('rating')
-            if rating is None or (rating_max and rating > rating_max):
-                continue
-
-            rid = rev.get('reviewId')
-            review_link = f"{base_url}?reviews%5BpublicId%5D={rid}&utm_source=review"
-            if review_link in links_set:
-                continue
-            links_set.add(review_link)
-
-            feedback = rev.get('text') or ''
-            author = (rev.get('author') or {}).get('name') or ''
-
-            formatted_date = ""
-            ts = rev.get('updatedTime')
-            if ts:
-                try:
-                    dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S.%fZ")
-                    formatted_date = dt.strftime("%d.%m.%Y")
-                except Exception:
-                    pass
-
-            row_id = f"{formatted_date}|{author}|{feedback}|{rating}"
-            if row_id in seen_rows:
-                continue
-            seen_rows.add(row_id)
-
-            datas['Дата'].append(formatted_date)
-            datas['Текст'].append(feedback)
-            datas['Бренд'].append(project)
-            datas['Источник'].append(source)
-            datas['Url'].append(review_link)
-            datas['Автор'].append(author)
-            datas['Оценка'].append(rating)
-            datas['Общий Url'].append(base_url)
-            datas['Кол-во отзывов'].append(total_count)
-            datas['Оценка компании до удаления'].append(company_rating if company_rating is not None else '')
-
-        if datas['Url']:
-            if ss_id is not None:
-                await append_data_to_sheet_scopes(service, ss_id, project, datas)
-                print(f"YA fetchReviews: wrote {len(datas['Url'])} rows")
-                try:
-                    links.extend([u for u in datas['Url'] if u])
-                except Exception:
-                    pass
-            else:
-                print(f"YA fetchReviews: ss_id не задан — запись пропущена, строк: {len(datas['Url'])}")
-        else:
-            print("YA fetchReviews: nothing new to write")
-
-        return {
-            "rating_score": company_rating,
-            "review_count": total_count,
-            "items_written": len(datas['Url']),
-            "datas": datas,
-        }
-
-    finally:
-        await close_playwright(p, browser, context, page)
-
-
 async def blocks_ya_reviews_api(service, url, ss_id, project, links, rating_max, ranking='by_rating_asc', max_pages=None):
     """
-    Парсинг отзывов Яндекс (универсальная функция).
-
-    - reviews.yandex.ru — скрытый API digest (без Playwright);
-    - org-страницы Яндекс.Карт (yandex.ru/maps/org/...) — внутренний API fetchReviews
-      через Playwright (перехват ответов при смене сортировки).
+    Парсинг отзывов reviews.yandex.ru через скрытый API digest (без Playwright).
 
     :param ranking: сортировка:
         'by_rating_asc' — сначала отрицательные/низкие оценки;
@@ -1600,10 +1260,21 @@ async def blocks_ya_reviews_api(service, url, ss_id, project, links, rating_max,
 
     Если ss_id=None — запись в Google-таблицу и дедупликация пропускаются,
     функция только возвращает собранные данные.
+
+    Для страниц yandex.ru/maps НЕ вызывать — там работает DOM-скролл
+    через blocks_ya_maps (см. pars_ya_maps).
     """
-    if '/maps/org/' in url:
-        return await _blocks_ya_maps_fetch_reviews(service, url, ss_id, project, links, rating_max,
-                                                   ranking=ranking, max_pages=max_pages)
+    if 'reviews.yandex.ru' not in url:
+        # Страницы Яндекс.Карт парсятся через Playwright-скролл (blocks_ya_maps).
+        # Этот API-путь рассчитан только на reviews.yandex.ru.
+        p = browser = context = page = None
+        try:
+            await _ensure_hpo()
+            p, browser, context, page = await get_playwright(headless=headless,
+                                                             blocked_resource=False)
+            return await blocks_ya_maps(service, page, url, ss_id, project, links, rating_max)
+        finally:
+            await close_playwright(p, browser, context, page)
 
     from urllib.parse import quote
     source = "reviews.yandex.ru"
@@ -1782,9 +1453,10 @@ async def pars_ya_maps(service, url, ss_id, project, links, rating_max, ranking=
     Yandex парсинг.
 
     reviews.yandex.ru — через скрытый API digest (без Playwright).
-    yandex.ru/maps — через Playwright (legacy).
+    yandex.ru/maps — через Playwright (legacy): скролл по DOM как в старом проекте.
 
-    `get_playwright` находится внутри `pars_ya_maps`, чтобы `multi_pars`
+    `get_playwright` находится внутри `pars_ya_maps` (и внутри
+    `blocks_ya_reviews_api` для maps-ветки), чтобы `multi_pars`
     не зависел от внешней переменной `page`.
     """
     await _ensure_hpo()
@@ -1792,14 +1464,6 @@ async def pars_ya_maps(service, url, ss_id, project, links, rating_max, ranking=
     if 'reviews.yandex.ru' in url:
         return await blocks_ya_reviews_api(service, url, ss_id, project, links, rating_max,
                                            ranking=ranking, max_pages=max_pages)
-
-    # org-страницы Яндекс.Карт: сначала API fetchReviews, при неудаче — legacy скролл
-    if '/maps/org/' in url:
-        result = await blocks_ya_reviews_api(service, url, ss_id, project, links, rating_max,
-                                             ranking=ranking, max_pages=max_pages)
-        if result:
-            return result
-        print('YA: fetchReviews не дал данных — fallback на legacy blocks_ya_maps')
 
     p = browser = context = page = None
     try:
@@ -1905,16 +1569,8 @@ if "__main__" == __name__:
     from pprint import pprint
 
     async def main():
-        service = await get_service()
-        ss_id = '1wBVKv14zcMLZawsT20JBt6FDxpzLDdppAJoFPgJ2La4'
-        project = 'test'
-        url = 'https://yandex.md/maps/org/avtomir_mazda/86615003593/reviews/?ll=37.679170%2C55.853506&z=16'
-        links = []
-        rating_max = 5
-        ranking = "by_time"   # самые свежие отзывы
-        max_pages = 1         # пагинация не нужна — запуск будет частым
-
-        list_datas = await blocks_ya_reviews_api(service, url, ss_id, project, links, rating_max, ranking, max_pages)
-        pprint(list_datas)
+        ss_id = '17KcqiEF1AfsCSmi_ZYM3hohCtRm1IN6ZjYtlZICk69I'
+        project = 'HH'
+        await multi_pars(ss_id, project)
 
     asyncio.run(main())
