@@ -181,11 +181,17 @@ async def get_playwright(url=False, headless=True, proxy=True, proxy_type=None, 
     if proxy:
         host, port, login, password = await get_one_proxy(proxy_type)
 
-        proxy = {
-            "server": f"http://{host}:{port}",
-            "username": login,  # можно опустить
-            "password": password  # можно опустить
-        }
+        if not host:
+            # Живых прокси в БД нет: Chromium с адресом http://None:None
+            # падает на goto с ERR_PROXY_CONNECTION_FAILED — выходим без прокси
+            logging.warning('Прокси в БД нет — браузер запущен без прокси')
+            proxy = None
+        else:
+            proxy = {
+                "server": f"http://{host}:{port}",
+                "username": login,  # можно опустить
+                "password": password  # можно опустить
+            }
     else:
         proxy = None
 
