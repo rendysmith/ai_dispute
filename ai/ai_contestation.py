@@ -1217,24 +1217,44 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
             unchanged = 0
             prev_found = found
 
-        if unchanged >= 10:
+        if unchanged >= 15:
             break
 
         if found > 0:
             try:
                 last_card = cards.nth(found - 1)
                 await last_card.scroll_into_view_if_needed(timeout=5000)
-                try:
-                    await last_card.hover(timeout=1000)
-                except Exception:
-                    pass
             except Exception:
                 pass
 
-        await page.mouse.wheel(0, 3500)
-        await asyncio.sleep(1.2)
+        # Вместо «Показать ещё» в конце списка Яндекса иногда появляется кнопка —
+        # кликаем, если видна
+        try:
+            more_btn = page.locator('text=Показать ещё').first
+            if await more_btn.count() > 0 and await more_btn.is_visible():
+                await more_btn.click(timeout=3000)
+                print('YA: нажата кнопка «Показать ещё»')
+                await asyncio.sleep(2)
+        except Exception:
+            pass
 
+        # JS-скролл главного окна — не зависит от позиции мыши
+        # (mouse.wheel крутит элемент под курсором: если курсор над картой,
+        # колесо зуммит карту и догрузка останавливается)
+        await page.evaluate("window.scrollBy(0, 5000)")
+        # Яндексу нужно время на подгрузку следующей порции (50 карточек)
+        await asyncio.sleep(3)
+
+    # Добивка: если скролл-лоадер «уснул» до конца списка, крутим в самый низ —
+    # триггер догрузки обычно живёт у нижней границы страницы
     final_found = await cards.count()
+    if final_found < review_count:
+        for _ in range(5):
+            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            await asyncio.sleep(3)
+            final_found = await cards.count()
+            if final_found >= review_count:
+                break
     await write_new_batch(final_found, -1)
 
     print(f"YA done: wrote {total_written} rows (found DOM={final_found} total={review_count})")
