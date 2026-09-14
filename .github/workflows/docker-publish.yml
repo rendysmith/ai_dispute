@@ -112,7 +112,12 @@ jobs:
               echo "Ошибка: не удалось скачать образ после 5 попыток. Проверьте сеть VDS → ghcr.io" >&2
               exit 1
             fi
-            docker compose up -d --remove-orphans
+            # Старые контейнеры (от прежних конфигураций compose) могут
+            # блокировать имя ai-dispute — сносим всё, что связано с сервисом
+            docker compose down --remove-orphans >/dev/null 2>&1 || true
+            docker ps -aq --filter "name=ai-dispute" | xargs -r docker rm -f >/dev/null 2>&1 || true
+
+            docker compose up -d --force-recreate --remove-orphans
             docker image prune -f || true
             for i in $(seq 1 45); do
               if curl -fsS http://127.0.0.1:8000/healthz >/dev/null 2>&1; then

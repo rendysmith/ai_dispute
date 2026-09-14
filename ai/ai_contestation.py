@@ -1013,7 +1013,10 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
 
     except Exception as ex:
         print(f"--- goto timeout/err: {ex}. retry...")
-        await page.goto(url, wait_until="domcontentloaded", timeout=180_000)
+        try:
+            await page.goto(url, wait_until="domcontentloaded", timeout=180_000)
+        except Exception as ex2:
+            return {'error': f'Не удалось загрузить страницу: {ex2}'}
 
     current_url = page.url
 
@@ -1039,7 +1042,10 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
         await page.goto(full_url, wait_until="domcontentloaded", timeout=120_000)
     except Exception as ex:
         print(f"--- goto(full_url) timeout/err: {ex}. retry...")
-        await page.goto(full_url, wait_until="domcontentloaded", timeout=180_000)
+        try:
+            await page.goto(full_url, wait_until="domcontentloaded", timeout=180_000)
+        except Exception as ex2:
+            return {'error': f'Не удалось загрузить страницу: {ex2}'}
 
     # Общее число отзывов и рейтинг компании — только из ratingData (НЕ reviewResults).
     # Список reviewResults в state-view всегда ~50 и при скролле не растёт.
@@ -1089,6 +1095,9 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
                     existing_rows.add(f"{d}|{a}|{t}|{o}")
     except Exception as ex:
         print(f"YA: could not read existing sheet for dedup: {ex}")
+
+    # API-режим (ss_id=None): в таблицу не пишем, отзывы копим сюда для ответа
+    all_datas = await empty_data()
 
     async def extract_cards_batch(start_idx: int):
         """Быстро читаем только новые карточки из DOM одним JS-вызовом."""
@@ -1188,12 +1197,17 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
         written = len(datas['Url'])
         processed_count = found
         if written:
-            await append_data_to_sheet_scopes(service, ss_id, project, datas)
+            if ss_id is not None:
+                await append_data_to_sheet_scopes(service, ss_id, project, datas)
+                try:
+                    links.extend([u for u in datas['Url'] if u])
+                except Exception:
+                    pass
+            else:
+                # API-режим: данные возвращаются в ответе, в таблицу не пишем
+                for _k in datas:
+                    all_datas[_k].extend(datas[_k])
             total_written += written
-            try:
-                links.extend([u for u in datas['Url'] if u])
-            except Exception:
-                pass
 
         print(
             f"YA batch scroll {scroll_i}: cards {start_idx}-{found} "
@@ -1265,6 +1279,7 @@ async def blocks_ya_maps(service, page, url, ss_id, project, links, rating_max):
         "rating_count": rating_count,
         "items_found_dom": final_found,
         "items_written": total_written,
+        "datas": all_datas,
     }
 
 

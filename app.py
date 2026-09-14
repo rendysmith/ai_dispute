@@ -181,6 +181,10 @@ async def get_feedbacks(link: str = Query(..., min_length=1,
     except asyncio.TimeoutError:
         raise HTTPException(status_code=504,
                             detail=f'Таймаут получения отзывов ({FEEDBACK_TIMEOUT_SEC:.0f}с)')
+    except Exception as ex:
+        logger.exception('get_feedbacks failed: link=%s', link)
+        raise HTTPException(status_code=500,
+                            detail=f'Ошибка парсинга: {ex}')
     finally:
         await scheduler.release('get_feedback')
 
