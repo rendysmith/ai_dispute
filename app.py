@@ -22,6 +22,7 @@ import logging
 import os
 import secrets
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, HTTPException, Query
@@ -34,13 +35,30 @@ from utils.scheduler import make_scheduler
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 logger = logging.getLogger('contestation-api')
 
-app = FastAPI(title='ai_dispute API', version='1.0.0')
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # Чистим зомби-браузеры от предыдущих запусков (старый образ мог оставить
+    # процессы после краша контейнера/деплоя), затем запускаем сторожевой цикл
+    await _kill_browsers_older_than(BROWSER_STALE_EXTRA_SEC)
+    watchdog = asyncio.create_task(_watchdog_loop())
+    logger.info('watchdog запущен (интервал %dс)', WATCHDOG_INTERVAL_SEC)
+    yield
+    watchdog.cancel()
+
+
+app = FastAPI(title='ai_dispute API', version='1.0.0', lifespan=lifespan)
 
 # Хранилище задач (in-memory; для одной реплики k8s этого достаточно)
 TASKS: dict[str, dict] = {}
 RUNNING_SS: set[str] = set()
 
 MAX_TASKS_KEEP = 200
+
+# Сторожевой цикл: интервал проверки и верхний возраст «живого» браузера.
+# Chromium, живущий дольше самой длинной задачи + запас, — это зомби от
+# упавшего процесса: убиваем его, чтобы не копить процессы и не жечь CPU.
+WATCHDOG_INTERVAL_SEC = int(os.environ.get('WATCHDOG_INTERVAL_SEC', '120'))
+BROWSER_STALE_EXTRA_SEC = int(os.environ.get('BROWSER_STALE_EXTRA_SEC', '1800'))
 
 # Авторизация точек API: Basic Auth — логин/пароль (те же, что для запроса к ферме)
 HOST_USERNAME = os.environ.get('HOST_USERNAME', '')
@@ -210,3 +228,85 @@ async def capacity(_auth=Depends(require_auth)):
 @app.get('/healthz')
 async def healthz():
     return {'status': 'ok'}
+
+
+# ---------------------------------------------------------------------------
+# Сторожевой цикл: зависшие процессы Playwright/Chromium и задачи-зомби
+# ---------------------------------------------------------------------------
+
+async def _browser_process_ids(max_age_sec: float) -> list[str]:
+    """PID процессов chromium/playwright, живущих дольше max_age_sec."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            'ps', '-eo', 'pid=,etimes=,args=',
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        out, _ = await proc.communicate()
+    except Exception as ex:
+        logger.warning('watchdog: не удалось вызвать ps: %s', ex)
+        return []
+
+    pids: list[str] = []
+    for line in out.decode(errors='ignore').splitlines():
+        parts = line.strip().split(None, 2)
+        if len(parts) < 3:
+            continue
+        pid, etimes, args = parts[0], parts[1], parts[2]
+        try:
+            age = float(etimes)
+        except ValueError:
+            continue
+        if age > max_age_sec and ('chromium' in args or 'playwright' in args):
+            pids.append(pid)
+    return pids
+
+
+async def _kill_browsers_older_than(max_age_sec: float):
+    """Убивает осиротевшие браузеры (например, от упавшего процесса)."""
+    pids = await _browser_process_ids(max_age_sec)
+    if not pids:
+        return
+    logger.warning('watchdog: убиваю осиротевшие браузеры (возраст > %.0fс): %s',
+                   max_age_sec, ', '.join(pids))
+    try:
+        await asyncio.create_subprocess_exec(
+            'kill', '-9', *pids,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+    except Exception as ex:
+        logger.warning('watchdog: ошибка kill: %s', ex)
+
+
+async def _watchdog_loop():
+    """Каждые WATCHDOG_INTERVAL_SEC проверяет зависшие задачи и зомби-браузеры."""
+    # Любой браузер живёт не дольше задачи; старше TASK_TIMEOUT + запас — зомби
+    max_browser_age = TASK_TIMEOUT_SEC + BROWSER_STALE_EXTRA_SEC
+    while True:
+        try:
+            await _sweep_stale_tasks()
+            await _kill_browsers_older_than(max_browser_age)
+        except Exception as ex:
+            logger.exception('watchdog: ошибка цикла: %s', ex)
+        await asyncio.sleep(WATCHDOG_INTERVAL_SEC)
+
+
+async def _sweep_stale_tasks():
+    """Помечает error задачи, превысившие TASK_TIMEOUT_SEC (страховка от зависаний)."""
+    now = datetime.now(timezone.utc)
+    for tid, task in list(TASKS.items()):
+        if task.get('status') != 'running':
+            continue
+        started = task.get('started_at')
+        if not started:
+            continue
+        try:
+            started_dt = datetime.fromisoformat(started)
+        except ValueError:
+            continue
+        if (now - started_dt).total_seconds() > TASK_TIMEOUT_SEC:
+            logger.error('watchdog: задача %s превысила таймаут %.0fс — помечаю error', tid, TASK_TIMEOUT_SEC)
+            task.update(status='error', stage='error', finished_at=_now_iso(),
+                        result={'error': f'Таймаут: задача не завершилась за {TASK_TIMEOUT_SEC:.0f}с'})
+            RUNNING_SS.discard(task.get('ss_id'))

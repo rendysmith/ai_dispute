@@ -140,6 +140,10 @@ def make_scheduler():
                 min_slots=_env_int('TASK_MIN_SLOTS_GET_FEEDBACK', 1),
             ),
         },
+        # Жёсткий потолок ОДНОВРЕМЕННЫХ парсеров на всём сервисе.
+        # VDS: 2 ядра / 4 ГБ → безопасно 2 браузера параллельно,
+        # третий упрётся в CPU и память. Проверяется до всех остальных условий.
+        max_concurrent=_env_int('MAX_CONCURRENT_TASKS', 2),
         base_cpu=_env_float('BASE_CPU', 0.3),        # сам uvicorn-сервис
         base_mem_gb=_env_float('BASE_MEM_GB', 0.5),
     )
@@ -148,10 +152,12 @@ def make_scheduler():
 class Scheduler:
     """Admission control: перед каждым запуском проверяет свободные мощности."""
 
-    def __init__(self, weights: dict[str, TaskWeight], base_cpu: float, base_mem_gb: float):
+    def __init__(self, weights: dict[str, TaskWeight], base_cpu: float, base_mem_gb: float,
+                 max_concurrent: int | None = None):
         self.weights = weights
         self.base_cpu = base_cpu
         self.base_mem_gb = base_mem_gb
+        self.max_concurrent = max_concurrent
         self._lock = asyncio.Lock()
         self._running = {t: 0 for t in weights}
 
@@ -170,6 +176,14 @@ class Scheduler:
             return False, f'Неизвестный тип задачи: {task_type}'
 
         async with self._lock:
+            # Жёсткий потолок одновременных запусков — раньше всех остальных проверок
+            busy = sum(self._running.values())
+            if self.max_concurrent is not None and busy >= self.max_concurrent:
+                return False, (
+                    f'Достигнут лимит одновременных парсеров '
+                    f'({self.max_concurrent} шт.) — повторите позже'
+                )
+
             # Гарантированный минимум: первая задача каждого типа запускается всегда
             if self._running[task_type] < w.min_slots:
                 self._running[task_type] += 1
@@ -217,6 +231,8 @@ class Scheduler:
         return {
             'cpu_limit': cpu_limit,
             'mem_limit_gb': mem_limit,
+            'max_concurrent': self.max_concurrent,
+            'total_running': sum(self._running.values()),
             'base_cpu': self.base_cpu,
             'base_mem_gb': self.base_mem_gb,
             'running': dict(self._running),

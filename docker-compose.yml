@@ -27,6 +27,20 @@ services:
       HEADLESS: "true"
       PROXY_ON: "false"
       RUNNING_IN_CONTAINER: "true"
+      # Потолки для планировщика (см. utils/scheduler.py): браузеры не должны
+      # запускаться сверх мощностей VDS (2 CPU / 4 ГБ)
+      POD_CPU_LIMIT: "2"
+      POD_MEM_GB_LIMIT: "4"
+      # Жёсткий лимит одновременных парсеров (см. MAX_CONCURRENT_TASKS)
+      MAX_CONCURRENT_TASKS: "2"
+      # Таймаут задачи: если pipeline завис, сторожевой цикл помечает его error
+      TASK_TIMEOUT_SEC: "14400"
+    ulimits:
+      # Playwright/Chromium открывает много fd; лимит по умолчанию 1024
+      # приводит к сбоям и «зависшим» браузерам
+      nofile:
+        soft: 65536
+        hard: 65536
     volumes:
       # Google service account — файл лежит на сервере, а не в git
       - ./secrets/service_account.json:/app/utils/service_account.json:ro
