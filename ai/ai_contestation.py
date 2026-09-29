@@ -59,6 +59,33 @@ async def _ensure_hpo():
     headless, proxy_on, only_text = await get_hpo()
     _hpo_loaded = True
 
+
+def _normalize_yandex_url(url: str) -> str:
+    """
+    Приводит profile-ссылки Яндекс Бизнеса к формату Яндекс.Карт:
+
+        https://yandex.ru/profile/{id}[?query]  →
+        https://yandex.ru/maps/org/{id}/reviews/
+
+    У профиля нет маршрута /reviews (парсер возвращал пустой результат),
+    но числовой id профиля совпадает с org id в Картах — там отзывы
+    доступны полностью (проверено: 50 карточек на maps/org/{id}/reviews).
+
+    Ссылки других форматов (maps/org/..., reviews.yandex.ru, не-Яндекс)
+    возвращаются без изменений.
+    """
+    m = re.match(r'^https?://([^/]+)/profile/(\d+)(?:[/?#]|$)', url)
+    if not m:
+        return url
+
+    host, org_id = m.group(1), m.group(2)
+    if 'yandex' not in host:
+        return url
+
+    new_url = f'https://{host}/maps/org/{org_id}/reviews/'
+    print(f'YA: profile-ссылка преобразована в Карты: {url} -> {new_url}')
+    return new_url
+
 text = """
 Ты модератор сайта {source},
 Посмотри следующий комментарий: 
@@ -1299,6 +1326,8 @@ async def blocks_ya_reviews_api(service, url, ss_id, project, links, rating_max,
     Для страниц yandex.ru/maps НЕ вызывать — там работает DOM-скролл
     через blocks_ya_maps (см. pars_ya_maps).
     """
+    url = _normalize_yandex_url(url)
+
     if 'reviews.yandex.ru' not in url:
         # Страницы Яндекс.Карт парсятся через Playwright-скролл (blocks_ya_maps).
         # Этот API-путь рассчитан только на reviews.yandex.ru.
@@ -1495,6 +1524,7 @@ async def pars_ya_maps(service, url, ss_id, project, links, rating_max, ranking=
     не зависел от внешней переменной `page`.
     """
     await _ensure_hpo()
+    url = _normalize_yandex_url(url)
 
     if 'reviews.yandex.ru' in url:
         return await blocks_ya_reviews_api(service, url, ss_id, project, links, rating_max,
