@@ -30,6 +30,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
 from ai.ai_contestation import multi_pars, review_analysis, blocks_ya_reviews_api, _ensure_hpo
+from utils.gs_editor import get_service, read_table_id
 from utils.scheduler import make_scheduler
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
@@ -59,9 +60,9 @@ MAX_TASKS_KEEP = 200
 # Зомби = chromium/playwright, живущий дольше разумного возраста, либо
 # лишний сверх BROWSER_MAX_COUNT: без уборки они копятся и жгут CPU/RAM.
 WATCHDOG_INTERVAL_SEC = int(os.environ.get('WATCHDOG_INTERVAL_SEC', '60'))
-# Возраст одного браузера не должен превышать время парсинга одной ссылки.
-# Всё, что старше — зомби от упавшего/зависшего процесса.
-BROWSER_MAX_AGE_SEC = int(os.environ.get('BROWSER_MAX_AGE_SEC', '7200'))
+# Возраст одного браузера не должен превышать время парсинга одной ссылки
+# (максимум 25–30 мин по практике) + запас. Всё, что старше — зомби.
+BROWSER_MAX_AGE_SEC = int(os.environ.get('BROWSER_MAX_AGE_SEC', '2700'))
 # При старте службы (рестарт после краша) чистим всё старше этого порога
 BROWSER_STARTUP_CLEAN_SEC = int(os.environ.get('BROWSER_STARTUP_CLEAN_SEC', '900'))
 # Максимум браузерных процессов в контейнере одновременно
@@ -72,9 +73,18 @@ BROWSER_MAX_COUNT = int(os.environ.get('BROWSER_MAX_COUNT', '6'))
 HOST_USERNAME = os.environ.get('HOST_USERNAME', '')
 HOST_PASSWORD = os.environ.get('HOST_PASSWORD', '')
 
-# Время жизни задач: /run может идти часами, /get_feedback — это запрос-ответ (минуты)
-TASK_TIMEOUT_SEC = float(os.environ.get('TASK_TIMEOUT_SEC', str(8 * 3600)))
-FEEDBACK_TIMEOUT_SEC = float(os.environ.get('FEEDBACK_TIMEOUT_SEC', '900'))
+# Время жизни задач.
+# Практика: одна ссылка парсится в среднем 10–15 мин, максимум 25–30 мин —
+# от этого считаются все бюджеты ниже.
+# Бюджет ОДНОЙ ссылки (используется и для /get_feedbacks, и для оценки /run):
+LINK_TIMEOUT_SEC = float(os.environ.get('LINK_TIMEOUT_SEC', '2100'))
+FEEDBACK_TIMEOUT_SEC = float(os.environ.get('FEEDBACK_TIMEOUT_SEC', str(int(LINK_TIMEOUT_SEC))))
+# /run: базовый (минимальный) таймаут задачи — запас, когда число ссылок неизвестно
+TASK_TIMEOUT_SEC = float(os.environ.get('TASK_TIMEOUT_SEC', str(4 * 3600)))
+# Запас на ИИ-анализ (review_analysis ×2) сверх парсинга ссылок
+TASK_MARGIN_SEC = float(os.environ.get('TASK_MARGIN_SEC', str(2 * 3600)))
+# Потолок адаптивного таймаута задачи
+TASK_TIMEOUT_MAX_SEC = float(os.environ.get('TASK_TIMEOUT_MAX_SEC', str(12 * 3600)))
 
 scheduler = make_scheduler()
 
@@ -118,19 +128,50 @@ async def _pipeline(ss_id: str, project: str):
     await review_analysis(ss_id, project)
 
 
+def _calc_task_timeout(n_links: int) -> float:
+    """Таймаут задачи: число ссылок × бюджет ссылки + запас на ИИ-анализ.
+
+    Практика: одна ссылка 10–15 мин, максимум 25–30 мин → LINK_TIMEOUT_SEC
+    (35 мин) на каждую; плюс запас на review_analysis (2 прохода ИИ).
+    Результат не ниже TASK_TIMEOUT_SEC и не выше TASK_TIMEOUT_MAX_SEC.
+    """
+    est = n_links * LINK_TIMEOUT_SEC + TASK_MARGIN_SEC
+    return min(max(est, TASK_TIMEOUT_SEC), TASK_TIMEOUT_MAX_SEC)
+
+
+async def _estimate_timeout(ss_id: str) -> float:
+    """Оценивает таймаут задачи по числу ссылок в листе 'links'."""
+    try:
+        service = await get_service()
+        df = await read_table_id(service, ss_id, 'links')
+        n = 0 if df is None or df.empty else len(df)
+        if not n:
+            logger.warning('Task timeout: лист links пуст/не прочитан (ss_id=%s) — берём TASK_TIMEOUT_SEC', ss_id)
+            return TASK_TIMEOUT_SEC
+        timeout = _calc_task_timeout(n)
+        logger.info('Task timeout: ссылок=%d → лимит %.0fс (%.1fч)', n, timeout, timeout / 3600)
+        return timeout
+    except Exception as ex:
+        logger.warning('Task timeout: не удалось оценить число ссылок (%s) — берём TASK_TIMEOUT_SEC', ex)
+        return TASK_TIMEOUT_SEC
+
+
 async def run_pipeline(task_id: str, ss_id: str, project: str):
     """Фоновая задача /run с ограничением времени жизни."""
     task = TASKS[task_id]
+    timeout = TASK_TIMEOUT_SEC
     try:
         task.update(status='running', stage='multi_pars', started_at=_now_iso())
-        await asyncio.wait_for(_pipeline(ss_id, project), timeout=TASK_TIMEOUT_SEC)
+        timeout = await _estimate_timeout(ss_id)
+        task['timeout_sec'] = timeout
+        await asyncio.wait_for(_pipeline(ss_id, project), timeout=timeout)
 
         task.update(status='success', stage='done', finished_at=_now_iso(),
                     result={'message': f'OK: {project}'})
     except asyncio.TimeoutError:
-        logger.error('Task %s timeout: превышен лимит %.0fс', task_id, TASK_TIMEOUT_SEC)
+        logger.error('Task %s timeout: превышен лимит %.0fс', task_id, timeout)
         task.update(status='error', stage='error', finished_at=_now_iso(),
-                    result={'error': f'Таймаут: задача не завершилась за {TASK_TIMEOUT_SEC:.0f}с'})
+                    result={'error': f'Таймаут: задача не завершилась за {timeout:.0f}с'})
     except Exception as ex:
         logger.exception('Pipeline failed: ss_id=%s project=%s', ss_id, project)
         task.update(status='error', stage='error', finished_at=_now_iso(),
@@ -345,7 +386,7 @@ async def _watchdog_loop():
 
 
 async def _sweep_stale_tasks():
-    """Помечает error задачи, превысившие TASK_TIMEOUT_SEC (страховка от зависаний)."""
+    """Помечает error задачи, превысившие свой таймаут (страховка от зависаний)."""
     now = datetime.now(timezone.utc)
     for tid, task in list(TASKS.items()):
         if task.get('status') != 'running':
@@ -357,8 +398,9 @@ async def _sweep_stale_tasks():
             started_dt = datetime.fromisoformat(started)
         except ValueError:
             continue
-        if (now - started_dt).total_seconds() > TASK_TIMEOUT_SEC:
-            logger.error('watchdog: задача %s превысила таймаут %.0fс — помечаю error', tid, TASK_TIMEOUT_SEC)
+        limit = float(task.get('timeout_sec') or TASK_TIMEOUT_SEC)
+        if (now - started_dt).total_seconds() > limit:
+            logger.error('watchdog: задача %s превысила таймаут %.0fс — помечаю error', tid, limit)
             task.update(status='error', stage='error', finished_at=_now_iso(),
-                        result={'error': f'Таймаут: задача не завершилась за {TASK_TIMEOUT_SEC:.0f}с'})
+                        result={'error': f'Таймаут: задача не завершилась за {limit:.0f}с'})
             RUNNING_SS.discard(task.get('ss_id'))

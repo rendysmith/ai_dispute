@@ -33,12 +33,18 @@ services:
       POD_MEM_GB_LIMIT: "4"
       # Жёсткий лимит одновременных парсеров (см. MAX_CONCURRENT_TASKS)
       MAX_CONCURRENT_TASKS: "2"
-      # Таймаут задачи: если pipeline завис, сторожевой цикл помечает его error
-      TASK_TIMEOUT_SEC: "14400"
+      # Таймауты с учётом практики: одна ссылка 10–15 мин, максимум 25–30 мин.
+      # /run — адаптивно: число ссылок × LINK_TIMEOUT_SEC + запас на ИИ-анализ,
+      # но не меньше TASK_TIMEOUT_SEC и не больше TASK_TIMEOUT_MAX_SEC.
+      TASK_TIMEOUT_SEC: "14400"        # пол (4ч) и fallback
+      TASK_TIMEOUT_MAX_SEC: "43200"    # потолок адаптивного таймаута (12ч)
+      LINK_TIMEOUT_SEC: "2100"         # бюджет одной ссылки (35 мин)
+      TASK_MARGIN_SEC: "7200"          # запас на review_analysis (2ч)
+      FEEDBACK_TIMEOUT_SEC: "2100"     # /get_feedbacks: одна ссылка (35 мин)
       # Сторожевой цикл: интервал и правила убийства браузеров-зомби
-      # (браузер одной ссылки не должен жить дольше 2 часов; сверх 6 шт — зомби)
+      # (браузер одной ссылки не должен жить дольше 45 мин; сверх 6 шт — зомби)
       WATCHDOG_INTERVAL_SEC: "60"
-      BROWSER_MAX_AGE_SEC: "7200"
+      BROWSER_MAX_AGE_SEC: "2700"
       BROWSER_STARTUP_CLEAN_SEC: "900"
       BROWSER_MAX_COUNT: "6"
     ulimits:
