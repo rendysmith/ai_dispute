@@ -37,11 +37,12 @@ logger = logging.getLogger('contestation-api')
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Чистим зомби-браузеры от предыдущих запусков (старый образ мог оставить
-    # процессы после краша контейнера/деплоя), затем запускаем сторожевой цикл
-    await _kill_browsers_older_than(BROWSER_STALE_EXTRA_SEC)
+    # Чистим зомби-браузеры от предыдущих запусков (рестарт после краша
+    # контейнера мог оставить процессы) и запускаем сторожевой цикл
+    await _cleanup_browsers(BROWSER_STARTUP_CLEAN_SEC, BROWSER_MAX_COUNT)
     watchdog = asyncio.create_task(_watchdog_loop())
-    logger.info('watchdog запущен (интервал %dс)', WATCHDOG_INTERVAL_SEC)
+    logger.info('watchdog запущен (интервал %dс, браузер старше %dс или сверх %d шт — зомби)',
+                WATCHDOG_INTERVAL_SEC, BROWSER_MAX_AGE_SEC, BROWSER_MAX_COUNT)
     yield
     watchdog.cancel()
 
@@ -54,11 +55,18 @@ RUNNING_SS: set[str] = set()
 
 MAX_TASKS_KEEP = 200
 
-# Сторожевой цикл: интервал проверки и верхний возраст «живого» браузера.
-# Chromium, живущий дольше самой длинной задачи + запас, — это зомби от
-# упавшего процесса: убиваем его, чтобы не копить процессы и не жечь CPU.
-WATCHDOG_INTERVAL_SEC = int(os.environ.get('WATCHDOG_INTERVAL_SEC', '120'))
-BROWSER_STALE_EXTRA_SEC = int(os.environ.get('BROWSER_STALE_EXTRA_SEC', '1800'))
+# Сторожевой цикл: чистит зависшие задачи и браузеры-зомби.
+# Зомби = chromium/playwright, живущий дольше разумного возраста, либо
+# лишний сверх BROWSER_MAX_COUNT: без уборки они копятся и жгут CPU/RAM.
+WATCHDOG_INTERVAL_SEC = int(os.environ.get('WATCHDOG_INTERVAL_SEC', '60'))
+# Возраст одного браузера не должен превышать время парсинга одной ссылки.
+# Всё, что старше — зомби от упавшего/зависшего процесса.
+BROWSER_MAX_AGE_SEC = int(os.environ.get('BROWSER_MAX_AGE_SEC', '7200'))
+# При старте службы (рестарт после краша) чистим всё старше этого порога
+BROWSER_STARTUP_CLEAN_SEC = int(os.environ.get('BROWSER_STARTUP_CLEAN_SEC', '900'))
+# Максимум браузерных процессов в контейнере одновременно
+# (MAX_CONCURRENT_TASKS задач × до 2 браузеров внутри задачи + запас)
+BROWSER_MAX_COUNT = int(os.environ.get('BROWSER_MAX_COUNT', '6'))
 
 # Авторизация точек API: Basic Auth — логин/пароль (те же, что для запроса к ферме)
 HOST_USERNAME = os.environ.get('HOST_USERNAME', '')
@@ -232,61 +240,105 @@ async def healthz():
 
 # ---------------------------------------------------------------------------
 # Сторожевой цикл: зависшие процессы Playwright/Chromium и задачи-зомби
+#
+# Список процессов читается напрямую из /proc: в образе python-slim нет
+# утилиты ps (procps не установлен), прежняя версия watchdog на ps молча
+# ничего не находила и зомби никогда не убивались.
 # ---------------------------------------------------------------------------
 
-async def _browser_process_ids(max_age_sec: float) -> list[str]:
-    """PID процессов chromium/playwright, живущих дольше max_age_sec."""
+def _read_browser_processes() -> list[tuple[int, float, str]]:
+    """[(pid, возраст_сек, cmdline)] всех процессов chromium/playwright."""
     try:
-        proc = await asyncio.create_subprocess_exec(
-            'ps', '-eo', 'pid=,etimes=,args=',
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL,
-        )
-        out, _ = await proc.communicate()
-    except Exception as ex:
-        logger.warning('watchdog: не удалось вызвать ps: %s', ex)
+        with open('/proc/uptime') as f:
+            uptime = float(f.read().split()[0])
+    except OSError:
         return []
 
-    pids: list[str] = []
-    for line in out.decode(errors='ignore').splitlines():
-        parts = line.strip().split(None, 2)
-        if len(parts) < 3:
-            continue
-        pid, etimes, args = parts[0], parts[1], parts[2]
-        try:
-            age = float(etimes)
-        except ValueError:
-            continue
-        if age > max_age_sec and ('chromium' in args or 'playwright' in args):
-            pids.append(pid)
-    return pids
-
-
-async def _kill_browsers_older_than(max_age_sec: float):
-    """Убивает осиротевшие браузеры (например, от упавшего процесса)."""
-    pids = await _browser_process_ids(max_age_sec)
-    if not pids:
-        return
-    logger.warning('watchdog: убиваю осиротевшие браузеры (возраст > %.0fс): %s',
-                   max_age_sec, ', '.join(pids))
     try:
-        await asyncio.create_subprocess_exec(
-            'kill', '-9', *pids,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL,
+        hz = os.sysconf('SC_CLK_TCK') or 100
+    except (ValueError, OSError):
+        hz = 100
+
+    out: list[tuple[int, float, str]] = []
+    for entry in os.listdir('/proc'):
+        if not entry.isdigit():
+            continue
+        try:
+            with open(f'/proc/{entry}/cmdline', 'rb') as f:
+                cmdline = f.read().replace(b'\x00', b' ').decode(errors='ignore')
+            if 'chromium' not in cmdline and 'playwright' not in cmdline:
+                continue
+            # /proc/<pid>/stat: starttime — поле 22; после закрывающей ')'
+            # первое поле — state (№3), поэтому starttime = индекс 19
+            with open(f'/proc/{entry}/stat') as f:
+                fields = f.read().rsplit(')', 1)[1].split()
+            age = uptime - int(fields[19]) / hz
+            out.append((int(entry), age, cmdline.strip()[:160]))
+        except (OSError, IndexError, ValueError):
+            continue
+    return out
+
+
+def _select_zombie_pids(procs: list[tuple[int, float, str]],
+                        max_age_sec: float, max_count: int) -> list[tuple[int, float, str]]:
+    """Выбирает жертв: старше max_age_sec + самые старые сверх max_count."""
+    stale = [pr for pr in procs if pr[1] > max_age_sec]
+    young = [pr for pr in procs if pr[1] <= max_age_sec]
+    if max_count <= 0:
+        excess = young
+    else:
+        # Убиваем самые старые сверх лимита, самые молодые остаются жить
+        young_sorted = sorted(young, key=lambda pr: -pr[1])
+        excess = young_sorted[:max(0, len(young_sorted) - max_count)]
+    return stale + excess
+
+
+async def _cleanup_browsers(max_age_sec: float, max_count: int):
+    """
+    Убивает браузеры-зомби: SIGKILL тем, кто старше max_age_sec, а если
+    процессов всё равно больше max_count — самым старым сверх лимита.
+
+    Физический kill — только в контейнере (RUNNING_IN_CONTAINER): там /proc
+    видит только процессы контейнера. На машине разработчика /proc общий,
+    и под фильтр могут попасть чужие процессы (например, chrome_crashpad
+    десктоп-приложений) — там ограничиваемся логом.
+    """
+    procs = _read_browser_processes()
+    if not procs:
+        return
+
+    to_kill = _select_zombie_pids(procs, max_age_sec, max_count)
+    if not to_kill:
+        return
+
+    if not os.environ.get('RUNNING_IN_CONTAINER'):
+        logger.warning(
+            'watchdog: вне контейнера зомби только логирую, не убиваю (всего %d): %s',
+            len(procs),
+            '; '.join(f'pid {pid} age={age:.0f}s {cmd[:60]}' for pid, age, cmd in to_kill[:5]),
         )
-    except Exception as ex:
-        logger.warning('watchdog: ошибка kill: %s', ex)
+        return
+
+    logger.warning(
+        'watchdog: убиваю браузеры-зомби (всего chromium/playwright: %d): %s',
+        len(procs),
+        '; '.join(f'pid {pid} age={age:.0f}s {cmd[:80]}' for pid, age, cmd in to_kill[:10]),
+    )
+    for pid, _, _ in to_kill:
+        try:
+            os.kill(pid, 9)
+        except ProcessLookupError:
+            pass  # уже умер
+        except PermissionError as ex:
+            logger.warning('watchdog: нет прав на kill pid %s: %s', pid, ex)
 
 
 async def _watchdog_loop():
-    """Каждые WATCHDOG_INTERVAL_SEC проверяет зависшие задачи и зомби-браузеры."""
-    # Любой браузер живёт не дольше задачи; старше TASK_TIMEOUT + запас — зомби
-    max_browser_age = TASK_TIMEOUT_SEC + BROWSER_STALE_EXTRA_SEC
+    """Каждые WATCHDOG_INTERVAL_SEC чистит зависшие задачи и зомби-браузеры."""
     while True:
         try:
             await _sweep_stale_tasks()
-            await _kill_browsers_older_than(max_browser_age)
+            await _cleanup_browsers(BROWSER_MAX_AGE_SEC, BROWSER_MAX_COUNT)
         except Exception as ex:
             logger.exception('watchdog: ошибка цикла: %s', ex)
         await asyncio.sleep(WATCHDOG_INTERVAL_SEC)

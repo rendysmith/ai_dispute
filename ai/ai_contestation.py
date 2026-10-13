@@ -838,29 +838,26 @@ async def close_playwright(p=None, browser=None, context=None, page=None):
     """Универсальная функция для корректного закрытия всех объектов Playwright.
 
     Закрывает page -> context -> browser -> останавливает playwright.
-    Каждый шаг обёрнут в try/except, чтобы ошибка на одном этапе
-    не прерывала закрытие остальных.
+    Каждый шаг обёрнут в try/except И ограничен таймаутом: зависший
+    close() не должен держать слот планировщика навсегда — иначе задачи
+    «подвешивают» слоты, а их браузеры превращаются в зомби.
     """
-    try:
-        if page is not None:
-            await page.close()
-    except Exception:
-        pass
-    try:
-        if context is not None:
-            await context.close()
-    except Exception:
-        pass
-    try:
-        if browser is not None:
-            await browser.close()
-    except Exception:
-        pass
-    try:
-        if p is not None:
-            await p.stop()
-    except Exception:
-        pass
+    async def _close_step(coro_factory, timeout=10.0):
+        if coro_factory is None:
+            return
+        try:
+            await asyncio.wait_for(coro_factory(), timeout=timeout)
+        except Exception:
+            pass
+
+    if page is not None:
+        await _close_step(page.close)
+    if context is not None:
+        await _close_step(context.close)
+    if browser is not None:
+        await _close_step(browser.close)
+    if p is not None:
+        await _close_step(p.stop)
 
 
 async def pars_otzovik(service, url, ss_id, project, ratio, links):
@@ -1538,17 +1535,7 @@ async def pars_ya_maps(service, url, ss_id, project, links, rating_max, ranking=
         return 'OK!'
 
     finally:
-        try:
-            if page is not None:
-                await page.close()
-            if context is not None:
-                await context.close()
-            if browser is not None:
-                await browser.close()
-            if p is not None:
-                await p.stop()
-        except Exception:
-            pass
+        await close_playwright(p, browser, context, page)
 
 
 async def multi_pars(ss_id, project):
